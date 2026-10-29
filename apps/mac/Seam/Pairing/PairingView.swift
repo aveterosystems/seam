@@ -171,11 +171,12 @@ private struct ConfirmView: View {
             Text("Check your phone shows the same code.").font(.caption).foregroundStyle(.secondary)
             Text("Through \(controller.relayHost)").font(.caption).foregroundStyle(.secondary)
             HStack {
+                // Cancel is the prominent, default button: Return cancels, and the look says so (SR-10-02)
                 Button("Cancel", role: .cancel) { PairingWindow.close() }
                     .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
                     .disabled(sending)
                 Button("Pair") { controller.confirmPairing() }
-                    .buttonStyle(.borderedProminent)
                     .disabled(!armed || sending)
                 if sending { ProgressView().controlSize(.small) }
             }

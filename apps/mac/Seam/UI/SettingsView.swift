@@ -98,7 +98,7 @@ struct SettingsView: View {
     @ViewBuilder private var general: some View {
         Group_ {
             Row("Seam lives in the menu bar", "Click the stitched icon for your phone, its battery and the clipboard") { EmptyView() }
-            Row("Quit Seam", "Your phone keeps anything you copy for up to 10 minutes") {
+            Row("Quit Seam", "Copies already sent wait on the relay for up to 10 minutes; a copy not yet sent is lost") {
                 Button("Quit") { NSApplication.shared.terminate(nil) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
             }
         }

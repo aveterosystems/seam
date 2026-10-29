@@ -115,7 +115,7 @@ struct PopoverView: View {
                         Text("Copied on your phone · \(clip.at, style: .relative) ago").font(.system(size: 11)).foregroundStyle(.tertiary)
                     }
                     Spacer(minLength: 0)
-                    if let url = URL(string: clip.text), url.scheme == "https" || url.scheme == "http" {
+                    if let url = clip.openableURL {
                         Button("Open") { NSWorkspace.shared.open(url) }.buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
                     } else {
                         Button("Copy") { controller.copyAgain(clip.text) }.buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)

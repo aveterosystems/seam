@@ -126,7 +126,10 @@ final class SeamController: RelayHandler {
         clipboardSync = on
         UserDefaults.standard.set(on, forKey: "clipboardSync")
         lastChange = NSPasteboard.general.changeCount // turning it on never sends what was copied while off
-        if !on { pendingClip.clear() } // nor does turning it off let a held copy go later
+        if !on {
+            pendingClip.clear() // nor does turning it off let a held copy go later
+            recentFromPhone = [] // and it takes the phone's clips off the screen (SR-10-04)
+        }
     }
 
     /// macOS has no change notification for the pasteboard: checking its counter twice a second is the standard way, and cheap.
@@ -443,4 +446,6 @@ struct FromPhone: Identifiable {
     let id = UUID()
     let text: String
     let at: Date
+
+    var openableURL: URL? { ClipRules.openableURL(text) }
 }
