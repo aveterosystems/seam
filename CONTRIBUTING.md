@@ -82,6 +82,47 @@ Summary comment, one per review:
 **Outside this diff:** findings on code the PR doesn't change (no inline thread), each with file and line.
 ```
 
+### Closing a finding
+
+**Every thread gets a reply before it's resolved. Nothing is resolved silently.** The reply takes one of three forms:
+
+```markdown
+**✅ Fixed · SR-2-04** in abc1234
+What changed, in one line.
+**Proven by:** `test_name_one`, `test_name_two`
+```
+
+```markdown
+**⚖️ Accepted · SR-2-25**
+Why it's acceptable as it stands, what part was fixed, and the follow-up issue if it's deferred (#NN).
+```
+
+```markdown
+**↩️ Disputed · SR-2-07**
+Why the finding doesn't apply, with the evidence (code, test, or docs).
+```
+
+When to resolve:
+
+| Reply | Resolved when | By |
+|---|---|---|
+| ✅ Fixed | CI is green on the fixing commit | The PR author |
+| ⚖️ Accepted | The reason (and any follow-up issue) is written | The PR author |
+| ↩️ Disputed | **The maintainer agrees.** It stays open until then. | The maintainer only |
+
+Disputed threads stay open on purpose: an author doesn't get to dismiss a finding about their own code.
+
+When every thread has its reply, post **one resolution summary** on the PR: a table of every finding (Low and Info included), its outcome (Fixed / Accepted / Disputed / Open) and its commit, so the review reads as one complete record.
+
+```markdown
+## Security review · resolution · PR #2
+
+| ID | Severity | Outcome | Commit |
+|---|---|---|---|
+| SR-2-01 | 🔴 High | ✅ Fixed | 9ed4702 |
+| SR-2-25 | 🟠 Medium | ⚖️ Accepted (partly fixed) | e724a60 |
+```
+
 ## Code style
 
 - Rust: `cargo fmt` and `cargo clippy -- -D warnings`.
