@@ -15,8 +15,17 @@ struct SeamApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Settings {
+        // Board M03 draws its own title and sidebar, so this is a plain window with a hidden title
+        // bar rather than the system Settings window (which centres a title and adds a toolbar)
+        Window("Seam Settings", id: "settings") {
             SettingsView(controller: appDelegate.controller)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                SettingsCommand()
+            }
         }
     }
 }
@@ -67,5 +76,18 @@ enum UnpairPrompt {
         NSApp.activate()
         guard alert.runModal() == .alertSecondButtonReturn else { return }
         controller.unpairPhone()
+    }
+}
+
+/// ⌘, opens Seam's Settings window.
+private struct SettingsCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Settings…") {
+            NSApp.activate()
+            openWindow(id: "settings")
+        }
+        .keyboardShortcut(",")
     }
 }

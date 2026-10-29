@@ -64,16 +64,17 @@ struct Stitch: View {
     let connected: Bool
 
     var body: some View {
+        // Board M01: a 3 pt bar, dashes of 10 with gaps of 7 (relay); broken and grey when offline
         Canvas { ctx, size in
             var path = Path()
             path.move(to: CGPoint(x: 0, y: size.height / 2))
             path.addLine(to: CGPoint(x: size.width, y: size.height / 2))
             let style = connected
-                ? StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 4])
-                : StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 4, 1, 12])
-            ctx.stroke(path, with: .color(connected ? SeamStyle.teal : .secondary.opacity(0.5)), style: style)
+                ? StrokeStyle(lineWidth: 3, lineCap: .butt, dash: [10, 7])
+                : StrokeStyle(lineWidth: 3, lineCap: .butt, dash: [10, 7, 2, 18])
+            ctx.stroke(path, with: .color(connected ? SeamStyle.teal : .secondary.opacity(0.4)), style: style)
         }
-        .frame(height: 4)
+        .frame(height: 3)
         .accessibilityHidden(true)
     }
 }
