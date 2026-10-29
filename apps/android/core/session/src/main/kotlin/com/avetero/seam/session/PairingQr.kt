@@ -18,7 +18,12 @@ class PairingQr(
     /** For the confirm screen: the host the phone is about to trust with its traffic. */
     val relayHost: String get() = relayUrl.toHttpUrlOrNull(cleartext = relayUrl.startsWith("ws://"))?.host ?: relayUrl
 
+    /** False for a self-hosted or unknown relay: the confirm sheet says so (SR-11-14). */
+    val officialRelay: Boolean get() = relayHost == OFFICIAL_RELAY_HOST
+
     companion object {
+        const val OFFICIAL_RELAY_HOST = "relay.avetero.com"
+
         /**
          * Null for anything that isn't a valid v1 Seam pairing code. The relay must be `wss://`
          * (`ws://` only when [allowCleartext], i.e. debug builds) with no credentials, query or
