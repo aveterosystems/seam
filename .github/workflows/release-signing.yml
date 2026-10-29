@@ -37,7 +37,7 @@ jobs:
           printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.avetero.seam.test"><uses-sdk android:minSdkVersion="31" android:targetSdkVersion="35"/><application android:hasCode="false"/></manifest>\n' > "$t/AndroidManifest.xml"
           "$tools/aapt2" link -o "$t/unsigned.apk" -I "$jar" --manifest "$t/AndroidManifest.xml"
           ANDROID_KEYSTORE="$t/release.p12" ANDROID_KEYSTORE_PASSWORD="$(cat "$t/password")" ANDROID_CERT_PIN="$t/pin" \
-            scripts/sign-android-apk.sh "$t/unsigned.apk" "$t/signed.apk"
+            bash -x scripts/sign-android-apk.sh "$t/unsigned.apk" "$t/signed.apk"
           # A different pin must be refused
           echo 0000000000000000000000000000000000000000000000000000000000000000 > "$t/wrong"
           if ANDROID_KEYSTORE="$t/release.p12" ANDROID_KEYSTORE_PASSWORD="$(cat "$t/password")" ANDROID_CERT_PIN="$t/wrong" \
