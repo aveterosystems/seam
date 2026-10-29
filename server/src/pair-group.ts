@@ -14,6 +14,7 @@ export class PairGroup {
     const storage: Storage = {
       get: (key) => ctx.storage.get(key),
       put: (key, value) => ctx.storage.put(key, value),
+      putAll: (entries) => ctx.storage.put(entries),
       delete: (key) => ctx.storage.delete(key),
       list: (prefix) => ctx.storage.list({ prefix }),
       deleteAll: () => ctx.storage.deleteAll(),

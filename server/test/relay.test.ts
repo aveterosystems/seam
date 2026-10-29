@@ -13,8 +13,17 @@ class MemStorage implements Storage {
   readonly data = new Map<string, unknown>();
   lists = 0;
   failPuts = false;
+  /** Writes touching keys with this prefix fail. */
+  failPrefix: string | null = null;
+  private write(...keys: string[]) {
+    if (this.failPuts || keys.some((k) => this.failPrefix !== null && k.startsWith(this.failPrefix))) throw new Error("storage down");
+  }
   async get<T>(k: string) { return structuredClone(this.data.get(k)) as T | undefined; }
-  async put(k: string, v: unknown) { if (this.failPuts) throw new Error("storage down"); this.data.set(k, structuredClone(v)); }
+  async put(k: string, v: unknown) { this.write(k); this.data.set(k, structuredClone(v)); }
+  async putAll(entries: Record<string, unknown>) {
+    this.write(...Object.keys(entries));
+    for (const [k, v] of Object.entries(entries)) this.data.set(k, structuredClone(v));
+  }
   async delete(k: string) { return this.data.delete(k); }
   async list<T>(prefix: string) {
     this.lists++;
@@ -38,6 +47,7 @@ class FakeSocket implements Socket {
   }
 }
 
+const toHex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
 interface Device { pub: Uint8Array; priv: CryptoKey; }
 async function device(): Promise<Device> {
   const k = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
@@ -413,12 +423,20 @@ describe("SR-2-16 · expiry and housekeeping", () => {
     expect(alarms.at(-1)).toBeGreaterThan(now); // the remaining envelope's expiry
   });
 
-  it("the alarm deletes a group after 90 days without a login", async () => {
+  it("the alarm keeps a group whose device has stayed connected for 90 days (SR-2-66)", async () => {
     const { macSock } = await paired();
     now += INACTIVE_MS;
     await group.alarm();
+    expect(macSock.closed).toBeNull();
+    expect(storage.data.get("lastActive")).toBe(now);
+  });
+
+  it("the alarm deletes a group after 90 days with no login and nobody connected", async () => {
+    await paired();
+    sockets = []; // both devices disconnect
+    now += INACTIVE_MS;
+    await group.alarm();
     expect(storage.data.size).toBe(0);
-    expect(macSock.closed).toBe("group expired");
   });
 });
 
@@ -456,6 +474,17 @@ describe("SR-2-17 · quotas and failure handling", () => {
     await expect(send(macSock, envelope(mac.pub, phone.pub, 1))).resolves.toBeUndefined();
     expect(macSock.of("error")[0]!.code).toBe("storage");
     expect(macSock.closed).toBeNull();
+  });
+
+  it("a failed write never leaves an envelope its queue counter doesn't count (SR-2-65)", async () => {
+    const { mac, phone, macSock } = await paired();
+    await send(macSock, envelope(mac.pub, phone.pub, 1));
+    storage.failPrefix = "qc:"; // the counter write fails
+    await send(macSock, envelope(mac.pub, phone.pub, 2));
+    expect(macSock.of("error").at(-1)!.code).toBe("storage");
+    const queued = [...storage.data.keys()].filter((k) => k.startsWith(`q:${toHex(phone.pub)}:`)).length;
+    expect(queued).toBe(1);
+    expect((storage.data.get(`qc:${toHex(phone.pub)}`) as { count: number }).count).toBe(queued);
   });
 
   it("refuses envelopes with a bad msg_id or no ciphertext", async () => {

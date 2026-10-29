@@ -12,6 +12,8 @@ import { type ClientFrame, ClientFrameSchema, type Login, ServerFrameSchema } fr
 export interface Storage {
   get<T>(key: string): Promise<T | undefined>;
   put(key: string, value: unknown): Promise<void>;
+  /** Writes every entry or none (Durable Object storage batches are atomic). */
+  putAll(entries: Record<string, unknown>): Promise<void>;
   delete(key: string): Promise<boolean>;
   /** Entries whose key starts with prefix, in key order. */
   list<T>(prefix: string): Promise<Map<string, T>>;
@@ -223,12 +225,15 @@ export class Group {
     }
 
     const seq = ((await this.storage.get<number>("seq")) ?? 0) + 1;
-    await this.storage.put("seq", seq);
     const ttl = Math.min(env.ttlS || MAX_TTL_S, MAX_TTL_S);
     const expires = this.now() + ttl * 1000;
-    // Zero-padded so storage key order is arrival order
-    await this.storage.put(`q:${to}:${String(seq).padStart(16, "0")}`, { msgId: hex(env.msgId), bytes, expires } satisfies Queued);
-    await this.storage.put(`qc:${to}`, { count: counter.count + 1, bytes: counter.bytes + bytes.length } satisfies Counter);
+    // One atomic write, so the counter can never drift from the queue (SR-2-65).
+    // Zero-padded so storage key order is arrival order.
+    await this.storage.putAll({
+      seq,
+      [`q:${to}:${String(seq).padStart(16, "0")}`]: { msgId: hex(env.msgId), bytes, expires } satisfies Queued,
+      [`qc:${to}`]: { count: counter.count + 1, bytes: counter.bytes + bytes.length } satisfies Counter,
+    });
     await this.scheduleAlarm(expires);
 
     const frame = deliverFrame(bytes);
@@ -316,7 +321,12 @@ export class Group {
       else next = Math.min(next, deadline);
     }
 
-    const lastActive = await this.storage.get<number>("lastActive");
+    let lastActive = await this.storage.get<number>("lastActive");
+    // A device that stays connected for months is active, even without logging in again (SR-2-66)
+    if (lastActive !== undefined && this.connected().length > 0) {
+      lastActive = now;
+      await this.storage.put("lastActive", now);
+    }
     if (lastActive !== undefined && now >= lastActive + INACTIVE_MS) {
       for (const s of this.sockets()) s.close(1000, "group expired");
       return this.storage.deleteAll();
