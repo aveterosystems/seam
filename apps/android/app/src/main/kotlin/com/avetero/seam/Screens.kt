@@ -69,8 +69,9 @@ fun SeamScreen(
                     onAction = onScan,
                 )
                 is SessionState.Pairing -> Pairing(state)
-                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError, clipboard, onSendClipboard, fromMac, now, onForgetMac)
-                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError, clipboard, onSendClipboard, fromMac, now, onForgetMac)
+                is SessionState.Connecting -> Linked(state.macName, Link.Connecting, notice = scanError, clipboard, onSendClipboard, fromMac, now, onForgetMac)
+                is SessionState.Connected -> Linked(state.macName, Link.Connected, notice = scanError, clipboard, onSendClipboard, fromMac, now, onForgetMac)
+                is SessionState.Idle -> Linked(state.macName, Link.Idle, notice = scanError, clipboard, onSendClipboard, fromMac, now, onForgetMac)
                 is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
             }
         }
@@ -114,7 +115,7 @@ private fun Pairing(state: SessionState.Pairing) {
 @Composable
 private fun Linked(
     macName: String,
-    connected: Boolean,
+    link: Link,
     notice: String?,
     clipboard: ClipboardStatus,
     onSendClipboard: () -> Unit,
@@ -126,8 +127,12 @@ private fun Linked(
     MacBadge()
     Text(macName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
     Text(
-        if (connected) "● Connected · end-to-end encrypted" else "Reconnecting…",
-        color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        when (link) {
+            Link.Connected -> "● Connected · end-to-end encrypted"
+            Link.Idle -> "● Paired · connects when there's something to sync"
+            Link.Connecting -> "Reconnecting…"
+        },
+        color = if (link == Link.Connecting) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
     )
     if (notice != null) Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
     Text(
@@ -186,6 +191,9 @@ internal fun ago(ms: Long): String = when {
     ms < 3_600_000 -> "${ms / 60_000} min ago"
     else -> "${ms / 3_600_000} h ago"
 }
+
+/** How the link to the Mac stands right now. */
+enum class Link { Connected, Idle, Connecting }
 
 /** Phone → Mac: automatic (full build, granted), possible after setup (full build), or one tap (Play build). */
 enum class ClipboardStatus { Automatic, NeedsSetup, Manual }

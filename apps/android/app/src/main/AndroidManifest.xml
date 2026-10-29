@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <!-- One of the permissions Android 14+ requires for a connectedDevice foreground service -->
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- About a minute after the screen goes off, so the idle connection actually closes (decision 0005) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".SeamApplication"

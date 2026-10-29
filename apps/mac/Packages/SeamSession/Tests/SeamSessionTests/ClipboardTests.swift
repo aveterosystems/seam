@@ -93,9 +93,11 @@ struct AdbSetupTests {
         let consent = AdbSetup.consent
         #expect(consent.contains("system log"))
         #expect(consent.contains("over other apps"))
-        #expect(consent.contains("battery"))
         #expect(consent.contains("restarts"))
-        #expect(AdbSetup.steps(serial: "x").filter { $0.grants != nil }.count == 4)
+        #expect(AdbSetup.steps(serial: "x").filter { $0.grants != nil }.count == 3)
+        // Decision 0005: no battery-optimisation exemption any more
+        #expect(!AdbSetup.steps(serial: "x").contains { $0.arguments.contains("deviceidle") })
+        #expect(!consent.contains("battery"))
         #expect(AdbSetup.stepTimeout <= 30)
     }
 

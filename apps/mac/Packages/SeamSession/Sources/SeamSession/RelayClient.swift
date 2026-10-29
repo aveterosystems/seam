@@ -145,7 +145,9 @@ public actor RelayClient {
 /// The real socket: URLSessionWebSocketTask, binary frames only, on its own ephemeral session
 /// that refuses redirects (a relay URL can't be bounced elsewhere) and pings to notice dead links.
 public final class URLSessionSocket: RelaySocket, @unchecked Sendable {
-    static let pingInterval: Duration = .seconds(25)
+    /// Decision 0005: as rare as the network allows. The relay kept a silent connection open 15+
+    /// minutes (measured 29 Oct 2026); 2 minutes is set by how soon a dropped link should be noticed.
+    static let pingInterval: Duration = .seconds(120)
     static let pongDeadline: Duration = .seconds(10)
 
     private let session: URLSession

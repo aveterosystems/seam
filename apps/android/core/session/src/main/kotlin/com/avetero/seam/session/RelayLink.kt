@@ -27,7 +27,12 @@ fun interface RelayConnector {
 }
 
 class OkHttpRelayConnector(
-    private val client: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build(),
+    // Decision 0005: as rare as the network allows. The relay kept a silent connection open 15+
+    // minutes (measured 29 Oct 2026); 2 minutes is set by how soon a dropped link should be noticed
+    // while it's held (screen on or charging), and stays under common mobile-network idle timeouts.
+    // OkHttp also waits one interval for the pong, so a silently dead link is noticed within about
+    // 4 minutes while held (SR-8-05); nothing is lost meanwhile, the relay queues it.
+    private val client: OkHttpClient = OkHttpClient.Builder().pingInterval(2, TimeUnit.MINUTES).build(),
 ) : RelayConnector {
     override fun connect(url: String, listener: RelayListener): RelayLink {
         val closed = AtomicBoolean(false)

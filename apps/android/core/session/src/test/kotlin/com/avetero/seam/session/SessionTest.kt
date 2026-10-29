@@ -18,6 +18,7 @@ import com.google.protobuf.ByteString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -130,9 +131,13 @@ class SessionTest {
     private val store = MemoryStore()
     private val relay = FakeRelay(mac)
 
-    private fun TestScope.session(connector: RelayConnector = relay, wait: suspend (Long) -> Unit = {}) = Session(
+    private fun TestScope.session(
+        connector: RelayConnector = relay,
+        wait: suspend (Long) -> Unit = {},
+        trace: ((String) -> Unit)? = null,
+    ) = Session(
         store, connector, "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)), wait = wait, now = { testScheduler.currentTime },
+        TestScope(StandardTestDispatcher(testScheduler)), wait = wait, now = { testScheduler.currentTime }, trace = trace,
     )
 
     private fun status(pct: Int) = Payload.newBuilder().setStatus(Status.newBuilder().setBatteryPct(pct).setCharging(true)).build()
@@ -443,6 +448,92 @@ class SessionTest {
         advanceUntilIdle()
         assertEquals(SessionState.Unpaired, s.state.value)
         assertTrue(SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
+    }
+
+    private fun clip(t: String) = Payload.newBuilder().setClipboard(com.avetero.seam.protocol.v1.Clipboard.newBuilder().setText(t)).build()
+
+    @Test fun d0005_screenOffAndIdleClosesTheConnection() = runTest {
+        val s = paired()
+        val logins = relay.logins.size
+        s.setScreenOn(false)
+        advanceUntilIdle() // a minute with nothing to carry
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+        assertEquals("and it doesn't reconnect by itself", logins, relay.logins.size)
+    }
+
+    @Test fun d0005_aCopyWhileIdleConnectsSendsAndSleepsAgain() = runTest {
+        val s = paired()
+        s.setScreenOn(false)
+        advanceUntilIdle()
+        val logins = relay.logins.size
+        s.send(clip("sent from an idle phone"))
+        advanceUntilIdle()
+        assertEquals(logins + 1, relay.logins.size)
+        assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "sent from an idle phone" })
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun d0005_aBatteryChangeWaitsForTheNextConnection() = runTest {
+        val s = paired()
+        s.setScreenOn(false)
+        advanceUntilIdle()
+        val logins = relay.logins.size
+        s.send(status(42))
+        advanceUntilIdle()
+        assertEquals("no radio wake-up for a battery change", logins, relay.logins.size)
+        s.setScreenOn(true) // the user picks the phone up
+        advanceUntilIdle()
+        assertEquals(logins + 1, relay.logins.size)
+        assertEquals(42, relay.macReceived.last { it.hasStatus() }.status.batteryPct)
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun sr_8_01_aCopyThatCantGoDoesNotSpinAndGivesUpWhenStale() = runTest {
+        var silent = false
+        // Connects, but the relay never answers: the copy can't go
+        val flaky = RelayConnector { url, listener ->
+            if (!silent) relay.connect(url, listener)
+            else object : RelayLink {
+                override fun send(frame: ByteArray) = true
+                override fun close() = Unit
+            }
+        }
+        var decisions = 0
+        val s = session(flaky, trace = { if (++decisions > 500) error("busy loop: $decisions decisions") })
+        s.pair(qr)
+        advanceUntilIdle()
+        silent = true
+        s.setScreenOn(false)
+        advanceUntilIdle() // goes idle
+        s.send(clip("can't go"))
+        advanceTimeBy(30 * 60_000L) // half an hour of a silent relay
+        assertTrue("bounded, not a loop: $decisions", decisions < 50)
+        relay.drop() // let the stuck link close
+        advanceUntilIdle()
+        assertTrue("and a stale copy stops keeping it awake", s.state.value is SessionState.Idle || s.state.value is SessionState.Connecting)
+    }
+
+    @Test fun d0005_chargingKeepsTheConnection() = runTest {
+        val s = paired()
+        s.setCharging(true)
+        s.setScreenOn(false)
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        s.setCharging(false)
+        advanceUntilIdle()
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun d0005_aRestartWithTheScreenOffStaysIdle() = runTest {
+        paired()
+        val logins = relay.logins.size
+        val restarted = session()
+        restarted.setScreenOn(false)
+        advanceTimeBy(61_000)
+        restarted.start()
+        advanceUntilIdle()
+        assertEquals(SessionState.Idle("MacBook Pro"), restarted.state.value)
+        assertEquals(logins, relay.logins.size)
     }
 
     @Test fun sr_2_11_nothingIsSentIfSavingFails() = runTest {
