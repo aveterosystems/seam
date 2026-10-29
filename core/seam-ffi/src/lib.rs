@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 //! The surface the apps see. Everything crosses as plain bytes and strings; peers are named by
 //! their Seam device id. Swift and Kotlin code is generated from this file (scripts/gen-bindings.sh).
 

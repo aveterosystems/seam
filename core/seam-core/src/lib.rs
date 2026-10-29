@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Seam's crypto core. Everything that touches keys lives here, written once and shared by the
 //! Mac and Android apps.
 //!

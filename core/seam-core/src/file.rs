@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 //! File transfer encryption. Each file gets a random 256-bit key (sent inside a Signal message
 //! with the file offer), and is sealed in 1 MiB chunks with AES-256-GCM.
 //!

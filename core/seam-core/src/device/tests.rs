@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 
 /// A Mac and a phone that have paired: each pinned the other's identity key from the QR code.

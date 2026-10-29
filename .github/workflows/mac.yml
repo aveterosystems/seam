@@ -2,12 +2,16 @@ name: mac
 on:
   push:
     branches: [main]
-    paths: ["apps/mac/**", "core/**", "scripts/gen-bindings.sh", ".github/workflows/mac.yml"]
+    paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml"]
   pull_request:
-    paths: ["apps/mac/**", "core/**", "scripts/gen-bindings.sh", ".github/workflows/mac.yml"]
+    paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml"]
+
+env:
+  # Must match the SwiftProtobuf version in apps/mac/Packages/SeamProtocol/Package.swift
+  SWIFT_PROTOBUF: "1.39.0"
 
 jobs:
-  test:
+  build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -16,8 +20,31 @@ jobs:
         with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: core }
-      - name: Generated Swift and Kotlin bindings match seam-ffi
-        run: scripts/gen-bindings.sh && git diff --exit-code -- apps/
-      - name: Swift tests against the Rust core
-        working-directory: apps/mac/Packages/SeamCore
-        run: swift test
+
+      - name: protoc-gen-swift ${{ env.SWIFT_PROTOBUF }}, built from source so codegen is reproducible
+        run: |
+          git clone -q --depth 1 --branch "$SWIFT_PROTOBUF" https://github.com/apple/swift-protobuf "$RUNNER_TEMP/swift-protobuf"
+          swift build -c release --package-path "$RUNNER_TEMP/swift-protobuf" --product protoc-gen-swift
+          echo "$RUNNER_TEMP/swift-protobuf/.build/release" >> "$GITHUB_PATH"
+
+      - name: Generated code matches its sources (UniFFI bindings, Swift protocol)
+        run: |
+          scripts/gen-bindings.sh
+          scripts/gen-protocol.sh
+          git diff --exit-code -- apps/
+
+      - name: Rust core → SeamCoreFFI.xcframework
+        run: scripts/build-mac-core.sh
+
+      - name: Swift tests (core bindings, protocol golden vector)
+        run: |
+          swift test --package-path apps/mac/Packages/SeamCore
+          swift test --package-path apps/mac/Packages/SeamProtocol
+
+      - name: Build the app
+        run: |
+          brew install xcodegen
+          cd apps/mac && xcodegen generate
+          xcodebuild -project Seam.xcodeproj -scheme Seam -configuration Debug \
+            -destination "platform=macOS,arch=$(uname -m)" CODE_SIGNING_ALLOWED=NO build | tail -20
+          test "${PIPESTATUS[0]}" -eq 0

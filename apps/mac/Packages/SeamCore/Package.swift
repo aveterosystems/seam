@@ -1,25 +1,16 @@
 // swift-tools-version: 6.0
-import Foundation
+// SPDX-License-Identifier: AGPL-3.0-only
 import PackageDescription
 
-// shortcut: links the Rust core's debug static library straight from core/target;
-// switch to an XCFramework binaryTarget (universal, release) when the app target exists.
-let rustLib = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()
-    .appendingPathComponent("../../../../core/target/debug/libseam_ffi.a")
-    .standardized.path
-
+// SeamCoreFFI.xcframework is the Rust core (core/seam-ffi), built by scripts/build-mac-core.sh.
+// It's git-ignored: run that script once before building the package or the app.
 let package = Package(
     name: "SeamCore",
     platforms: [.macOS(.v14)],
     products: [.library(name: "SeamCore", targets: ["SeamCore"])],
     targets: [
-        .systemLibrary(name: "SeamCoreFFI"),
-        .target(
-            name: "SeamCore",
-            dependencies: ["SeamCoreFFI"],
-            linkerSettings: [.unsafeFlags([rustLib])]
-        ),
+        .binaryTarget(name: "SeamCoreFFI", path: "SeamCoreFFI.xcframework"),
+        .target(name: "SeamCore", dependencies: ["SeamCoreFFI"]),
         .testTarget(name: "SeamCoreTests", dependencies: ["SeamCore"]),
     ]
 )

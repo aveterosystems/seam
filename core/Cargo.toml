@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 [workspace]
 members = ["seam-core", "seam-ffi"]
 resolver = "3"

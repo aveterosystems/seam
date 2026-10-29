@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 //! One device's identity and its Signal sessions with paired peers.
 //!
 //! Setup uses PQXDH (X25519 + ML-KEM-1024) from the peer's signed prekey bundle; messages then

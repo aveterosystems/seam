@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 [bindings.kotlin]
 package_name = "com.avetero.seam.crypto"
 cdylib_name = "seam_ffi"

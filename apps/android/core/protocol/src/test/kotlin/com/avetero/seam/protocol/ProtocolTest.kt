@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam.protocol
 
 import com.google.protobuf.ByteString

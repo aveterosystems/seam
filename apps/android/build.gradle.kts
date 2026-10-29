@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Pads plaintext to a fixed bucket so the relay can't tell messages apart by size.
 //! Layout: 4-byte big-endian length, the data, then zeros up to the bucket size.
 

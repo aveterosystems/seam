@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 //! Byte format for prekey bundles, which the relay stores and hands out as opaque blobs.
 //! libsignal has no wire format for bundles, so this is ours. It carries public keys and
 //! signatures only; libsignal verifies the signatures against the pinned identity when a

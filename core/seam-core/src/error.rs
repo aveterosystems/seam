@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 use libsignal_protocol::SignalProtocolError;
 
 pub type Result<T> = std::result::Result<T, Error>;

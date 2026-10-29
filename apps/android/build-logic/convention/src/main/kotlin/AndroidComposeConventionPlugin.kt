@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-only
 # Regenerates the Protobuf code for the Mac app and the server from protocol/seam/v1.
 # Android generates its own at build time (Gradle protobuf plugin), so it isn't done here.
 # Uses buf when installed; falls back to plain protoc so a fresh machine can still run it.
