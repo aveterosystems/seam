@@ -9,7 +9,8 @@
 //!    this Mac's screen. Only then is the phone's identity (from its PQXDH message) pinned.
 //! 4. Both show `safety_code`; the user confirms on the Mac, which sends PairAccept.
 
-use libsignal_protocol::{CiphertextMessageType, PreKeySignalMessage};
+use futures::executor::block_on;
+use libsignal_protocol::{CiphertextMessageType, PreKeySignalMessage, SessionStore};
 use prost::Message;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
@@ -72,7 +73,16 @@ impl Device {
         my_name: &str,
         my_model: &str,
     ) -> Result<(String, Vec<u8>)> {
-        let previous = self.peers.get(&crate::device_id_for(identity_key)).cloned();
+        // A re-pair with a Mac this phone already knows must not cost the existing pairing if it fails
+        let previous_id = crate::device_id_for(identity_key);
+        let previous = match self.peers.get(&previous_id).cloned() {
+            Some(peer) => {
+                let address = crate::peer_address(&previous_id);
+                let session = block_on(self.store.session_store.load_session(&address))?;
+                Some((peer, session))
+            }
+            None => None,
+        };
         let peer_id = self.insert_peer(identity_key, relay_key, name, false)?;
         let result = self
             .start_session(&crate::peer_address(&peer_id), bundle)
@@ -96,9 +106,12 @@ impl Device {
             }
             Err(e) => {
                 self.remove_peer(&peer_id);
-                // A failed re-pair must not cost the existing pairing with this Mac
-                if let Some(p) = previous {
-                    self.peers.insert(peer_id, p);
+                if let Some((peer, session)) = previous {
+                    if let Some(session) = session {
+                        let address = crate::peer_address(&peer_id);
+                        block_on(self.store.session_store.store_session(&address, &session))?;
+                    }
+                    self.peers.insert(peer_id, peer);
                 }
                 Err(e)
             }

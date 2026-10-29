@@ -344,3 +344,57 @@ fn sr_2_56_only_the_mac_the_phone_asked_confirms_it() {
     assert!(phone.peers()[&mac_id].confirmed);
     assert!(phone.awaiting_accept.is_none());
 }
+
+#[test]
+fn sr_2_58_a_failed_re_pair_keeps_the_existing_session() {
+    use crate::proto::v1::Status;
+    let mut mac = Device::generate().unwrap();
+    let offer = mac.start_pairing();
+    let (mut phone, mac_id, env) = phone_pairs(&mut mac, &offer.token);
+    let req = mac.accept_pairing(&env).unwrap();
+    mac.confirm_pairing(&req.peer_id).unwrap();
+    let accept = Payload {
+        body: Some(payload::Body::Control(Control {
+            body: Some(control::Body::PairAccept(Default::default())),
+        })),
+    };
+    phone
+        .open(&mac.seal(&req.peer_id, &accept.encode_to_vec(), 0).unwrap())
+        .unwrap();
+
+    // Scanning the same Mac again with a bundle that can't start a session (someone else's)
+    let stranger = Device::generate().unwrap().prekey_bundle().unwrap();
+    assert!(
+        phone
+            .pair_with(
+                &mac.identity_key(),
+                mac.relay_key(),
+                "MacBook Pro",
+                &stranger,
+                &[0; 32],
+                "P",
+                "M"
+            )
+            .is_err()
+    );
+
+    // …leaves the pairing as it was: still confirmed, and both directions still work
+    assert!(phone.peers()[&mac_id].confirmed);
+    let status = Payload {
+        body: Some(payload::Body::Status(Status::default())),
+    }
+    .encode_to_vec();
+    assert_eq!(
+        mac.open(&phone.seal(&mac_id, &status, 0).unwrap())
+            .unwrap()
+            .payload,
+        status
+    );
+    assert_eq!(
+        phone
+            .open(&mac.seal(&req.peer_id, &status, 0).unwrap())
+            .unwrap()
+            .payload,
+        status
+    );
+}
