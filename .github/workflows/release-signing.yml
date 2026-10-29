@@ -5,9 +5,9 @@ name: release-signing
 on:
   push:
     branches: [main]
-    paths: ["scripts/sign-*.sh", "scripts/make-*.sh", "release/**", ".github/workflows/release*.yml"]
+    paths: ["scripts/sign-*.sh", "scripts/make-*.sh", "release/**", "apps/mac/Config/Release.entitlements", ".github/workflows/release*.yml"]
   pull_request:
-    paths: ["scripts/sign-*.sh", "scripts/make-*.sh", "release/**", ".github/workflows/release*.yml"]
+    paths: ["scripts/sign-*.sh", "scripts/make-*.sh", "release/**", "apps/mac/Config/Release.entitlements", ".github/workflows/release*.yml"]
 
 permissions: { contents: read }
 
@@ -46,10 +46,18 @@ jobs:
 
   mac:
     runs-on: macos-26
+    env:
+      SPARKLE: "2.10.0"
+      SPARKLE_SHA256: "c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with: { persist-credentials: false }
-      - name: Sign a stand-in Seam.app with a throwaway certificate
+      - name: Sparkle ${{ env.SPARKLE }}, checked against its pinned SHA-256
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE/Sparkle-$SPARKLE.tar.xz"
+          echo "$SPARKLE_SHA256  $RUNNER_TEMP/sparkle.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+      - name: Sign a stand-in Seam.app that links the real Sparkle.framework, then launch it
         run: |
           t="$(mktemp -d)"
           openssl=/opt/homebrew/bin/openssl
@@ -61,44 +69,37 @@ jobs:
           "$openssl" pkcs12 -export -legacy -inkey <(printf '%s\n' "$key") -in "$t/cert.pem" -name "Seam test" \
             -out "$t/signing.p12" -passout file:"$t/password"
           "$openssl" x509 -in "$t/cert.pem" -outform der | shasum -a 256 | cut -d' ' -f1 > "$t/pin"
-          # A minimal app bundle with Seam's identifier
+          # A minimal app with Seam's identifier that loads Sparkle at launch, like the real one (SR-17-01)
           app="$t/Seam.app"
-          mkdir -p "$app/Contents/MacOS"
-          printf 'int main(void){return 0;}\n' | clang -x c - -o "$app/Contents/MacOS/Seam"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks"
+          cp -R "$RUNNER_TEMP/sparkle/Sparkle.framework" "$app/Contents/Frameworks/"
+          printf 'int main(void){return 0;}\n' | clang -x c - -o "$app/Contents/MacOS/Seam" \
+            -F "$app/Contents/Frameworks" -framework Sparkle -Wl,-rpath,@executable_path/../Frameworks
           plutil -create xml1 "$app/Contents/Info.plist"
           plutil -insert CFBundleIdentifier -string com.avetero.seam "$app/Contents/Info.plist"
           plutil -insert CFBundleExecutable -string Seam "$app/Contents/Info.plist"
-          # Nested code like Sparkle's helper, which must be signed before the app
-          mkdir -p "$app/Contents/Frameworks/Helper.app/Contents/MacOS"
-          cp "$app/Contents/MacOS/Seam" "$app/Contents/Frameworks/Helper.app/Contents/MacOS/Helper"
-          plutil -create xml1 "$app/Contents/Frameworks/Helper.app/Contents/Info.plist"
-          plutil -insert CFBundleIdentifier -string com.avetero.seam.helper "$app/Contents/Frameworks/Helper.app/Contents/Info.plist"
-          plutil -insert CFBundleExecutable -string Helper "$app/Contents/Frameworks/Helper.app/Contents/Info.plist"
           MAC_SIGNING_P12="$t/signing.p12" MAC_SIGNING_P12_PASSWORD="$(cat "$t/password")" MAC_CERT_PIN="$t/pin" \
             scripts/sign-mac-app.sh "$app"
+          # Every piece of Sparkle is signed by the test certificate, and the app launches
+          codesign -dvv "$app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc" 2>&1 | grep -q "Authority=Seam test"
+          "$app/Contents/MacOS/Seam"
           echo 0000000000000000000000000000000000000000000000000000000000000000 > "$t/wrong"
           if MAC_SIGNING_P12="$t/signing.p12" MAC_SIGNING_P12_PASSWORD="$(cat "$t/password")" MAC_CERT_PIN="$t/wrong" \
             scripts/sign-mac-app.sh "$app" 2> "$t/err"; then echo "A wrong pin was accepted" >&2; exit 1; fi
           grep -q "isn't the pinned one" "$t/err" || { cat "$t/err"; exit 1; }
       - name: Sign a stand-in update and appcast with a throwaway Sparkle key
-        env:
-          SPARKLE: "2.10.0"
-          SPARKLE_SHA256: "c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
         run: |
           t="$(mktemp -d)"
           openssl=/opt/homebrew/bin/openssl
           [ -x "$openssl" ] || { brew install openssl >/dev/null; openssl="$(brew --prefix openssl)/bin/openssl"; }
-          curl -sSfL -o "$t/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE/Sparkle-$SPARKLE.tar.xz"
-          echo "$SPARKLE_SHA256  $t/sparkle.tar.xz" | shasum -a 256 -c -
-          tar -xf "$t/sparkle.tar.xz" -C "$t" ./bin/sign_update
-          pem="$("$openssl" genpkey -algorithm ed25519)"
-          "$openssl" pkey -outform DER <<< "$pem" | tail -c 32 | base64 > "$t/key"
-          public="$("$openssl" pkey -pubout -outform DER <<< "$pem" | tail -c 32 | base64)"
+          printf '%s' "$("$openssl" genpkey -algorithm ed25519)" > "$t/pem"
+          "$openssl" pkey -in "$t/pem" -outform DER | tail -c 32 | base64 > "$t/key"
+          public="$("$openssl" pkey -in "$t/pem" -pubout -outform DER | tail -c 32 | base64)"
           echo "stand-in" > "$t/Seam-0.0.1-mac.zip"
-          EXPECTED_PUBLIC_KEY="$public" SPARKLE_KEY_FILE="$t/key" SIGN_UPDATE="$t/bin/sign_update" \
+          EXPECTED_PUBLIC_KEY="$public" SPARKLE_KEY_FILE="$t/key" SIGN_UPDATE="$RUNNER_TEMP/sparkle/bin/sign_update" \
             scripts/make-appcast.sh "$t/Seam-0.0.1-mac.zip" 0.0.1 1 "$t/appcast.xml"
           grep -q "sparkle-signatures" "$t/appcast.xml"
           # A key the app doesn't trust must be refused
-          if EXPECTED_PUBLIC_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" SPARKLE_KEY_FILE="$t/key" SIGN_UPDATE="$t/bin/sign_update" \
+          if EXPECTED_PUBLIC_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" SPARKLE_KEY_FILE="$t/key" SIGN_UPDATE="$RUNNER_TEMP/sparkle/bin/sign_update" \
             scripts/make-appcast.sh "$t/Seam-0.0.1-mac.zip" 0.0.1 1 "$t/appcast2.xml" 2> "$t/err"; then echo "A wrong update key was accepted" >&2; exit 1; fi
           grep -q "isn't the app's SUPublicEDKey" "$t/err" || { cat "$t/err"; exit 1; }

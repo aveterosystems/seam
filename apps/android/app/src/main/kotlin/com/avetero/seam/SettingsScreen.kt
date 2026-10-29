@@ -116,10 +116,12 @@ fun SettingsScreen(
                     val status by updater.status.collectAsState()
                     var automatic by remember { mutableStateOf(updater.automatic) }
                     Section("Updates") {
-                        Item("Check for updates automatically", "Once a day, Seam asks GitHub for a newer release. GitHub sees this phone's IP address when it does.") {
-                            Switch(checked = automatic, onCheckedChange = { automatic = it; updater.automatic = it })
+                        Item("Check for updates automatically", "Once a day, Seam asks GitHub for a newer release. GitHub sees this phone's IP address and Seam's version when it does.") {
+                            Switch(checked = automatic, onCheckedChange = { automatic = it; updater.answer(it) })
                         }
                         Item("Check now", status ?: "Installs only updates signed by Seam", onClick = { updater.checkNow() })
+                        // SR-17-14: the grant outlives the update
+                        Item("After updating", "You can turn off Install unknown apps for Seam in Android's settings; Seam asks again next time")
                     }
                 }
                 Section("About") {

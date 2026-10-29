@@ -47,4 +47,31 @@ class UpdateFeedTest {
         assertNull(UpdateFeed.sumFor(sums, "other.apk"))
         assertNull(UpdateFeed.sumFor("xyz  Seam-0.1.1-android.apk", "Seam-0.1.1-android.apk"))
     }
+
+    @Test fun ignoresPrereleasesAndReleasesMissingAFile() {
+        assertNull(UpdateFeed.newer(release("v0.2.0").replace("\"prerelease\":false", "\"prerelease\":true"), "0.1.0"))
+        val noSums = """{"tag_name":"v0.2.0","assets":[{"name":"Seam-0.2.0-android.apk","browser_download_url":"https://github.com/aveterosystems/seam/releases/download/v0.2.0/Seam-0.2.0-android.apk"}]}"""
+        assertNull(UpdateFeed.newer(noSums, "0.1.0"))
+        assertNull(UpdateFeed.newer("""{"tag_name":"v0.2.0","assets":[]}""", "0.1.0"))
+    }
+
+    @Test fun sr_17_16_onlyThisTagsDownload() {
+        val other = "https://github.com/aveterosystems/seam/releases/download/v0.1.9/Seam-0.2.0-android.apk"
+        assertNull(UpdateFeed.newer(release("v0.2.0", apkUrl = other), "0.1.0"))
+        assertNull(UpdateFeed.newer(release("v0.2.0", apkUrl = "https://github.com/aveterosystems/seam/releases/download/v0.2.0/../Seam-0.2.0-android.apk"), "0.1.0"))
+        assertNull(UpdateFeed.newer(release("v0.2.0", apkUrl = "https://github.com/aveterosystems/seam/releases/download/v0.2.0/Seam-0.2.0-android.apk?x=1"), "0.1.0"))
+    }
+
+    @Test fun oddVersionsFailClosed() {
+        assertFalse(UpdateFeed.isNewer("v99999999999.0.0", "0.1.0"))
+        assertFalse(UpdateFeed.isNewer("V0.2.0", "0.1.0"))
+        assertFalse(UpdateFeed.isNewer("v0.2.0", "not a version"))
+    }
+
+    @Test fun checksumLinesMatchTheExactName() {
+        val a = "a".repeat(64)
+        assertEquals(a, UpdateFeed.sumFor("$a *Seam-0.1.1-android.apk\r\n", "Seam-0.1.1-android.apk"))
+        assertNull(UpdateFeed.sumFor("$a  x-Seam-0.1.1-android.apk", "Seam-0.1.1-android.apk"))
+        assertNull(UpdateFeed.sumFor("$a  Seam-0.1.1-android.apk.idsig", "Seam-0.1.1-android.apk"))
+    }
 }

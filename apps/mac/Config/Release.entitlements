@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Applied by scripts/sign-mac-app.sh to the app only. Seam's own certificate has no Apple Team ID,
+     so the hardened runtime's library validation would refuse Sparkle.framework and the app would
+     die at launch (SR-17-01). Turning it off lets the app load its own bundled frameworks; DYLD_*
+     injection stays blocked by the hardened runtime, and the bundle is only writable by an admin. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>

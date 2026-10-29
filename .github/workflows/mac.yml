@@ -68,6 +68,9 @@ jobs:
         run: |
           brew install xcodegen
           cd apps/mac && xcodegen generate
+          mkdir -p Seam.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+          cp Package.resolved Seam.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
           xcodebuild -project Seam.xcodeproj -scheme Seam -configuration Debug \
+            -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution \
             -destination "platform=macOS,arch=$(uname -m)" CODE_SIGNING_ALLOWED=NO build | tail -20
           test "${PIPESTATUS[0]}" -eq 0

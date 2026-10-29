@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # XcodeGen spec for the Mac app. The .xcodeproj is generated from this and never committed:
 #   scripts/build-mac-core.sh && (cd apps/mac && xcodegen generate) && open apps/mac/Seam.xcodeproj
+# Remote packages are pinned in apps/mac/Package.resolved; CI copies it into the generated project.
 name: Seam
 options:
   bundleIdPrefix: com.avetero
@@ -22,7 +23,8 @@ packages:
     path: Packages/SeamProtocol
   SeamSession:
     path: Packages/SeamSession
-  # In-app updates. Exact version; SwiftPM checks the framework against Sparkle's published checksum.
+  # In-app updates. Pinned by commit in apps/mac/Package.resolved, which CI builds from exactly;
+  # SwiftPM then checks the framework against the checksum in that commit's Package.swift.
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.10.0

@@ -2,8 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Release builds only (project.yml): merged with the generated keys. Sparkle updates come from
      the latest GitHub release's appcast.xml. Both the feed and each update must carry an EdDSA
-     signature from Seam's update key (public half below, set by scripts/make-update-key.sh), and
-     the new app must be signed by the same certificate as this one. -->
+     signature from Seam's update key (public half below, set by scripts/make-update-key.sh). That
+     key is the root of trust for Mac updates: Sparkle 2.10 doesn't also require the new app to be
+     signed by this app's certificate (SR-17-02). Sparkle asks the user once before checking. -->
 <plist version="1.0">
 <dict>
 	<key>SUFeedURL</key>
@@ -14,8 +15,8 @@
 	<true/>
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
+	<key>SUSignedFeedFailureExpirationInterval</key>
+	<integer>0</integer>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
 	<key>SUAllowsAutomaticUpdates</key>

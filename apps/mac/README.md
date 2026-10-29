@@ -103,4 +103,6 @@ The full menu bar popover, the Messages, Notifications and Files windows, Settin
 
 ## Updates
 
-Release builds update through [Sparkle](https://sparkle-project.org) 2.10.0: once a day (Settings › About can turn it off) Seam reads `appcast.xml` from the latest GitHub release. Sparkle requires the feed itself to be signed (`SURequireSignedFeed`) and the update to be signed with Seam's update key (`SUPublicEDKey` in `Config/Release-Info.plist`), and the new app to be signed by the same certificate. It asks before installing; nothing installs automatically. Debug builds don't update.
+Release builds update through [Sparkle](https://sparkle-project.org) 2.10.0, pinned by commit in `Package.resolved`. Sparkle asks once whether to check; then once a day (Settings › About can turn it off) Seam reads `appcast.xml` from the latest GitHub release. Sparkle requires the feed itself to be signed (`SURequireSignedFeed`, with no fallback) and the update to be signed with Seam's update key (`SUPublicEDKey` in `Config/Release-Info.plist`). That key is the root of trust for Mac updates: Sparkle doesn't also compare the new app's certificate. It asks before installing; nothing installs automatically. Debug builds don't update.
+
+Releases are signed with `Config/Release.entitlements`, which turns off library validation: a certificate without an Apple Team ID can't otherwise load Sparkle.framework.

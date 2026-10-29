@@ -2,10 +2,10 @@
 import Foundation
 import Sparkle
 
-/// In-app updates through Sparkle: once a day, and only in signed Release builds. Debug builds have
-/// no feed and never replace themselves with a release. Sparkle installs an update only if the feed
-/// and the archive are signed with Seam's update key and the new app is signed by the same
-/// certificate as this one.
+/// In-app updates through Sparkle: once a day if the user agrees (Sparkle asks once), and only in
+/// signed Release builds. Debug builds have no feed and never replace themselves with a release.
+/// Sparkle installs an update only if the feed and the archive are signed with Seam's update key,
+/// which is the root of trust for Mac updates, and only when the user says so.
 @MainActor
 final class Updates: NSObject, SPUStandardUserDriverDelegate {
     static let shared = Updates()

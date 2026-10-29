@@ -72,6 +72,8 @@ fun SeamScreen(
     update: Release? = null,
     updateStatus: String? = null,
     onUpdate: (Release) -> Unit = {},
+    askUpdates: Boolean = false,
+    onAnswerUpdates: (Boolean) -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         // One call site, so the sheet slides up once and then changes in place (confirm, then the code)
@@ -103,7 +105,7 @@ fun SeamScreen(
         if (home != null && toConfirm == null) {
             val name = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Idle)?.macName
                 ?: (state as SessionState.Connecting).macName
-            return@Surface Home(name, home, scanError, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, update, updateStatus, onUpdate)
+            return@Surface Home(name, home, scanError, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, update, updateStatus, onUpdate, askUpdates, onAnswerUpdates)
         }
         Column(
             Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 48.dp),
@@ -141,6 +143,8 @@ private fun Home(
     update: Release? = null,
     updateStatus: String? = null,
     onUpdate: (Release) -> Unit = {},
+    askUpdates: Boolean = false,
+    onAnswerUpdates: (Boolean) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -184,6 +188,7 @@ private fun Home(
             Spacer(Modifier.height(32.dp))
             RoundAction("Clipboard", R.drawable.ic_clipboard, primary = true, onClick = onSendClipboard)
             Spacer(Modifier.weight(1f))
+            if (askUpdates) AskUpdatesCard(onAnswerUpdates)
             if (update != null) UpdateCard(update, updateStatus, onUpdate)
             if (fromMac != null && fromMac.fresh(now)) FromMacCard(fromMac, now, onPaste)
         }
@@ -406,6 +411,24 @@ private fun UpdateCard(release: Release, status: String?, onUpdate: (Release) ->
                 Text(status?.takeUnless { it.endsWith("is available") } ?: "Checked and installed only if signed by Seam", fontSize = 14.sp)
             }
             Button(onClick = { onUpdate(release) }) { Text("Update") }
+        }
+    }
+}
+
+/** Asked once, before Seam ever contacts GitHub (SR-17-04). The answer can be changed in Settings. */
+@Composable
+private fun AskUpdatesCard(onAnswer: (Boolean) -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Check for updates automatically?", fontSize = 16.sp)
+            Text(
+                "Once a day Seam asks GitHub for a newer version, and offers it here. GitHub sees this phone's IP address and Seam's version when it does.",
+                fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                TextButton(onClick = { onAnswer(false) }) { Text("Not now") }
+                Button(onClick = { onAnswer(true) }) { Text("Check daily") }
+            }
         }
     }
 }

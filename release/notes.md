@@ -12,7 +12,7 @@ Seam then offers new versions itself: once a day it checks GitHub, and **Update*
 2. Open Seam. macOS says it can't check Seam for malicious software, because it isn't notarized by Apple yet. Close the message.
 3. Open **System Settings › Privacy & Security**, scroll down to the message about Seam, and click **Open Anyway**. Confirm with your password.
 
-You only do this for the first install. After that, Seam updates itself: once a day it checks GitHub, and installs a new version only if it's signed with Seam's update key and certificate. Your pairing carries over. Turn checks off in Settings › About. Needs macOS 14 or later, Apple silicon or Intel.
+You only do this for the first install. After that, Seam can update itself: it asks once whether to check, then once a day it checks GitHub and offers a new version only if it's signed with Seam's update key; nothing installs until you say so. Your pairing carries over. Turn checks off in Settings › About. Needs macOS 14 or later, Apple silicon or Intel.
 
 ## Check what you downloaded
 

@@ -25,13 +25,17 @@ key="$mount/sparkle-ed25519.key"
 [ -e "$key" ] && { echo "$key already exists: not replacing the update key" >&2; exit 1; }
 umask 077
 
-# Sparkle's private key format: the 32-byte Ed25519 seed, base64. The PEM only exists in memory.
-pem="$("$openssl" genpkey -algorithm ed25519)"
-"$openssl" pkey -outform DER <<< "$pem" | tail -c 32 | base64 > "$key"
-public="$("$openssl" pkey -pubout -outform DER <<< "$pem" | tail -c 32 | base64)"
-unset pem
+# Sparkle's private key format: the 32-byte Ed25519 seed, base64. The key is made straight onto the
+# encrypted image and only ever piped, never through a temp file (SR-17-11).
+"$openssl" genpkey -algorithm ed25519 -out "$mount/sparkle-ed25519.pem"
+"$openssl" pkey -in "$mount/sparkle-ed25519.pem" -outform DER | tail -c 32 | base64 > "$key"
+public="$("$openssl" pkey -in "$mount/sparkle-ed25519.pem" -pubout -outform DER | tail -c 32 | base64)"
+rm -P "$mount/sparkle-ed25519.pem"
 [[ "$public" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo "Unexpected public key" >&2; exit 1; }
 
-/usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $public" "$plist"
+# The secret first: if this fails, nothing in the repo has changed yet
 gh secret set SPARKLE_ED_PRIVATE_KEY --env release --repo "$repo" < "$key"
+# Only the key's value, keeping the file's comments
+sed -i '' "/<key>SUPublicEDKey<\/key>/{n;s|<string>.*</string>|<string>$public</string>|;}" "$plist"
+grep -q "<string>$public</string>" "$plist" || { echo "Couldn't write the public key to $plist" >&2; exit 1; }
 echo "Done. Update key saved in $image; public key written to apps/mac/Config/Release-Info.plist (commit it)."

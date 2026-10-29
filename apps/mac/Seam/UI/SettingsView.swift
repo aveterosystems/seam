@@ -191,11 +191,11 @@ struct SettingsView: View {
         }
         Group_ {
             if Updates.shared.available {
-                Row("Check for updates automatically", "Once a day, Seam asks GitHub for a newer release. GitHub sees this Mac's IP address when it does.") {
+                Row("Check for updates automatically", "Once a day, Seam asks GitHub for a newer release. GitHub sees this Mac's IP address and Seam's version when it does.") {
                     Toggle("", isOn: Binding(get: { Updates.shared.checksAutomatically }, set: { Updates.shared.checksAutomatically = $0 }))
                         .labelsHidden()
                 }
-                Row("Updates", "Installed only if signed by Seam's update key and certificate") {
+                Row("Updates", "Installed only if signed with Seam's update key, and only when you say") {
                     Button("Check Now") { Updates.shared.checkNow() }
                         .buttonStyle(.bordered).buttonBorderShape(.capsule)
                         .disabled(!Updates.shared.canCheck)
