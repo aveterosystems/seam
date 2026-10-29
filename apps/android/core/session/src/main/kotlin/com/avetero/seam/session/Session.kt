@@ -197,6 +197,12 @@ class Session(
         _state.value = SessionState.Idle(m.name)
     }
 
+    /** Paired with a Mac (saved state), whatever the connection is doing. */
+    val paired: Boolean get() = mac != null
+
+    /** The code both screens showed when pairing, for re-checking in Settings. */
+    fun macCode(): String? = mac?.let { runCatching { device.safetyCode(it.id) }.getOrNull() }
+
     /** Pair with the Mac from its scanned (and user-confirmed) QR code. The current Mac stays until the new one accepts. */
     fun pair(qr: PairingQr) = scope.launch {
         if (storageBlocked) return@launch // pairing would replace the state we couldn't open

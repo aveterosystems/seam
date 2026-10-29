@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Board 00's icon on the adaptive grid: the Mac and phone panels joined by three stitches.
+     The 32-unit artwork sits in the middle 66 of 108 (the safe zone). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="27" android:translateY="27" android:scaleX="1.6875" android:scaleY="1.6875">
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M8.5,8h4a2.5,2.5 0 0 1 2.5,2.5v11a2.5,2.5 0 0 1 -2.5,2.5h-4a2.5,2.5 0 0 1 -2.5,-2.5v-11a2.5,2.5 0 0 1 2.5,-2.5z" />
+        <path android:fillColor="#99FFFFFF"
+            android:pathData="M19.5,8h4a2.5,2.5 0 0 1 2.5,2.5v11a2.5,2.5 0 0 1 -2.5,2.5h-4a2.5,2.5 0 0 1 -2.5,-2.5v-11a2.5,2.5 0 0 1 2.5,-2.5z" />
+        <path android:strokeColor="#0B7F6F" android:strokeWidth="1.6" android:strokeLineCap="round"
+            android:pathData="M13.5,12h5M13.5,16h5M13.5,20h5" />
+    </group>
+</vector>

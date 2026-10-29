@@ -55,6 +55,12 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         clip.getItemAt(0).text?.toString()
     }.getOrNull()
 
+    /** Home's Paste: puts what came from the Mac back on this phone's clipboard (main thread). */
+    fun putBack(text: String) {
+        rules.incoming(text) ?: return // and never send it back to the Mac
+        runCatching { clipboard.setPrimaryClip(ClipData.newPlainText("From your Mac", text)) }
+    }
+
     override fun receive(payload: Payload, fromPeer: String) {
         val text = payload.clipboard.text
         main.post {

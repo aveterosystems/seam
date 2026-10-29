@@ -30,7 +30,8 @@ class MainActivity : ComponentActivity() {
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         val app = application as SeamApplication
         val session = app.session
-        if (session.state.value != SessionState.Unpaired) ConnectionService.start(this)
+        if (session.paired) ConnectionService.start(this)
+        BootReceiver.dismiss(this)
 
         setContent {
             val context = LocalContext.current
@@ -42,6 +43,27 @@ class MainActivity : ComponentActivity() {
                 val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
                 var scanError by remember { mutableStateOf<String?>(null) }
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
+                var settings by remember { mutableStateOf(false) }
+                val clipboardStatus = when {
+                    AutoClipboard.available(this@MainActivity) -> ClipboardStatus.Automatic
+                    BuildConfig.FLAVOR == "full" -> ClipboardStatus.NeedsSetup
+                    else -> ClipboardStatus.Manual
+                }
+                if (settings) {
+                    val macName = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Idle)?.macName
+                        ?: (state as? SessionState.Connecting)?.macName
+                    return@MaterialTheme SettingsScreen(
+                        macName = macName,
+                        clipboard = clipboardStatus,
+                        code = session.macCode(),
+                        version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR})",
+                        onForgetMac = {
+                            settings = false
+                            session.forgetMac()
+                        },
+                        onBack = { settings = false },
+                    )
+                }
                 SeamScreen(
                     state = state,
                     scanError = scanError ?: notice,
@@ -52,13 +74,12 @@ class MainActivity : ComponentActivity() {
                         ConnectionService.start(this@MainActivity)
                     },
                     onCancelConfirm = { scanned = null },
-                    clipboard = when {
-                        AutoClipboard.available(this@MainActivity) -> ClipboardStatus.Automatic
-                        BuildConfig.FLAVOR == "full" -> ClipboardStatus.NeedsSetup
-                        else -> ClipboardStatus.Manual
-                    },
                     fromMac = fromMac,
-                    onForgetMac = { session.forgetMac() },
+                    onPasteFromMac = { text ->
+                        app.clipboard.putBack(text)
+                        Toast.makeText(this@MainActivity, "On this phone's clipboard", Toast.LENGTH_SHORT).show()
+                    },
+                    onOpenSettings = { settings = true },
                     onSendClipboard = {
                         // Seam has focus here, so Android allows the read
                         Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()

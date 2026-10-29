@@ -112,7 +112,7 @@ class ConnectionService : Service() {
     private fun notification(text: String): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_menu_share)
+            .setSmallIcon(R.drawable.ic_seam_mark)
             .setContentTitle("Seam")
             .setContentText(text)
             .setContentIntent(open)

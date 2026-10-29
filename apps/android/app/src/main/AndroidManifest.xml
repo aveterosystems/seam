@@ -9,11 +9,14 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <!-- About a minute after the screen goes off, so the idle connection actually closes (decision 0005) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Start again after a restart, and remind about automatic clipboard (BootReceiver) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".SeamApplication"
         android:label="Seam"
-        android:icon="@android:drawable/ic_menu_share"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@android:style/Theme.Material.NoActionBar">
@@ -38,6 +41,13 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <!-- BOOT_COMPLETED is a protected broadcast: only the system can send it -->
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".ConnectionService"
