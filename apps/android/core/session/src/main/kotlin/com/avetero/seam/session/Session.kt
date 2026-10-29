@@ -49,6 +49,8 @@ class Session(
     private val _notice = MutableStateFlow<String?>(null)
     val notice: StateFlow<String?> = _notice
 
+    /** Set when saved state couldn't be opened for a reason that may pass: nothing is saved over it. */
+    private var storageBlocked = false
     private var device: SeamDevice = openDevice()
 
     private val features = mutableListOf<Feature>()
@@ -65,15 +67,22 @@ class Session(
     private val target: RelayTarget?
         get() = pairing?.let { RelayTarget(it.relayUrl, it.groupId) } ?: RelayTarget.decode(device.appData())
 
-    /** Never generates over saved state it couldn't open: that's moved aside and the user is told. */
+    /**
+     * Never generates over saved state it couldn't open. Only state that can never be opened (its
+     * key is gone, or the core rejects it) is moved aside; any other error (a Keystore that isn't
+     * ready, a read error) leaves the files alone and blocks every save until Seam restarts (SR-2-57).
+     */
     private fun openDevice(): SeamDevice {
-        val restored = runCatching {
-            val blob = store.load() ?: return@runCatching null
-            SeamDevice.restore(blob, store.storageKey())
-        }
-        restored.getOrNull()?.let { return it }
-        if (restored.isFailure) {
-            runCatching { store.quarantine() }
+        try {
+            val blob = store.load()
+            if (blob != null) return SeamDevice.restore(blob, store.storageKey())
+        } catch (e: Exception) {
+            val permanent = e is StateUnreadableException || e is SeamException
+            if (!permanent || runCatching { store.quarantine() }.isFailure) {
+                storageBlocked = true
+                _state.value = SessionState.Failed(UNAVAILABLE)
+                return SeamDevice.generate() // in memory only: persist() refuses to save it
+            }
             _state.value = SessionState.Failed(RESET)
         }
         // A failed first save is retried by the next persist()
@@ -93,6 +102,7 @@ class Session(
 
     /** Pair with the Mac from its scanned (and user-confirmed) QR code. The current Mac stays until the new one accepts. */
     fun pair(qr: PairingQr) = scope.launch {
+        if (storageBlocked) return@launch // pairing would replace the state we couldn't open
         outbox.clear()
         pairing = qr
         _notice.value = null
@@ -298,7 +308,10 @@ class Session(
 
     private fun sendFrame(frame: ClientFrame) = link?.send(frame.toByteArray()) == true
 
-    private fun persist() = store.save(device.exportState(store.storageKey()))
+    private fun persist() {
+        check(!storageBlocked) { "storage couldn't be opened" }
+        store.save(device.exportState(store.storageKey()))
+    }
 
     // Fixed texts only: the relay's own strings are never shown
     private fun explain(code: String) = when (code) {
@@ -313,6 +326,7 @@ class Session(
         const val MAX_OUTBOX = 100
         const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
         const val RESET = "Seam's secure storage on this phone was reset. Pair again."
+        const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
         // After login these mean the socket is unusable; others (queue_full, too_large…) are per-message
         val FATAL_AFTER_LOGIN = setOf("bad_login", "not_member", "storage")
     }

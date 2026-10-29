@@ -6,25 +6,35 @@ import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import java.io.File
 import java.io.FileOutputStream
+import java.security.GeneralSecurityException
+import java.security.InvalidKeyException
 import java.security.KeyStore
+import java.security.UnrecoverableKeyException
 import java.security.SecureRandom
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+
+/** Saved state that can never be opened: its key is gone or wrong. Anything else may be temporary. */
+class StateUnreadableException(cause: Throwable) : Exception(cause)
 
 /** Where the core's sealed state blob lives, and the key it's sealed with. */
 interface StateStore {
     /** The saved blob, or null on first run. */
     fun load(): ByteArray?
 
-    /** 32 bytes the core seals the state with. Created on first run; throws if a saved key won't unwrap. */
+    /**
+     * 32 bytes the core seals the state with. Created on first run. Throws [StateUnreadableException]
+     * if a saved key can never be unwrapped; other exceptions mean "try again later".
+     */
     fun storageKey(): ByteArray
 
     /** Durable (fsync before rename). Throws on failure: callers must not send what they couldn't save. */
     fun save(blob: ByteArray)
 
-    /** Moves files that can't be opened aside instead of ever overwriting them. */
+    /** Moves files that can't be opened aside instead of ever overwriting them. Throws if it can't. */
     fun quarantine()
 }
 
@@ -55,7 +65,9 @@ class KeystoreStateStore(private val dir: File) : StateStore {
 
     override fun quarantine() {
         val suffix = ".unreadable-${System.currentTimeMillis()}"
-        listOf(stateFile, backupFile, wrappedKeyFile).filter { it.exists() }.forEach { it.renameTo(File(dir, it.name + suffix)) }
+        listOf(stateFile, backupFile, wrappedKeyFile).filter { it.exists() }.forEach {
+            check(it.renameTo(File(dir, it.name + suffix))) { "couldn't move ${it.name} aside" }
+        }
         key = null
     }
 
@@ -63,9 +75,16 @@ class KeystoreStateStore(private val dir: File) : StateStore {
         val wrapping = wrappingKey()
         if (wrappedKeyFile.exists()) {
             val bytes = wrappedKeyFile.readBytes()
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, wrapping, GCMParameterSpec(128, bytes, 0, 12))
-            return cipher.doFinal(bytes, 12, bytes.size - 12)
+            if (bytes.size < 12 + 16) throw StateUnreadableException(IllegalStateException("wrapped key is truncated"))
+            try {
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                cipher.init(Cipher.DECRYPT_MODE, wrapping, GCMParameterSpec(128, bytes, 0, 12))
+                return cipher.doFinal(bytes, 12, bytes.size - 12)
+            } catch (e: GeneralSecurityException) {
+                // Wrong tag (a different Keystore key), or the key was invalidated: never coming back
+                if (e is AEADBadTagException || e is InvalidKeyException || e is UnrecoverableKeyException) throw StateUnreadableException(e)
+                throw e
+            }
         }
         val key = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, wrapping) }

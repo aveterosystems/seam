@@ -31,9 +31,11 @@ private class MemoryStore : StateStore {
     var quarantined: ByteArray? = null
     var failSaves = false
     var keyFailures = 0
+    var keyError: () -> Exception = { StateUnreadableException(javax.crypto.AEADBadTagException()) }
+    var failQuarantine = false
     override fun load() = blob
     override fun storageKey(): ByteArray {
-        if (keyFailures > 0) { keyFailures--; error("keystore key lost") }
+        if (keyFailures > 0) { keyFailures--; throw keyError() }
         return ByteArray(32) { 3 }
     }
     override fun save(blob: ByteArray) {
@@ -41,6 +43,7 @@ private class MemoryStore : StateStore {
         this.blob = blob
     }
     override fun quarantine() {
+        if (failQuarantine) error("rename failed")
         quarantined = blob
         blob = null
     }
@@ -254,6 +257,38 @@ class SessionTest {
         val s = session()
         assertTrue(s.state.value is SessionState.Failed)
         assertArrayEquals(saved, store.quarantined)
+    }
+
+    @Test fun sr_2_57_aPassingKeystoreErrorKeepsThePairing() = runTest {
+        paired()
+        val saved = store.blob
+        store.keyFailures = 1
+        store.keyError = { java.security.ProviderException("keystore not ready") }
+        val s = session()
+        advanceUntilIdle()
+        assertEquals(SessionState.Failed("Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."), s.state.value)
+        assertNull("nothing moved aside", store.quarantined)
+        assertArrayEquals("nothing saved over it", saved, store.blob)
+        s.pair(qrFor(mac))
+        advanceUntilIdle()
+        assertArrayEquals("pairing can't replace it either", saved, store.blob)
+
+        // Next launch, the Keystore works again and the Mac is still there
+        val again = session()
+        again.start()
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), again.state.value)
+    }
+
+    @Test fun sr_2_57_stateThatCantBeMovedAsideIsNeverOverwritten() = runTest {
+        paired()
+        val saved = store.blob
+        store.keyFailures = 1
+        store.failQuarantine = true
+        val s = session()
+        advanceUntilIdle()
+        assertEquals(SessionState.Failed("Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."), s.state.value)
+        assertArrayEquals(saved, store.blob)
     }
 
     @Test fun sr_2_11_nothingIsSentIfSavingFails() = runTest {
