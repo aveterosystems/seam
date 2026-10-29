@@ -35,6 +35,41 @@ flowchart TB
 | `seam/v1/find_phone.proto` | `FindPhone` |
 | `testdata/` | [Golden vectors](testdata/README.md), decoded identically by every codebase's tests |
 
+## The relay connection
+
+Each device keeps one WebSocket to the relay: `wss://<relay>/v1/connect?group=<group id>`, carrying one `ClientFrame` or `ServerFrame` per binary message (`relay.proto`).
+
+```mermaid
+sequenceDiagram
+    participant D as Device
+    participant R as Relay
+    R->>D: Challenge{nonce}
+    D->>R: Login{group_id, device_key, Ed25519 signature, join_token?}
+    R->>D: LoginResult{ok, members}, then any queued Envelopes
+    D->>R: Delivered{msg_id} for each
+    D->>R: send Envelope / PutBundles / GetBundle / OpenPairing
+```
+
+## The pairing QR code
+
+The Mac shows this; the phone scans it. Binary values are base64url without padding.
+
+```
+seam://pair?v=1&r=<relay URL>&g=<group id>&t=<token>&i=<identity key>&k=<relay key>&n=<Mac name>
+```
+
+| Key | Value |
+|---|---|
+| `v` | QR format version, `1` |
+| `r` | The relay's WebSocket base URL, percent-encoded (e.g. `wss://relay.seam.example`) |
+| `g` | The 16-byte group id |
+| `t` | The 32-byte one-time pairing token (the relay only ever gets its SHA-256) |
+| `i` | The Mac's Signal identity key (33 bytes), which the phone pins |
+| `k` | The Mac's 32-byte relay key, to address envelopes and fetch its bundle |
+| `n` | The Mac's display name, percent-encoded |
+
+The phone then: logs in to group `g` with `join_token = t`, fetches the Mac's bundle with `GetBundle{k}`, calls `pair_with`, and sends the resulting envelope. The Mac's `accept_pairing` checks it, both screens show the safety code, and the Mac sends `PairAccept` once you confirm.
+
 ## Field number blocks
 
 | Numbers | Owner |

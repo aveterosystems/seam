@@ -26,11 +26,12 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/payload.proto.
  */
 export const file_seam_v1_payload: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL3BheWxvYWQucHJvdG8SB3NlYW0udjEiSwoFSW5uZXISDgoGbXNnX2lkGAEgASgMEg8KB3NlbnRfYXQYAiABKAMSIQoHcGF5bG9hZBgDIAEoCzIQLnNlYW0udjEuUGF5bG9hZCKeBAoHUGF5bG9hZBIjCgdjb250cm9sGAEgASgLMhAuc2VhbS52MS5Db250cm9sSAASJwoJY2xpcGJvYXJkGAogASgLMhIuc2VhbS52MS5DbGlwYm9hcmRIABIoCgpmaWxlX29mZmVyGBQgASgLMhIuc2VhbS52MS5GaWxlT2ZmZXJIABIqCgtmaWxlX2Fuc3dlchgVIAEoCzITLnNlYW0udjEuRmlsZUFuc3dlckgAEisKCmZpbGVfY2h1bmsYFiABKAsyFS5zZWFtLnYxLkZpbGVDaHVua1JlZkgAEiYKCWZpbGVfZG9uZRgXIAEoCzIRLnNlYW0udjEuRmlsZURvbmVIABItCgxub3RpZmljYXRpb24YHiABKAsyFS5zZWFtLnYxLk5vdGlmaWNhdGlvbkgAEjoKE25vdGlmaWNhdGlvbl9hY3Rpb24YHyABKAsyGy5zZWFtLnYxLk5vdGlmaWNhdGlvbkFjdGlvbkgAEiwKDG1lc3NhZ2Vfc3luYxgoIAEoCzIULnNlYW0udjEuTWVzc2FnZVN5bmNIABIsCgxtZXNzYWdlX3NlbmQYKSABKAsyFC5zZWFtLnYxLk1lc3NhZ2VTZW5kSAASIQoGc3RhdHVzGDIgASgLMg8uc2VhbS52MS5TdGF0dXNIABIoCgpmaW5kX3Bob25lGDwgASgLMhIuc2VhbS52MS5GaW5kUGhvbmVIAEIGCgRib2R5QiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z", [file_seam_v1_clipboard, file_seam_v1_control, file_seam_v1_files, file_seam_v1_find_phone, file_seam_v1_messages, file_seam_v1_notifications, file_seam_v1_status]);
+  fileDesc("ChVzZWFtL3YxL3BheWxvYWQucHJvdG8SB3NlYW0udjEidAoFSW5uZXISDgoGbXNnX2lkGAEgASgMEg8KB3NlbnRfYXQYAiABKAMSIQoHcGF5bG9hZBgDIAEoCzIQLnNlYW0udjEuUGF5bG9hZBIMCgRmcm9tGAQgASgMEgoKAnRvGAUgASgMEg0KBXR0bF9zGAYgASgNIp4ECgdQYXlsb2FkEiMKB2NvbnRyb2wYASABKAsyEC5zZWFtLnYxLkNvbnRyb2xIABInCgljbGlwYm9hcmQYCiABKAsyEi5zZWFtLnYxLkNsaXBib2FyZEgAEigKCmZpbGVfb2ZmZXIYFCABKAsyEi5zZWFtLnYxLkZpbGVPZmZlckgAEioKC2ZpbGVfYW5zd2VyGBUgASgLMhMuc2VhbS52MS5GaWxlQW5zd2VySAASKwoKZmlsZV9jaHVuaxgWIAEoCzIVLnNlYW0udjEuRmlsZUNodW5rUmVmSAASJgoJZmlsZV9kb25lGBcgASgLMhEuc2VhbS52MS5GaWxlRG9uZUgAEi0KDG5vdGlmaWNhdGlvbhgeIAEoCzIVLnNlYW0udjEuTm90aWZpY2F0aW9uSAASOgoTbm90aWZpY2F0aW9uX2FjdGlvbhgfIAEoCzIbLnNlYW0udjEuTm90aWZpY2F0aW9uQWN0aW9uSAASLAoMbWVzc2FnZV9zeW5jGCggASgLMhQuc2VhbS52MS5NZXNzYWdlU3luY0gAEiwKDG1lc3NhZ2Vfc2VuZBgpIAEoCzIULnNlYW0udjEuTWVzc2FnZVNlbmRIABIhCgZzdGF0dXMYMiABKAsyDy5zZWFtLnYxLlN0YXR1c0gAEigKCmZpbmRfcGhvbmUYPCABKAsyEi5zZWFtLnYxLkZpbmRQaG9uZUgAQgYKBGJvZHlCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM", [file_seam_v1_clipboard, file_seam_v1_control, file_seam_v1_files, file_seam_v1_find_phone, file_seam_v1_messages, file_seam_v1_notifications, file_seam_v1_status]);
 
 /**
- * What actually gets encrypted. msg_id and sent_at must match the envelope, or the receiver
- * drops the message: this binds the plaintext envelope to the ciphertext.
+ * What actually gets encrypted. Every routing field is repeated here and must match the
+ * envelope, or the receiver drops the message: this binds the plaintext envelope to the
+ * ciphertext, so a relay can't re-address, re-time or re-route it.
  *
  * @generated from message seam.v1.Inner
  */
@@ -49,6 +50,21 @@ export type Inner = Message<"seam.v1.Inner"> & {
    * @generated from field: seam.v1.Payload payload = 3;
    */
   payload?: Payload | undefined;
+
+  /**
+   * @generated from field: bytes from = 4;
+   */
+  from: Uint8Array;
+
+  /**
+   * @generated from field: bytes to = 5;
+   */
+  to: Uint8Array;
+
+  /**
+   * @generated from field: uint32 ttl_s = 6;
+   */
+  ttlS: number;
 };
 
 /**

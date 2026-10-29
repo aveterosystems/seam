@@ -3,12 +3,12 @@ use super::*;
 
 /// A Mac and a phone that have paired: each pinned the other's identity key from the QR code.
 fn paired() -> (Device, Device) {
-    let mut mac = Device::new("mac").unwrap();
-    let mut phone = Device::new("phone").unwrap();
+    let mut mac = Device::generate().unwrap();
+    let mut phone = Device::generate().unwrap();
     let (mac_key, phone_key) = (mac.identity_key(), phone.identity_key());
-    let (mac_addr, phone_addr) = (mac.address().clone(), phone.address().clone());
-    mac.pin_peer(&phone_addr, &phone_key).unwrap();
-    phone.pin_peer(&mac_addr, &mac_key).unwrap();
+    mac.add_peer(&phone_key, phone.relay_key(), "phone")
+        .unwrap();
+    phone.add_peer(&mac_key, mac.relay_key(), "mac").unwrap();
     (mac, phone)
 }
 
@@ -82,7 +82,7 @@ fn tampered_message_is_rejected() {
 fn impostor_bundle_is_refused() {
     // The relay hands the Mac a bundle from a different identity than the one in the QR code
     let (mut mac, phone) = paired();
-    let mut impostor = Device::new("phone").unwrap();
+    let mut impostor = Device::generate().unwrap();
     let fake = impostor.prekey_bundle().unwrap();
     let err = mac
         .start_session(&phone.address().clone(), &fake)
@@ -98,8 +98,8 @@ fn impostor_bundle_is_refused() {
 
 #[test]
 fn unpaired_peers_are_refused() {
-    let mut mac = Device::new("mac").unwrap();
-    let mut stranger = Device::new("stranger").unwrap();
+    let mut mac = Device::generate().unwrap();
+    let mut stranger = Device::generate().unwrap();
     let bundle = stranger.prekey_bundle().unwrap();
     let err = mac
         .start_session(&stranger.address().clone(), &bundle)
@@ -126,14 +126,17 @@ fn one_time_prekey_is_used_up() {
     let first = mac.encrypt(&p, b"first").unwrap();
     phone.decrypt(&m, &first).unwrap();
 
-    let mut mac2 = Device::new("mac").unwrap();
-    // Same address, different device: pin it as if the user re-paired, then reuse the old bundle
-    let mac2_key = mac2.identity_key();
-    phone.pin_peer(&m, &mac2_key).ok();
-    mac2.pin_peer(&p, &phone.identity_key()).unwrap();
+    let mut mac2 = Device::generate().unwrap();
+    // A second device replays the old bundle (as if it were copied off the relay)
+    let m2 = mac2.address().clone();
+    phone
+        .add_peer(&mac2.identity_key(), mac2.relay_key(), "mac2")
+        .unwrap();
+    mac2.add_peer(&phone.identity_key(), phone.relay_key(), "phone")
+        .unwrap();
     mac2.start_session(&p, &bundle).unwrap();
     let replayed_setup = mac2.encrypt(&p, b"second").unwrap();
-    let err = phone.decrypt(&m, &replayed_setup).unwrap_err();
+    let err = phone.decrypt(&m2, &replayed_setup).unwrap_err();
     assert!(
         matches!(err, Error::Signal(SignalProtocolError::InvalidPreKeyId)),
         "got {err:?}"

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Debug builds only (project.yml): merged with the generated keys. Local networking lets a
+     dev build reach `wrangler dev` over plain ws:// on this Mac or the LAN. Release builds get
+     no ATS exception at all, and RelayPolicy refuses anything but wss:// there. -->
+<plist version="1.0">
+<dict>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

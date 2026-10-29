@@ -465,22 +465,6 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterUInt8: FfiConverterPrimitive {
-    typealias FfiType = UInt8
-    typealias SwiftType = UInt8
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt8 {
-        return try lift(readInt(&buf))
-    }
-
-    public static func write(_ value: UInt8, into buf: inout [UInt8]) {
-        writeInt(&buf, lower(value))
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -490,6 +474,22 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
     }
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
+    typealias FfiType = Int64
+    typealias SwiftType = Int64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Int64, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -586,28 +586,403 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 /**
- * This device's identity and sessions. Safe to share across threads.
+ * Opens one received file's chunks, in order, and checks it wasn't cut short.
  */
-public protocol SeamDeviceProtocol: AnyObject, Sendable {
-    
-    func decrypt(peer: String, sealed: SealedMessage) throws  -> Data
-    
-    func encrypt(peer: String, plaintext: Data) throws  -> SealedMessage
-    
-    func identityKey()  -> Data
-    
-    func pinPeer(peer: String, identityKey: Data) throws 
+public protocol FileReceiverProtocol: AnyObject, Sendable {
     
     /**
-     * A fresh signed bundle to upload to the relay.
+     * Fails unless the last chunk arrived.
      */
-    func prekeyBundle() throws  -> Data
+    func finish() throws 
     
-    func startSession(peer: String, bundle: Data) throws 
+    func openNext(sealed: Data, last: Bool) throws  -> Data
     
 }
 /**
- * This device's identity and sessions. Safe to share across threads.
+ * Opens one received file's chunks, in order, and checks it wasn't cut short.
+ */
+open class FileReceiver: FileReceiverProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_filereceiver(self.handle, $0) }
+    }
+public convenience init(key: Data, fileId: Data)throws  {
+    let handle =
+        try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_filereceiver_new(
+        FfiConverterData.lower(key),
+        FfiConverterData.lower(fileId),uniffiCallStatus
+    )
+}
+    self.init(unsafeFromHandle: handle)
+}
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_filereceiver(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Fails unless the last chunk arrived.
+     */
+open func finish()throws   {try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filereceiver_finish(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+open func openNext(sealed: Data, last: Bool)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filereceiver_open_next(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(sealed),
+        FfiConverterBool.lower(last),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFileReceiver: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = FileReceiver
+
+    public static func lift(_ handle: UInt64) throws -> FileReceiver {
+        return FileReceiver(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: FileReceiver) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FileReceiver {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: FileReceiver, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileReceiver_lift(_ handle: UInt64) throws -> FileReceiver {
+    return try FfiConverterTypeFileReceiver.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileReceiver_lower(_ value: FileReceiver) -> UInt64 {
+    return FfiConverterTypeFileReceiver.lower(value)
+}
+
+
+
+
+
+
+/**
+ * Seals one file for sending. Makes its own key and id (put them in the FileOffer), and
+ * enforces chunk order and a single last chunk, so a nonce can never repeat.
+ */
+public protocol FileSealerProtocol: AnyObject, Sendable {
+    
+    func fileId()  -> Data
+    
+    func key()  -> Data
+    
+    /**
+     * Every chunk but the last must be exactly `chunk_data_size()` bytes.
+     */
+    func sealNext(data: Data, last: Bool) throws  -> Data
+    
+}
+/**
+ * Seals one file for sending. Makes its own key and id (put them in the FileOffer), and
+ * enforces chunk order and a single last chunk, so a nonce can never repeat.
+ */
+open class FileSealer: FileSealerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_filesealer(self.handle, $0) }
+    }
+public convenience init() {
+    let handle =
+        try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_filesealer_new(uniffiCallStatus
+    )
+}
+    self.init(unsafeFromHandle: handle)
+}
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_filesealer(handle, $0) }
+    }
+
+    
+
+    
+open func fileId() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filesealer_file_id(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+open func key() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filesealer_key(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Every chunk but the last must be exactly `chunk_data_size()` bytes.
+     */
+open func sealNext(data: Data, last: Bool)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filesealer_seal_next(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(data),
+        FfiConverterBool.lower(last),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFileSealer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = FileSealer
+
+    public static func lift(_ handle: UInt64) throws -> FileSealer {
+        return FileSealer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: FileSealer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FileSealer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: FileSealer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileSealer_lift(_ handle: UInt64) throws -> FileSealer {
+    return try FfiConverterTypeFileSealer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileSealer_lower(_ value: FileSealer) -> UInt64 {
+    return FfiConverterTypeFileSealer.lower(value)
+}
+
+
+
+
+
+
+/**
+ * This device: identity, peers and sessions. Safe to share across threads.
+ */
+public protocol SeamDeviceProtocol: AnyObject, Sendable {
+    
+    /**
+     * Mac: check the phone's first envelope against the open pairing slot.
+     */
+    func acceptPairing(envelope: Data) throws  -> PairingRequest
+    
+    /**
+     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     */
+    func appData()  -> Data
+    
+    /**
+     * Mac: close the pairing slot early (window closed, QR expired).
+     */
+    func cancelPairing() 
+    
+    /**
+     * Mac: the user confirmed the safety code. Then seal and send PairAccept.
+     */
+    func confirmPairing(peerId: String) throws 
+    
+    /**
+     * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
+     * after anything that changes state: a seal, an open, pairing, new bundles.
+     */
+    func exportState(storageKey: Data) throws  -> Data
+    
+    func id()  -> String
+    
+    func identityKey()  -> Data
+    
+    /**
+     * Open an Envelope from a paired peer.
+     */
+    func `open`(envelope: Data) throws  -> OpenedMessage
+    
+    /**
+     * Phone: pair with the Mac from its QR code and bundle. Send the returned envelope.
+     */
+    func pairWith(identityKey: Data, relayKey: Data, name: String, bundle: Data, token: Data, myName: String, myModel: String) throws  -> PairingStart
+    
+    func peers()  -> [PeerInfo]
+    
+    /**
+     * `count` fresh signed prekey bundles to upload to the relay.
+     */
+    func prekeyBundles(count: UInt32) throws  -> [Data]
+    
+    /**
+     * Mac: the codes didn't match, or the user cancelled. The phone is forgotten.
+     */
+    func rejectPairing(peerId: String) 
+    
+    func relayKey()  -> Data
+    
+    func removePeer(peerId: String) 
+    
+    func safetyCode(peerId: String) throws  -> String
+    
+    /**
+     * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+     * The ratchet has advanced: save `export_state` durably *before* sending the envelope.
+     */
+    func seal(peerId: String, payload: Data, ttlS: UInt32) throws  -> Data
+    
+    func setAppData(data: Data) 
+    
+    /**
+     * The answer to the relay's login challenge.
+     */
+    func signRelayLogin(nonce: Data, groupId: Data)  -> Data
+    
+    /**
+     * Mac: open a 5-minute pairing slot.
+     */
+    func startPairing()  -> PairingOffer
+    
+}
+/**
+ * This device: identity, peers and sessions. Safe to share across threads.
  */
 open class SeamDevice: SeamDeviceProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -648,16 +1023,7 @@ open class SeamDevice: SeamDeviceProtocol, @unchecked Sendable {
     public func uniffiCloneHandle() -> UInt64 {
         return try! rustCall { uniffi_seam_ffi_fn_clone_seamdevice(self.handle, $0) }
     }
-public convenience init(deviceId: String)throws  {
-    let handle =
-        try rustCallWithError(FfiConverterTypeSeamError_lift) {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_constructor_seamdevice_new(
-        FfiConverterString.lower(deviceId),uniffiCallStatus
-    )
-}
-    self.init(unsafeFromHandle: handle)
-}
+    // No primary constructor declared for this class.
 
     deinit {
         if handle == 0 {
@@ -669,26 +1035,99 @@ public convenience init(deviceId: String)throws  {
     }
 
     
-
-    
-open func decrypt(peer: String, sealed: SealedMessage)throws  -> Data  {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+    /**
+     * A brand-new device identity. Call once, then `export_state` and keep the blob.
+     */
+public static func generate()throws  -> SeamDevice  {
+    return try  FfiConverterTypeSeamDevice_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
         uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_seamdevice_decrypt(
-            self.uniffiCloneHandle(),
-        FfiConverterString.lower(peer),
-        FfiConverterTypeSealedMessage_lower(sealed),uniffiCallStatus
+    uniffi_seam_ffi_fn_constructor_seamdevice_generate(uniffiCallStatus
     )
 })
 }
     
-open func encrypt(peer: String, plaintext: Data)throws  -> SealedMessage  {
-    return try  FfiConverterTypeSealedMessage_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+    /**
+     * Rebuild from `export_state`'s blob and the storage key it was sealed with.
+     */
+public static func restore(state: Data, storageKey: Data)throws  -> SeamDevice  {
+    return try  FfiConverterTypeSeamDevice_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
         uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_seamdevice_encrypt(
+    uniffi_seam_ffi_fn_constructor_seamdevice_restore(
+        FfiConverterData.lower(state),
+        FfiConverterData.lower(storageKey),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+    /**
+     * Mac: check the phone's first envelope against the open pairing slot.
+     */
+open func acceptPairing(envelope: Data)throws  -> PairingRequest  {
+    return try  FfiConverterTypePairingRequest_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(peer),
-        FfiConverterData.lower(plaintext),uniffiCallStatus
+        FfiConverterData.lower(envelope),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     */
+open func appData() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_app_data(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Mac: close the pairing slot early (window closed, QR expired).
+     */
+open func cancelPairing()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Mac: the user confirmed the safety code. Then seal and send PairAccept.
+     */
+open func confirmPairing(peerId: String)throws   {try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
+     * after anything that changes state: a seal, an open, pairing, new bundles.
+     */
+open func exportState(storageKey: Data)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_export_state(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(storageKey),uniffiCallStatus
+    )
+})
+}
+    
+open func id() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_id(
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -702,36 +1141,149 @@ open func identityKey() -> Data  {
 })
 }
     
-open func pinPeer(peer: String, identityKey: Data)throws   {try rustCallWithError(FfiConverterTypeSeamError_lift) {
+    /**
+     * Open an Envelope from a paired peer.
+     */
+open func `open`(envelope: Data)throws  -> OpenedMessage  {
+    return try  FfiConverterTypeOpenedMessage_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
         uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_seamdevice_pin_peer(
+    uniffi_seam_ffi_fn_method_seamdevice_open(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(peer),
-        FfiConverterData.lower(identityKey),uniffiCallStatus
+        FfiConverterData.lower(envelope),uniffiCallStatus
     )
-}
+})
 }
     
     /**
-     * A fresh signed bundle to upload to the relay.
+     * Phone: pair with the Mac from its QR code and bundle. Send the returned envelope.
      */
-open func prekeyBundle()throws  -> Data  {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+open func pairWith(identityKey: Data, relayKey: Data, name: String, bundle: Data, token: Data, myName: String, myModel: String)throws  -> PairingStart  {
+    return try  FfiConverterTypePairingStart_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
         uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_seamdevice_prekey_bundle(
+    uniffi_seam_ffi_fn_method_seamdevice_pair_with(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(identityKey),
+        FfiConverterData.lower(relayKey),
+        FfiConverterString.lower(name),
+        FfiConverterData.lower(bundle),
+        FfiConverterData.lower(token),
+        FfiConverterString.lower(myName),
+        FfiConverterString.lower(myModel),uniffiCallStatus
+    )
+})
+}
+    
+open func peers() -> [PeerInfo]  {
+    return try!  FfiConverterSequenceTypePeerInfo.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_peers(
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
     
-open func startSession(peer: String, bundle: Data)throws   {try rustCallWithError(FfiConverterTypeSeamError_lift) {
+    /**
+     * `count` fresh signed prekey bundles to upload to the relay.
+     */
+open func prekeyBundles(count: UInt32)throws  -> [Data]  {
+    return try  FfiConverterSequenceData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
         uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_seamdevice_start_session(
+    uniffi_seam_ffi_fn_method_seamdevice_prekey_bundles(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(peer),
-        FfiConverterData.lower(bundle),uniffiCallStatus
+        FfiConverterUInt32.lower(count),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Mac: the codes didn't match, or the user cancelled. The phone is forgotten.
+     */
+open func rejectPairing(peerId: String)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_reject_pairing(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),uniffiCallStatus
     )
 }
+}
+    
+open func relayKey() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_relay_key(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+open func removePeer(peerId: String)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_remove_peer(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),uniffiCallStatus
+    )
+}
+}
+    
+open func safetyCode(peerId: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_safety_code(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+     * The ratchet has advanced: save `export_state` durably *before* sending the envelope.
+     */
+open func seal(peerId: String, payload: Data, ttlS: UInt32)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_seal(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),
+        FfiConverterData.lower(payload),
+        FfiConverterUInt32.lower(ttlS),uniffiCallStatus
+    )
+})
+}
+    
+open func setAppData(data: Data)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_set_app_data(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(data),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * The answer to the relay's login challenge.
+     */
+open func signRelayLogin(nonce: Data, groupId: Data) -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_sign_relay_login(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(nonce),
+        FfiConverterData.lower(groupId),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Mac: open a 5-minute pairing slot.
+     */
+open func startPairing() -> PairingOffer  {
+    return try!  FfiConverterTypePairingOffer_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_start_pairing(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
 }
     
 
@@ -783,17 +1335,21 @@ public func FfiConverterTypeSeamDevice_lower(_ value: SeamDevice) -> UInt64 {
 
 
 /**
- * An encrypted message; `kind` goes in Envelope.signal_type.
+ * A message that passed every check. `payload` is a seam.v1.Payload.
  */
-public struct SealedMessage: Equatable, Hashable {
-    public var kind: UInt8
-    public var bytes: Data
+public struct OpenedMessage: Equatable, Hashable {
+    public var peerId: String
+    public var msgId: Data
+    public var sentAt: Int64
+    public var payload: Data
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(kind: UInt8, bytes: Data) {
-        self.kind = kind
-        self.bytes = bytes
+    public init(peerId: String, msgId: Data, sentAt: Int64, payload: Data) {
+        self.peerId = peerId
+        self.msgId = msgId
+        self.sentAt = sentAt
+        self.payload = payload
     }
 
     
@@ -802,24 +1358,28 @@ public struct SealedMessage: Equatable, Hashable {
 }
 
 #if compiler(>=6)
-extension SealedMessage: Sendable {}
+extension OpenedMessage: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSealedMessage: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SealedMessage {
+public struct FfiConverterTypeOpenedMessage: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OpenedMessage {
         return
-            try SealedMessage(
-                kind: FfiConverterUInt8.read(from: &buf), 
-                bytes: FfiConverterData.read(from: &buf)
+            try OpenedMessage(
+                peerId: FfiConverterString.read(from: &buf), 
+                msgId: FfiConverterData.read(from: &buf), 
+                sentAt: FfiConverterInt64.read(from: &buf), 
+                payload: FfiConverterData.read(from: &buf)
         )
     }
 
-    public static func write(_ value: SealedMessage, into buf: inout [UInt8]) {
-        FfiConverterUInt8.write(value.kind, into: &buf)
-        FfiConverterData.write(value.bytes, into: &buf)
+    public static func write(_ value: OpenedMessage, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.peerId, into: &buf)
+        FfiConverterData.write(value.msgId, into: &buf)
+        FfiConverterInt64.write(value.sentAt, into: &buf)
+        FfiConverterData.write(value.payload, into: &buf)
     }
 }
 
@@ -827,15 +1387,262 @@ public struct FfiConverterTypeSealedMessage: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeSealedMessage_lift(_ buf: RustBuffer) throws -> SealedMessage {
-    return try FfiConverterTypeSealedMessage.lift(buf)
+public func FfiConverterTypeOpenedMessage_lift(_ buf: RustBuffer) throws -> OpenedMessage {
+    return try FfiConverterTypeOpenedMessage.lift(buf)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeSealedMessage_lower(_ value: SealedMessage) -> RustBuffer {
-    return FfiConverterTypeSealedMessage.lower(value)
+public func FfiConverterTypeOpenedMessage_lower(_ value: OpenedMessage) -> RustBuffer {
+    return FfiConverterTypeOpenedMessage.lower(value)
+}
+
+
+/**
+ * What the Mac shows in the QR code (`token`) and sends the relay (`token_hash`).
+ */
+public struct PairingOffer: Equatable, Hashable {
+    public var token: Data
+    public var tokenHash: Data
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(token: Data, tokenHash: Data) {
+        self.token = token
+        self.tokenHash = tokenHash
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PairingOffer: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePairingOffer: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PairingOffer {
+        return
+            try PairingOffer(
+                token: FfiConverterData.read(from: &buf), 
+                tokenHash: FfiConverterData.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PairingOffer, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.token, into: &buf)
+        FfiConverterData.write(value.tokenHash, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePairingOffer_lift(_ buf: RustBuffer) throws -> PairingOffer {
+    return try FfiConverterTypePairingOffer.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePairingOffer_lower(_ value: PairingOffer) -> RustBuffer {
+    return FfiConverterTypePairingOffer.lower(value)
+}
+
+
+/**
+ * A pairing request the Mac has verified, waiting for the user to confirm the code.
+ */
+public struct PairingRequest: Equatable, Hashable {
+    public var peerId: String
+    public var deviceName: String
+    public var model: String
+    public var safetyCode: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(peerId: String, deviceName: String, model: String, safetyCode: String) {
+        self.peerId = peerId
+        self.deviceName = deviceName
+        self.model = model
+        self.safetyCode = safetyCode
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PairingRequest: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePairingRequest: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PairingRequest {
+        return
+            try PairingRequest(
+                peerId: FfiConverterString.read(from: &buf), 
+                deviceName: FfiConverterString.read(from: &buf), 
+                model: FfiConverterString.read(from: &buf), 
+                safetyCode: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PairingRequest, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.peerId, into: &buf)
+        FfiConverterString.write(value.deviceName, into: &buf)
+        FfiConverterString.write(value.model, into: &buf)
+        FfiConverterString.write(value.safetyCode, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePairingRequest_lift(_ buf: RustBuffer) throws -> PairingRequest {
+    return try FfiConverterTypePairingRequest.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePairingRequest_lower(_ value: PairingRequest) -> RustBuffer {
+    return FfiConverterTypePairingRequest.lower(value)
+}
+
+
+/**
+ * The phone's first envelope to the Mac, and the Mac's id.
+ */
+public struct PairingStart: Equatable, Hashable {
+    public var peerId: String
+    public var envelope: Data
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(peerId: String, envelope: Data) {
+        self.peerId = peerId
+        self.envelope = envelope
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PairingStart: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePairingStart: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PairingStart {
+        return
+            try PairingStart(
+                peerId: FfiConverterString.read(from: &buf), 
+                envelope: FfiConverterData.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PairingStart, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.peerId, into: &buf)
+        FfiConverterData.write(value.envelope, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePairingStart_lift(_ buf: RustBuffer) throws -> PairingStart {
+    return try FfiConverterTypePairingStart.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePairingStart_lower(_ value: PairingStart) -> RustBuffer {
+    return FfiConverterTypePairingStart.lower(value)
+}
+
+
+public struct PeerInfo: Equatable, Hashable {
+    public var id: String
+    public var name: String
+    public var relayKey: Data
+    /**
+     * False between a verified pairing request and confirmation; unconfirmed peers aren't saved.
+     */
+    public var confirmed: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, name: String, relayKey: Data, 
+        /**
+         * False between a verified pairing request and confirmation; unconfirmed peers aren't saved.
+         */confirmed: Bool) {
+        self.id = id
+        self.name = name
+        self.relayKey = relayKey
+        self.confirmed = confirmed
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PeerInfo: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePeerInfo: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PeerInfo {
+        return
+            try PeerInfo(
+                id: FfiConverterString.read(from: &buf), 
+                name: FfiConverterString.read(from: &buf), 
+                relayKey: FfiConverterData.read(from: &buf), 
+                confirmed: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PeerInfo, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterData.write(value.relayKey, into: &buf)
+        FfiConverterBool.write(value.confirmed, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeerInfo_lift(_ buf: RustBuffer) throws -> PeerInfo {
+    return try FfiConverterTypePeerInfo.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeerInfo_lower(_ value: PeerInfo) -> RustBuffer {
+    return FfiConverterTypePeerInfo.lower(value)
 }
 
 
@@ -845,15 +1652,32 @@ enum SeamError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
     
     
     /**
-     * The peer was never paired (its identity key wasn't pinned).
+     * The other device isn't paired (or was unpaired).
      */
     case NotPaired
     /**
-     * The peer's key doesn't match the one from pairing: treat as an attack, don't retry.
+     * A key doesn't match the one from pairing: treat as an attack, don't retry.
      */
     case UntrustedIdentity
     /**
-     * Anything else: malformed, tampered or replayed input.
+     * The peer hasn't been confirmed yet, so only pairing messages are allowed.
+     */
+    case NotConfirmed
+    /**
+     * Already received: ack it to the relay and ignore it.
+     */
+    case Duplicate
+    /**
+     * Pairing was refused (wrong or expired code, nothing open, already paired…).
+     */
+    case PairingFailed(reason: String
+    )
+    /**
+     * Saved state can't be opened: wrong storage key or damaged file.
+     */
+    case BadState
+    /**
+     * Anything else: malformed, tampered, misaddressed or unsupported input. Drop it.
      */
     case Invalid(detail: String
     )
@@ -888,7 +1712,13 @@ public struct FfiConverterTypeSeamError: FfiConverterRustBuffer {
         
         case 1: return .NotPaired
         case 2: return .UntrustedIdentity
-        case 3: return .Invalid(
+        case 3: return .NotConfirmed
+        case 4: return .Duplicate
+        case 5: return .PairingFailed(
+            reason: try FfiConverterString.read(from: &buf)
+            )
+        case 6: return .BadState
+        case 7: return .Invalid(
             detail: try FfiConverterString.read(from: &buf)
             )
 
@@ -911,8 +1741,25 @@ public struct FfiConverterTypeSeamError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         
         
-        case let .Invalid(detail):
+        case .NotConfirmed:
             writeInt(&buf, Int32(3))
+        
+        
+        case .Duplicate:
+            writeInt(&buf, Int32(4))
+        
+        
+        case let .PairingFailed(reason):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(reason, into: &buf)
+            
+        
+        case .BadState:
+            writeInt(&buf, Int32(6))
+        
+        
+        case let .Invalid(detail):
+            writeInt(&buf, Int32(7))
             FfiConverterString.write(detail, into: &buf)
             
         }
@@ -933,48 +1780,63 @@ public func FfiConverterTypeSeamError_lift(_ buf: RustBuffer) throws -> SeamErro
 public func FfiConverterTypeSeamError_lower(_ value: SeamError) -> RustBuffer {
     return FfiConverterTypeSeamError.lower(value)
 }
-public func chunkSize() -> UInt32  {
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceData: FfiConverterRustBuffer {
+    typealias SwiftType = [Data]
+
+    public static func write(_ value: [Data], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterData.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Data] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [Data]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterData.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePeerInfo: FfiConverterRustBuffer {
+    typealias SwiftType = [PeerInfo]
+
+    public static func write(_ value: [PeerInfo], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePeerInfo.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PeerInfo] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PeerInfo]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePeerInfo.read(from: &buf))
+        }
+        return seq
+    }
+}
+/**
+ * File bytes per chunk (everything but the last chunk must be exactly this size).
+ */
+public func chunkDataSize() -> UInt32  {
     return try!  FfiConverterUInt32.lift(try! rustCall() {
         uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_chunk_size(uniffiCallStatus
-    )
-})
-}
-public func newFileId() -> Data  {
-    return try!  FfiConverterData.lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_new_file_id(uniffiCallStatus
-    )
-})
-}
-public func newFileKey() -> Data  {
-    return try!  FfiConverterData.lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_new_file_key(uniffiCallStatus
-    )
-})
-}
-public func openChunk(key: Data, fileId: Data, index: UInt32, last: Bool, sealed: Data)throws  -> Data  {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_open_chunk(
-        FfiConverterData.lower(key),
-        FfiConverterData.lower(fileId),
-        FfiConverterUInt32.lower(index),
-        FfiConverterBool.lower(last),
-        FfiConverterData.lower(sealed),uniffiCallStatus
-    )
-})
-}
-public func sealChunk(key: Data, fileId: Data, index: UInt32, last: Bool, plain: Data)throws  -> Data  {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_seal_chunk(
-        FfiConverterData.lower(key),
-        FfiConverterData.lower(fileId),
-        FfiConverterUInt32.lower(index),
-        FfiConverterBool.lower(last),
-        FfiConverterData.lower(plain),uniffiCallStatus
+    uniffi_seam_ffi_fn_func_chunk_data_size(uniffiCallStatus
     )
 })
 }
@@ -994,40 +1856,91 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_chunk_size() != 55450) {
+    if (uniffi_seam_ffi_checksum_func_chunk_data_size() != 5213) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_new_file_id() != 50796) {
+    if (uniffi_seam_ffi_checksum_method_filereceiver_finish() != 55133) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_new_file_key() != 16379) {
+    if (uniffi_seam_ffi_checksum_method_filereceiver_open_next() != 22677) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_open_chunk() != 22119) {
+    if (uniffi_seam_ffi_checksum_method_filesealer_file_id() != 44702) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_seal_chunk() != 39026) {
+    if (uniffi_seam_ffi_checksum_method_filesealer_key() != 2065) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_decrypt() != 31144) {
+    if (uniffi_seam_ffi_checksum_method_filesealer_seal_next() != 34290) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_encrypt() != 64647) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() != 62568) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 51916) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() != 4348) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_confirm_pairing() != 49616) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_export_state() != 4850) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_id() != 27846) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_identity_key() != 47370) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_pin_peer() != 14405) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_open() != 5951) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundle() != 52178) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_pair_with() != 17484) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_start_session() != 5015) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_peers() != 46298) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_constructor_seamdevice_new() != 28732) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundles() != 52402) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_reject_pairing() != 50480) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_relay_key() != 25316) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_remove_peer() != 46663) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_safety_code() != 38571) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_seal() != 4361) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() != 38592) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() != 30714) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_start_pairing() != 54107) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_filereceiver_new() != 31203) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_filesealer_new() != 36088) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_seamdevice_generate() != 39377) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_seamdevice_restore() != 15264) {
         return InitializationResult.apiChecksumMismatch
     }
 

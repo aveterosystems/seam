@@ -19,4 +19,22 @@ pub enum Error {
     NotPaired,
     #[error("file chunk failed to decrypt (tampered, reordered or wrong key)")]
     BadChunk,
+    #[error("malformed protobuf: {0}")]
+    Decode(#[from] prost::DecodeError),
+    #[error("malformed message: {0}")]
+    Malformed(&'static str),
+    #[error("unsupported protocol version {0}")]
+    UnsupportedVersion(u32),
+    #[error("envelope isn't addressed to this device")]
+    NotForMe,
+    #[error("envelope doesn't match its encrypted contents")]
+    EnvelopeMismatch,
+    #[error("peer isn't confirmed yet: only pairing messages allowed")]
+    NotConfirmed,
+    #[error("already received")]
+    Duplicate,
+    #[error("pairing failed: {0}")]
+    BadPairing(&'static str),
+    #[error("saved state can't be opened (wrong key or damaged)")]
+    BadState,
 }

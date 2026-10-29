@@ -14,12 +14,16 @@ import "seam/v1/status.proto";
 option java_multiple_files = true;
 option java_package = "com.avetero.seam.protocol.v1";
 
-// What actually gets encrypted. msg_id and sent_at must match the envelope, or the receiver
-// drops the message: this binds the plaintext envelope to the ciphertext.
+// What actually gets encrypted. Every routing field is repeated here and must match the
+// envelope, or the receiver drops the message: this binds the plaintext envelope to the
+// ciphertext, so a relay can't re-address, re-time or re-route it.
 message Inner {
   bytes msg_id = 1;
   int64 sent_at = 2;
   Payload payload = 3;
+  bytes from = 4;
+  bytes to = 5;
+  uint32 ttl_s = 6;
 }
 
 // One case per feature message. Each feature owns a block of ten numbers; a new feature takes

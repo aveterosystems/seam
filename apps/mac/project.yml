@@ -20,6 +20,8 @@ packages:
     path: Packages/SeamCore
   SeamProtocol:
     path: Packages/SeamProtocol
+  SeamSession:
+    path: Packages/SeamSession
 
 targets:
   Seam:
@@ -29,6 +31,7 @@ targets:
     dependencies:
       - package: SeamCore
       - package: SeamProtocol
+      - package: SeamSession
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.avetero.seam
@@ -39,4 +42,8 @@ targets:
         # Menu bar only: no Dock icon, no main window until asked for
         INFOPLIST_KEY_LSUIElement: YES
         INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Avetero. Licensed under AGPL-3.0."
+      configs:
+        # Local networking for dev relays (plain ws://) in Debug only; Release has no ATS exception
+        Debug:
+          INFOPLIST_FILE: Config/Debug-Info.plist
     scheme: {}

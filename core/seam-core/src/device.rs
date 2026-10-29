@@ -6,17 +6,21 @@
 //! leaked key. Peers must be pinned first (from the pairing QR code): Seam never trusts a key
 //! it sees for the first time inside a message.
 
+use std::collections::BTreeMap;
 use std::time::SystemTime;
+
+use ed25519_dalek::SigningKey;
 
 use futures::executor::block_on;
 use libsignal_protocol::{
     CiphertextMessage, CiphertextMessageType, DeviceId, GenericSignedPreKey, IdentityKey,
     IdentityKeyPair, IdentityKeyStore, InMemSignalProtocolStore, KeyPair, KyberPreKeyRecord,
     KyberPreKeyStore, PreKeyBundle, PreKeyRecord, PreKeySignalMessage, PreKeyStore,
-    ProtocolAddress, SignalMessage, SignalProtocolError, SignedPreKeyRecord, SignedPreKeyStore,
-    Timestamp, kem,
+    ProtocolAddress, SessionRecord, SessionStore, SignalMessage, SignalProtocolError,
+    SignedPreKeyRecord, SignedPreKeyStore, Timestamp, kem,
 };
-use rand::Rng;
+use rand::{Rng, RngCore};
+use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, padding};
 
@@ -27,28 +31,147 @@ pub struct Sealed {
     pub bytes: Vec<u8>,
 }
 
+/// A paired device, as Seam knows it. The peers map is the only source of trust: a device
+/// that isn't in it can't be sealed to, opened from, or used for a session, whatever
+/// libsignal's store still holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Peer {
+    pub identity_key: Vec<u8>,
+    pub relay_key: [u8; 32],
+    pub name: String,
+    /// False between a verified pairing request and the user's confirmation (or, on the phone,
+    /// the Mac's PairAccept). Unconfirmed peers may only exchange pairing messages, and are
+    /// never saved, so a restart mid-pairing forgets them.
+    pub confirmed: bool,
+}
+
 pub struct Device {
-    address: ProtocolAddress,
-    // shortcut: in-memory stores only; persist SessionRecord/prekeys (encrypted under the hardware key) in M1
-    store: InMemSignalProtocolStore,
-    next_prekey_id: u32,
+    pub(crate) address: ProtocolAddress,
+    // In memory while running; saved and restored as one sealed blob (state.rs)
+    pub(crate) store: InMemSignalProtocolStore,
+    pub(crate) next_prekey_id: u32,
+    pub(crate) relay_key: SigningKey,
+    pub(crate) peers: BTreeMap<String, Peer>,
+    pub(crate) pending_pairing: Option<crate::pairing::PendingPairing>,
+    /// Phone side: the Mac this device asked to pair with. Only its PairAccept confirms it; a
+    /// PairAccept from anyone else (on the Mac, from the phone itself) confirms nothing (SR-2-56).
+    pub(crate) awaiting_accept: Option<String>,
+    /// Opaque bytes the app keeps sealed alongside the keys (its group id and relay URL), so
+    /// they can never drift apart from the identity they belong to.
+    pub(crate) app_data: Vec<u8>,
 }
 
 impl Device {
-    /// A new device with a fresh identity. `name` is its device id (a hash of the identity key in the app).
-    pub fn new(name: &str) -> Result<Self> {
+    /// A new device: fresh identity, registration id and relay-login key.
+    pub fn generate() -> Result<Self> {
         let mut rng = rand::rng();
         let identity = IdentityKeyPair::generate(&mut rng);
         let registration_id = rng.random_range(1..16380);
+        let mut seed = [0u8; 32];
+        rng.fill_bytes(&mut seed);
+        Self::from_parts(identity, registration_id, 1, SigningKey::from_bytes(&seed))
+    }
+
+    pub(crate) fn from_parts(
+        identity: IdentityKeyPair,
+        registration_id: u32,
+        next_prekey_id: u32,
+        relay_key: SigningKey,
+    ) -> Result<Self> {
         Ok(Self {
-            address: peer_address(name),
+            address: peer_address(&device_id_for(&identity.identity_key().serialize())),
             store: InMemSignalProtocolStore::new(identity, registration_id)?,
-            next_prekey_id: 1,
+            next_prekey_id,
+            relay_key,
+            peers: BTreeMap::new(),
+            pending_pairing: None,
+            awaiting_accept: None,
+            app_data: Vec::new(),
         })
     }
 
     pub fn address(&self) -> &ProtocolAddress {
         &self.address
+    }
+
+    /// This device's id: derived from its identity key, so it can't be chosen or spoofed.
+    pub fn id(&self) -> &str {
+        self.address.name()
+    }
+
+    pub fn peers(&self) -> &BTreeMap<String, Peer> {
+        &self.peers
+    }
+
+    /// Record a confirmed paired device (keys learned out of band) and pin its identity key.
+    /// Any session left from an earlier pairing with it is discarded. Returns its id.
+    pub fn add_peer(
+        &mut self,
+        identity_key: &[u8],
+        relay_key: [u8; 32],
+        name: &str,
+    ) -> Result<String> {
+        self.insert_peer(identity_key, relay_key, name, true)
+    }
+
+    pub(crate) fn insert_peer(
+        &mut self,
+        identity_key: &[u8],
+        relay_key: [u8; 32],
+        name: &str,
+        confirmed: bool,
+    ) -> Result<String> {
+        let id = device_id_for(identity_key);
+        let address = peer_address(&id);
+        self.pin_peer(&address, identity_key)?;
+        self.reset_session(&address)?;
+        self.peers.insert(
+            id.clone(),
+            Peer {
+                identity_key: identity_key.to_vec(),
+                relay_key,
+                name: sanitize_name(name),
+                confirmed,
+            },
+        );
+        Ok(id)
+    }
+
+    /// Mark a peer confirmed (the user compared the safety code). Until then it can only pair.
+    pub fn confirm_peer(&mut self, peer_id: &str) -> Result<()> {
+        self.peers
+            .get_mut(peer_id)
+            .ok_or(Error::NotPaired)?
+            .confirmed = true;
+        Ok(())
+    }
+
+    /// Forget a peer: its session is wiped and it can no longer be sealed to, opened from, or
+    /// started a session with.
+    pub fn remove_peer(&mut self, peer_id: &str) {
+        if self.awaiting_accept.as_deref() == Some(peer_id) {
+            self.awaiting_accept = None;
+        }
+        if self.peers.remove(peer_id).is_some() {
+            let _ = self.reset_session(&peer_address(peer_id));
+        }
+    }
+
+    pub(crate) fn reset_session(&mut self, address: &ProtocolAddress) -> Result<()> {
+        block_on(
+            self.store
+                .session_store
+                .store_session(address, &SessionRecord::new_fresh()),
+        )?;
+        Ok(())
+    }
+
+    pub fn app_data(&self) -> &[u8] {
+        &self.app_data
+    }
+
+    pub fn set_app_data(&mut self, data: &[u8]) {
+        self.app_data = data.to_vec();
     }
 
     /// This device's public identity key, as it goes into the pairing QR code.
@@ -58,8 +181,9 @@ impl Device {
         pair.identity_key().serialize().to_vec()
     }
 
-    /// Trust `peer`'s identity key, learned out of band at pairing. Required before any session.
-    pub fn pin_peer(&mut self, peer: &ProtocolAddress, identity_key: &[u8]) -> Result<()> {
+    /// Pin `peer`'s identity key in libsignal's store. On its own this grants no trust: only
+    /// peers in the peers map are accepted (see `require_pinned`).
+    pub(crate) fn pin_peer(&mut self, peer: &ProtocolAddress, identity_key: &[u8]) -> Result<()> {
         let key = IdentityKey::decode(identity_key)?;
         block_on(self.store.identity_store.save_identity(peer, &key))?;
         Ok(())
@@ -134,6 +258,7 @@ impl Device {
 
     /// Pad and encrypt `plaintext` for `peer`.
     pub fn encrypt(&mut self, peer: &ProtocolAddress, plaintext: &[u8]) -> Result<Sealed> {
+        self.require_pinned(peer)?;
         let padded = padding::pad(plaintext)?;
         let s = &mut self.store;
         let msg = block_on(libsignal_protocol::message_encrypt(
@@ -155,6 +280,16 @@ impl Device {
     /// identities all fail.
     pub fn decrypt(&mut self, peer: &ProtocolAddress, sealed: &Sealed) -> Result<Vec<u8>> {
         self.require_pinned(peer)?;
+        self.decrypt_unchecked(peer, sealed)
+    }
+
+    /// Decrypt without the peers-map gate: only for a pairing request, whose sender is pinned in
+    /// libsignal for this one decryption and trusted only once its token checks out.
+    pub(crate) fn decrypt_unchecked(
+        &mut self,
+        peer: &ProtocolAddress,
+        sealed: &Sealed,
+    ) -> Result<Vec<u8>> {
         let msg = match sealed.kind {
             k if k == CiphertextMessageType::PreKey as u8 => {
                 CiphertextMessage::PreKeySignalMessage(PreKeySignalMessage::try_from(
@@ -181,10 +316,12 @@ impl Device {
         padding::unpad(&padded)
     }
 
+    /// The single trust gate: only peers in the peers map, never what libsignal's store holds.
     fn require_pinned(&self, peer: &ProtocolAddress) -> Result<()> {
-        match block_on(self.store.identity_store.get_identity(peer))? {
-            Some(_) => Ok(()),
-            None => Err(Error::NotPaired),
+        if self.peers.contains_key(peer.name()) {
+            Ok(())
+        } else {
+            Err(Error::NotPaired)
         }
     }
 }
@@ -194,12 +331,30 @@ fn device_id() -> DeviceId {
     DeviceId::try_from(1u8).expect("1 is a valid device id")
 }
 
+/// Names come from the other device: at most 64 characters, no control or bidi-override
+/// characters, so they can't spoof the pairing prompt or a terminal.
+pub(crate) fn sanitize_name(name: &str) -> String {
+    let bidi = |c: char| matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{200E}' | '\u{200F}');
+    name.chars()
+        .filter(|&c| !c.is_control() && !bidi(c))
+        .take(64)
+        .collect::<String>()
+        .trim()
+        .to_owned()
+}
+
+/// A device id: the first 16 bytes of SHA-256 over the identity key, in hex.
+pub fn device_id_for(identity_key: &[u8]) -> String {
+    let digest = Sha256::digest(identity_key);
+    digest[..16].iter().map(|b| format!("{b:02x}")).collect()
+}
+
 /// The libsignal address for a Seam device id.
 pub fn peer_address(name: &str) -> ProtocolAddress {
     ProtocolAddress::new(name.to_owned(), device_id())
 }
 
-fn now_millis() -> u64 {
+pub(crate) fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)

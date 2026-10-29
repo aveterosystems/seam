@@ -36,14 +36,14 @@ export type Envelope = Message<"seam.v1.Envelope"> & {
   msgId: Uint8Array;
 
   /**
-   * sender's rotating mailbox id (not the device id)
+   * sender's relay key (rotating mailbox ids are planned); repeated inside the ciphertext
    *
    * @generated from field: bytes from = 3;
    */
   from: Uint8Array;
 
   /**
-   * recipient's rotating mailbox id
+   * recipient's relay key; repeated inside the ciphertext
    *
    * @generated from field: bytes to = 4;
    */
@@ -57,7 +57,7 @@ export type Envelope = Message<"seam.v1.Envelope"> & {
   sentAt: bigint;
 
   /**
-   * relay drops it after this; 0 = relay default (24 h)
+   * relay drops it after this; 0 = relay default (24 h); repeated inside the ciphertext
    *
    * @generated from field: uint32 ttl_s = 6;
    */

@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// seam-core's own saved state. Internal to the core, never sent anywhere: it's sealed with
+// AES-256-GCM under the app's hardware-protected storage key before it touches disk.
+syntax = "proto3";
+
+package seam.state.v1;
+
+message State {
+  bytes identity_key_pair = 1; // libsignal IdentityKeyPair
+  uint32 registration_id = 2;
+  uint32 next_prekey_id = 3;
+  bytes relay_key_seed = 4; // Ed25519 seed for relay login
+  repeated Peer peers = 5;
+  repeated bytes prekeys = 6; // PreKeyRecord
+  repeated bytes signed_prekeys = 7; // SignedPreKeyRecord
+  repeated bytes kyber_prekeys = 8; // KyberPreKeyRecord
+  bytes app_data = 9; // the app's own settings (group id, relay URL), sealed with the keys
+}
+
+message Peer {
+  string id = 1;
+  bytes identity_key = 2;
+  bytes relay_key = 3;
+  string name = 4;
+  bytes session = 5; // SessionRecord; empty before the first message
+}

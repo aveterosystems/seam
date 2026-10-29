@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+plugins {
+    alias(libs.plugins.seam.android.library)
+}
+
+android {
+    namespace = "com.avetero.seam.session"
+}
+
+// Session tests pair and talk through the real Rust core, built for this machine by core:crypto
+val coreDir = rootDir.resolve("../../core")
+tasks.withType<Test>().configureEach {
+    dependsOn(":core:crypto:cargoHost")
+    systemProperty("jna.library.path", coreDir.resolve("target/debug").path)
+}
+
+dependencies {
+    api(project(":core:crypto"))
+    api(project(":core:protocol"))
+    api(libs.coroutines.android)
+    api(libs.okhttp)
+    testImplementation(libs.junit)
+    testImplementation(libs.jna)
+    testImplementation(libs.coroutines.test)
+}

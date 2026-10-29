@@ -49,8 +49,9 @@ message Unpair {}
 // The phone's first message after scanning the QR code, proving it holds the one-time token.
 message PairRequest {
   bytes pairing_token = 1;
-  string device_name = 2; // "Pixel 9"
+  string device_name = 2; // "Pixel 9", at most 64 characters, no control characters
   string model = 3;
+  bytes relay_key = 4; // the phone's relay key, inside the encryption: must equal Envelope.from
 }
 
 // The user confirmed the code on the Mac.
