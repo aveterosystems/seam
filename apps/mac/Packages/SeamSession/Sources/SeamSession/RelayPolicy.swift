@@ -5,8 +5,8 @@ import Foundation
 /// `ws://` is for Debug builds against a local `wrangler dev`.
 public enum RelayPolicy {
     public static let developmentURL = URL(string: "ws://localhost:8787")!
-    /// The production relay. Set to the deployed relay's address before the first release build.
-    public static let productionURL = URL(string: "wss://relay.seam.invalid")!
+    /// The production relay (server/README.md, "Deploying"). Changes when a custom domain is added.
+    public static let productionURL = URL(string: "wss://relay.avetero.com")!
 
     /// The first acceptable candidate, else the build's default. Never crashes on odd input.
     public static func resolve(_ candidates: [String?], allowInsecure: Bool) -> URL {

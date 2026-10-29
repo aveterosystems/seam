@@ -5,7 +5,7 @@
 //! it prints lengths only, never what was copied.
 //!
 //!     cargo run -p seam-dev -- ws://localhost:8787          (relay from `wrangler dev`)
-//!     cargo run -p seam-dev -- wss://seam-relay.mattbeechey.workers.dev   (the deployed relay)
+//!     cargo run -p seam-dev -- wss://relay.avetero.com   (the deployed relay)
 //!
 //! With the phone on USB, `adb reverse tcp:8787 tcp:8787` lets it reach the same URL.
 //! State lives in core/target/seam-dev/; delete that folder to start over.
