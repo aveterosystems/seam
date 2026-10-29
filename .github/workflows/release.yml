@@ -101,7 +101,7 @@ jobs:
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false, sparse-checkout: release }
+        with: { persist-credentials: false, sparse-checkout: "release\nscripts" }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: android-unsigned, path: in }
       - name: Align, sign with Seam's key, check it's the pinned one
@@ -110,23 +110,12 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           VERSION: ${{ needs.versions.outputs.version }}
         run: |
-          tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 | sort -V | tail -1)"
           keys="$(mktemp -d)"
           trap 'rm -rf "$keys"' EXIT
-          (umask 077; base64 -d <<< "$KEYSTORE_BASE64" > "$keys/release.p12"; printf '%s' "$KEYSTORE_PASSWORD" > "$keys/password")
-          "$tools/zipalign" -P 16 -f 4 in/unsigned.apk "$keys/aligned.apk"
+          (umask 077; base64 -d <<< "$KEYSTORE_BASE64" > "$keys/release.p12")
           mkdir -p dist
-          apk="dist/Seam-$VERSION-android.apk"
-          "$tools/apksigner" sign --ks "$keys/release.p12" --ks-key-alias seam \
-            --ks-pass "file:$keys/password" --key-pass "file:$keys/password" \
-            --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true \
-            --out "$apk" "$keys/aligned.apk"
-          "$tools/apksigner" verify --min-sdk-version 31 "$apk"
-          "$tools/apksigner" verify --print-certs "$apk" > "$keys/certs.txt"
-          test "$(grep -c '^Signer #' "$keys/certs.txt")" -eq 1
-          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$keys/certs.txt")"
-          expected="$(tr -d '[:space:]' < release/android-certificate.sha256)"
-          if [ "$actual" != "$expected" ]; then echo "Signed with $actual, not the pinned $expected" >&2; exit 1; fi
+          ANDROID_KEYSTORE="$keys/release.p12" ANDROID_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD" \
+            scripts/sign-android-apk.sh in/unsigned.apk "dist/Seam-$VERSION-android.apk"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: android, path: dist/, if-no-files-found: error, retention-days: 7 }
 
