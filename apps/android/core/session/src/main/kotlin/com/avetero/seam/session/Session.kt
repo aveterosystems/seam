@@ -46,6 +46,8 @@ class Session(
     private val scope: CoroutineScope,
     private val wait: suspend (Long) -> Unit = { delay(it) },
     private val now: () -> Long = System::currentTimeMillis,
+    /** Debug builds only: the connection manager's decisions, never content, keys or addresses. */
+    private val trace: (String) -> Unit = {},
 ) : SessionApi {
     private val _state = MutableStateFlow<SessionState>(SessionState.Unpaired)
     val state: StateFlow<SessionState> = _state
@@ -159,6 +161,10 @@ class Session(
      */
     private fun reconsider(connect: Boolean = true) {
         val m = mac ?: return
+        trace(
+            "reconsider connect=$connect screen=$screenOn charging=$charging urgent=${outbox.count { it.payload.bodyCase !in LAZY }} " +
+                "sinceActivity=${now() - lastActivity}ms link=${link != null} pairing=${pairing != null} state=${_state.value::class.simpleName}",
+        )
         if (pairing != null || storageBlocked || _state.value is SessionState.Failed) return
         if (wanted()) {
             if (connect && link == null && reconnect?.isActive != true) {
@@ -173,6 +179,7 @@ class Session(
 
     /** Closes the connection on purpose: no reconnect until something wants one. */
     private fun sleep(m: PeerInfo) {
+        trace("sleep: closing the idle connection")
         stable?.cancel()
         reconnect?.cancel()
         generation++ // so this socket's close callback doesn't count as a drop

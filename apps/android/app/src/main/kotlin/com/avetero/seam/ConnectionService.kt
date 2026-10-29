@@ -61,12 +61,24 @@ class ConnectionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
     override fun onBind(intent: Intent?) = null
 
+    private val idleWake by lazy {
+        getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "seam:idle-check").apply {
+            setReferenceCounted(false)
+        }
+    }
+
     private val power = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val session = (application as SeamApplication).session
             when (intent.action) {
                 Intent.ACTION_SCREEN_ON -> session.setScreenOn(true)
-                Intent.ACTION_SCREEN_OFF -> session.setScreenOn(false)
+                Intent.ACTION_SCREEN_OFF -> {
+                    // With the screen off Android suspends the CPU within seconds, and the session's
+                    // one-minute idle check would only run at the next unrelated wake-up, leaving the
+                    // connection open. Stay awake just long enough for it, then let go by itself.
+                    idleWake.acquire(IDLE_CHECK_MS)
+                    session.setScreenOn(false)
+                }
                 Intent.ACTION_POWER_CONNECTED -> session.setCharging(true)
                 Intent.ACTION_POWER_DISCONNECTED -> session.setCharging(false)
             }
@@ -75,6 +87,7 @@ class ConnectionService : Service() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(power) }
+        if (idleWake.isHeld) idleWake.release()
         AutoClipboard.stop(this)
         scope.cancel()
         super.onDestroy()
@@ -93,6 +106,8 @@ class ConnectionService : Service() {
 
     companion object {
         private const val CHANNEL = "connection"
+        /** The session's one-minute idle window (Session.IDLE_MS) plus a little margin. */
+        private const val IDLE_CHECK_MS = 65_000L
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ConnectionService::class.java))
     }
