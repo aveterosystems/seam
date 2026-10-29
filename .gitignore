@@ -42,3 +42,7 @@ google-services.json
 GoogleService-Info.plist
 .env
 .env.*
+
+# Rust
+target/
+spikes/clipboard/mac/results.csv

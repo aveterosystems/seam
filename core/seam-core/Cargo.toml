@@ -1,0 +1,15 @@
+[package]
+name = "seam-core"
+version = "0.1.0"
+description = "Seam's end-to-end encryption core, built on libsignal"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Pinned to a release tag; bump deliberately and re-run the test vectors
+libsignal-protocol = { git = "https://github.com/signalapp/libsignal", tag = "v0.106.1" }
+aes-gcm = "0.10"
+futures = "0.3"
+rand = "0.9.4"
+thiserror = "2"
