@@ -14,4 +14,5 @@ base64 = "0.22"
 prost = "0.14"
 qrcode = { version = "0.14", default-features = false }
 rand = "0.9.4"
-tungstenite = "0.30"
+tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "ring"] }

@@ -5,6 +5,7 @@
 //! it prints lengths only, never what was copied.
 //!
 //!     cargo run -p seam-dev -- ws://localhost:8787          (relay from `wrangler dev`)
+//!     cargo run -p seam-dev -- wss://seam-relay.mattbeechey.workers.dev   (the deployed relay)
 //!
 //! With the phone on USB, `adb reverse tcp:8787 tcp:8787` lets it reach the same URL.
 //! State lives in core/target/seam-dev/; delete that folder to start over.
@@ -29,6 +30,8 @@ use tungstenite::{Message as Ws, WebSocket, stream::MaybeTlsStream};
 type Socket = WebSocket<MaybeTlsStream<std::net::TcpStream>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // wss:// needs a TLS crypto backend; ring is the one already in the build
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let relay = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "ws://localhost:8787".into());
@@ -110,8 +113,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Wake twice a second to check the Mac clipboard
-    if let MaybeTlsStream::Plain(tcp) = ws.get_ref() {
-        tcp.set_read_timeout(Some(std::time::Duration::from_millis(500)))?;
+    let tick = Some(std::time::Duration::from_millis(500));
+    match ws.get_ref() {
+        MaybeTlsStream::Plain(tcp) => tcp.set_read_timeout(tick)?,
+        MaybeTlsStream::Rustls(tls) => tls.get_ref().set_read_timeout(tick)?,
+        _ => {}
     }
     let mut clip = Clip {
         seen: pbpaste(),
