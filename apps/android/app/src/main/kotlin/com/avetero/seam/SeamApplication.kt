@@ -5,6 +5,7 @@ import android.app.Application
 import android.os.Build
 import android.provider.Settings
 import com.avetero.seam.feature.StatusFeature
+import com.avetero.seam.feature.clipboard.ClipboardFeature
 import com.avetero.seam.session.KeystoreStateStore
 import com.avetero.seam.session.OkHttpRelayConnector
 import com.avetero.seam.session.Session
@@ -18,6 +19,8 @@ import kotlinx.coroutines.SupervisorJob
 /** Owns the one Session for the process; the UI and ConnectionService just watch it. */
 class SeamApplication : Application() {
     lateinit var session: Session
+        private set
+    lateinit var clipboard: ClipboardFeature
         private set
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -37,6 +40,7 @@ class SeamApplication : Application() {
             ),
         )
         session.register(StatusFeature(this))
+        clipboard = ClipboardFeature(this, session).also(session::register)
         session.start()
     }
 }

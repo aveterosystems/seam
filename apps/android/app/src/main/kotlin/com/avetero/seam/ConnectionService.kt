@@ -9,6 +9,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import com.avetero.seam.feature.clipboard.AutoClipboard
 import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Keeps the process (and so the Session's relay connection) alive while paired, with a quiet,
- * minimum-priority notification Android requires. Battery-friendly wake-ups replace this in M2.
+ * minimum-priority notification Android requires. Battery-friendly wake-ups replace this later. Also hosts automatic clipboard.
  */
 class ConnectionService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -28,7 +29,9 @@ class ConnectionService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Connection to your Mac", NotificationManager.IMPORTANCE_MIN))
         startForeground(1, notification("Starting…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
-        val session = (application as SeamApplication).session
+        val app = application as SeamApplication
+        val session = app.session
+        AutoClipboard.start(this, app.clipboard) // full builds, once the Mac has granted log access
         scope.launch {
             session.state.collect { state ->
                 when (state) {
@@ -45,6 +48,7 @@ class ConnectionService : Service() {
     override fun onBind(intent: Intent?) = null
 
     override fun onDestroy() {
+        AutoClipboard.stop(this)
         scope.cancel()
         super.onDestroy()
     }

@@ -3,6 +3,7 @@ package com.avetero.seam
 
 import android.Manifest
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -18,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.avetero.seam.feature.PairingScanner
 import com.avetero.seam.feature.ScanResult
+import com.avetero.seam.feature.clipboard.AutoClipboard
 import com.avetero.seam.session.PairingQr
 import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.launch
@@ -26,7 +28,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        val session = (application as SeamApplication).session
+        val app = application as SeamApplication
+        val session = app.session
         if (session.state.value != SessionState.Unpaired) ConnectionService.start(this)
 
         setContent {
@@ -36,6 +39,7 @@ class MainActivity : ComponentActivity() {
                 val state by session.state.collectAsStateWithLifecycle()
                 val scope = rememberCoroutineScope()
                 val notice by session.notice.collectAsStateWithLifecycle()
+                val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
                 var scanError by remember { mutableStateOf<String?>(null) }
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 SeamScreen(
@@ -48,6 +52,16 @@ class MainActivity : ComponentActivity() {
                         ConnectionService.start(this@MainActivity)
                     },
                     onCancelConfirm = { scanned = null },
+                    clipboard = when {
+                        AutoClipboard.available(this@MainActivity) -> ClipboardStatus.Automatic
+                        BuildConfig.FLAVOR == "full" -> ClipboardStatus.NeedsSetup
+                        else -> ClipboardStatus.Manual
+                    },
+                    fromMac = fromMac,
+                    onSendClipboard = {
+                        // Seam has focus here, so Android allows the read
+                        Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()
+                    },
                     onScan = {
                         scope.launch {
                             scanError = when (val r = PairingScanner.scan(this@MainActivity, BuildConfig.DEBUG)) {
