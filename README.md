@@ -20,7 +20,16 @@
 
 ---
 
-> **Status: early development.** The foundations are in place and tested: the encryption core, the message format, both app shells and CI. The features below are being built milestone by milestone. Seam isn't ready for everyday use yet.
+> **Status: first release (0.1.0).** Pairing, clipboard both ways and the phone's battery on the Mac work, end to end encrypted through the Seam relay. Everything else below is being built milestone by milestone. It's an early release: expect rough edges.
+
+## Install
+
+Download both apps from the [latest release](https://github.com/aveterosystems/seam/releases/latest), then open Seam on the Mac and scan its code with the phone.
+
+- **Android 12 or later:** open `Seam-<version>-android.apk` on the phone and allow the install.
+- **macOS 14 or later** (Apple silicon or Intel): unzip `Seam-<version>-mac.zip` and drag Seam to Applications. Seam isn't notarized by Apple yet, so the first time you open each version macOS blocks it: open **System Settings › Privacy & Security** and click **Open Anyway**.
+
+Each release says how to check that the files were built by this repository's release workflow and signed with Seam's keys.
 
 ## What it does
 
@@ -28,9 +37,9 @@
 |---|---|---|
 | 🔔 | **Phone notifications on your Mac**, in Notification Centre, with reply and dismiss that sync both ways | Planned |
 | 💬 | **Texts on your Mac**: read and reply from the menu bar or a full Messages window | Planned |
-| 📋 | **Clipboard both ways, automatically**: copy on one, paste on the other | Proven on a Galaxy S25 Ultra |
+| 📋 | **Clipboard both ways**: Mac to phone automatically; phone to Mac automatically in the GitHub build after a one-time setup from the Mac, otherwise one tap | In 0.1.0 |
 | 📁 | **Files in either direction**: share sheet, drag onto the menu bar, or the phone in Finder | Planned |
-| 🔋 | **Battery and status** at a glance, plus a desktop widget | Planned |
+| 🔋 | **Battery and status**: the phone's battery in the Mac's menu bar; a desktop widget later | Battery in 0.1.0 |
 | 📣 | **Ring my phone** from the Mac, even on silent | Planned |
 
 It's designed to feel native on both sides: a menu bar app that follows macOS's own look on the Mac, and Material 3 on Android. It uses the system's own surfaces (Notification Centre, the Share menu, Quick Settings) instead of making you open an app.
@@ -42,7 +51,7 @@ flowchart LR
     subgraph You["Your devices: the only place anything is readable"]
         Mac["Seam for Mac"]
         Phone["Seam for Android"]
-        Mac <-- "same Wi‑Fi:<br/>direct and fast" --> Phone
+        Mac <-. "same Wi‑Fi:<br/>direct (planned)" .-> Phone
     end
     Relay["Seam relay<br/>a blind postman"]
     Mac <-- "sealed envelopes" --> Relay
@@ -50,8 +59,8 @@ flowchart LR
 ```
 
 - **Pair once with a QR code.** The phone scans the Mac's screen. That's the whole setup: no accounts, emails or passwords.
-- **Same Wi‑Fi?** The devices talk directly. **Apart?** Sealed messages go through the relay, which queues them until the other device wakes.
-- **You choose.** Automatic (the default), **Local only** (nothing ever leaves your network), **Internet only**, or **your own self-hosted relay**. The encryption is identical in every mode.
+- **Through the relay today.** Sealed messages go through the relay, which queues them until the other device connects. The phone connects only when there's something to send or receive, to save battery.
+- **Planned:** a direct link when both are on the same Wi‑Fi, and a choice of Automatic, **Local only** (nothing leaves your network), **Internet only** or **your own self-hosted relay**. The encryption is identical in every mode.
 
 ## Security
 
@@ -64,11 +73,12 @@ flowchart LR
 
 - **The Signal Protocol**, through Signal's own [libsignal](https://github.com/signalapp/libsignal), including its latest **post-quantum** protection (PQXDH and the triple ratchet). Seam has no home-made cryptography.
 - **One shared core.** The encryption is written once in Rust and used by both apps, so there's no second copy to get subtly wrong.
-- **Keys never leave your devices.** They're created on-device and stored encrypted under the Secure Enclave or Android's hardware keystore.
+- **Keys never leave your devices.** They're created on-device and stored encrypted: on Android under a key in the hardware keystore, on the Mac under a key in your login keychain (moving to the Secure Enclave is planned).
 - **Pinned at pairing.** Each device trusts exactly one key, the one it learned from the QR code. A server can't slip itself in between.
 - **Every message gets its own key**, and old keys are deleted. A leaked key opens one message, not your history.
-- **Fixed-size padding**, **empty push notifications** and **a relay that logs no IP addresses or contents** keep metadata to a minimum.
-- **Every security claim is tested**, from Rust, Swift and Kotlin. An independent audit is planned before 1.0.
+- **Fixed-size padding** and **a relay that logs no IP addresses or contents** keep metadata to a minimum (Cloudflare, which hosts the relay, still sees IP addresses at its network edge). Push notifications, when they arrive, will be empty: no content, no sender.
+- **Signed releases you can check.** Each release is built by GitHub Actions from a tag on `main`, signed with Seam's own pinned keys, and carries build attestations.
+- **Security properties are tested** from Rust, Swift and Kotlin, and the threat model lists what isn't covered yet. An independent audit is planned before 1.0.
 
 Found a vulnerability? Please see [SECURITY.md](SECURITY.md).
 
@@ -82,7 +92,8 @@ seam/
 │   ├── mac/           Seam for Mac: SwiftUI menu bar app (macOS 14+)
 │   └── android/       Seam for Android: Jetpack Compose (Android 12+)
 ├── server/            The relay: a Cloudflare Worker that routes sealed envelopes
-├── scripts/           Code generation and build helpers
+├── scripts/           Code generation, build and release helpers
+├── release/           Release notes template and the pinned signing-certificate fingerprints
 └── .github/workflows/ CI: one workflow per part, run only when that part changes
 ```
 
@@ -92,11 +103,11 @@ seam/
 |---|---|---|
 | [Crypto core](core/README.md) | Rust, `protoc` | `cd core && cargo test` |
 | [Mac app](apps/mac/README.md) | Xcode 26+, XcodeGen, Rust | `scripts/build-mac-core.sh`, then `cd apps/mac && xcodegen generate && open Seam.xcodeproj` |
-| [Android app](apps/android/README.md) | JDK 17, Android SDK + NDK 29, Rust, cargo-ndk | `cd apps/android && ./gradlew test assemblePlayDebug` |
+| [Android app](apps/android/README.md) | JDK 17, Android SDK + NDK 29, Rust, cargo-ndk | `cd apps/android && ./gradlew test assembleFullDebug` |
 | [Relay](server/README.md) | Node 22 | `cd server && npm ci && npm test` |
 | [Protocol](protocol/README.md) | `protoc` (buf optional) | `scripts/gen-protocol.sh` |
 
-Each link goes to that part's README, with the details.
+Each link goes to that part's README, with the details. Releases are built by CI; see [Releasing](CONTRIBUTING.md#releasing).
 
 ## Contributing
 

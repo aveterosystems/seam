@@ -2,35 +2,46 @@
 
 A native Android app in Kotlin and Jetpack Compose (Material 3), for Android 12 (API 31) and later. It mirrors notifications and texts to your Mac, syncs the clipboard, and sends and receives files.
 
-> **Status:** M0 shell. The app launches and proves the Rust crypto core loads on a real device. It's been tested on a Galaxy S25 Ultra running Android 17. The real features arrive from M1.
+> **Status:** 0.1.0. Pairs with a Mac by scanning its QR code, syncs the clipboard both ways, sends the battery level, and connects only when there's something to move (decision 0005). Tested on a Galaxy S25 Ultra running Android 17. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
+
+## Screens
+
+Built to the design boards: Home (A01), pairing with Seam's own camera view (A02), the set-up checklist after pairing (A03), the Send to Mac share sheet (A04) and Settings with About (A06). The colours are Seam's teal, the same as the Mac, in light and dark.
 
 ## Modules
 
 ```mermaid
 flowchart TB
-    app[":app<br/>Activity · flavours"] --> crypto[":core:crypto<br/>Kotlin bindings + Rust core .so"]
-    app --> protocol[":core:protocol<br/>generated messages"]
+    app[":app<br/>screens · service · flavours"] --> features[":feature:pairing · :feature:clipboard · :feature:status"]
+    app --> session
+    features --> session[":core:session<br/>relay link · pairing · delivery"]
+    session --> crypto[":core:crypto<br/>Kotlin bindings + Rust core .so"]
+    session --> protocol[":core:protocol<br/>generated messages"]
     crypto --> rust["core/seam-ffi (Rust)<br/>built per ABI with cargo-ndk"]
     protocol --> proto["protocol/seam/v1/*.proto"]
-    logic["build-logic/<br/>convention plugins"] -. "configures" .-> app & crypto & protocol
+    logic["build-logic/<br/>convention plugins"] -. "configures" .-> app & features & session & crypto & protocol
 ```
 
 | Module | What |
 |---|---|
-| `app` | The application: `MainActivity`, and the `play` / `full` flavours |
+| `app` | The application: the screens, `ConnectionService`, the share sheet, the after-restart reminder, and the `play` / `full` flavours |
+| `core/session` | The phone's link to its Mac: relay login, pairing, delivery and acks, and when to connect (decision 0005) |
+| `feature/pairing` | The camera view: CameraX frames decoded on the phone by ZXing (no network code, no Google services) |
+| `feature/clipboard` | Clipboard both ways, the share and copy rules, and automatic phone → Mac in the `full` build |
+| `feature/status` | The battery level for the Mac |
 | `core/crypto` | The Kotlin bindings to the Rust core (`seam_ffi.kt`, generated) and the native library for each ABI |
 | `core/protocol` | Message types generated from `protocol/` at build time (protobuf-kotlin lite) |
 | `build-logic/convention` | Shared Gradle setup: `seam.android.application`, `seam.android.library`, `seam.android.compose` |
 | `gradle/libs.versions.toml` | Every dependency version, in one place |
 
-More modules (`core/session`, `core/transport`, `feature/*`…) are added as their milestones start.
+More `feature/*` modules are added as their milestones start.
 
 ## Flavours
 
 | Flavour | Distribution | Differences |
 |---|---|---|
 | `play` | Google Play | No SMS permission; texts are answered through notification replies |
-| `full` | GitHub Releases (sideloaded) | Reads and sends SMS, and supports automatic phone → Mac clipboard |
+| `full` | GitHub Releases (sideloaded) | Supports automatic phone → Mac clipboard (and SMS, when texts arrive). This is the build in each release. |
 
 ## Building
 
@@ -39,7 +50,7 @@ More modules (`core/session`, `core/transport`, `feature/*`…) are added as the
 ```bash
 # One-time Rust setup
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk
+cargo install cargo-ndk --version 4.1.2 --locked
 
 # Build both flavours
 cd apps/android
@@ -49,8 +60,10 @@ cd apps/android
 Gradle builds the Rust core for `arm64-v8a`, `armeabi-v7a` and `x86_64` automatically and packs it into the APK. Install on a phone with USB debugging on:
 
 ```bash
-adb install -r app/build/outputs/apk/play/debug/app-play-debug.apk
+adb install -r app/build/outputs/apk/full/debug/app-full-debug.apk
 ```
+
+Release builds are built and signed by the release workflow, never locally; see [Releasing](../../CONTRIBUTING.md#releasing).
 
 ## Testing
 
@@ -63,6 +76,10 @@ cd apps/android
 |---|---|
 | `SeamCoreTest` | Kotlin can pin, start a session, encrypt and decrypt through the Rust core; impostors fail with `UntrustedIdentity`; unpaired peers fail with `NotPaired`; file chunks reject reordering |
 | `ProtocolTest` | The golden vector decodes and re-encodes byte for byte; fields from newer apps don't break parsing |
+| `SessionTest` | Pairing, Codes don't match (including just after the Mac accepted), delivery and acks, unpairing, and when the phone connects and goes idle |
+| `ClipRulesTest` | No echoes or repeats, size limits, the share preview shows hidden characters, a Mac copy stops showing after 10 minutes |
+| `QrDecoderTest` | A QR code is read from a padded camera frame; an empty frame reads nothing |
+| `NoGoogleTelemetryTest` | No ML Kit, Google telemetry transport or Firebase on the app's classpath |
 
 The crypto tests run on the JVM against a host build of the same Rust library, so they exercise the real code, not a mock.
 

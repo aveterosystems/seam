@@ -22,6 +22,7 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 - The protocol (`protocol/`): anything that lets the relay or a network attacker learn, alter, replay or forge content
 - The relay (`server/`): authentication, routing, queueing, logging of anything it shouldn't
 - The apps (`apps/`): key storage, anything that sends content outside the end-to-end encryption, never-sync rules (passwords, sensitive notifications)
+- Releases (`.github/workflows/release.yml`, `scripts/`, `release/`): anything that could get an unreviewed build signed or published
 
 ## Out of scope
 
@@ -31,13 +32,17 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 
 ## Supported versions
 
-Seam is in early development. Until 1.0, only the latest commit on `main` gets security fixes.
+Seam is in early development. Until 1.0, only the [latest release](https://github.com/aveterosystems/seam/releases/latest) and the latest commit on `main` get security fixes.
+
+## Checking a release
+
+Each release is built by `.github/workflows/release.yml` from a tag on `main`, signed in a separate job that needs the maintainer's approval, and checked against the signing-certificate fingerprints pinned in [`release/`](release/). Its notes show how to verify the build attestations and fingerprints. A release signed by any other certificate isn't ours: please report it.
 
 ## How Seam is protected
 
 - End-to-end encryption with the Signal Protocol, through Signal's own libsignal (pinned release): PQXDH post-quantum session setup and the triple ratchet
 - One shared Rust core for both apps: no crypto is implemented twice, and none is home-made
 - Peer keys pinned at pairing by QR code: never trusted on first use
-- Fixed-size padding, envelopes bound to their ciphertext, empty pushes, a relay that logs no IPs or contents
-- Every security property has a test in `core/seam-core` and the Swift and Kotlin bindings
+- Fixed-size padding, envelopes bound to their ciphertext, a relay that logs no IPs or contents (its host, Cloudflare, still sees IPs at its edge; pushes, when added, carry nothing)
+- Security properties are tested in `core/seam-core`, the Swift and Kotlin bindings and the apps; the threat model lists what isn't covered yet
 - An independent audit is planned before 1.0
