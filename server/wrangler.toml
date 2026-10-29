@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+name = "seam-relay"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# The PairGroup Durable Object, R2 bucket and push secrets are added in M1 (docs/architecture/infrastructure.md)

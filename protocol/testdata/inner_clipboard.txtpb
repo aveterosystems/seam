@@ -1,0 +1,9 @@
+# Golden vector: encoded with `protoc --encode` (see testdata/README), decoded by every platform's tests.
+msg_id: "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
+sent_at: 1793266000000
+payload {
+  clipboard {
+    text: "ZK4 9QP · café"
+    copied_at: 1793265999000
+  }
+}

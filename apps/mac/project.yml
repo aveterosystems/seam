@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# XcodeGen spec for the Mac app. The .xcodeproj is generated from this and never committed:
+#   scripts/build-mac-core.sh && (cd apps/mac && xcodegen generate) && open apps/mac/Seam.xcodeproj
+name: Seam
+options:
+  bundleIdPrefix: com.avetero
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_HARDENED_RUNTIME: YES
+
+packages:
+  SeamCore:
+    path: Packages/SeamCore
+  SeamProtocol:
+    path: Packages/SeamProtocol
+
+targets:
+  Seam:
+    type: application
+    platform: macOS
+    sources: [Seam]
+    dependencies:
+      - package: SeamCore
+      - package: SeamProtocol
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.avetero.seam
+        PRODUCT_NAME: Seam
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Seam
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        # Menu bar only: no Dock icon, no main window until asked for
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Avetero. Licensed under AGPL-3.0."
+    scheme: {}

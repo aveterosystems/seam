@@ -42,3 +42,10 @@ google-services.json
 GoogleService-Info.plist
 .env
 .env.*
+
+# Rust
+target/
+spikes/clipboard/mac/results.csv
+
+# Mac: the Rust core, built by scripts/build-mac-core.sh
+apps/mac/Packages/SeamCore/SeamCoreFFI.xcframework/

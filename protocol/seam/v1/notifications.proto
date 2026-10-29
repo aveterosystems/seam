@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// A phone notification mirrored to the Mac. Per-app filtering happens on the phone before sending;
+// sensitive apps send title only.
+message Notification {
+  string key = 1; // Android's notification key; used to reply or dismiss
+  string app_id = 2;
+  string app_name = 3;
+  string title = 4;
+  string text = 5;
+  bytes icon_png = 6;
+  int64 posted_at = 7;
+  repeated NotificationButton buttons = 8;
+  bool can_reply = 9;
+  string conversation_id = 10; // groups a chat's notifications on the Mac
+}
+
+message NotificationButton {
+  string id = 1;
+  string title = 2;
+}
+
+// Something the user did to a mirrored notification, on either side.
+message NotificationAction {
+  string key = 1;
+  oneof action {
+    string reply_text = 2;
+    bool dismissed = 3;
+    string button_id = 4;
+  }
+}

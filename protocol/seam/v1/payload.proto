@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+syntax = "proto3";
+
+package seam.v1;
+
+import "seam/v1/clipboard.proto";
+import "seam/v1/control.proto";
+import "seam/v1/files.proto";
+import "seam/v1/find_phone.proto";
+import "seam/v1/messages.proto";
+import "seam/v1/notifications.proto";
+import "seam/v1/status.proto";
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// What actually gets encrypted. msg_id and sent_at must match the envelope, or the receiver
+// drops the message: this binds the plaintext envelope to the ciphertext.
+message Inner {
+  bytes msg_id = 1;
+  int64 sent_at = 2;
+  Payload payload = 3;
+}
+
+// One case per feature message. Each feature owns a block of ten numbers; a new feature takes
+// the next free block. Never reuse or renumber a field.
+message Payload {
+  oneof body {
+    Control control = 1; // 1–9: control
+    Clipboard clipboard = 10; // 10–19: clipboard
+    FileOffer file_offer = 20; // 20–29: files
+    FileAnswer file_answer = 21;
+    FileChunkRef file_chunk = 22;
+    FileDone file_done = 23;
+    Notification notification = 30; // 30–39: notifications
+    NotificationAction notification_action = 31;
+    MessageSync message_sync = 40; // 40–49: messages
+    MessageSend message_send = 41;
+    Status status = 50; // 50–59: status
+    FindPhone find_phone = 60; // 60–69: find my phone
+  }
+}

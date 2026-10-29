@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "seam-ffi"
+version = "0.1.0"
+description = "Swift and Kotlin bindings for seam-core, generated with UniFFI"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "seam_ffi"
+# staticlib for the Mac app, cdylib for Android (and JVM tests), lib for Rust tests
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+seam-core = { path = "../seam-core" }
+thiserror = "2"
+uniffi = "0.32"

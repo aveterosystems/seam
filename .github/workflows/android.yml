@@ -1,0 +1,33 @@
+name: android
+on:
+  push:
+    branches: [main]
+    paths: ["apps/android/**", "core/**", "protocol/**", ".github/workflows/android.yml", "!**/*.md"]
+  pull_request:
+    paths: ["apps/android/**", "core/**", "protocol/**", ".github/workflows/android.yml", "!**/*.md"]
+
+# A newer push to the same branch or PR cancels this run; it's been superseded
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/android } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v5
+      # libsignal's post-quantum ratchet (spqr) compiles .proto files at build time
+      - uses: arduino/setup-protoc@v3
+        with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: core }
+      - name: Rust Android targets, cargo-ndk and the NDK core:crypto pins
+        run: |
+          cd ../../core && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+          cargo install cargo-ndk --locked
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" > /dev/null
+      - run: ./gradlew test assemblePlayDebug assembleFullDebug

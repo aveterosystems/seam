@@ -1,0 +1,22 @@
+{
+  "name": "seam-relay",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "2.16.0",
+    "@cloudflare/workers-types": "5.20261029.1",
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5",
+    "wrangler": "4.155.0"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.16.0"
+  }
+}

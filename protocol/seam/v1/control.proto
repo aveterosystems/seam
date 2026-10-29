@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+message Control {
+  oneof body {
+    Hello hello = 1;
+    Ack ack = 2;
+    Ping ping = 3;
+    Unpair unpair = 4;
+    PairRequest pair_request = 5;
+    PairAccept pair_accept = 6;
+  }
+}
+
+// Sent on every connect. A feature only sends payloads once the peer lists its capability,
+// which is how the play build (no SMS) and full build coexist and new features stay dark.
+message Hello {
+  string app_version = 1; // "1.2.0"
+  string platform = 2; // "macos" | "android"
+  repeated string capabilities = 3; // "clipboard.v1", "files.v1", "notifications.reply", "messages.sms", ...
+  // The user's connection policy on this device. The peer never sends over a transport missing
+  // here (the stricter device wins; see docs/decisions/0004-user-chosen-transport.md).
+  repeated Transport allowed_transports = 4;
+}
+
+enum Transport {
+  TRANSPORT_UNSPECIFIED = 0;
+  TRANSPORT_LAN = 1; // same network, direct
+  TRANSPORT_RELAY = 2; // internet, through a Seam relay (ours or self-hosted)
+}
+
+// Sent once a payload is handled. Every payload except Ack and Ping gets one.
+message Ack {
+  bytes msg_id = 1;
+}
+
+message Ping {
+  int64 sent_at = 1;
+}
+
+// The other device forgot us; delete its keys and stop sending.
+message Unpair {}
+
+// The phone's first message after scanning the QR code, proving it holds the one-time token.
+message PairRequest {
+  bytes pairing_token = 1;
+  string device_name = 2; // "Pixel 9"
+  string model = 3;
+}
+
+// The user confirmed the code on the Mac.
+message PairAccept {}

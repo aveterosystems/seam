@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// One copy. Images over 512 KB go through the file flow instead.
+message Clipboard {
+  string text = 1;
+  bytes image_png = 2;
+  int64 copied_at = 3; // unix ms
+}

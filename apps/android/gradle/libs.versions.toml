@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[versions]
+agp = "8.7.3"
+kotlin = "2.1.0"
+composeBom = "2024.12.01"
+activityCompose = "1.9.3"
+protobuf = "4.29.3"
+protobufPlugin = "0.9.4"
+jna = "5.15.0"
+junit = "4.13.2"
+
+[libraries]
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+compose-ui = { group = "androidx.compose.ui", name = "ui" }
+compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+protobuf-kotlin-lite = { group = "com.google.protobuf", name = "protobuf-kotlin-lite", version.ref = "protobuf" }
+protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
+jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+# Used by build-logic's convention plugins
+android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-gradlePlugin = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+protobuf = { id = "com.google.protobuf", version.ref = "protobufPlugin" }
+seam-android-application = { id = "seam.android.application" }
+seam-android-library = { id = "seam.android.library" }
+seam-android-compose = { id = "seam.android.compose" }
