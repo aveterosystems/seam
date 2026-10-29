@@ -122,8 +122,8 @@ class Session(
     override fun send(payload: Payload) {
         scope.launch {
             if (mac == null || pairing != null) return@launch
-            // Only the latest Status matters; everything else is capped
-            if (payload.bodyCase == Payload.BodyCase.STATUS) outbox.removeAll { it.bodyCase == Payload.BodyCase.STATUS }
+            // Only the latest Status and Clipboard matter; everything else is capped
+            if (payload.bodyCase in LATEST_ONLY) outbox.removeAll { it.bodyCase == payload.bodyCase }
             if (outbox.size >= MAX_OUTBOX) outbox.removeFirst()
             outbox.addLast(payload)
             if (loggedIn) flush()
@@ -278,7 +278,8 @@ class Session(
         val m = mac ?: return
         while (outbox.isNotEmpty()) {
             val env = try {
-                val e = device.seal(m.id, outbox.first().toByteArray(), 0u)
+                val next = outbox.first()
+                val e = device.seal(m.id, next.toByteArray(), ttlFor(next))
                 persist() // the ratchet moved: save before anything leaves, or a crash could reuse a key
                 e
             } catch (_: SeamException) {
@@ -352,6 +353,14 @@ class Session(
         // After login these mean the socket is unusable; others (queue_full, too_large…) are per-message
         val FATAL_AFTER_LOGIN = setOf("bad_login", "not_member", "storage")
         val NOT_RECOGNISED = setOf("bad_login", "not_member")
+        val LATEST_ONLY = setOf(Payload.BodyCase.STATUS, Payload.BodyCase.CLIPBOARD)
+
+        /** How long the relay may hold it (docs/architecture/protocol.md): a stale clipboard is worse than none. */
+        fun ttlFor(payload: Payload): UInt = when (payload.bodyCase) {
+            Payload.BodyCase.CLIPBOARD -> 600u
+            Payload.BodyCase.STATUS -> 120u
+            else -> 0u // the core's default
+        }
         const val MAX_REFUSALS = 5
         const val STABLE_MS = 30_000L
     }

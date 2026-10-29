@@ -18,6 +18,7 @@ dependencies {
     implementation(project(":core:session"))
     implementation(project(":feature:pairing"))
     implementation(project(":feature:status"))
+    implementation(project(":feature:clipboard"))
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
 }

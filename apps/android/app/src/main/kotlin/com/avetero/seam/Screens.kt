@@ -39,6 +39,8 @@ fun SeamScreen(
     onConfirm: (PairingQr) -> Unit,
     onCancelConfirm: () -> Unit,
     onScan: () -> Unit,
+    clipboard: ClipboardStatus = ClipboardStatus.Manual,
+    onSendClipboard: () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(
@@ -56,8 +58,8 @@ fun SeamScreen(
                     onAction = onScan,
                 )
                 is SessionState.Pairing -> Pairing(state)
-                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError)
-                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError)
+                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError, clipboard, onSendClipboard)
+                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError, clipboard, onSendClipboard)
                 is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
             }
         }
@@ -99,7 +101,7 @@ private fun Pairing(state: SessionState.Pairing) {
 }
 
 @Composable
-private fun Linked(macName: String, connected: Boolean, notice: String?) {
+private fun Linked(macName: String, connected: Boolean, notice: String?, clipboard: ClipboardStatus, onSendClipboard: () -> Unit) {
     MacBadge()
     Text(macName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
     Text(
@@ -108,11 +110,25 @@ private fun Linked(macName: String, connected: Boolean, notice: String?) {
     )
     if (notice != null) Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
     Text(
-        "Your battery shows in your Mac's menu bar.",
+        "Your battery shows in your Mac's menu bar. What you copy on your Mac is on this phone's clipboard too.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+    Spacer(Modifier.height(8.dp))
+    Button(onClick = onSendClipboard, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Send clipboard to Mac", fontSize = 16.sp) }
+    Text(
+        when (clipboard) {
+            ClipboardStatus.Automatic -> "Automatic: what you copy here goes to your Mac by itself."
+            ClipboardStatus.NeedsSetup -> "To send copies automatically, choose Turn On Automatic Clipboard in Seam's menu on your Mac."
+            ClipboardStatus.Manual -> "Or share any text to Send to Mac."
+        },
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
     )
 }
+
+/** Phone → Mac: automatic (full build, granted), possible after setup (full build), or one tap (Play build). */
+enum class ClipboardStatus { Automatic, NeedsSetup, Manual }
 
 /** The laptop-and-phone mark on a soft circle (stand-in for board A01's scalloped hero). */
 @Composable
