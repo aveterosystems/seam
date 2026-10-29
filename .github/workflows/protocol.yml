@@ -2,9 +2,14 @@ name: protocol
 on:
   push:
     branches: [main]
-    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+    paths: ["protocol/**", ".github/workflows/protocol.yml", "!**/*.md"]
   pull_request:
-    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+    paths: ["protocol/**", ".github/workflows/protocol.yml", "!**/*.md"]
+
+# A newer push to the same branch or PR cancels this run; it's been superseded
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   buf:

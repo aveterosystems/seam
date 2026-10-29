@@ -5,19 +5,19 @@ import Testing
 
 /// The same golden vector the Kotlin and server tests decode (protocol/testdata/README.md).
 struct GoldenVectorTests {
-    private let vector: Data = {
-        let repo = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // SeamProtocolTests
-            .deletingLastPathComponent() // Tests
-            .deletingLastPathComponent() // SeamProtocol
-            .deletingLastPathComponent() // Packages
-            .deletingLastPathComponent() // mac
-            .deletingLastPathComponent() // apps
-        return try! Data(contentsOf: repo.appendingPathComponent("protocol/testdata/inner_clipboard.bin"))
-    }()
+    /// Walks up from this file to the repo root (the folder holding protocol/testdata).
+    private func goldenVector() throws -> Data {
+        var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        while dir.path != "/" {
+            let file = dir.appendingPathComponent("protocol/testdata/inner_clipboard.bin")
+            if FileManager.default.fileExists(atPath: file.path) { return try Data(contentsOf: file) }
+            dir.deleteLastPathComponent()
+        }
+        throw CocoaError(.fileNoSuchFile)
+    }
 
     @Test func decodesTheGoldenVector() throws {
-        let msg = try Seam_V1_Inner(serializedBytes: vector)
+        let msg = try Seam_V1_Inner(serializedBytes: goldenVector())
         #expect(msg.msgID == Data(0..<16))
         #expect(msg.sentAt == 1_793_266_000_000)
         guard case .clipboard(let clip)? = msg.payload.body else {
@@ -29,6 +29,7 @@ struct GoldenVectorTests {
     }
 
     @Test func reEncodesToTheSameBytes() throws {
+        let vector = try goldenVector()
         let msg = try Seam_V1_Inner(serializedBytes: vector)
         #expect(try msg.serializedData() == vector)
     }

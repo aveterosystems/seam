@@ -2,9 +2,14 @@ name: android
 on:
   push:
     branches: [main]
-    paths: ["apps/android/**", "core/**", "protocol/**", ".github/workflows/android.yml"]
+    paths: ["apps/android/**", "core/**", "protocol/**", ".github/workflows/android.yml", "!**/*.md"]
   pull_request:
-    paths: ["apps/android/**", "core/**", "protocol/**", ".github/workflows/android.yml"]
+    paths: ["apps/android/**", "core/**", "protocol/**", ".github/workflows/android.yml", "!**/*.md"]
+
+# A newer push to the same branch or PR cancels this run; it's been superseded
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

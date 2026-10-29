@@ -2,9 +2,14 @@ name: mac
 on:
   push:
     branches: [main]
-    paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml"]
+    paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml", "!**/*.md"]
   pull_request:
-    paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml"]
+    paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml", "!**/*.md"]
+
+# A newer push to the same branch or PR cancels this run; it's been superseded
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Must match the SwiftProtobuf version in apps/mac/Packages/SeamProtocol/Package.swift
