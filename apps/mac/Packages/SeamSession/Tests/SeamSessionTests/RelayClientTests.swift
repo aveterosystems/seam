@@ -10,10 +10,13 @@ import Testing
 /// Plays back server frames, records what the client sends, then reports the socket closed.
 actor FakeSocket: RelaySocket {
     private var incoming: [Data]
+    private let hangsWhenEmpty: Bool
     private(set) var sent: [Seam_V1_ClientFrame] = []
 
-    init(_ frames: [Seam_V1_ServerFrame]) {
+    /// `hangsWhenEmpty`: a relay that goes silent instead of closing.
+    init(_ frames: [Seam_V1_ServerFrame], hangsWhenEmpty: Bool = false) {
         incoming = frames.map { try! $0.serializedData() }
+        self.hangsWhenEmpty = hangsWhenEmpty
     }
 
     func send(_ data: Data) async throws {
@@ -21,6 +24,7 @@ actor FakeSocket: RelaySocket {
     }
 
     func receive() async throws -> Data {
+        if incoming.isEmpty && hangsWhenEmpty { try await Task.sleep(for: .seconds(3600)) }
         guard !incoming.isEmpty else { throw URLError(.networkConnectionLost) }
         return incoming.removeFirst()
     }
@@ -33,6 +37,7 @@ final class FakeHandler: RelayHandler {
     let handles: Bool
     private(set) var members: [Data] = []
     private(set) var received: [Data] = []
+    private(set) var errors: [String] = []
 
     nonisolated init(handles: Bool) { self.handles = handles }
 
@@ -44,7 +49,7 @@ final class FakeHandler: RelayHandler {
     }
     func relayPeerJoined(_ deviceKey: Data) async {}
     func relayBundle(deviceKey: Data, bundle: Data) async {}
-    func relayError(_ code: String) async {}
+    func relayError(_ code: String) async { errors.append(code) }
 }
 
 struct RelayClientTests {
@@ -72,6 +77,7 @@ struct RelayClientTests {
         let (sent, handler, device) = try await run(handles: true)
         #expect(sent.count == 2)
         let login = sent[0].login
+        #expect(login.createGroup) // the Mac creates its group on first login
         let key = try Curve25519.Signing.PublicKey(rawRepresentation: login.deviceKey)
         #expect(key.isValidSignature(login.signature, for: Frames.loginMessage(nonce: nonce, groupID: group)))
         #expect(sent[1].delivered.msgID == Data([7, 7]))
@@ -96,5 +102,56 @@ struct RelayClientTests {
         ])
         let client = RelayClient(device: try SeamDevice.generate(), groupID: group, relayURL: URL(string: "ws://x")!, handler: FakeHandler(handles: true)) { _ in socket }
         await #expect(throws: RelayClientError.loginRefused) { try await client.connectOnce() }
+    }
+
+    private func connect(_ frames: [Seam_V1_ServerFrame], hangs: Bool = false, handler: FakeHandler = FakeHandler(handles: true)) async throws -> (RelayClient, FakeSocket) {
+        let socket = FakeSocket(frames, hangsWhenEmpty: hangs)
+        let client = RelayClient(device: try SeamDevice.generate(), groupID: group, relayURL: URL(string: "ws://x")!, handler: handler, loginTimeout: .milliseconds(100)) { _ in socket }
+        return (client, socket)
+    }
+
+    @Test func aShortNonceIsRefusedBeforeSigningAnything() async throws {
+        let (client, socket) = try await connect([.with { $0.challenge = .with { $0.nonce = Data(repeating: 1, count: 8) } }])
+        await #expect(throws: RelayClientError.badChallenge) { try await client.connectOnce() }
+        #expect(await socket.sent.isEmpty)
+    }
+
+    @Test func framesBeforeTheLoginResultAreRefused() async throws {
+        let (client, _) = try await connect([
+            .with { $0.challenge = .with { $0.nonce = nonce } },
+            .with { $0.deliver = .with { $0.msgID = Data([1]) } },
+        ])
+        await #expect(throws: RelayClientError.unexpectedFrame) { try await client.connectOnce() }
+        #expect(await client.isLoggedIn == false)
+    }
+
+    @Test func aSecondChallengeAfterLoginIsRefused() async throws {
+        let (client, _) = try await connect([
+            .with { $0.challenge = .with { $0.nonce = nonce } },
+            .with { $0.loginResult = .with { $0.ok = true } },
+            .with { $0.challenge = .with { $0.nonce = nonce } },
+        ])
+        await #expect(throws: RelayClientError.unexpectedFrame) { try await client.connectOnce() }
+    }
+
+    @Test func aLoginErrorReachesTheHandler() async throws {
+        let handler = FakeHandler(handles: true)
+        let (client, _) = try await connect([
+            .with { $0.challenge = .with { $0.nonce = nonce } },
+            .with { $0.error = .with { $0.code = "bad_login" } },
+        ], handler: handler)
+        await #expect(throws: RelayClientError.loginRefused) { try await client.connectOnce() }
+        #expect(await handler.errors == ["bad_login"])
+    }
+
+    @Test func aSilentRelayTimesOutWaitingForTheChallenge() async throws {
+        let (client, _) = try await connect([], hangs: true)
+        await #expect(throws: RelayClientError.timeout) { try await client.connectOnce() }
+    }
+
+    @Test func aSilentRelayTimesOutWaitingForTheLoginResult() async throws {
+        let (client, socket) = try await connect([.with { $0.challenge = .with { $0.nonce = nonce } }], hangs: true)
+        await #expect(throws: RelayClientError.timeout) { try await client.connectOnce() }
+        #expect(await socket.sent.count == 1) // the login went out; nothing after it
     }
 }

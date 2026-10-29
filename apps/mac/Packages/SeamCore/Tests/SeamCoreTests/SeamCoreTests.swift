@@ -7,7 +7,8 @@ import Testing
 struct SeamCoreTests {
     private let key = Data(repeating: 7, count: 32)
 
-    /// A Mac and phone paired through the real flow: QR offer, bundle, PairRequest, accept.
+    /// A Mac and phone paired through the real flow: QR offer, bundle, PairRequest, the user's
+    /// confirmation, then PairAccept.
     private func paired() throws -> (mac: SeamDevice, phone: SeamDevice) {
         let mac = try SeamDevice.generate()
         let phone = try SeamDevice.generate()
@@ -20,6 +21,10 @@ struct SeamCoreTests {
         let request = try mac.acceptPairing(envelope: start.envelope)
         #expect(request.peerId == phone.id())
         #expect(try request.safetyCode == phone.safetyCode(peerId: mac.id()))
+        #expect(mac.peers().first?.confirmed == false) // nothing is trusted until the user says so
+        try mac.confirmPairing(peerId: request.peerId)
+        let accept = Data([0x0A, 0x02, 0x32, 0x00]) // Payload{control{pair_accept{}}}
+        _ = try phone.open(envelope: try mac.seal(peerId: request.peerId, payload: accept, ttlS: 0))
         return (mac, phone)
     }
 
@@ -51,11 +56,40 @@ struct SeamCoreTests {
         #expect(throws: SeamError.BadState) { try SeamDevice.restore(state: Data([1, 2, 3]), storageKey: key) }
     }
 
-    @Test func fileChunksRoundTripAndRejectReordering() throws {
-        let k = newFileKey()
-        let id = newFileId()
-        let sealed = try sealChunk(key: k, fileId: id, index: 0, last: false, plain: Data("chunk".utf8))
-        #expect(try openChunk(key: k, fileId: id, index: 0, last: false, sealed: sealed) == Data("chunk".utf8))
-        #expect(throws: SeamError.self) { try openChunk(key: k, fileId: id, index: 1, last: false, sealed: sealed) }
+    @Test func anUnconfirmedPhoneIsNotSaved() throws {
+        let mac = try SeamDevice.generate()
+        let phone = try SeamDevice.generate()
+        let offer = mac.startPairing()
+        let start = try phone.pairWith(
+            identityKey: mac.identityKey(), relayKey: mac.relayKey(), name: "Mac",
+            bundle: try mac.prekeyBundles(count: 1)[0], token: offer.token, myName: "Phone", myModel: "Model"
+        )
+        let request = try mac.acceptPairing(envelope: start.envelope)
+        let restored = try SeamDevice.restore(state: try mac.exportState(storageKey: key), storageKey: key)
+        #expect(restored.peers().isEmpty)
+        mac.rejectPairing(peerId: request.peerId)
+        #expect(mac.peers().isEmpty)
+    }
+
+    @Test func appDataIsSealedWithTheState() throws {
+        let mac = try SeamDevice.generate()
+        mac.setAppData(data: Data([1, 2, 3]))
+        let restored = try SeamDevice.restore(state: try mac.exportState(storageKey: key), storageKey: key)
+        #expect(restored.appData() == Data([1, 2, 3]))
+    }
+
+    @Test func fileChunksRoundTripInOrderOnly() throws {
+        let sealer = FileSealer()
+        let size = Int(chunkDataSize())
+        let first = try sealer.sealNext(data: Data(repeating: 1, count: size), last: false)
+        let last = try sealer.sealNext(data: Data("end".utf8), last: true)
+
+        let receiver = try FileReceiver(key: sealer.key(), fileId: sealer.fileId())
+        #expect(throws: SeamError.self) { try receiver.openNext(sealed: last, last: true) } // out of order
+        let inOrder = try FileReceiver(key: sealer.key(), fileId: sealer.fileId())
+        #expect(try inOrder.openNext(sealed: first, last: false) == Data(repeating: 1, count: size))
+        #expect(throws: SeamError.self) { try inOrder.finish() } // cut short
+        #expect(try inOrder.openNext(sealed: last, last: true) == Data("end".utf8))
+        try inOrder.finish()
     }
 }

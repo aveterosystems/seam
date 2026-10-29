@@ -37,11 +37,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.avetero.seam
         PRODUCT_NAME: Seam
         GENERATE_INFOPLIST_FILE: YES
-        # Extra keys (local networking for dev relays) merged with the generated ones below
-        INFOPLIST_FILE: Seam/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Seam
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         # Menu bar only: no Dock icon, no main window until asked for
         INFOPLIST_KEY_LSUIElement: YES
         INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Avetero. Licensed under AGPL-3.0."
+      configs:
+        # Local networking for dev relays (plain ws://) in Debug only; Release has no ATS exception
+        Debug:
+          INFOPLIST_FILE: Config/Debug-Info.plist
     scheme: {}

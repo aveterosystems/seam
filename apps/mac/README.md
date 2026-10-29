@@ -50,13 +50,13 @@ For a universal (Apple silicon and Intel) build of the core: `ARCHS="arm64 x86_6
 cd server && npm ci && npx wrangler dev --ip 0.0.0.0     # the relay on port 8787
 ```
 
-The QR code carries the Mac's relay URL, so the phone must be able to reach it. For a real phone on the same Wi‑Fi, point the Mac at its LAN address before launching Seam:
+The QR code carries the Mac's relay URL, so the phone must be able to reach it. For a real phone on the same Wi‑Fi, point a Debug build at the Mac's LAN address before launching Seam:
 
 ```bash
 defaults write com.avetero.seam relayURL ws://<this Mac's LAN IP>:8787
 ```
 
-The default is `ws://localhost:8787`. Production will use `wss://`.
+Debug builds default to `ws://localhost:8787` and are the only ones allowed plain `ws://` (their Info.plist, `Config/Debug-Info.plist`, adds the local-networking ATS exception). Release builds have no ATS exception, accept only `wss://` relays, ignore the `defaults` override, and fall back to `RelayPolicy.productionURL` (a placeholder until the relay is deployed). The relay URL is saved with the group on first launch.
 
 ## Where things are kept
 
@@ -64,9 +64,9 @@ The default is `ws://localhost:8787`. Production will use `wss://`.
 |---|---|
 | Identity, peers, Signal sessions, prekeys | `~/Library/Application Support/Seam/state.bin`, sealed with AES-256-GCM by the Rust core, file mode 0600 |
 | The key that seals it | The login Keychain, service `com.avetero.seam` (this device only) |
-| Group id, relay URL | `defaults read com.avetero.seam` (not secret) |
+| Group id, relay URL | Inside `state.bin` (the core's sealed app data), so they can't drift from the identity they belong to. Older installs move them out of `defaults` once |
 
-To start over: quit Seam, delete `state.bin`, and remove the `com.avetero.seam` item in Keychain Access. Unsigned dev builds may ask for Keychain access after each rebuild, because the code signature changes.
+Seam never overwrites saved data it can't open. If `state.bin` is damaged or its Keychain key is gone, the menu offers **Reset Seam…**, which moves the old files aside (`state.bin.unreadable-<time>`) and starts over with new keys and a new group. To start over by hand: quit Seam, delete `state.bin`, and remove the `com.avetero.seam` item in Keychain Access. Unsigned dev builds may ask for Keychain access after each rebuild, because the code signature changes.
 
 ## Testing
 
@@ -79,11 +79,14 @@ swift test --package-path apps/mac/Packages/SeamSession    # relay login, acks, 
 
 | Suite | What it proves |
 |---|---|
-| `SeamCoreTests` | Swift can pin, start a session, encrypt and decrypt through the Rust core; impostors are refused with `UntrustedIdentity`; file chunks reject reordering |
+| `SeamCoreTests` | Swift pairs through the Rust core (request, confirmation, PairAccept) and talks after a restart; an unconfirmed phone isn't saved; app data is sealed with the state; file chunks open only in order and a cut-short file fails |
 | `GoldenVectorTests` | Swift decodes the shared golden vector byte for byte, and `Hello` carries the connection policy |
 | `PairingQRTests` | The QR format round-trips, uses only unreserved characters, and rejects wrong schemes, versions and lengths |
-| `FramesTests` | The login signature verifies over the relay's exact bytes; frames round-trip; backoff doubles from 1 s and caps at 60 s |
-| `RelayClientTests` | Login answers the challenge; envelopes are acked only after they're handled; a refused login ends the connection |
+| `FramesTests` | The login signature verifies over the relay's exact bytes; frames round-trip; backoff doubles from 1 s, caps at 60 s, and resets only after 30 s connected |
+| `RelayClientTests` | Login answers a 32-byte challenge and asks to create the group; nothing but a login result is accepted before login, and no second challenge after; a silent relay times out; a refused login reaches the app; envelopes are acked only after they're handled |
+| `AppDataTests` | The group id and relay URL encoding round-trips, refuses anything malformed, and survives the core's sealed state |
+| `RelayPolicyTests` | Release builds accept only `wss://`; odd relay values fall back instead of crashing |
+| `PairingFlowTests` | Codes expire after 5 minutes and a reconnect re-announces only what's left; Pair works once and can't race Cancel; late events can't skip a step |
 
 ## Generated code
 

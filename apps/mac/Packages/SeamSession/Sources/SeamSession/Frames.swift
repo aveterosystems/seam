@@ -16,13 +16,15 @@ public enum Frames {
         return c.url!
     }
 
-    public static func login(device: SeamDevice, nonce: Data, groupID: Data, joinToken: Data? = nil) -> Seam_V1_ClientFrame {
+    /// `createGroup` lets the first device create its group; the relay ignores it for existing members.
+    public static func login(device: SeamDevice, nonce: Data, groupID: Data, joinToken: Data? = nil, createGroup: Bool = false) -> Seam_V1_ClientFrame {
         .with {
             $0.login = .with {
                 $0.groupID = groupID
                 $0.deviceKey = device.relayKey()
                 $0.signature = device.signRelayLogin(nonce: nonce, groupId: groupID)
                 if let joinToken { $0.joinToken = joinToken }
+                $0.createGroup = createGroup
             }
         }
     }
@@ -47,6 +49,16 @@ public enum Frames {
     public static func openPairing(tokenHash: Data, ttl: UInt32 = 300) -> Seam_V1_ClientFrame {
         .with { $0.openPairing = .with { $0.tokenHash = tokenHash; $0.ttlS = ttl } }
     }
+
+    /// Closes this device's open pairing slot (cancel, or the code expired).
+    public static func closePairing() -> Seam_V1_ClientFrame {
+        .with { $0.closePairing = .init() }
+    }
+
+    /// Takes a device out of the group, with its queue and bundles (a rejected phone that joined).
+    public static func removeMember(_ deviceKey: Data) -> Seam_V1_ClientFrame {
+        .with { $0.removeMember = .with { $0.deviceKey = deviceKey } }
+    }
 }
 
 /// Reconnect delays: doubling from 1 s up to 60 s, scaled by 75–100% so many clients don't retry in step.
@@ -54,7 +66,16 @@ public struct Backoff: Sendable {
     public var base: Double = 1
     public var cap: Double = 60
 
+    /// A connection that lasted this long was stable: the next retry starts from 1 s again.
+    public static let stableAfter: TimeInterval = 30
+
     public init() {}
+
+    /// The attempt number after a connection ends; nil `connectedFor` means login never succeeded.
+    public static func nextAttempt(after attempt: Int, connectedFor: TimeInterval?) -> Int {
+        if let connectedFor, connectedFor >= stableAfter { return 0 }
+        return attempt + 1
+    }
 
     /// `jitter` in 0..<1.
     public func delay(attempt: Int, jitter: Double) -> Double {
