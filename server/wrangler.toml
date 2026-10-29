@@ -12,4 +12,17 @@ class_name = "PairGroup"
 tag = "v1"
 new_sqlite_classes = ["PairGroup"]
 
+# Connects per client IP. The IP is only the limiter's key: never logged or stored.
+[[ratelimits]]
+name = "CONNECT_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+# Pinned off: request logs would record group ids (in the URL) and client IPs
+[observability]
+enabled = false
+
 # R2 (file chunks) and push secrets arrive with the features that need them (docs/architecture/infrastructure.md)
