@@ -53,6 +53,9 @@ pub struct Device {
     pub(crate) relay_key: SigningKey,
     pub(crate) peers: BTreeMap<String, Peer>,
     pub(crate) pending_pairing: Option<crate::pairing::PendingPairing>,
+    /// Phone side: the Mac this device asked to pair with. Only its PairAccept confirms it; a
+    /// PairAccept from anyone else (on the Mac, from the phone itself) confirms nothing (SR-2-56).
+    pub(crate) awaiting_accept: Option<String>,
     /// Opaque bytes the app keeps sealed alongside the keys (its group id and relay URL), so
     /// they can never drift apart from the identity they belong to.
     pub(crate) app_data: Vec<u8>,
@@ -82,6 +85,7 @@ impl Device {
             relay_key,
             peers: BTreeMap::new(),
             pending_pairing: None,
+            awaiting_accept: None,
             app_data: Vec::new(),
         })
     }
@@ -145,6 +149,9 @@ impl Device {
     /// Forget a peer: its session is wiped and it can no longer be sealed to, opened from, or
     /// started a session with.
     pub fn remove_peer(&mut self, peer_id: &str) {
+        if self.awaiting_accept.as_deref() == Some(peer_id) {
+            self.awaiting_accept = None;
+        }
         if self.peers.remove(peer_id).is_some() {
             let _ = self.reset_session(&peer_address(peer_id));
         }

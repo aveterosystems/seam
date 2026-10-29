@@ -288,3 +288,59 @@ fn names_from_the_other_device_are_sanitised() {
     assert!(!req.device_name.contains('\u{202E}') && !req.device_name.contains('\n'));
     assert!(req.device_name.chars().count() <= 64);
 }
+
+#[test]
+fn sr_2_56_the_phone_cannot_confirm_itself_on_the_mac() {
+    use crate::proto::v1::Status;
+    let mut mac = Device::generate().unwrap();
+    let offer = mac.start_pairing();
+    let (mut phone, mac_id, env) = phone_pairs(&mut mac, &offer.token);
+    let req = mac.accept_pairing(&env).unwrap();
+
+    // The phone (or whoever swapped keys) sends its own PairAccept before the user compares codes
+    let accept = Payload {
+        body: Some(payload::Body::Control(Control {
+            body: Some(control::Body::PairAccept(Default::default())),
+        })),
+    };
+    let forged = phone.seal(&mac_id, &accept.encode_to_vec(), 0).unwrap();
+    mac.open(&forged).unwrap();
+    assert!(
+        !mac.peers()[&req.peer_id].confirmed,
+        "only the user confirms on the Mac"
+    );
+
+    // So everything else is still refused, nothing is saved, and Cancel still forgets it
+    let status = Payload {
+        body: Some(payload::Body::Status(Status::default())),
+    };
+    let sneaked = phone
+        .seal_payload(&mac_id, status, 0)
+        .unwrap()
+        .encode_to_vec();
+    assert!(matches!(mac.open(&sneaked), Err(Error::NotConfirmed)));
+    let key = [1u8; 32];
+    let restored = Device::restore(&mac.export_state(&key).unwrap(), &key).unwrap();
+    assert!(restored.peers().is_empty());
+    mac.reject_pairing(&req.peer_id);
+    assert!(mac.peers().is_empty());
+}
+
+#[test]
+fn sr_2_56_only_the_mac_the_phone_asked_confirms_it() {
+    let mut mac = Device::generate().unwrap();
+    let offer = mac.start_pairing();
+    let (mut phone, mac_id, env) = phone_pairs(&mut mac, &offer.token);
+    let req = mac.accept_pairing(&env).unwrap();
+    let accept = Payload {
+        body: Some(payload::Body::Control(Control {
+            body: Some(control::Body::PairAccept(Default::default())),
+        })),
+    };
+    mac.confirm_pairing(&req.peer_id).unwrap();
+    let env = mac.seal(&req.peer_id, &accept.encode_to_vec(), 0).unwrap();
+    // The phone accepts it from the Mac it asked, and stops waiting
+    phone.open(&env).unwrap();
+    assert!(phone.peers()[&mac_id].confirmed);
+    assert!(phone.awaiting_accept.is_none());
+}

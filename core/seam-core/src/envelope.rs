@@ -84,8 +84,8 @@ impl Device {
     /// Open an Envelope (bytes) from a paired peer. `Error::Duplicate` means it was already
     /// handled: ack it and move on.
     ///
-    /// From a peer that isn't confirmed yet only pairing messages are accepted; a PairAccept from
-    /// it confirms it (that's the phone learning the user approved on the Mac).
+    /// From a peer that isn't confirmed yet only pairing messages are accepted. A PairAccept
+    /// confirms only the Mac this phone asked to pair with (`pair_with`), never a peer on the Mac.
     pub fn open(&mut self, envelope: &[u8]) -> Result<Opened> {
         let env = self.decode_for_me(envelope)?;
         let peer_id = self.peer_by_relay_key(&env.from).ok_or(Error::NotPaired)?;
@@ -95,8 +95,10 @@ impl Device {
             if !is_control(&payload) {
                 return Err(Error::NotConfirmed);
             }
-            if is_pair_accept(&payload) {
+            if is_pair_accept(&payload) && self.awaiting_accept.as_deref() == Some(peer_id.as_str())
+            {
                 self.confirm_peer(&peer_id)?;
+                self.awaiting_accept = None;
             }
         }
         Ok(opened)

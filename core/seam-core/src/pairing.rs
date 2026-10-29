@@ -90,7 +90,10 @@ impl Device {
                 self.seal_payload(&peer_id, payload, 0)
             });
         match result {
-            Ok(env) => Ok((peer_id, env.encode_to_vec())),
+            Ok(env) => {
+                self.awaiting_accept = Some(peer_id.clone());
+                Ok((peer_id, env.encode_to_vec()))
+            }
             Err(e) => {
                 self.remove_peer(&peer_id);
                 // A failed re-pair must not cost the existing pairing with this Mac
