@@ -135,3 +135,14 @@ When every thread has its reply, post **one resolution summary** on the PR: a ta
 ## Adding a feature
 
 A feature is one Protobuf message in `protocol/seam/v1/` (taking the next free block of ten field numbers), one module per app behind the `Feature` interface, and one line in each app's feature registry. It advertises a capability string, so it stays off until both devices support it.
+
+## Releasing
+
+One release per version, tagged `vX.Y.Z`, with both apps attached. The apps share a protocol version and ship together; the relay isn't released, it deploys from `main`.
+
+1. **Once:** the maintainer runs `scripts/make-release-keys.sh` on their own Mac. It makes the Android signing key and Seam's Mac certificate (self-signed, not Apple's), stores them as GitHub secrets, and writes their public fingerprints to `release/`. Commit those two files, and back up the key folder offline.
+2. Bump `versionName` and `versionCode` in `apps/android/app/build.gradle.kts`, and `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `apps/mac/project.yml`, in a PR.
+3. After it merges, tag `main`: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. The `release` workflow checks the versions match the tag, runs the tests, builds and signs both apps, checks they're signed by the pinned keys, and opens a **draft** release with `SHA256SUMS` and build attestations. Read it, then publish it.
+
+The Mac app isn't notarized (that needs a paid Apple Developer account), so first launch needs **Open Anyway** in System Settings; `release/notes.md` explains it to users.

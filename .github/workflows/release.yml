@@ -1,0 +1,142 @@
+name: release
+# Pushing a version tag (v0.1.0) builds both apps, signs them with Seam's own keys, and opens a
+# draft release with checksums and build attestations. The maintainer reviews and publishes it.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  versions:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false }
+      - name: The tag matches both apps' versions
+        id: v
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          android="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' apps/android/app/build.gradle.kts)"
+          mac="$(sed -n 's/.*MARKETING_VERSION: "\(.*\)".*/\1/p' apps/mac/project.yml)"
+          echo "tag $tag, android $android, mac $mac"
+          test "$tag" = "$android" && test "$tag" = "$mac"
+          test -s release/android-certificate.sha256 && test -s release/mac-certificate.sha256
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: versions
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    defaults: { run: { working-directory: apps/android } }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false }
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with: { distribution: temurin, java-version: "17" }
+      # No build cache in a release: everything is built from the tagged sources
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+        with: { cache-disabled: true }
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
+        with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: Rust Android targets, cargo-ndk and the NDK
+        run: |
+          cd ../../core && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+          cargo install cargo-ndk --locked
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" > /dev/null
+      - name: Tests, then the signed full build
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          SEAM_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SEAM_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SEAM_ANDROID_KEY_ALIAS: seam
+        run: |
+          export SEAM_ANDROID_KEYSTORE="$RUNNER_TEMP/release.p12"
+          (umask 077; echo "$KEYSTORE_BASE64" | base64 -d > "$SEAM_ANDROID_KEYSTORE")
+          ./gradlew test assembleFullRelease
+          rm -f "$SEAM_ANDROID_KEYSTORE"
+      - name: Signed by Seam's pinned key
+        run: |
+          apk=app/build/outputs/apk/full/release/app-full-release.apk
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
+          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certs.txt")"
+          test "$actual" = "$(tr -d '[:space:]' < ../../release/android-certificate.sha256)"
+          test "$(grep -c '^Signer #' "$RUNNER_TEMP/certs.txt")" -eq 1
+          mkdir -p ../../dist && cp "$apk" "../../dist/Seam-${{ needs.versions.outputs.version }}-android.apk"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: android, path: dist/, if-no-files-found: error, retention-days: 7 }
+
+  mac:
+    needs: versions
+    runs-on: macos-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false }
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
+        with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: Rust core for Apple silicon and Intel
+        run: ARCHS="arm64 x86_64" scripts/build-mac-core.sh
+      - name: Swift tests
+        run: |
+          swift test --package-path apps/mac/Packages/SeamCore
+          swift test --package-path apps/mac/Packages/SeamProtocol
+          swift test --package-path apps/mac/Packages/SeamSession
+      - name: Release build (universal)
+        run: |
+          brew install xcodegen
+          cd apps/mac && xcodegen generate
+          xcodebuild -project Seam.xcodeproj -scheme Seam -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build | tail -20
+          test "${PIPESTATUS[0]}" -eq 0
+      - name: Sign with Seam's pinned certificate, then zip
+        env:
+          P12_BASE64: ${{ secrets.MAC_SIGNING_P12_BASE64 }}
+          MAC_SIGNING_P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
+        run: |
+          export MAC_SIGNING_P12="$RUNNER_TEMP/signing.p12"
+          (umask 077; echo "$P12_BASE64" | base64 -d > "$MAC_SIGNING_P12")
+          app="$RUNNER_TEMP/dd/Build/Products/Release/Seam.app"
+          scripts/sign-mac-app.sh "$app"
+          rm -f "$MAC_SIGNING_P12"
+          test "$(lipo -archs "$app/Contents/MacOS/Seam")" = "x86_64 arm64"
+          mkdir -p dist && ditto -c -k --keepParent "$app" "dist/Seam-${{ needs.versions.outputs.version }}-mac.zip"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: mac, path: dist/, if-no-files-found: error, retention-days: 7 }
+
+  release:
+    needs: [versions, android, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # the draft release
+      id-token: write     # build attestations (Sigstore)
+      attestations: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false }
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with: { path: dist, merge-multiple: true }
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum Seam-* > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with: { subject-path: "dist/Seam-*" }
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.versions.outputs.version }}
+        run: |
+          sed -e "s/{VERSION}/$VERSION/g" \
+              -e "s/{ANDROID_CERT}/$(tr -d '[:space:]' < release/android-certificate.sha256)/" \
+              -e "s/{MAC_CERT}/$(tr -d '[:space:]' < release/mac-certificate.sha256)/" \
+              release/notes.md > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "Seam $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
