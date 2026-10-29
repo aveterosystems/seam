@@ -22,6 +22,10 @@ packages:
     path: Packages/SeamProtocol
   SeamSession:
     path: Packages/SeamSession
+  # In-app updates. Exact version; SwiftPM checks the framework against Sparkle's published checksum.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 
 targets:
   Seam:
@@ -32,6 +36,7 @@ targets:
       - package: SeamCore
       - package: SeamProtocol
       - package: SeamSession
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.avetero.seam
@@ -46,4 +51,7 @@ targets:
         # Local networking for dev relays (plain ws://) in Debug only; Release has no ATS exception
         Debug:
           INFOPLIST_FILE: Config/Debug-Info.plist
+        # Sparkle's feed and the public key that every update and the feed itself must be signed with
+        Release:
+          INFOPLIST_FILE: Config/Release-Info.plist
     scheme: {}

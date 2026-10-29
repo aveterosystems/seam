@@ -10,6 +10,10 @@ android {
         applicationId = "com.avetero.seam"
         versionCode = 2
         versionName = "0.1.0"
+        // The updater installs only APKs signed by this certificate (release/android-certificate.sha256)
+        val pin = rootProject.file("../../release/android-certificate.sha256").readText().trim()
+        require(Regex("[0-9a-f]{64}").matches(pin)) { "release/android-certificate.sha256 must be one SHA-256" }
+        buildConfigField("String", "RELEASE_CERT_SHA256", "\"$pin\"")
     }
     buildFeatures { buildConfig = true }
 }
@@ -21,5 +25,9 @@ dependencies {
     implementation(project(":feature:clipboard"))
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.okhttp)
+    implementation(libs.coroutines.android)
     testImplementation(libs.junit)
+    // The real org.json for UpdateFeedTest (Android's is a stub on the JVM)
+    testImplementation(libs.json)
 }

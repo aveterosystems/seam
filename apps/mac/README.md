@@ -99,4 +99,8 @@ Don't edit these by hand. CI fails if they drift from their sources.
 
 ## Planned
 
-The full menu bar popover, the Messages, Notifications and Files windows, Settings, the Share extension and a Finder File Provider, each as a feature module behind the shared `Feature` interface. Moving the storage key to the data-protection keychain, wrapped by a Secure Enclave key, which needs an Apple Developer signature. Releases are signed with Seam's own certificate but not notarized, so each download needs Open Anyway once; notarization and in-app updates come with an Apple Developer account.
+The full menu bar popover, the Messages, Notifications and Files windows, Settings, the Share extension and a Finder File Provider, each as a feature module behind the shared `Feature` interface. Moving the storage key to the data-protection keychain, wrapped by a Secure Enclave key, which needs an Apple Developer signature. Releases are signed with Seam's own certificate but not notarized, so the first download needs Open Anyway once; notarization comes with an Apple Developer account.
+
+## Updates
+
+Release builds update through [Sparkle](https://sparkle-project.org) 2.10.0: once a day (Settings › About can turn it off) Seam reads `appcast.xml` from the latest GitHub release. Sparkle requires the feed itself to be signed (`SURequireSignedFeed`) and the update to be signed with Seam's update key (`SUPublicEDKey` in `Config/Release-Info.plist`), and the new app to be signed by the same certificate. It asks before installing; nothing installs automatically. Debug builds don't update.

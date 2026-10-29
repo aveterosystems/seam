@@ -21,6 +21,9 @@ env:
   CARGO_NDK: "4.1.2"
   XCODEGEN: "2.46.0"
   XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+  # Sparkle's sign_update signs Mac updates and the appcast; the app's Sparkle comes from SwiftPM
+  SPARKLE: "2.10.0"
+  SPARKLE_SHA256: "c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
 
 jobs:
   versions:
@@ -129,18 +132,29 @@ jobs:
         with: { persist-credentials: false, sparse-checkout: "release\nscripts" }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: mac-unsigned, path: in }
-      - name: Sign with Seam's pinned certificate, then zip
+      - name: Sparkle ${{ env.SPARKLE }}'s sign_update, checked against its pinned SHA-256
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE/Sparkle-$SPARKLE.tar.xz"
+          echo "$SPARKLE_SHA256  $RUNNER_TEMP/sparkle.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle" ./bin/sign_update
+      - name: Sign with Seam's pinned certificate, zip, sign the update and the appcast
         env:
           P12_BASE64: ${{ secrets.MAC_SIGNING_P12_BASE64 }}
           MAC_SIGNING_P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
+          SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
           VERSION: ${{ needs.versions.outputs.version }}
         run: |
           keys="$(mktemp -d)"
           trap 'rm -rf "$keys"' EXIT
-          (umask 077; base64 -d <<< "$P12_BASE64" > "$keys/signing.p12")
+          (umask 077; base64 -d <<< "$P12_BASE64" > "$keys/signing.p12"; printf '%s\n' "$SPARKLE_KEY" > "$keys/sparkle.key")
           ditto -x -k in/unsigned.zip "$keys/app"
-          MAC_SIGNING_P12="$keys/signing.p12" scripts/sign-mac-app.sh "$keys/app/Seam.app"
-          mkdir -p dist && ditto -c -k --keepParent "$keys/app/Seam.app" "dist/Seam-$VERSION-mac.zip"
+          app="$keys/app/Seam.app"
+          MAC_SIGNING_P12="$keys/signing.p12" scripts/sign-mac-app.sh "$app"
+          mkdir -p dist && ditto -c -k --keepParent "$app" "dist/Seam-$VERSION-mac.zip"
+          build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")"
+          EXPECTED_PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")" \
+          SPARKLE_KEY_FILE="$keys/sparkle.key" SIGN_UPDATE="$RUNNER_TEMP/sparkle/bin/sign_update" \
+            scripts/make-appcast.sh "dist/Seam-$VERSION-mac.zip" "$VERSION" "$build" dist/appcast.xml
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: mac, path: dist/, if-no-files-found: error, retention-days: 7 }
 
@@ -162,7 +176,7 @@ jobs:
         working-directory: dist
         run: sha256sum Seam-* > SHA256SUMS && cat SHA256SUMS
       - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
-        with: { subject-path: "dist/Seam-*\ndist/SHA256SUMS" }
+        with: { subject-path: "dist/Seam-*\ndist/SHA256SUMS\ndist/appcast.xml" }
       - name: Draft release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -58,7 +58,16 @@ identities="$(security find-identity -p codesigning "$keychain")"
 grep -q "$sha1" <<< "$identities" \
   || { echo "The P12 has the certificate but no matching private key" >&2; echo "$identities" >&2; exit 1; }
 
-# Hardened runtime, no entitlements. No timestamp: Apple's timestamp server only serves Developer ID.
+# Nested code first, innermost first (Sparkle's helpers, then its framework), keeping any
+# entitlements they ship with; symlinks are skipped (they point at the real Versions/B copies)
+if [ -d "$app/Contents/Frameworks" ]; then
+  while IFS= read -r -d '' item; do
+    codesign --force --options runtime --timestamp=none --preserve-metadata=entitlements \
+      --keychain "$keychain" --sign "$sha1" "$item"
+  done < <(find "$app/Contents/Frameworks" -depth -not -type l \
+    \( -name '*.xpc' -o -name '*.app' -o -name 'Autoupdate' -o -name '*.framework' -o -name '*.dylib' \) -print0)
+fi
+# The app: hardened runtime, no entitlements. No timestamp: Apple's timestamp server only serves Developer ID.
 codesign --force --options runtime --timestamp=none --keychain "$keychain" --sign "$sha1" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 # Updates keep keychain access only while this stays the same: identifier + this certificate

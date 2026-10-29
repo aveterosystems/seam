@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+package com.avetero.seam
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class UpdateFeedTest {
+    private fun release(tag: String, draft: Boolean = false, apkUrl: String? = null) = """
+        {"tag_name":"$tag","draft":$draft,"prerelease":false,"assets":[
+          {"name":"Seam-${tag.removePrefix("v")}-android.apk","browser_download_url":"${apkUrl ?: "https://github.com/aveterosystems/seam/releases/download/$tag/Seam-${tag.removePrefix("v")}-android.apk"}"},
+          {"name":"SHA256SUMS","browser_download_url":"https://github.com/aveterosystems/seam/releases/download/$tag/SHA256SUMS"}]}
+    """.trimIndent()
+
+    @Test fun offersANewerRelease() {
+        val r = UpdateFeed.newer(release("v0.1.1"), "0.1.0")!!
+        assertEquals("0.1.1", r.version)
+        assertTrue(r.apkUrl.endsWith("/v0.1.1/Seam-0.1.1-android.apk"))
+    }
+
+    @Test fun ignoresTheSameOrOlderVersion() {
+        assertNull(UpdateFeed.newer(release("v0.1.0"), "0.1.0"))
+        assertNull(UpdateFeed.newer(release("v0.0.9"), "0.1.0"))
+    }
+
+    @Test fun comparesNumbersNotText() {
+        assertTrue(UpdateFeed.isNewer("v0.10.0", "0.9.9"))
+        assertFalse(UpdateFeed.isNewer("v0.9.9", "0.10.0"))
+        assertFalse(UpdateFeed.isNewer("v1.0", "0.9.9"))
+        assertFalse(UpdateFeed.isNewer("latest", "0.1.0"))
+    }
+
+    @Test fun ignoresDraftsAndDownloadsFromElsewhere() {
+        assertNull(UpdateFeed.newer(release("v0.2.0", draft = true), "0.1.0"))
+        assertNull(UpdateFeed.newer(release("v0.2.0", apkUrl = "https://evil.example/Seam-0.2.0-android.apk"), "0.1.0"))
+        assertNull(UpdateFeed.newer(release("v0.2.0", apkUrl = "https://github.com/someone/seam/releases/download/v0.2.0/Seam-0.2.0-android.apk"), "0.1.0"))
+        assertNull(UpdateFeed.newer("not json", "0.1.0"))
+    }
+
+    @Test fun findsTheChecksumForTheApk() {
+        val a = "a".repeat(64); val b = "b".repeat(64)
+        val sums = "$a  Seam-0.1.1-android.apk\n$b  Seam-0.1.1-mac.zip\n"
+        assertEquals(a, UpdateFeed.sumFor(sums, "Seam-0.1.1-android.apk"))
+        assertEquals(b, UpdateFeed.sumFor(sums, "Seam-0.1.1-mac.zip"))
+        assertNull(UpdateFeed.sumFor(sums, "other.apk"))
+        assertNull(UpdateFeed.sumFor("xyz  Seam-0.1.1-android.apk", "Seam-0.1.1-android.apk"))
+    }
+}

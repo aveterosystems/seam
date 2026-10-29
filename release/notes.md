@@ -2,7 +2,9 @@ Seam {VERSION} for Android and Mac. Install both, then open Seam on the Mac and 
 
 ## Android
 
-Download `Seam-{VERSION}-android.apk` on the phone and open it. Android asks once to allow installs from your browser or file app. Needs Android 12 or later. To update, install the new APK over the old one.
+Download `Seam-{VERSION}-android.apk` on the phone and open it. Android asks once to allow installs from your browser or file app. Needs Android 12 or later.
+
+Seam then offers new versions itself: once a day it checks GitHub, and **Update** on its home screen downloads the new version, checks it's signed by Seam, and asks Android to install it (Android asks once to let Seam install updates). Turn checks off in Settings › Updates.
 
 ## Mac
 
@@ -10,13 +12,13 @@ Download `Seam-{VERSION}-android.apk` on the phone and open it. Android asks onc
 2. Open Seam. macOS says it can't check Seam for malicious software, because it isn't notarized by Apple yet. Close the message.
 3. Open **System Settings › Privacy & Security**, scroll down to the message about Seam, and click **Open Anyway**. Confirm with your password.
 
-Each version you download needs **Open Anyway** once. Your pairing carries over: every release is signed with the same Seam certificate, so a new version can use the keys the old one saved. Needs macOS 14 or later, Apple silicon or Intel.
+You only do this for the first install. After that, Seam updates itself: once a day it checks GitHub, and installs a new version only if it's signed with Seam's update key and certificate. Your pairing carries over. Turn checks off in Settings › About. Needs macOS 14 or later, Apple silicon or Intel.
 
 ## Check what you downloaded
 
 Two checks, each proving something different:
 
-- **Who built it.** Every file here, `SHA256SUMS` included, has a GitHub attestation saying it was built by Seam's release workflow from this tag. With the [GitHub CLI](https://cli.github.com):
+- **Who built it.** Every file here, `SHA256SUMS` and `appcast.xml` included, has a GitHub attestation saying it was built by Seam's release workflow from this tag. With the [GitHub CLI](https://cli.github.com):
 
   ```
   gh attestation verify Seam-{VERSION}-mac.zip --repo aveterosystems/seam \

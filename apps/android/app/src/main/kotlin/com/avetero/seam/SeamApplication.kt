@@ -23,6 +23,7 @@ class SeamApplication : Application() {
     lateinit var session: Session
         private set
     lateinit var clipboard: ClipboardFeature
+    lateinit var updater: Updater
         private set
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -45,6 +46,7 @@ class SeamApplication : Application() {
         session.register(StatusFeature(this))
         clipboard = ClipboardFeature(this, session).also(session::register)
         session.start()
+        updater = Updater(this).also { it.start() }
         // Forgetting the Mac forgets its last copy too (SR-11-09)
         CoroutineScope(Dispatchers.Main).launch {
             session.state.collect { if (it == SessionState.Unpaired) clipboard.clearFromMac() }

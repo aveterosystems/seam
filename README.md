@@ -29,7 +29,7 @@ Download both apps from the [latest release](https://github.com/aveterosystems/s
 - **Android 12 or later:** open `Seam-<version>-android.apk` on the phone and allow the install.
 - **macOS 14 or later** (Apple silicon or Intel): unzip `Seam-<version>-mac.zip` and drag Seam to Applications. Seam isn't notarized by Apple yet, so the first time you open each version macOS blocks it: open **System Settings › Privacy & Security** and click **Open Anyway**.
 
-Each release says how to check that the files were built by this repository's release workflow and signed with Seam's keys.
+After that, both apps update themselves: once a day they check GitHub for a newer release (GitHub sees your IP address when they do; turn it off in Settings), and install it only if it's signed with Seam's keys. Each release says how to check its files yourself.
 
 ## What it does
 
