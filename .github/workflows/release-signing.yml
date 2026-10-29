@@ -24,6 +24,7 @@ jobs:
         with: { distribution: temurin, java-version: "17" }
       - name: Sign a stand-in APK with a throwaway key
         run: |
+          set -x # throwaway keys only: tracing is safe here
           t="$(mktemp -d)"
           openssl rand -hex 24 > "$t/password"
           keytool -genkeypair -keystore "$t/release.p12" -storetype PKCS12 -alias seam \
