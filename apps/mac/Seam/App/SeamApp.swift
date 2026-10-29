@@ -46,6 +46,23 @@ enum ResetPrompt {
     }
 }
 
+/// Asks before unpairing: both devices forget each other's keys.
+@MainActor
+enum UnpairPrompt {
+    static func run(_ controller: SeamController) {
+        let name = controller.phone?.name ?? "your phone"
+        let alert = NSAlert()
+        alert.messageText = "Unpair \(name)?"
+        alert.informativeText = "This Mac and \(name) stop syncing, and both forget each other's keys. You can pair again any time."
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Unpair")
+        alert.buttons[1].hasDestructiveAction = true
+        NSApp.activate()
+        guard alert.runModal() == .alertSecondButtonReturn else { return }
+        controller.unpairPhone()
+    }
+}
+
 struct MenuContent: View {
     let controller: SeamController
 
@@ -72,6 +89,8 @@ struct MenuContent: View {
                 Divider()
                 Toggle("Clipboard Sync", isOn: Binding(get: { controller.clipboardSync }, set: { controller.setClipboardSync($0) }))
                 Button("Turn On Automatic Clipboard from Phone…") { AutoClipboardSetup.run() }
+                Divider()
+                Button("Unpair \(controller.phone?.name ?? "Phone")…") { UnpairPrompt.run(controller) }
             }
             Divider()
             Button(controller.phone == nil ? "Pair a phone…" : "Pair new phone…") { PairingWindow.show(controller) }
