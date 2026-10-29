@@ -31,6 +31,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -65,11 +67,29 @@ fun SeamScreen(
     scanning: Boolean = false,
     onCloseScan: () -> Unit = {},
     camera: @Composable () -> Unit = {},
+    frozen: androidx.compose.ui.graphics.ImageBitmap? = null,
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        if (state is SessionState.Pairing) return@Surface PairScreen(null, onCodesDontMatch, sheet = { Pairing(state, onCodesDontMatch) })
-        if (toConfirm != null) return@Surface PairScreen(null, onCancelConfirm, sheet = { Confirm(toConfirm, onConfirm, onCancelConfirm) })
-        if (scanning) return@Surface PairScreen(camera, onCloseScan, caption = scanError ?: "Point at the code on your Mac")
+        // One call site, so the sheet slides up once and then changes in place (confirm, then the code)
+        if (state is SessionState.Pairing || toConfirm != null || scanning) {
+            val sheet: (@Composable () -> Unit)? = when {
+                state is SessionState.Pairing -> ({ Pairing(state, onCodesDontMatch) })
+                toConfirm != null -> ({ Confirm(toConfirm, onConfirm, onCancelConfirm) })
+                else -> null
+            }
+            val back = when {
+                state is SessionState.Pairing -> onCodesDontMatch
+                toConfirm != null -> onCancelConfirm
+                else -> onCloseScan
+            }
+            return@Surface PairScreen(
+                camera = if (sheet == null) camera else null,
+                onBack = back,
+                caption = scanError ?: "Point at the code on your Mac",
+                frozen = frozen,
+                sheet = sheet,
+            )
+        }
         val home = when (state) {
             is SessionState.Connected -> Link.Connected
             is SessionState.Idle -> Link.Idle
@@ -250,9 +270,13 @@ private fun PairScreen(
     camera: (@Composable () -> Unit)?,
     onBack: () -> Unit,
     caption: String? = null,
+    frozen: androidx.compose.ui.graphics.ImageBitmap? = null,
     sheet: (@Composable () -> Unit)? = null,
 ) {
     androidx.activity.compose.BackHandler(onBack = onBack)
+    // Slides up once, the first time a sheet is shown; the viewfinder behind it never resizes
+    val shown = remember { androidx.compose.animation.core.MutableTransitionState(false) }
+    shown.targetState = sheet != null
     Column(Modifier.fillMaxSize().background(Color(0xFF0B0F0E))) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
@@ -260,37 +284,51 @@ private fun PairScreen(
             }
             Text("Pair with a Mac", color = Color.White, fontSize = 22.sp)
         }
-        Box(Modifier.fillMaxWidth().weight(1f).background(Color(0xFF1C2422)), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().weight(1f).background(Color(0xFF1C2422))) {
             if (camera != null) Box(Modifier.matchParentSize()) { camera() }
-            Frame()
-            if (caption != null) {
-                Text(
-                    caption, color = Color(0xFFDDE4E1), textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+            if (frozen != null) {
+                androidx.compose.foundation.Image(
+                    frozen, contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.matchParentSize(),
                 )
             }
-        }
-        if (sheet != null) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                modifier = Modifier.fillMaxWidth(),
+            if (sheet == null) {
+                Box(Modifier.align(Alignment.Center)) { Frame() }
+                if (caption != null) {
+                    Text(
+                        caption, color = Color(0xFFDDE4E1), textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+                    )
+                }
+            } else {
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.45f)))
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visibleState = shown,
+                enter = androidx.compose.animation.slideInVertically { it } + androidx.compose.animation.fadeIn(),
+                modifier = Modifier.align(Alignment.BottomCenter),
             ) {
-                Column(
-                    Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Box(Modifier.padding(top = 22.dp).size(width = 32.dp, height = 4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
-                    Box(
-                        Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(22.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(painterResource(R.drawable.ic_laptop), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(34.dp)) }
-                    sheet()
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Keys stay in this phone's security chip", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.outline)
+                    Column(
+                        Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp).animateContentSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Box(Modifier.padding(top = 22.dp).size(width = 32.dp, height = 4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
+                        Box(
+                            Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(22.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(painterResource(R.drawable.ic_laptop), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(34.dp)) }
+                        sheet?.invoke()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Keys stay in this phone's security chip", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.outline)
+                        }
                     }
                 }
             }

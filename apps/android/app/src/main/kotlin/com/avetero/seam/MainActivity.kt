@@ -58,6 +58,9 @@ class MainActivity : ComponentActivity() {
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 var settings by remember { mutableStateOf(false) }
                 var scanning by remember { mutableStateOf(false) }
+                var frozen by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+                if (state is SessionState.Pairing) scanned = null
+                if (scanned == null && state !is SessionState.Pairing && !scanning) frozen = null
                 fun granted() = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                 var cameraAllowed by remember { mutableStateOf(granted()) }
                 var cameraAsked by remember { mutableStateOf(false) }
@@ -104,7 +107,7 @@ class MainActivity : ComponentActivity() {
                     scanError = scanError ?: notice,
                     toConfirm = scanned,
                     onConfirm = { qr ->
-                        scanned = null
+                        // scanned clears once the session says Pairing, so the sheet never drops out in between
                         session.pair(qr)
                         ConnectionService.start(this@MainActivity)
                     },
@@ -126,6 +129,7 @@ class MainActivity : ComponentActivity() {
                         if (!cameraAllowed) askCamera.launch(Manifest.permission.CAMERA)
                     },
                     scanning = scanning,
+                    frozen = frozen,
                     onCloseScan = {
                         scanning = false
                         scanError = null
@@ -136,6 +140,7 @@ class MainActivity : ComponentActivity() {
                                 when (r) {
                                     is ScanResult.Code -> {
                                         scanned = r.qr // nothing changes until the user confirms who this is
+                                        frozen = r.frame
                                         scanning = false
                                         scanError = null
                                     }
