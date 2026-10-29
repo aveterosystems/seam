@@ -86,7 +86,9 @@ final class SeamController: RelayHandler {
             .flatMap { try? Seam_V1_Envelope(serializedBytes: $0) }
             .map(Frames.send)
         let key = removableRelayKey(phone.id)
-        forgetPhone(phone.id)
+        // Only once forgetting it is saved: otherwise a restart would reload the phone with the
+        // ratchet from before the farewell was sealed, and could reuse its key (SR-7-04)
+        guard forgetPhone(phone.id) else { return }
         Task {
             if let farewell { try? await relay?.send(farewell) } // first, so a connected phone gets it before it's removed
             if let key { try? await relay?.send(Frames.removeMember(key)) }
@@ -94,15 +96,25 @@ final class SeamController: RelayHandler {
     }
 
     /// The phone is gone (unpaired here, or it unpaired us): its keys, status and anything held for it.
-    private func forgetPhone(_ peerId: String) {
-        guard let store else { return }
+    /// False if that couldn't be saved.
+    @discardableResult
+    private func forgetPhone(_ peerId: String) -> Bool {
+        guard let store else { return false }
         store.device.removePeer(peerId: peerId)
-        do { try store.save() } catch { saveFailed() }
+        let saved: Bool
+        do {
+            try store.save()
+            saved = true
+        } catch {
+            saveFailed()
+            saved = false
+        }
         if phone?.id == peerId {
             phone = nil
             status = nil
         }
         pendingClip.clear()
+        return saved
     }
 
     // MARK: Clipboard
@@ -374,7 +386,11 @@ final class SeamController: RelayHandler {
         case .clipboard(let c):
             receivedClip(c)
         case .control(let c):
-            if case .unpair = c.body { forgetPhone(peerId) } // it already left the relay group itself
+            if case .unpair = c.body {
+                // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)
+                let key = removableRelayKey(peerId)
+                if forgetPhone(peerId), let key { Task { try? await relay?.send(Frames.removeMember(key)) } }
+            }
         default: break
         }
     }

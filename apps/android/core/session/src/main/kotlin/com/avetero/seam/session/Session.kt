@@ -139,7 +139,10 @@ class Session(
         forget()
     }
 
-    /** Back to unpaired: no peers, no relay target, nothing queued. */
+    /**
+     * Back to unpaired: no peers, no relay target, nothing queued. Only says so once that's saved;
+     * otherwise a restart would load the old pairing, so the user is told it didn't work (SR-7-01).
+     */
     private fun forget() {
         stable?.cancel()
         reconnect?.cancel()
@@ -151,8 +154,7 @@ class Session(
         outbox.clear()
         device.peers().forEach { device.removePeer(it.id) }
         device.setAppData(ByteArray(0))
-        runCatching { persist() }
-        _state.value = SessionState.Unpaired
+        _state.value = if (runCatching { persist() }.isSuccess) SessionState.Unpaired else SessionState.Failed(FORGET_FAILED)
     }
 
     /** Something escaped a handler: show it instead of crashing (wired to the scope's exception handler). */
@@ -397,6 +399,7 @@ class Session(
         const val MAX_OUTBOX = 100
         const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
         const val RESET = "Seam's secure storage on this phone was reset. Pair again."
+        const val FORGET_FAILED = "Couldn't finish forgetting your Mac: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
         // After login these mean the socket is unusable; others (queue_full, too_large…) are per-message
         val FATAL_AFTER_LOGIN = setOf("bad_login", "not_member", "storage")

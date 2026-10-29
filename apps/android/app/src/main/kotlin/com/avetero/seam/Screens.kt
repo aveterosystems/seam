@@ -152,7 +152,7 @@ private fun Linked(
         AlertDialog(
             onDismissRequest = { confirmForget = false },
             title = { Text("Forget $macName?") },
-            text = { Text("This phone and $macName stop syncing, and both forget each other's keys. You can pair again any time.") },
+            text = { Text("This phone stops syncing with $macName and forgets its keys. $macName forgets this phone too: now if it's online, otherwise when it next connects. You can pair again any time.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmForget = false

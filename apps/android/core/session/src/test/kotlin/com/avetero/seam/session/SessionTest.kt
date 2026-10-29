@@ -413,6 +413,29 @@ class SessionTest {
         assertEquals("a restart stays unpaired", SessionState.Unpaired, again.state.value)
     }
 
+    @Test fun sr_7_01_aForgetThatCantBeSavedSaysSoAndSendsNothing() = runTest {
+        val s = paired()
+        store.failSaves = true
+        s.forgetMac()
+        advanceUntilIdle()
+        assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Couldn't finish forgetting"))
+        assertTrue("the Mac wasn't told something that didn't happen", relay.macReceived.none { it.hasControl() && it.control.hasUnpair() })
+        assertTrue("and the phone didn't leave the group", relay.removed.isEmpty())
+    }
+
+    @Test fun anUnpairIsIgnoredWhilePairingWithAnotherMac() = runTest {
+        val s = paired()
+        val newMac = SeamDevice.generate()
+        relay.mac = newMac
+        relay.withholdAccept = true // the new Mac hasn't accepted yet
+        s.pair(qrFor(newMac, "Mac mini"))
+        advanceUntilIdle()
+        val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(com.avetero.seam.protocol.v1.Unpair.getDefaultInstance())).build()
+        relay.deliverToPhone(mac.seal(mac.peers().single().id, unpair.toByteArray(), 0u))
+        advanceUntilIdle()
+        assertTrue("still pairing, nothing forgotten", s.state.value is SessionState.Pairing)
+    }
+
     @Test fun whenTheMacUnpairsThePhoneForgetsIt() = runTest {
         val s = paired()
         val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(com.avetero.seam.protocol.v1.Unpair.getDefaultInstance())).build()

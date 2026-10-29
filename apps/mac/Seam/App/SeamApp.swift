@@ -53,7 +53,7 @@ enum UnpairPrompt {
         let name = controller.phone?.name ?? "your phone"
         let alert = NSAlert()
         alert.messageText = "Unpair \(name)?"
-        alert.informativeText = "This Mac and \(name) stop syncing, and both forget each other's keys. You can pair again any time."
+        alert.informativeText = "This Mac stops syncing with \(name) and forgets its keys. \(name) forgets this Mac too: now if it's online, otherwise it's asked to pair again when it next connects. You can pair again any time."
         alert.addButton(withTitle: "Cancel")
         alert.addButton(withTitle: "Unpair")
         alert.buttons[1].hasDestructiveAction = true
