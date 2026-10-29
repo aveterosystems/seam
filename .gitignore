@@ -42,3 +42,4 @@ google-services.json
 GoogleService-Info.plist
 .env
 .env.*
+spikes/clipboard/mac/results.csv
