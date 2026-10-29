@@ -18,12 +18,19 @@ final class SeamController: RelayHandler {
     /// Something the user should see in the menu (a refused login, a save that failed).
     private(set) var warning: String?
     private(set) var flow = PairingFlow()
+    /// Clipboard both ways (menu toggle, on by default).
+    private(set) var clipboardSync = UserDefaults.standard.object(forKey: "clipboardSync") as? Bool ?? true
 
     @ObservationIgnored private var store: Store?
     @ObservationIgnored private var relay: RelayClient?
     @ObservationIgnored private var relayTask: Task<Void, Never>?
     @ObservationIgnored private var openTokenHash: Data?
     @ObservationIgnored private var expiryTask: Task<Void, Never>?
+    @ObservationIgnored private var clipRules = ClipRules()
+    @ObservationIgnored private var lastChange = NSPasteboard.general.changeCount
+    @ObservationIgnored private var clipTask: Task<Void, Never>?
+    /// The latest copy made while the relay was unreachable; sent when it's back.
+    @ObservationIgnored private var pendingClip: Seam_V1_Payload?
     // Logs codes and counts only, never contents or keys (threat model, rule 7)
     private let log = Logger(subsystem: "com.avetero.seam", category: "session")
 
@@ -63,6 +70,72 @@ final class SeamController: RelayHandler {
         let relay = RelayClient(device: store.device, groupID: store.appData.groupID, relayURL: store.relayURL, handler: self)
         self.relay = relay
         relayTask = Task { await relay.run() }
+        watchClipboard()
+    }
+
+    // MARK: Clipboard
+
+    func setClipboardSync(_ on: Bool) {
+        clipboardSync = on
+        UserDefaults.standard.set(on, forKey: "clipboardSync")
+        lastChange = NSPasteboard.general.changeCount // turning it on never sends what was copied while off
+    }
+
+    /// macOS has no change notification for the pasteboard: checking its counter twice a second is the standard way, and cheap.
+    private func watchClipboard() {
+        clipTask?.cancel()
+        clipTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                self?.checkPasteboard()
+            }
+        }
+    }
+
+    private func checkPasteboard() {
+        let pb = NSPasteboard.general
+        guard pb.changeCount != lastChange else { return }
+        lastChange = pb.changeCount
+        guard clipboardSync, phone != nil else { return }
+        let types = pb.types?.map(\.rawValue) ?? []
+        guard !ClipRules.isPrivate(types: types), let text = clipRules.outgoing(pb.string(forType: .string)) else { return }
+        let payload = Seam_V1_Payload.with {
+            $0.clipboard = .with {
+                $0.text = text
+                $0.copiedAt = Int64(Date().timeIntervalSince1970 * 1000)
+            }
+        }
+        guard connected else {
+            pendingClip = payload
+            return
+        }
+        sendToPhone(payload, ttl: Self.clipboardTTL)
+    }
+
+    private func receivedClip(_ clip: Seam_V1_Clipboard) {
+        guard clipboardSync, let text = clipRules.incoming(clip.text) else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        lastChange = pb.changeCount // our own write isn't a new copy
+    }
+
+    /// A stale clipboard is worse than none: the relay drops it after 10 minutes.
+    private static let clipboardTTL: UInt32 = 600
+
+    /// Sealed, saved, then sent: never sends what a failed save would forget (SR-2-11).
+    private func sendToPhone(_ payload: Seam_V1_Payload, ttl: UInt32) {
+        guard let store, let phone else { return }
+        let frame: Seam_V1_ClientFrame
+        do {
+            let sealed = try store.device.seal(peerId: phone.id, payload: try payload.serializedData(), ttlS: ttl)
+            do { try store.save() } catch { return saveFailed() }
+            frame = Frames.send(try Seam_V1_Envelope(serializedBytes: sealed))
+        } catch {
+            log.error("couldn't seal a message for the phone")
+            return
+        }
+        Task { try? await relay?.send(frame) }
     }
 
     // MARK: Pairing
@@ -185,6 +258,10 @@ final class SeamController: RelayHandler {
         if warning == Self.loginRefused { warning = nil }
         await announcePairing()
         await uploadBundlesIfNeeded()
+        if let clip = pendingClip {
+            pendingClip = nil
+            sendToPhone(clip, ttl: Self.clipboardTTL)
+        }
     }
 
     func relayDisconnected() async {
@@ -252,7 +329,9 @@ final class SeamController: RelayHandler {
         case .status(var s):
             s.batteryPct = min(s.batteryPct, 100)
             status = s
-        default: break // other features arrive from M2
+        case .clipboard(let c):
+            receivedClip(c)
+        default: break
         }
     }
 
