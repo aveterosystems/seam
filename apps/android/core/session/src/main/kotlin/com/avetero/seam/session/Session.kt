@@ -29,6 +29,8 @@ sealed interface SessionState {
     data class Pairing(val macName: String, val safetyCode: String?) : SessionState
     data class Connecting(val macName: String) : SessionState
     data class Connected(val macName: String) : SessionState
+    /** Paired, connection closed to save battery: it connects again to send, on screen on, or when charging (decision 0005). */
+    data class Idle(val macName: String) : SessionState
     data class Failed(val reason: String) : SessionState
 }
 
@@ -73,6 +75,12 @@ class Session(
     /** Logins the relay refused in a row because it doesn't know this phone. */
     private var refusals = 0
 
+    // Decision 0005: the connection is held only while it's cheap or needed
+    private var screenOn = true
+    private var charging = false
+    private var lastActivity = now()
+    private var idle: Job? = null
+
     private val mac: PeerInfo? get() = device.peers().firstOrNull { it.confirmed }
     private val target: RelayTarget?
         get() = pairing?.let { RelayTarget(it.relayUrl, it.groupId) } ?: RelayTarget.decode(device.appData())
@@ -106,8 +114,72 @@ class Session(
     fun start() = scope.launch {
         val m = mac ?: return@launch
         if (_state.value == SessionState.Failed(RESET)) return@launch
+        if (!wanted()) return@launch run { _state.value = SessionState.Idle(m.name) }
         _state.value = SessionState.Connecting(m.name)
         connect()
+    }
+
+    /** The screen turned on or off. On: connect, so a Mac copy is there before you can paste. */
+    fun setScreenOn(on: Boolean) = scope.launch {
+        screenOn = on
+        if (on) touch()
+        reconsider(connect = on)
+    }
+
+    /** Plugged in or unplugged. While charging the connection stays open: power doesn't matter. */
+    fun setCharging(on: Boolean) = scope.launch {
+        charging = on
+        reconsider(connect = on)
+    }
+
+    /**
+     * Whether a connection is worth having now: pairing, screen on, charging, something urgent to
+     * send, or activity in the last [IDLE_MS]. Otherwise it costs radio wake-ups for nothing.
+     */
+    private fun wanted(): Boolean =
+        pairing != null || screenOn || charging || outbox.any { it.payload.bodyCase !in LAZY } ||
+            now() - lastActivity < IDLE_MS
+
+    private fun touch() {
+        lastActivity = now()
+        scheduleIdleCheck()
+    }
+
+    private fun scheduleIdleCheck() {
+        idle?.cancel()
+        idle = scope.launch {
+            delay((lastActivity + IDLE_MS - now()).coerceAtLeast(0))
+            reconsider(connect = false) // the end of an activity window is only ever a reason to close
+        }
+    }
+
+    /**
+     * Close the connection if nothing wants it any more; with [connect], also open it if something
+     * does. A failed session is left as it is: the user sees why and acts.
+     */
+    private fun reconsider(connect: Boolean = true) {
+        val m = mac ?: return
+        if (pairing != null || storageBlocked || _state.value is SessionState.Failed) return
+        if (wanted()) {
+            if (connect && link == null && reconnect?.isActive != true) {
+                _state.value = SessionState.Connecting(m.name)
+                connect()
+            }
+            if (!screenOn && !charging) scheduleIdleCheck() // look again once the activity window ends
+        } else if (link != null || reconnect?.isActive == true) {
+            sleep(m)
+        }
+    }
+
+    /** Closes the connection on purpose: no reconnect until something wants one. */
+    private fun sleep(m: PeerInfo) {
+        stable?.cancel()
+        reconnect?.cancel()
+        generation++ // so this socket's close callback doesn't count as a drop
+        link?.close()
+        link = null
+        loggedIn = false
+        _state.value = SessionState.Idle(m.name)
     }
 
     /** Pair with the Mac from its scanned (and user-confirmed) QR code. The current Mac stays until the new one accepts. */
@@ -169,7 +241,7 @@ class Session(
             if (payload.bodyCase in LATEST_ONLY) outbox.removeAll { it.payload.bodyCase == payload.bodyCase }
             if (outbox.size >= MAX_OUTBOX) outbox.removeFirst()
             outbox.addLast(Queued(payload, now()))
-            if (loggedIn) flush()
+            if (loggedIn) flush() else if (payload.bodyCase !in LAZY) reconsider() // a copy connects; a battery update waits
         }
     }
 
@@ -230,6 +302,7 @@ class Session(
 
     private fun loggedInOk() {
         loggedIn = true
+        touch()
         stable?.cancel()
         stable = scope.launch {
             delay(STABLE_MS)
@@ -258,6 +331,7 @@ class Session(
     }
 
     private fun deliver(env: Envelope) {
+        touch()
         val opened = try {
             device.open(env.toByteArray())
         } catch (_: Exception) {
@@ -340,6 +414,7 @@ class Session(
             }
             outbox.removeFirst()
             if (!sendEnvelope(env)) return
+            touch()
         }
     }
 
@@ -349,6 +424,8 @@ class Session(
         link = null
         if (pairing != null) return fail("Lost the connection while pairing. Try again.")
         val m = mac ?: return
+        // Dropped while nothing needs it: stay down instead of reconnecting (decision 0005)
+        if (!wanted()) return run { _state.value = SessionState.Idle(m.name) }
         _state.value = SessionState.Connecting(m.name)
         reconnect = scope.launch {
             wait(backoff.next())
@@ -405,6 +482,10 @@ class Session(
         val FATAL_AFTER_LOGIN = setOf("bad_login", "not_member", "storage")
         val NOT_RECOGNISED = setOf("bad_login", "not_member")
         val LATEST_ONLY = setOf(Payload.BodyCase.STATUS, Payload.BodyCase.CLIPBOARD)
+        /** Sent on the next connection, never worth one of their own (a battery change). */
+        val LAZY = setOf(Payload.BodyCase.STATUS)
+        /** How long a connection stays after the last thing it carried, when nothing else wants it. */
+        const val IDLE_MS = 60_000L
 
         /** How long the relay may hold it (docs/architecture/protocol.md): a stale clipboard is worse than none. */
         fun ttlFor(payload: Payload): UInt = when (payload.bodyCase) {

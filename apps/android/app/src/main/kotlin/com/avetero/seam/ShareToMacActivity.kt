@@ -40,6 +40,6 @@ class ShareToMacActivity : Activity() {
 /** "Sent" only when it can go now; otherwise say it's waiting (SR-4-04). */
 fun sentMessage(app: SeamApplication, sent: Boolean): String = when {
     !sent -> "Nothing to send: the clipboard is empty, too big, or holds something private"
-    app.session.state.value is SessionState.Connected -> "Sent to your Mac's clipboard"
+    app.session.state.value is SessionState.Connected || app.session.state.value is SessionState.Idle -> "Sent to your Mac's clipboard"
     else -> "It'll go to your Mac when your phone reconnects (within 10 minutes)"
 }

@@ -36,7 +36,8 @@ public enum AdbSetup {
     }
 
     /// In order. The first one fails if the full build isn't installed. The restart at the end
-    /// is needed: Android only hands a new log permission to a freshly started process.
+    /// is needed: Android only hands a new log permission to a freshly started process. No battery
+    /// exemption: the phone holds no connection it doesn't need (decision 0005), so it doesn't need one.
     public static func steps(serial: String) -> [Step] {
         let shell = ["-s", serial, "shell"]
         return [
@@ -48,10 +49,6 @@ public enum AdbSetup {
             Step(
                 what: "Allow the invisible focus window", arguments: shell + ["appops", "set", package, "SYSTEM_ALERT_WINDOW", "allow"],
                 grants: "Seam may show a 1-pixel window over other apps for a moment, which Android requires before reading the clipboard."
-            ),
-            Step(
-                what: "Keep Seam running in the background", arguments: shell + ["dumpsys", "deviceidle", "whitelist", "+\(package)"],
-                grants: "Seam is exempt from battery optimisation, so the phone doesn't put it to sleep."
             ),
             Step(what: "Restart Seam", arguments: shell + ["am", "force-stop", package], grants: "Seam on the phone restarts once to pick these up."),
             Step(what: "Open Seam", arguments: shell + ["am", "start", "-n", "\(package)/com.avetero.seam.MainActivity"]),
