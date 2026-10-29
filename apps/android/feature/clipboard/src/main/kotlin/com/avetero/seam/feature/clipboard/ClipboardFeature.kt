@@ -38,13 +38,16 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
     /** Send what's on the clipboard now. Only works while Seam has focus (Android 10+). */
     fun sendCurrent(): Boolean = sendNow(readClip())
 
-    /** The clipboard's text, unless an app marked it sensitive (a password manager, a one-time code). */
-    fun readClip(): String? {
+    /**
+     * The clipboard's text, unless an app marked it sensitive (a password manager, a one-time code).
+     * Plain text only: a URI clip (a copied file) is never opened (SR-4-07).
+     */
+    fun readClip(): String? = runCatching {
         val clip = clipboard.primaryClip ?: return null
         if (clip.itemCount == 0) return null
         if (clip.description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE) == true) return null
-        return clip.getItemAt(0).coerceToText(app)?.toString()
-    }
+        clip.getItemAt(0).text?.toString()
+    }.getOrNull()
 
     override fun receive(payload: Payload, fromPeer: String) {
         val text = payload.clipboard.text

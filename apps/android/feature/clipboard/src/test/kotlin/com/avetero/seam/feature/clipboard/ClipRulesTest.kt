@@ -9,10 +9,22 @@ import org.junit.Test
 class ClipRulesTest {
     @Test fun sendsNewCopiesOnce() {
         val r = ClipRules()
-        assertEquals("a", r.outgoing("a"))
-        assertNull("the same copy seen twice", r.outgoing("a"))
-        assertEquals("b", r.outgoing("b"))
-        assertEquals("copying a again later still sends it", "a", r.outgoing("a"))
+        assertEquals("a", r.outgoing("a", now = 0))
+        assertNull("the same copy seen twice", r.outgoing("a", now = 500))
+        assertEquals("b", r.outgoing("b", now = 600))
+        assertEquals("copying a again later still sends it", "a", r.outgoing("a", now = 700))
+    }
+
+    @Test fun sr_4_10_aCopyThatFailedToSendGoesWhenCopiedAgain() {
+        val r = ClipRules()
+        assertEquals("a", r.outgoing("a", now = 0)) // say this one was dropped while pairing
+        assertEquals("a", r.outgoing("a", now = ClipRules.REPEAT_MS))
+    }
+
+    @Test fun sharePreviewIsShort() {
+        assertEquals("short", ClipRules.preview("short"))
+        val long = "x".repeat(1000)
+        assertEquals(301, ClipRules.preview(long).length)
     }
 
     @Test fun neverEchoesWhatTheMacSent() {

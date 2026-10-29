@@ -130,7 +130,7 @@ class SessionTest {
 
     private fun TestScope.session(connector: RelayConnector = relay, wait: suspend (Long) -> Unit = {}) = Session(
         store, connector, "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)), wait = wait,
+        TestScope(StandardTestDispatcher(testScheduler)), wait = wait, now = { testScheduler.currentTime },
     )
 
     private fun status(pct: Int) = Payload.newBuilder().setStatus(Status.newBuilder().setBatteryPct(pct).setCharging(true)).build()
@@ -383,6 +383,17 @@ class SessionTest {
         advanceUntilIdle()
         assertEquals(listOf("new"), relay.macReceived.filter { it.hasClipboard() }.map { it.clipboard.text })
         assertEquals(600, relay.sealedTtls.last())
+    }
+
+    @Test fun sr_4_04_aClipboardQueuedTooLongIsDroppedNotSentLate() = runTest {
+        val s = session(wait = { kotlinx.coroutines.delay(11 * 60_000L) }) // the relay comes back after 11 minutes
+        s.pair(qr)
+        advanceUntilIdle()
+        relay.drop()
+        s.send(Payload.newBuilder().setClipboard(com.avetero.seam.protocol.v1.Clipboard.newBuilder().setText("stale")).build())
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        assertTrue("never sent late", relay.macReceived.none { it.hasClipboard() })
     }
 
     @Test fun sr_2_11_nothingIsSentIfSavingFails() = runTest {

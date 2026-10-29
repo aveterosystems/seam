@@ -58,9 +58,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onSendClipboard = {
                         // Seam has focus here, so Android allows the read
-                        val sent = app.clipboard.sendCurrent()
-                        val text = if (sent) "Sent to your Mac's clipboard" else "Nothing to send: the clipboard is empty or holds something private"
-                        Toast.makeText(this@MainActivity, text, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()
                     },
                     onScan = {
                         scope.launch {

@@ -30,6 +30,8 @@ object AutoClipboard {
     private var watcher: Thread? = null
     @Volatile private var logcat: Process? = null
     @Volatile private var running = false
+    /** Bumped by every start and stop, so an old watcher thread can tell it's been replaced (SR-4-08). */
+    @Volatile private var generation = 0
     /** elapsedRealtime when a copy was seen; 0 when nothing is pending. */
     private var pendingSince = 0L
 
@@ -45,34 +47,44 @@ object AutoClipboard {
         if (running || !available(app)) return
         running = true
         this.feature = feature
+        val mine = ++generation
         app.getSystemService(ClipboardManager::class.java).addPrimaryClipChangedListener(listener)
-        watcher = thread(name = "seam-clipwatch", isDaemon = true) { watch(app) }
+        watcher = thread(name = "seam-clipwatch", isDaemon = true) { watch(app, mine) }
     }
 
     fun stop(context: Context) {
         if (!running) return
         running = false
+        generation++
         context.applicationContext.getSystemService(ClipboardManager::class.java).removePrimaryClipChangedListener(listener)
         logcat?.destroy()
+        main.removeCallbacksAndMessages(null) // no grab still in flight can send after stop
+        pendingSince = 0L
+        watcher?.join(500)
         watcher = null
     }
 
-    private fun watch(app: Context) {
-        while (running) {
+    private fun watch(app: Context, mine: Int) {
+        val current = { running && mine == generation }
+        while (current()) {
             runCatching {
                 // -T 1: only new lines. Only ClipboardService errors, nothing else from the log is read.
-                val p = ProcessBuilder("logcat", "-T", "1", "-v", "brief", "ClipboardService:E", "*:S").redirectErrorStream(true).start()
+                // -v uid: who wrote each line, so only the system's own refusal counts (SR-4-02).
+                val p = ProcessBuilder("logcat", "-T", "1", "-v", "threadtime", "-v", "uid", "ClipboardService:E", "*:S")
+                    .redirectErrorStream(true).start()
                 logcat = p
+                if (!current()) return p.destroy() // stopped while starting
                 p.inputStream.bufferedReader().forEachLine { line ->
-                    if (running && LogMatch.isOurDenial(line, app.packageName)) main.post { grab(app) }
+                    if (current() && LogMatch.isOurDenial(line, app.packageName)) main.post { grab(app) }
                 }
                 p.waitFor()
             }
-            if (running) Thread.sleep(1000)
+            if (current()) Thread.sleep(1000)
         }
     }
 
     private fun grab(app: Context) {
+        if (!running) return
         val now = SystemClock.elapsedRealtime()
         if (pendingSince != 0L && now - pendingSince < 1500) return // one grab at a time
         pendingSince = now
@@ -101,7 +113,7 @@ object AutoClipboard {
     }
 
     internal fun deliver(context: Context) {
-        if (pendingSince == 0L) return
+        if (!running || pendingSince == 0L) return
         pendingSince = 0L
         val f = feature ?: return
         f.copied(f.readClip())

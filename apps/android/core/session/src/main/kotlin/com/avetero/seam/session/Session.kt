@@ -41,6 +41,7 @@ class Session(
     private val myModel: String,
     private val scope: CoroutineScope,
     private val wait: suspend (Long) -> Unit = { delay(it) },
+    private val now: () -> Long = System::currentTimeMillis,
 ) : SessionApi {
     private val _state = MutableStateFlow<SessionState>(SessionState.Unpaired)
     val state: StateFlow<SessionState> = _state
@@ -56,7 +57,10 @@ class Session(
     private val features = mutableListOf<Feature>()
     private val backoff = Backoff()
     /** Unsealed and bounded: sealed only when it can be sent, right after a durable save. */
-    private val outbox = ArrayDeque<Payload>()
+    private val outbox = ArrayDeque<Queued>()
+
+    /** When it was queued: a Clipboard or Status older than its TTL is dropped, not sent late (SR-4-04). */
+    private class Queued(val payload: Payload, val at: Long)
     private var link: RelayLink? = null
     private var generation = 0
     private var loggedIn = false
@@ -123,9 +127,9 @@ class Session(
         scope.launch {
             if (mac == null || pairing != null) return@launch
             // Only the latest Status and Clipboard matter; everything else is capped
-            if (payload.bodyCase in LATEST_ONLY) outbox.removeAll { it.bodyCase == payload.bodyCase }
+            if (payload.bodyCase in LATEST_ONLY) outbox.removeAll { it.payload.bodyCase == payload.bodyCase }
             if (outbox.size >= MAX_OUTBOX) outbox.removeFirst()
-            outbox.addLast(payload)
+            outbox.addLast(Queued(payload, now()))
             if (loggedIn) flush()
         }
     }
@@ -279,7 +283,12 @@ class Session(
         while (outbox.isNotEmpty()) {
             val env = try {
                 val next = outbox.first()
-                val e = device.seal(m.id, next.toByteArray(), ttlFor(next))
+                val ttl = ttlFor(next.payload)
+                if (ttl != 0u && now() - next.at > ttl.toLong() * 1000) {
+                    outbox.removeFirst()
+                    continue
+                }
+                val e = device.seal(m.id, next.payload.toByteArray(), ttl)
                 persist() // the ratchet moved: save before anything leaves, or a crash could reuse a key
                 e
             } catch (_: SeamException) {
