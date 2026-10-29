@@ -5,9 +5,9 @@ compatibility_date = "2026-10-01"
 
 # The relay's long-lived address: stored in every pairing, so it must not change (SR-5-02)
 routes = [{ pattern = "relay.avetero.com", custom_domain = true }]
-# Also reachable at seam-relay.<account>.workers.dev. Kept on only while pairings made on that
-# address exist; turn it off once they've re-paired on relay.avetero.com
-workers_dev = true
+# The account's workers.dev address is off: every pairing uses relay.avetero.com, and it was the
+# only place the account name showed (SR-5-02)
+workers_dev = false
 
 # One Durable Object per pairing group: live sockets, offline queue, prekey bundles, pairing slot
 [[durable_objects.bindings]]
