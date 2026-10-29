@@ -10,7 +10,7 @@
 	<key>SUFeedURL</key>
 	<string>https://github.com/aveterosystems/seam/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>NOT-SET-run-scripts/make-update-key.sh</string>
+	<string>1rIKVnoDagQQKR86KN625cN6MygQi2yUQVYgBfx7TBU=</string>
 	<key>SURequireSignedFeed</key>
 	<true/>
 	<key>SUVerifyUpdateBeforeExtraction</key>
