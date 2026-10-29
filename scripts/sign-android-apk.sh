@@ -21,10 +21,15 @@ trap 'rm -rf "$work"' EXIT
   --min-sdk-version 31 --out "$out" "$work/aligned.apk"
 "$tools/apksigner" verify --min-sdk-version 31 "$out"
 "$tools/apksigner" verify --min-sdk-version 31 --print-certs "$out" > "$work/certs.txt"
-# Exactly one signer (apksigner prints several lines per signer: count the distinct numbers)
-signers="$(grep -o '^Signer #[0-9]*' "$work/certs.txt" | sort -u | wc -l | tr -d ' ')"
-[ "$signers" -eq 1 ] || { echo "Expected one signer, found $signers" >&2; exit 1; }
-actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$work/certs.txt")"
+# Exactly one signing certificate, and it's the pinned one. apksigner's labels differ between
+# versions ("Signer #1", "Signer (minSdkVersion=...)"), so read every SHA-256 digest it reports.
+digests="$(sed -n 's/^Signer.* certificate SHA-256 digest: \([0-9a-f]\{64\}\)$/\1/p' "$work/certs.txt" | sort -u)"
+count="$(printf '%s' "$digests" | grep -c . || true)"
 expected="$(tr -d '[:space:]' < "${ANDROID_CERT_PIN:-$root/release/android-certificate.sha256}")"
-if [ "$actual" != "$expected" ]; then echo "Signed with $actual, not the pinned $expected" >&2; exit 1; fi
+if [ "$count" -ne 1 ] || [ "$digests" != "$expected" ]; then
+  echo "Expected one signing certificate, the pinned $expected; apksigner reported:" >&2
+  cat "$work/certs.txt" >&2
+  exit 1
+fi
+actual="$digests"
 echo "Signed by the pinned certificate $actual"
