@@ -4,7 +4,6 @@ on:
     branches: [main]
     paths: ["server/**", "protocol/**", ".github/workflows/server.yml", "!**/*.md"]
   pull_request:
-    paths: ["server/**", "protocol/**", ".github/workflows/server.yml", "!**/*.md"]
 
 # A newer push to the same branch or PR cancels this run; it's been superseded
 concurrency:
@@ -12,7 +11,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  # Which parts changed. Skipped jobs count as passed, so required checks never block an unrelated PR.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.filter.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            run:
+              - '{server/**,protocol/**,.github/workflows/server.yml}'
+              - '!**/*.md'
+
+  server:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: server } }
     steps:

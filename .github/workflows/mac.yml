@@ -4,7 +4,6 @@ on:
     branches: [main]
     paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml", "!**/*.md"]
   pull_request:
-    paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml", "!**/*.md"]
 
 # A newer push to the same branch or PR cancels this run; it's been superseded
 concurrency:
@@ -16,7 +15,25 @@ env:
   SWIFT_PROTOBUF: "1.39.0"
 
 jobs:
-  build:
+  # Which parts changed. Skipped jobs count as passed, so required checks never block an unrelated PR.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.filter.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            run:
+              - '{apps/mac/**,core/**,protocol/**,scripts/**,.github/workflows/mac.yml}'
+              - '!**/*.md'
+
+  mac:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.run == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5

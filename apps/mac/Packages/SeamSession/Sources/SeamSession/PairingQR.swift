@@ -40,18 +40,19 @@ public struct PairingQR: Equatable, Sendable {
         }
         let q = Dictionary((c.queryItems ?? []).map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
         guard q["v"] == "1" else { throw ParseError.unsupportedVersion }
-        func text(_ k: String) throws -> String {
+        // Not named `text`: that would shadow the `text` parameter above
+        func field(_ k: String) throws -> String {
             guard let v = q[k], !v.isEmpty else { throw ParseError.missing(k) }
             return v
         }
         func bytes(_ k: String, count: Int) throws -> Data {
-            guard let d = Data(base64URL: try text(k)) else { throw ParseError.missing(k) }
+            guard let d = Data(base64URL: try field(k)) else { throw ParseError.missing(k) }
             guard d.count == count else { throw ParseError.badLength(k) }
             return d
         }
         return PairingQR(
-            relayURL: try text("r"), groupID: try bytes("g", count: 16), token: try bytes("t", count: 32),
-            identityKey: try bytes("i", count: 33), relayKey: try bytes("k", count: 32), name: try text("n")
+            relayURL: try field("r"), groupID: try bytes("g", count: 16), token: try bytes("t", count: 32),
+            identityKey: try bytes("i", count: 33), relayKey: try bytes("k", count: 32), name: try field("n")
         )
     }
 

@@ -39,6 +39,17 @@ Each part's README explains how to build and test it: [core](core/README.md), [p
 3. Run the tests for the parts you touched. CI runs everything a change affects.
 4. Open a pull request saying what changed and why. Keep it focused: one change per PR.
 
+## Review
+
+**Every pull request gets a security-focused review before it merges.** Passing CI isn't enough.
+
+1. **Automated review, per area.** Each part the PR touches (core, relay, Android, Mac) is reviewed against the rules above: trust-on-first-use leaks, pairing and login bypasses, replay and binding, nonce reuse, panics on untrusted input, anything sensitive logged, and claims without tests. Findings are ranked Critical / High / Medium / Low and checked before they're acted on.
+2. **Fix before merge.** Critical and High findings are fixed in the PR, each with a test. Medium and Low are fixed or written up as issues. The PR description lists every finding and what happened to it.
+3. **Line-by-line reading** by the maintainer for anything in `core/`, `protocol/`, or the relay's login and pairing code.
+4. **`main` is protected.** Changes land only through a pull request, with all five CI checks (`core`, `protocol`, `android`, `mac`, `server`) passing and every review thread resolved. Squash merges only, and nobody can bypass this, admins included.
+
+An independent security audit is planned before 1.0. Review here is meant to make that audit short, not replace it.
+
 ## Code style
 
 - Rust: `cargo fmt` and `cargo clippy -- -D warnings`.
