@@ -67,30 +67,40 @@ struct PairingFlowTests {
     @Test func pairCanOnlyBeClickedOnce() {
         var flow = PairingFlow()
         flow.start(qr: "seam://pair", now: start)
-        #expect(flow.received(request))
-        #expect(flow.beginConfirming() == request)
-        #expect(flow.beginConfirming() == nil) // a double click sends nothing twice
-        #expect(flow.cancel() == nil) // and Cancel can't race the PairAccept
+        let result1 = flow.received(request) // #expect can't call a mutating method itself
+        #expect(result1)
+        let result2 = flow.beginConfirming() // #expect can't call a mutating method itself
+        #expect(result2 == request)
+        let result3 = flow.beginConfirming() // #expect can't call a mutating method itself
+        #expect(result3 == nil) // a double click sends nothing twice
+        let result4 = flow.cancel() // #expect can't call a mutating method itself
+        #expect(result4 == nil) // and Cancel can't race the PairAccept
         flow.finish(name: "Pixel")
         #expect(flow.state == .paired(name: "Pixel"))
     }
 
     @Test func lateEventsCantSkipAStep() {
         var flow = PairingFlow()
-        #expect(!flow.received(request)) // no QR showing
-        #expect(flow.beginConfirming() == nil)
+        let result5 = flow.received(request) // #expect can't call a mutating method itself
+        #expect(!result5) // no QR showing
+        let result6 = flow.beginConfirming() // #expect can't call a mutating method itself
+        #expect(result6 == nil)
         flow.start(qr: "seam://pair", now: start)
-        #expect(flow.expire())
+        let result7 = flow.expire() // #expect can't call a mutating method itself
+        #expect(result7)
         #expect(flow.state == .expired)
-        #expect(!flow.received(request)) // an expired code can't be answered
+        let result8 = flow.received(request) // #expect can't call a mutating method itself
+        #expect(!result8) // an expired code can't be answered
     }
 
     @Test func cancelReturnsWhatToUndo() {
         var flow = PairingFlow()
         flow.start(qr: "seam://pair", now: start)
         flow.received(request)
-        #expect(flow.cancel() == .confirm(request))
+        let result9 = flow.cancel() // #expect can't call a mutating method itself
+        #expect(result9 == .confirm(request))
         #expect(flow.state == .idle)
-        #expect(!flow.expire()) // a cancelled code doesn't later show "expired"
+        let result10 = flow.expire() // #expect can't call a mutating method itself
+        #expect(!result10) // a cancelled code doesn't later show "expired"
     }
 }
