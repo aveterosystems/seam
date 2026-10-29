@@ -2,7 +2,7 @@
 import AppKit
 import SwiftUI
 
-/// A menu bar app (no Dock icon): the menu shows the paired phone and its battery (board M01).
+/// A menu bar app (no Dock icon): the menu shows the paired phone, its battery and clipboard sync (board M01).
 @main
 struct SeamApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -67,6 +67,11 @@ struct MenuContent: View {
             Text(controller.connected ? "Connected · encrypted" : "Not connected")
             if let warning = controller.warning {
                 Label(warning, systemImage: "exclamationmark.triangle")
+            }
+            if controller.phone != nil {
+                Divider()
+                Toggle("Clipboard Sync", isOn: Binding(get: { controller.clipboardSync }, set: { controller.setClipboardSync($0) }))
+                Button("Turn On Automatic Clipboard from Phone…") { AutoClipboardSetup.run() }
             }
             Divider()
             Button(controller.phone == nil ? "Pair a phone…" : "Pair new phone…") { PairingWindow.show(controller) }

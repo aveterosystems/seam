@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! A stand-in Mac for testing the phone end to end before the Mac app runs: it uses the real
 //! core and the real relay protocol, shows the pairing QR code in the terminal, and prints what
-//! the phone sends.
+//! the phone sends. Clipboard goes both ways through this Mac's real clipboard (pbcopy/pbpaste);
+//! it prints lengths only, never what was copied.
 //!
 //!     cargo run -p seam-dev -- ws://localhost:8787          (relay from `wrangler dev`)
+//!     cargo run -p seam-dev -- wss://seam-relay.mattbeechey.workers.dev   (the deployed relay)
 //!
 //! With the phone on USB, `adb reverse tcp:8787 tcp:8787` lets it reach the same URL.
 //! State lives in core/target/seam-dev/; delete that folder to start over.
@@ -19,8 +21,8 @@ use qrcode::QrCode;
 use qrcode::render::unicode;
 use rand::RngCore;
 use seam_core::proto::v1::{
-    ClientFrame, Control, Delivered, Login, OpenPairing, PairAccept, Payload, PutBundles,
-    ServerFrame, client_frame, control, payload, server_frame,
+    ClientFrame, Clipboard, Control, Delivered, Login, OpenPairing, PairAccept, Payload,
+    PutBundles, ServerFrame, client_frame, control, payload, server_frame,
 };
 use seam_core::{Device, Error, bundle};
 use tungstenite::{Message as Ws, WebSocket, stream::MaybeTlsStream};
@@ -28,6 +30,8 @@ use tungstenite::{Message as Ws, WebSocket, stream::MaybeTlsStream};
 type Socket = WebSocket<MaybeTlsStream<std::net::TcpStream>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // wss:// needs a TLS crypto backend; ring is the one already in the build
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let relay = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "ws://localhost:8787".into());
@@ -108,11 +112,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Paired with {}. Waiting for messages…", names.join(", "));
     }
 
+    // Wake twice a second to check the Mac clipboard
+    let tick = Some(std::time::Duration::from_millis(500));
+    match ws.get_ref() {
+        MaybeTlsStream::Plain(tcp) => tcp.set_read_timeout(tick)?,
+        MaybeTlsStream::Rustls(tls) => tls.get_ref().set_read_timeout(tick)?,
+        _ => {}
+    }
+    let mut clip = Clip {
+        seen: pbpaste(),
+        received: None,
+    };
     loop {
+        poll_clipboard(&mut device, &mut ws, &mut clip)?;
+        save(&device);
         match recv(&mut ws)? {
             Some(server_frame::Frame::Deliver(env)) => {
                 let bytes = env.encode_to_vec();
-                handle(&mut device, &mut ws, &bytes)?;
+                handle(&mut device, &mut ws, &bytes, &mut clip)?;
                 send(
                     &mut ws,
                     client_frame::Frame::Delivered(Delivered { msg_id: env.msg_id }),
@@ -129,10 +146,68 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+/// What this Mac's clipboard last held, and the last text the phone sent (so it isn't echoed back).
+struct Clip {
+    seen: Option<String>,
+    received: Option<String>,
+}
+
+fn pbpaste() -> Option<String> {
+    let out = std::process::Command::new("pbpaste").output().ok()?;
+    Some(String::from_utf8_lossy(&out.stdout).into_owned()).filter(|t| !t.is_empty())
+}
+
+fn pbcopy(text: &str) -> std::io::Result<()> {
+    let mut child = std::process::Command::new("pbcopy")
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    child.stdin.take().unwrap().write_all(text.as_bytes())?;
+    child.wait().map(|_| ())
+}
+
+/// Something new copied on this Mac goes to the phone, with the clipboard's 10-minute expiry.
+fn poll_clipboard(
+    device: &mut Device,
+    ws: &mut Socket,
+    clip: &mut Clip,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let now = pbpaste();
+    if now == clip.seen {
+        return Ok(());
+    }
+    clip.seen = now.clone();
+    let Some(text) = now.filter(|t| Some(t) != clip.received.as_ref()) else {
+        return Ok(());
+    };
+    let Some(phone) = device
+        .peers()
+        .iter()
+        .find(|(_, p)| p.confirmed)
+        .map(|(id, _)| id.clone())
+    else {
+        return Ok(());
+    };
+    let payload = Payload {
+        body: Some(payload::Body::Clipboard(Clipboard {
+            text: text.clone(),
+            image_png: vec![],
+            copied_at: 0,
+        })),
+    };
+    let env = device.seal(&phone, &payload.encode_to_vec(), 600)?;
+    send(
+        ws,
+        client_frame::Frame::Send(seam_core::proto::v1::Envelope::decode(env.as_slice())?),
+    )?;
+    println!("📋 Mac → phone: {} characters", text.chars().count());
+    Ok(())
+}
+
 fn handle(
     device: &mut Device,
     ws: &mut Socket,
     envelope: &[u8],
+    clip: &mut Clip,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let opened = match device.open(envelope) {
         Ok(o) => o,
@@ -152,6 +227,15 @@ fn handle(
         Some(payload::Body::Status(s)) => {
             let charging = if s.charging { ", charging" } else { "" };
             println!("🔋 {name}: {}%{charging}", s.battery_pct);
+        }
+        Some(payload::Body::Clipboard(c)) => {
+            pbcopy(&c.text)?;
+            println!(
+                "📋 {name} → Mac clipboard: {} characters",
+                c.text.chars().count()
+            );
+            clip.received = Some(c.text.clone());
+            clip.seen = Some(c.text);
         }
         other => println!("· {name}: {other:?}"),
     }
@@ -205,7 +289,19 @@ fn send(ws: &mut Socket, frame: client_frame::Frame) -> Result<(), Box<dyn std::
 }
 
 fn recv(ws: &mut Socket) -> Result<Option<server_frame::Frame>, Box<dyn std::error::Error>> {
-    match ws.read()? {
+    let msg = match ws.read() {
+        Ok(m) => m,
+        Err(tungstenite::Error::Io(e))
+            if matches!(
+                e.kind(),
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+            ) =>
+        {
+            return Ok(None); // the read timeout: time to check the clipboard
+        }
+        Err(e) => return Err(e.into()),
+    };
+    match msg {
         Ws::Binary(b) => Ok(ServerFrame::decode(b.as_ref())?.frame),
         Ws::Close(_) => Err("relay closed the connection".into()),
         _ => Ok(None),

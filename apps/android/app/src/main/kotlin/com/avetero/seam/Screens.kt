@@ -25,8 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.avetero.seam.feature.clipboard.ClipRules
+import com.avetero.seam.feature.clipboard.FromMac
 import com.avetero.seam.session.PairingQr
 import com.avetero.seam.session.SessionState
 
@@ -39,6 +42,10 @@ fun SeamScreen(
     onConfirm: (PairingQr) -> Unit,
     onCancelConfirm: () -> Unit,
     onScan: () -> Unit,
+    clipboard: ClipboardStatus = ClipboardStatus.Manual,
+    onSendClipboard: () -> Unit = {},
+    fromMac: FromMac? = null,
+    now: Long = System.currentTimeMillis(),
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(
@@ -56,8 +63,8 @@ fun SeamScreen(
                     onAction = onScan,
                 )
                 is SessionState.Pairing -> Pairing(state)
-                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError)
-                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError)
+                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError, clipboard, onSendClipboard, fromMac, now)
+                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError, clipboard, onSendClipboard, fromMac, now)
                 is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
             }
         }
@@ -99,7 +106,15 @@ private fun Pairing(state: SessionState.Pairing) {
 }
 
 @Composable
-private fun Linked(macName: String, connected: Boolean, notice: String?) {
+private fun Linked(
+    macName: String,
+    connected: Boolean,
+    notice: String?,
+    clipboard: ClipboardStatus,
+    onSendClipboard: () -> Unit,
+    fromMac: FromMac?,
+    now: Long,
+) {
     MacBadge()
     Text(macName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
     Text(
@@ -108,11 +123,49 @@ private fun Linked(macName: String, connected: Boolean, notice: String?) {
     )
     if (notice != null) Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
     Text(
-        "Your battery shows in your Mac's menu bar.",
+        "Your battery shows in your Mac's menu bar. What you copy on your Mac is on this phone's clipboard too.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+    if (fromMac != null) FromMacCard(fromMac, now)
+    Spacer(Modifier.height(8.dp))
+    Button(onClick = onSendClipboard, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Send clipboard to Mac", fontSize = 16.sp) }
+    Text(
+        when (clipboard) {
+            ClipboardStatus.Automatic -> "Automatic: what you copy here goes to your Mac by itself."
+            ClipboardStatus.NeedsSetup -> "To send copies automatically, choose Turn On Automatic Clipboard in Seam's menu on your Mac."
+            ClipboardStatus.Manual -> "Or share any text to Send to Mac."
+        },
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
     )
 }
+
+/** Board A01's bottom card: what last came from the Mac, since Android's "Copied" pop-up can't say. */
+@Composable
+private fun FromMacCard(clip: FromMac, now: Long) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Copied on your Mac · ${ago(now - clip.at)}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(ClipRules.preview(clip.text), maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text("It's on this phone's clipboard: paste it anywhere.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** "just now", "5 min ago", "2 h ago". */
+internal fun ago(ms: Long): String = when {
+    ms < 60_000 -> "just now"
+    ms < 3_600_000 -> "${ms / 60_000} min ago"
+    else -> "${ms / 3_600_000} h ago"
+}
+
+/** Phone → Mac: automatic (full build, granted), possible after setup (full build), or one tap (Play build). */
+enum class ClipboardStatus { Automatic, NeedsSetup, Manual }
 
 /** The laptop-and-phone mark on a soft circle (stand-in for board A01's scalloped hero). */
 @Composable
