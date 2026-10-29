@@ -22,8 +22,8 @@ trap 'rm -rf "$work"' EXIT
 "$tools/apksigner" verify --min-sdk-version 31 "$out"
 "$tools/apksigner" verify --min-sdk-version 31 --print-certs "$out" > "$work/certs.txt"
 # Exactly one signing certificate, and it's the pinned one. apksigner's labels differ between
-# versions ("Signer #1", "Signer (minSdkVersion=...)"), so read every SHA-256 digest it reports.
-digests="$(sed -n 's/^Signer.* certificate SHA-256 digest: \([0-9a-f]\{64\}\)$/\1/p' "$work/certs.txt" | sort -u)"
+# versions ("Signer #1", "V3.0 Signer:"), so read every SHA-256 digest it reports.
+digests="$(sed -n 's/^.*Signer.* certificate SHA-256 digest: \([0-9a-f]\{64\}\)$/\1/p' "$work/certs.txt" | sort -u)"
 count="$(printf '%s' "$digests" | grep -c . || true)"
 expected="$(tr -d '[:space:]' < "${ANDROID_CERT_PIN:-$root/release/android-certificate.sha256}")"
 if [ "$count" -ne 1 ] || [ "$digests" != "$expected" ]; then
