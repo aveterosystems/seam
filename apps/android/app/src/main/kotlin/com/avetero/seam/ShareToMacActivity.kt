@@ -29,7 +29,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.Alignment
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,14 +60,20 @@ class ShareToMacActivity : ComponentActivity() {
             val colors = if (isSystemInDarkTheme()) dynamicDarkColorScheme(this) else dynamicLightColorScheme(this)
             MaterialTheme(colorScheme = colors) {
                 ModalBottomSheet(onDismissRequest = { finish() }) {
+                    // The sheet has its own window: refuse taps that pass through another app's overlay (SR-11-02)
+                    val view = LocalView.current
+                    SideEffect { view.filterTouchesWhenObscured = true; view.rootView.filterTouchesWhenObscured = true }
+                    val armed = armedAfterDelay()
                     Column(
                         Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp).navigationBarsPadding(),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Text(
-                            ClipRules.preview(text!!), maxLines = 4, overflow = TextOverflow.Ellipsis,
+                            ClipRules.preview(text!!), maxLines = 8, overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        val more = ClipRules.notShown(text)
+                        if (more > 0) Text("And %,d more characters, not shown".format(more), fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
                         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
                             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
@@ -80,7 +88,7 @@ class ShareToMacActivity : ComponentActivity() {
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                             TextButton(onClick = { finish() }) { Text("Cancel") }
-                            Button(onClick = { done(sentMessage(app, app.clipboard.sendNow(text))) }) { Text("Send") }
+                            Button(onClick = { done(sentMessage(app, app.clipboard.sendNow(text))) }, enabled = armed) { Text(if (more > 0) "Send all" else "Send") }
                         }
                     }
                 }

@@ -5,7 +5,10 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
+import androidx.compose.runtime.SideEffect
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +43,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Draws behind the status and navigation bars (Android 15 does anyway); content keeps clear below
         enableEdgeToEdge()
+        // Pair, Codes don't match and Forget refuse taps through another app's overlay (SR-11-02)
+        window.decorView.filterTouchesWhenObscured = true
+        // Recents shows a blank card, not the last Mac copy or the safety code (SR-11-04)
+        if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(false)
         val app = application as SeamApplication
         val session = app.session
         if (session.paired) ConnectionService.start(this)
@@ -71,14 +78,18 @@ class MainActivity : ComponentActivity() {
                     cameraAllowed = granted()
                     onPauseOrDispose {}
                 }
-                // Board A03 follows a pairing that finished on this screen
+                // Board A03 follows a pairing that finished on this screen with a new Mac; a failed
+                // re-pair falls back to the old Mac, which isn't a new pairing (SR-11-06)
+                var pairingFrom by remember { mutableStateOf<String?>(null) }
                 var wasPairing by remember { mutableStateOf(false) }
                 var setup by remember { mutableStateOf(false) }
-                if (state is SessionState.Pairing) wasPairing = true
-                else if (wasPairing) {
+                if (state is SessionState.Pairing) {
+                    if (!wasPairing) pairingFrom = session.macCode()
+                    wasPairing = true
+                } else if (wasPairing) {
                     wasPairing = false
                     scanning = false // the pairing screen closes when pairing ends, either way
-                    setup = state is SessionState.Connected || state is SessionState.Idle || state is SessionState.Connecting
+                    setup = isNewPairing(pairingFrom, session.macCode(), state)
                 }
                 val clipboardStatus = when {
                     AutoClipboard.available(this@MainActivity) -> ClipboardStatus.Automatic
@@ -87,6 +98,13 @@ class MainActivity : ComponentActivity() {
                 }
                 val macName = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Idle)?.macName
                     ?: (state as? SessionState.Connecting)?.macName
+                // Screenshots, recordings and casting go blank while a Mac copy or a safety code shows (SR-11-04)
+                val sensitive = settings || scanned != null || state is SessionState.Pairing ||
+                    (macName != null && fromMac?.fresh(System.currentTimeMillis()) == true)
+                SideEffect {
+                    if (sensitive) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
                 if (setup && macName != null) return@Box SetupScreen(macName, clipboardStatus) { setup = false }
                 if (settings) {
                     return@Box SettingsScreen(
@@ -116,8 +134,8 @@ class MainActivity : ComponentActivity() {
                     },
                     fromMac = fromMac,
                     onPasteFromMac = { text ->
-                        app.clipboard.putBack(text)
-                        Toast.makeText(this@MainActivity, "On this phone's clipboard", Toast.LENGTH_SHORT).show()
+                        val put = app.clipboard.putBack(text)
+                        Toast.makeText(this@MainActivity, if (put) "On this phone's clipboard" else "Couldn't put it on the clipboard", Toast.LENGTH_SHORT).show()
                     },
                     onOpenSettings = { settings = true },
                     onCodesDontMatch = { session.abortPairing() },
@@ -163,3 +181,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+/** Whether pairing just ended with a different Mac than before (SR-11-06). Codes identify a Mac. */
+internal fun isNewPairing(codeBefore: String?, codeAfter: String?, state: SessionState): Boolean =
+    codeAfter != null && codeAfter != codeBefore &&
+        (state is SessionState.Connected || state is SessionState.Idle || state is SessionState.Connecting)

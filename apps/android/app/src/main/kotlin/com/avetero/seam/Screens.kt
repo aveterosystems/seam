@@ -31,6 +31,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.animateContentSize
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
@@ -176,7 +178,7 @@ private fun Home(
             Spacer(Modifier.height(32.dp))
             RoundAction("Clipboard", R.drawable.ic_clipboard, primary = true, onClick = onSendClipboard)
             Spacer(Modifier.weight(1f))
-            if (fromMac != null) FromMacCard(fromMac, now, onPaste)
+            if (fromMac != null && fromMac.fresh(now)) FromMacCard(fromMac, now, onPaste)
         }
     }
 }
@@ -235,9 +237,15 @@ private fun Intro(title: String, body: String, action: String, error: String?, o
 
 @Composable
 private fun Confirm(qr: PairingQr, onConfirm: (PairingQr) -> Unit, onCancel: () -> Unit) {
-    SheetHead("Pair with ${qr.macName}?", "Through ${qr.relayHost}")
+    SheetHead("Pair with ${qr.macName}?", "Only if it's your Mac, the one in front of you")
+    Text(
+        if (qr.officialRelay) "Through ${qr.relayHost}" else "Through ${qr.relayHost}: not Seam's relay. Only pair if you run it.",
+        fontSize = 14.sp, textAlign = TextAlign.Center,
+        color = if (qr.officialRelay) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+    )
+    val armed = armedAfterDelay()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { onConfirm(qr) }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }
+        Button(onClick = { onConfirm(qr) }, enabled = armed, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }
         TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Cancel", fontSize = 16.sp) }
     }
 }
@@ -250,7 +258,7 @@ private fun Pairing(state: SessionState.Pairing, onCodesDontMatch: () -> Unit) {
         SheetHead("Pairing with ${state.macName}…", "Sending this phone's keys to your Mac")
         CircularProgressIndicator(Modifier.padding(16.dp))
     } else {
-        SheetHead("Pair with ${state.macName}?", "Check your Mac shows the same code, then confirm there")
+        SheetHead("Pair with ${state.macName}?", "Check your Mac shows the same code, then confirm on it")
         Text(
             code.chunked(3).joinToString(" ").replace("  ", " "),
             fontFamily = FontFamily.Monospace, fontSize = 34.sp, letterSpacing = 4.sp, fontWeight = FontWeight.Medium,
@@ -315,7 +323,7 @@ private fun PairScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                             Spacer(Modifier.width(6.dp))
-                            Text("Keys stay in this phone's security chip", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.outline)
+                            Text("Keys never leave this phone, sealed by its security chip", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.outline)
                         }
                     }
                 }
@@ -360,9 +368,25 @@ fun CameraNeeded(asked: Boolean, onAllow: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text(
-            "Seam uses the camera only on this screen, to read the code on your Mac. Nothing it sees leaves this phone.",
+            "Seam uses the camera only on this screen, to read the code on your Mac. It reads the code on this phone and sends no pictures anywhere.",
             color = Color(0xFFDDE4E1), textAlign = TextAlign.Center,
         )
         Button(onClick = onAllow) { Text(if (asked) "Allow in Settings" else "Allow camera") }
     }
 }
+
+/**
+ * False for the first half second, then true: a button that takes a tap only once it has been on
+ * screen long enough to be seen, so a tap meant for something else can't land on it (SR-11-02).
+ */
+@Composable
+fun armedAfterDelay(ms: Long = ARM_MS): Boolean {
+    var armed by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(ms)
+        armed = true
+    }
+    return armed
+}
+
+const val ARM_MS = 500L

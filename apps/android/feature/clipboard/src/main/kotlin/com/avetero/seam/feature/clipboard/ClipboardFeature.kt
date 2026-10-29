@@ -55,21 +55,31 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         clip.getItemAt(0).text?.toString()
     }.getOrNull()
 
-    /** Home's Paste: puts what came from the Mac back on this phone's clipboard (main thread). */
-    fun putBack(text: String) {
-        rules.incoming(text) ?: return // and never send it back to the Mac
-        runCatching { clipboard.setPrimaryClip(ClipData.newPlainText("From your Mac", text)) }
+    /**
+     * Home's Paste: puts what came from the Mac back on this phone's clipboard (main thread), marked
+     * as from another device like [receive] (SR-11-10). False if it couldn't.
+     */
+    fun putBack(text: String): Boolean {
+        val accepted = rules.incoming(text) ?: return false // and never send it back to the Mac
+        return runCatching { clipboard.setPrimaryClip(fromMacClip(accepted)) }.isSuccess
+    }
+
+    /** Forget the last Mac copy (the Mac was forgotten): it mustn't show on Home for the next Mac (SR-11-09). */
+    fun clearFromMac() {
+        _fromMac.value = null
+    }
+
+    private fun fromMacClip(text: String): ClipData = ClipData.newPlainText("From your Mac", text).apply {
+        if (Build.VERSION.SDK_INT >= 33) {
+            description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_REMOTE_DEVICE, true) }
+        }
     }
 
     override fun receive(payload: Payload, fromPeer: String) {
         val text = payload.clipboard.text
         main.post {
             val accepted = rules.incoming(text) ?: return@post
-            val clip = ClipData.newPlainText("From your Mac", accepted)
-            if (Build.VERSION.SDK_INT >= 33) {
-                clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_REMOTE_DEVICE, true) }
-            }
-            if (runCatching { clipboard.setPrimaryClip(clip) }.isSuccess) _fromMac.value = FromMac(accepted, System.currentTimeMillis())
+            if (runCatching { clipboard.setPrimaryClip(fromMacClip(accepted)) }.isSuccess) _fromMac.value = FromMac(accepted, System.currentTimeMillis())
         }
     }
 
@@ -79,4 +89,11 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
 }
 
 /** A clip that arrived from the Mac, and when (unix ms). */
-data class FromMac(val text: String, val at: Long)
+data class FromMac(val text: String, val at: Long) {
+    /** Home shows it for as long as the relay would have kept it, then stops (SR-11-09). */
+    fun fresh(now: Long): Boolean = now - at in 0 until SHOWN_MS
+
+    companion object {
+        const val SHOWN_MS = 10 * 60_000L
+    }
+}

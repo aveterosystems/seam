@@ -95,7 +95,7 @@ fun SettingsScreen(
                 Section("Privacy & security") {
                     Item(
                         title = "End-to-end encrypted",
-                        subtitle = if (code != null) "Keys verified when you paired · " else "Keys made on this phone, kept in its security chip",
+                        subtitle = if (code != null) "Keys verified when you paired · " else "Keys made on this phone, sealed by its security chip",
                         mono = code,
                         lead = rememberVectorPainter(Icons.Filled.Lock),
                     )
@@ -139,7 +139,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { confirmForget = false },
             title = { Text("Forget $macName?") },
-            text = { Text("This phone stops syncing with $macName and forgets its keys. $macName forgets this phone too: now if it's online, otherwise when it next connects. You can pair again any time.") },
+            text = { Text("This phone stops syncing with $macName and forgets its keys. If this phone is online, $macName forgets it too; if not, forget this phone on $macName as well. You can pair again any time.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmForget = false

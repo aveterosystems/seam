@@ -135,9 +135,10 @@ class SessionTest {
         connector: RelayConnector = relay,
         wait: suspend (Long) -> Unit = {},
         trace: ((String) -> Unit)? = null,
+        now: () -> Long = { testScheduler.currentTime },
     ) = Session(
         store, connector, "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)), wait = wait, now = { testScheduler.currentTime }, trace = trace,
+        TestScope(StandardTestDispatcher(testScheduler)), wait = wait, now = now, trace = trace,
     )
 
     private fun status(pct: Int) = Payload.newBuilder().setStatus(Status.newBuilder().setBatteryPct(pct).setCharging(true)).build()
@@ -545,7 +546,37 @@ class SessionTest {
         s.abortPairing()
         advanceUntilIdle()
         assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Nothing was paired"))
-        assertTrue("no Mac saved", store.blob == null || SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
+        // SR-11-16: checked on the saved state whatever was written, and on a restart
+        if (store.blob != null) assertTrue("no Mac saved", SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().none { it.confirmed })
+        val restarted = session()
+        restarted.start()
+        advanceUntilIdle()
+        assertEquals(SessionState.Unpaired, restarted.state.value)
+    }
+
+    @Test fun sr_11_07_codesDontMatchJustAfterTheMacAcceptedUndoesIt() = runTest {
+        val s = session(now = { 1_000_000L }) // the tap lands the moment the accept does
+        s.pair(qr)
+        advanceUntilIdle()
+        // the Mac's accept arrived first
+        assertTrue("paired", SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().any { it.confirmed })
+        s.abortPairing()
+        advanceUntilIdle()
+        assertEquals(SessionState.Unpaired, s.state.value)
+        assertTrue(s.notice.value!!.startsWith("Unpaired: your Mac confirmed"))
+        assertTrue("nothing trusted", SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
+    }
+
+    @Test fun sr_11_07_aLateCodesDontMatchTapChangesNothing() = runTest {
+        var clock = 1_000_000L
+        val s = session(now = { clock })
+        s.pair(qr)
+        advanceUntilIdle()
+        clock += 5_001 // past ABORT_GRACE_MS
+        s.abortPairing()
+        advanceUntilIdle()
+        assertTrue(s.state.value !is SessionState.Unpaired && s.state.value !is SessionState.Failed)
+        assertTrue("still paired", SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().any { it.confirmed })
     }
 
     @Test fun sr_2_11_nothingIsSentIfSavingFails() = runTest {

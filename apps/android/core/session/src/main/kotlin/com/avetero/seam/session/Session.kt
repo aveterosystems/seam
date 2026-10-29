@@ -71,6 +71,8 @@ class Session(
     private var generation = 0
     private var loggedIn = false
     private var pairing: PairingQr? = null
+    /** When the last pairing was confirmed by its Mac, for a "Codes don't match" tap that just missed it (SR-11-07). */
+    private var pairedAt: Long? = null
     private var reconnect: Job? = null
     /** Resets the backoff once a connection has lasted [STABLE_MS] (SR-2-61). */
     private var stable: Job? = null
@@ -255,7 +257,13 @@ class Session(
      * unconfirmed here until its PairAccept), and an existing Mac stays paired.
      */
     fun abortPairing() = scope.launch {
-        if (pairing != null) fail(CODES_DONT_MATCH)
+        if (pairing != null) return@launch fail(CODES_DONT_MATCH)
+        // The Mac's accept won the race with the tap: the user said the codes differ, so undo it
+        val at = pairedAt ?: return@launch
+        if (now() - at > ABORT_GRACE_MS) return@launch
+        pairedAt = null
+        forgetMac().join()
+        _notice.value = UNPAIRED_CODES_DONT_MATCH
     }
 
     /** Something escaped a handler: show it instead of crashing (wired to the scope's exception handler). */
@@ -412,6 +420,7 @@ class Session(
         device.peers().filter { it.id != peerId }.forEach { device.removePeer(it.id) } // the old Mac, now replaced
         device.setAppData(RelayTarget(p.relayUrl, p.groupId).encode())
         pairing = null
+        pairedAt = now()
         return true
     }
 
@@ -505,6 +514,9 @@ class Session(
         const val MAX_OUTBOX = 100
         const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
         const val RESET = "Seam's secure storage on this phone was reset. Pair again."
+        /** How long after the Mac confirms a "Codes don't match" tap still undoes the pairing. */
+        const val ABORT_GRACE_MS = 5_000L
+        const val UNPAIRED_CODES_DONT_MATCH = "Unpaired: your Mac confirmed just as you said the codes didn't match. Pair again if it's your Mac."
         const val CODES_DONT_MATCH = "Nothing was paired, because the codes didn't match. If you're sure it's your Mac, show a new code on it and scan again."
         const val FORGET_FAILED = "Couldn't finish forgetting your Mac: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."

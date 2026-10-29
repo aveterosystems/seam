@@ -6,6 +6,8 @@ import android.os.Build
 import android.provider.Settings
 import com.avetero.seam.feature.StatusFeature
 import com.avetero.seam.feature.clipboard.ClipboardFeature
+import com.avetero.seam.session.SessionState
+import kotlinx.coroutines.launch
 import com.avetero.seam.session.KeystoreStateStore
 import com.avetero.seam.session.OkHttpRelayConnector
 import com.avetero.seam.session.Session
@@ -43,5 +45,9 @@ class SeamApplication : Application() {
         session.register(StatusFeature(this))
         clipboard = ClipboardFeature(this, session).also(session::register)
         session.start()
+        // Forgetting the Mac forgets its last copy too (SR-11-09)
+        CoroutineScope(Dispatchers.Main).launch {
+            session.state.collect { if (it == SessionState.Unpaired) clipboard.clearFromMac() }
+        }
     }
 }

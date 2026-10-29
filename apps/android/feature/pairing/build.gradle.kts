@@ -10,12 +10,12 @@ android {
 
 dependencies {
     implementation(project(":core:session"))
-    // Board A02's own viewfinder. The barcode model is bundled: frames never leave the phone,
-    // and scanning works without Google Play services.
+    // Board A02's own viewfinder. ZXing decodes on the phone and has no network code; ML Kit was
+    // ruled out because it brings Google's telemetry (SR-11-01).
     implementation(libs.camera.camera2)
     implementation(libs.camera.lifecycle)
     implementation(libs.camera.view)
-    implementation(libs.camera.mlkit.vision)
-    implementation(libs.barcode.scanning)
+    implementation(libs.zxing.core)
     implementation(libs.lifecycle.runtime.compose)
+    testImplementation(libs.junit)
 }
