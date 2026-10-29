@@ -22,6 +22,15 @@ message Hello {
   string app_version = 1; // "1.2.0"
   string platform = 2; // "macos" | "android"
   repeated string capabilities = 3; // "clipboard.v1", "files.v1", "notifications.reply", "messages.sms", ...
+  // The user's connection policy on this device. The peer never sends over a transport missing
+  // here (the stricter device wins; see docs/decisions/0004-user-chosen-transport.md).
+  repeated Transport allowed_transports = 4;
+}
+
+enum Transport {
+  TRANSPORT_UNSPECIFIED = 0;
+  TRANSPORT_LAN = 1; // same network, direct
+  TRANSPORT_RELAY = 2; // internet, through a Seam relay (ours or self-hosted)
 }
 
 // Sent once a payload is handled. Every payload except Ack and Ping gets one.

@@ -1,6 +1,6 @@
 // Seam relay. M0 skeleton: only a health check. The relay proper (WebSocket login by signed
 // challenge, PairGroup Durable Object, offline queue, prekey storage, pushes) arrives in M1.
-// It must never log request IPs or message contents (docs/04-security.md).
+// It must never log request IPs or message contents (docs/security/threat-model.md).
 
 export default {
   async fetch(request: Request): Promise<Response> {

@@ -11,6 +11,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
+      # libsignal's post-quantum ratchet (spqr) compiles .proto files at build time
+      - uses: arduino/setup-protoc@v3
+        with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: core }
       - name: Generated Swift and Kotlin bindings match seam-ffi

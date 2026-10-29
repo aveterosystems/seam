@@ -9,7 +9,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "seam"
 
-// Modules are added when their milestone starts (see docs/09-repo-structure.md for the full list)
+// Modules are added when their milestone starts (see docs/architecture/repo-structure.md for the full list)
 include(":app")
 include(":core:protocol")
 include(":core:crypto")

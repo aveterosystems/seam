@@ -15,6 +15,9 @@ jobs:
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "17" }
       - uses: gradle/actions/setup-gradle@v5
+      # libsignal's post-quantum ratchet (spqr) compiles .proto files at build time
+      - uses: arduino/setup-protoc@v3
+        with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: core }
       - name: Rust Android targets, cargo-ndk and the NDK core:crypto pins

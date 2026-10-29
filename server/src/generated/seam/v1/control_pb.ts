@@ -2,15 +2,15 @@
 // @generated from file seam/v1/control.proto (package seam.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file seam/v1/control.proto.
  */
 export const file_seam_v1_control: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5IkQKBUhlbGxvEhMKC2FwcF92ZXJzaW9uGAEgASgJEhAKCHBsYXRmb3JtGAIgASgJEhQKDGNhcGFiaWxpdGllcxgDIAMoCSIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiSAoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCSIMCgpQYWlyQWNjZXB0QiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z");
+  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5InQKBUhlbGxvEhMKC2FwcF92ZXJzaW9uGAEgASgJEhAKCHBsYXRmb3JtGAIgASgJEhQKDGNhcGFiaWxpdGllcxgDIAMoCRIuChJhbGxvd2VkX3RyYW5zcG9ydHMYBCADKA4yEi5zZWFtLnYxLlRyYW5zcG9ydCIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiSAoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCSIMCgpQYWlyQWNjZXB0Kk4KCVRyYW5zcG9ydBIZChVUUkFOU1BPUlRfVU5TUEVDSUZJRUQQABIRCg1UUkFOU1BPUlRfTEFOEAESEwoPVFJBTlNQT1JUX1JFTEFZEAJCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM");
 
 /**
  * @generated from message seam.v1.Control
@@ -92,6 +92,14 @@ export type Hello = Message<"seam.v1.Hello"> & {
    * @generated from field: repeated string capabilities = 3;
    */
   capabilities: string[];
+
+  /**
+   * The user's connection policy on this device. The peer never sends over a transport missing
+   * here (the stricter device wins; see docs/decisions/0004-user-chosen-transport.md).
+   *
+   * @generated from field: repeated seam.v1.Transport allowed_transports = 4;
+   */
+  allowedTransports: Transport[];
 };
 
 /**
@@ -197,4 +205,34 @@ export type PairAccept = Message<"seam.v1.PairAccept"> & {
  */
 export const PairAcceptSchema: GenMessage<PairAccept> = /*@__PURE__*/
   messageDesc(file_seam_v1_control, 6);
+
+/**
+ * @generated from enum seam.v1.Transport
+ */
+export enum Transport {
+  /**
+   * @generated from enum value: TRANSPORT_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * same network, direct
+   *
+   * @generated from enum value: TRANSPORT_LAN = 1;
+   */
+  LAN = 1,
+
+  /**
+   * internet, through a Seam relay (ours or self-hosted)
+   *
+   * @generated from enum value: TRANSPORT_RELAY = 2;
+   */
+  RELAY = 2,
+}
+
+/**
+ * Describes the enum seam.v1.Transport.
+ */
+export const TransportSchema: GenEnum<Transport> = /*@__PURE__*/
+  enumDesc(file_seam_v1_control, 0);
 

@@ -2,9 +2,6 @@ syntax = "proto3";
 
 package seam.v1;
 
-option java_multiple_files = true;
-option java_package = "com.avetero.seam.protocol.v1";
-
 import "seam/v1/clipboard.proto";
 import "seam/v1/control.proto";
 import "seam/v1/files.proto";
@@ -12,6 +9,9 @@ import "seam/v1/find_phone.proto";
 import "seam/v1/messages.proto";
 import "seam/v1/notifications.proto";
 import "seam/v1/status.proto";
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
 
 // What actually gets encrypted. msg_id and sent_at must match the envelope, or the receiver
 // drops the message: this binds the plaintext envelope to the ciphertext.
