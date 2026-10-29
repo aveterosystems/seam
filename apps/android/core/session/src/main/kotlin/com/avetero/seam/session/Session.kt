@@ -11,6 +11,8 @@ import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.GetBundle
 import com.avetero.seam.protocol.v1.Login
 import com.avetero.seam.protocol.v1.Payload
+import com.avetero.seam.protocol.v1.RemoveMember
+import com.avetero.seam.protocol.v1.Unpair
 import com.avetero.seam.protocol.v1.ServerFrame
 import com.google.protobuf.ByteString
 import java.util.Base64
@@ -116,6 +118,41 @@ class Session(
         _notice.value = null
         _state.value = SessionState.Pairing(qr.macName, null)
         connect()
+    }
+
+    /**
+     * "Forget this Mac": tells the Mac (sealed), leaves the relay group, and forgets it here. While
+     * offline only the last step happens; the Mac can still unpair from its side.
+     */
+    fun forgetMac() = scope.launch {
+        val m = mac ?: return@launch
+        if (loggedIn && !storageBlocked) {
+            val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(Unpair.getDefaultInstance())).build()
+            runCatching {
+                val env = device.seal(m.id, unpair.toByteArray(), 0u)
+                persist()
+                sendEnvelope(env)
+                // Leaving removes only this phone's own queue: the Unpair waits in the Mac's
+                sendFrame(ClientFrame.newBuilder().setRemoveMember(RemoveMember.newBuilder().setDeviceKey(device.relayKey().bs())).build())
+            }
+        }
+        forget()
+    }
+
+    /** Back to unpaired: no peers, no relay target, nothing queued. */
+    private fun forget() {
+        stable?.cancel()
+        reconnect?.cancel()
+        generation++ // ignore anything the old socket still delivers
+        link?.close()
+        link = null
+        loggedIn = false
+        pairing = null
+        outbox.clear()
+        device.peers().forEach { device.removePeer(it.id) }
+        device.setAppData(ByteArray(0))
+        runCatching { persist() }
+        _state.value = SessionState.Unpaired
     }
 
     /** Something escaped a handler: show it instead of crashing (wired to the scope's exception handler). */
@@ -256,6 +293,8 @@ class Session(
     private fun handleOpened(peerId: String, payload: Payload) {
         if (pairing != null) return // nothing but the PairAccept counts until the pairing finishes
         if (peerId != mac?.id) return
+        // The Mac forgot this phone: forget it too, and stop
+        if (payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.UNPAIR) return forget()
         features.filter { payload.bodyCase in it.handles }.forEach { it.receive(payload, peerId) }
     }
 

@@ -57,6 +57,7 @@ private class FakeRelay(var mac: SeamDevice) : RelayConnector {
     val logins = mutableListOf<ClientFrame>()
     val macReceived = mutableListOf<Payload>()
     val sealedTtls = mutableListOf<Int>()
+    val removed = mutableListOf<ByteArray>()
     var delivered = 0
     var refuseToken = false
     var withholdAccept = false
@@ -108,6 +109,7 @@ private class FakeRelay(var mac: SeamDevice) : RelayConnector {
                 }
             }
             ClientFrame.FrameCase.DELIVERED -> delivered++
+            ClientFrame.FrameCase.REMOVE_MEMBER -> removed += f.removeMember.deviceKey.toByteArray()
             else -> Unit
         }
     }
@@ -394,6 +396,30 @@ class SessionTest {
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
         assertTrue("never sent late", relay.macReceived.none { it.hasClipboard() })
+    }
+
+    @Test fun forgettingTheMacTellsItLeavesTheGroupAndForgetsIt() = runTest {
+        val s = paired()
+        val phoneKey = relay.logins.first().login.deviceKey.toByteArray()
+        s.forgetMac()
+        advanceUntilIdle()
+        assertEquals(SessionState.Unpaired, s.state.value)
+        assertTrue("the Mac was told", relay.macReceived.any { it.hasControl() && it.control.hasUnpair() })
+        assertArrayEquals("the phone left the group", phoneKey, relay.removed.single())
+        assertTrue("nothing saved still pairs", SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
+        val again = session()
+        again.start()
+        advanceUntilIdle()
+        assertEquals("a restart stays unpaired", SessionState.Unpaired, again.state.value)
+    }
+
+    @Test fun whenTheMacUnpairsThePhoneForgetsIt() = runTest {
+        val s = paired()
+        val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(com.avetero.seam.protocol.v1.Unpair.getDefaultInstance())).build()
+        relay.deliverToPhone(mac.seal(mac.peers().single().id, unpair.toByteArray(), 0u))
+        advanceUntilIdle()
+        assertEquals(SessionState.Unpaired, s.state.value)
+        assertTrue(SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
     }
 
     @Test fun sr_2_11_nothingIsSentIfSavingFails() = runTest {
