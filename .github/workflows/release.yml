@@ -1,6 +1,9 @@
 name: release
-# Pushing a version tag (v0.1.0) builds both apps, signs them with Seam's own keys, and opens a
-# draft release with checksums and build attestations. The maintainer reviews and publishes it.
+# Pushing a version tag (v0.1.0) on main builds both apps, signs them with Seam's own keys, and
+# opens a draft release with checksums and build attestations. The maintainer reviews and publishes.
+#
+# Builds run with no secrets. Signing runs in its own jobs on fresh runners, in the `release`
+# environment (required reviewer, v* tags only), and runs nothing but the signing tools (SR-14-01, 02).
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
@@ -11,29 +14,30 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+defaults:
+  run: { shell: bash } # -eo pipefail (SR-14-10)
+
+env:
+  CARGO_NDK: "4.1.2"
+  XCODEGEN: "2.46.0"
+  XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+
 jobs:
   versions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions: { contents: read }
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false }
-      - name: The tag matches both apps' versions
+        with: { persist-credentials: false, fetch-depth: 0 }
+      - name: Tag is on main, versions match it and go up, pins are well formed
         id: v
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          android="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' apps/android/app/build.gradle.kts)"
-          mac="$(sed -n 's/.*MARKETING_VERSION: "\(.*\)".*/\1/p' apps/mac/project.yml)"
-          echo "tag $tag, android $android, mac $mac"
-          test "$tag" = "$android" && test "$tag" = "$mac"
-          test -s release/android-certificate.sha256 && test -s release/mac-certificate.sha256
-          echo "version=$tag" >> "$GITHUB_OUTPUT"
+        run: scripts/check-release.sh "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
 
-  android:
+  build-android:
     needs: versions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions: { contents: read }
     defaults: { run: { working-directory: apps/android } }
     steps:
@@ -46,37 +50,20 @@ jobs:
         with: { cache-disabled: true }
       - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
         with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
-      - name: Rust Android targets, cargo-ndk and the NDK
+      - name: Rust Android targets, cargo-ndk ${{ env.CARGO_NDK }} and the NDK
         run: |
           cd ../../core && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-          cargo install cargo-ndk --locked
+          cargo install cargo-ndk --locked --version "$CARGO_NDK"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" > /dev/null
-      - name: Tests, then the signed full build
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          SEAM_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          SEAM_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          SEAM_ANDROID_KEY_ALIAS: seam
-        run: |
-          export SEAM_ANDROID_KEYSTORE="$RUNNER_TEMP/release.p12"
-          (umask 077; echo "$KEYSTORE_BASE64" | base64 -d > "$SEAM_ANDROID_KEYSTORE")
-          ./gradlew test assembleFullRelease
-          rm -f "$SEAM_ANDROID_KEYSTORE"
-      - name: Signed by Seam's pinned key
-        run: |
-          apk=app/build/outputs/apk/full/release/app-full-release.apk
-          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
-          "$apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
-          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certs.txt")"
-          test "$actual" = "$(tr -d '[:space:]' < ../../release/android-certificate.sha256)"
-          test "$(grep -c '^Signer #' "$RUNNER_TEMP/certs.txt")" -eq 1
-          mkdir -p ../../dist && cp "$apk" "../../dist/Seam-${{ needs.versions.outputs.version }}-android.apk"
+      - name: Tests, then the unsigned full build
+        run: ./gradlew test assembleFullRelease
+      - run: mkdir -p ../../dist && cp app/build/outputs/apk/full/release/app-full-release-unsigned.apk ../../dist/unsigned.apk
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with: { name: android, path: dist/, if-no-files-found: error, retention-days: 7 }
+        with: { name: android-unsigned, path: dist/, if-no-files-found: error, retention-days: 1 }
 
-  mac:
+  build-mac:
     needs: versions
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -90,31 +77,87 @@ jobs:
           swift test --package-path apps/mac/Packages/SeamCore
           swift test --package-path apps/mac/Packages/SeamProtocol
           swift test --package-path apps/mac/Packages/SeamSession
-      - name: Release build (universal)
+      - name: XcodeGen ${{ env.XCODEGEN }}, checked against its pinned SHA-256
         run: |
-          brew install xcodegen
+          curl -sSfL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Release build (universal, unsigned)
+        run: |
           cd apps/mac && xcodegen generate
           xcodebuild -project Seam.xcodeproj -scheme Seam -configuration Release \
             -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build | tail -20
-          test "${PIPESTATUS[0]}" -eq 0
+          app="$RUNNER_TEMP/dd/Build/Products/Release/Seam.app"
+          test "$(lipo -archs "$app/Contents/MacOS/Seam")" = "x86_64 arm64"
+          mkdir -p ../../dist && ditto -c -k --keepParent "$app" ../../dist/unsigned.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: mac-unsigned, path: dist/, if-no-files-found: error, retention-days: 1 }
+
+  sign-android:
+    needs: [versions, build-android]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false, sparse-checkout: release }
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with: { name: android-unsigned, path: in }
+      - name: Align, sign with Seam's key, check it's the pinned one
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          VERSION: ${{ needs.versions.outputs.version }}
+        run: |
+          tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 | sort -V | tail -1)"
+          keys="$(mktemp -d)"
+          trap 'rm -rf "$keys"' EXIT
+          (umask 077; base64 -d <<< "$KEYSTORE_BASE64" > "$keys/release.p12"; printf '%s' "$KEYSTORE_PASSWORD" > "$keys/password")
+          "$tools/zipalign" -P 16 -f 4 in/unsigned.apk "$keys/aligned.apk"
+          mkdir -p dist
+          apk="dist/Seam-$VERSION-android.apk"
+          "$tools/apksigner" sign --ks "$keys/release.p12" --ks-key-alias seam \
+            --ks-pass "file:$keys/password" --key-pass "file:$keys/password" \
+            --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$apk" "$keys/aligned.apk"
+          "$tools/apksigner" verify --min-sdk-version 31 "$apk"
+          "$tools/apksigner" verify --print-certs "$apk" > "$keys/certs.txt"
+          test "$(grep -c '^Signer #' "$keys/certs.txt")" -eq 1
+          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$keys/certs.txt")"
+          expected="$(tr -d '[:space:]' < release/android-certificate.sha256)"
+          if [ "$actual" != "$expected" ]; then echo "Signed with $actual, not the pinned $expected" >&2; exit 1; fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: android, path: dist/, if-no-files-found: error, retention-days: 7 }
+
+  sign-mac:
+    needs: [versions, build-mac]
+    runs-on: macos-26
+    environment: release
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false, sparse-checkout: "release\nscripts" }
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with: { name: mac-unsigned, path: in }
       - name: Sign with Seam's pinned certificate, then zip
         env:
           P12_BASE64: ${{ secrets.MAC_SIGNING_P12_BASE64 }}
           MAC_SIGNING_P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
+          VERSION: ${{ needs.versions.outputs.version }}
         run: |
-          export MAC_SIGNING_P12="$RUNNER_TEMP/signing.p12"
-          (umask 077; echo "$P12_BASE64" | base64 -d > "$MAC_SIGNING_P12")
-          app="$RUNNER_TEMP/dd/Build/Products/Release/Seam.app"
-          scripts/sign-mac-app.sh "$app"
-          rm -f "$MAC_SIGNING_P12"
-          test "$(lipo -archs "$app/Contents/MacOS/Seam")" = "x86_64 arm64"
-          mkdir -p dist && ditto -c -k --keepParent "$app" "dist/Seam-${{ needs.versions.outputs.version }}-mac.zip"
+          keys="$(mktemp -d)"
+          trap 'rm -rf "$keys"' EXIT
+          (umask 077; base64 -d <<< "$P12_BASE64" > "$keys/signing.p12")
+          ditto -x -k in/unsigned.zip "$keys/app"
+          MAC_SIGNING_P12="$keys/signing.p12" scripts/sign-mac-app.sh "$keys/app/Seam.app"
+          mkdir -p dist && ditto -c -k --keepParent "$keys/app/Seam.app" "dist/Seam-$VERSION-mac.zip"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: mac, path: dist/, if-no-files-found: error, retention-days: 7 }
 
   release:
-    needs: [versions, android, mac]
-    runs-on: ubuntu-latest
+    needs: [versions, sign-android, sign-mac]
+    runs-on: ubuntu-24.04
     permissions:
       contents: write     # the draft release
       id-token: write     # build attestations (Sigstore)
@@ -123,17 +166,20 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with: { persist-credentials: false }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with: { path: dist, merge-multiple: true }
+        with: { name: android, path: dist }
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with: { name: mac, path: dist }
       - name: Checksums
         working-directory: dist
         run: sha256sum Seam-* > SHA256SUMS && cat SHA256SUMS
       - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
-        with: { subject-path: "dist/Seam-*" }
+        with: { subject-path: "dist/Seam-*\ndist/SHA256SUMS" }
       - name: Draft release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.versions.outputs.version }}
         run: |
+          # Pins are checked as 64 hex characters in the versions job, so they're safe in sed
           sed -e "s/{VERSION}/$VERSION/g" \
               -e "s/{ANDROID_CERT}/$(tr -d '[:space:]' < release/android-certificate.sha256)/" \
               -e "s/{MAC_CERT}/$(tr -d '[:space:]' < release/mac-certificate.sha256)/" \

@@ -12,12 +12,20 @@ work="$(mktemp -d)"
 keychain="$work/signing.keychain-db"
 pass="$(openssl rand -hex 24)"
 cleanup() { security delete-keychain "$keychain" 2>/dev/null || true; rm -rf "$work"; }
+# shortcut: the P12 password reaches `security import -P` on its command line (no stdin option);
+# acceptable on an ephemeral hosted runner where nothing else runs in the signing job (SR-14-12).
 trap cleanup EXIT
 
-# The leaf certificate's SHA-256 must match the pinned one
-openssl pkcs12 -in "$MAC_SIGNING_P12" -passin env:MAC_SIGNING_P12_PASSWORD -nokeys -clcerts 2>/dev/null \
-  | openssl x509 -outform der > "$work/cert.der" \
-  || openssl pkcs12 -legacy -in "$MAC_SIGNING_P12" -passin env:MAC_SIGNING_P12_PASSWORD -nokeys -clcerts | openssl x509 -outform der > "$work/cert.der"
+security create-keychain -p "$pass" "$keychain"
+security set-keychain-settings -lut 600 "$keychain"
+security unlock-keychain -p "$pass" "$keychain"
+security import "$MAC_SIGNING_P12" -k "$keychain" -P "$MAC_SIGNING_P12_PASSWORD" -T /usr/bin/codesign >/dev/null
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pass" "$keychain" >/dev/null
+
+# The imported certificate must be the pinned one (read from the keychain: one path, errors shown)
+certs="$(security find-certificate -a -Z "$keychain" | grep -c '^SHA-256 hash:')"
+[ "$certs" -eq 1 ] || { echo "Expected one certificate in the P12, found $certs" >&2; exit 1; }
+security find-certificate -a -p "$keychain" | openssl x509 -outform der > "$work/cert.der"
 actual="$(shasum -a 256 "$work/cert.der" | cut -d' ' -f1)"
 expected="$(tr -d '[:space:]' < "$root/release/mac-certificate.sha256")"
 if [ "$actual" != "$expected" ]; then
@@ -26,15 +34,9 @@ if [ "$actual" != "$expected" ]; then
 fi
 sha1="$(shasum -a 1 "$work/cert.der" | cut -d' ' -f1 | tr a-f A-F)"
 
-security create-keychain -p "$pass" "$keychain"
-security set-keychain-settings -lut 600 "$keychain"
-security unlock-keychain -p "$pass" "$keychain"
-security import "$MAC_SIGNING_P12" -k "$keychain" -P "$MAC_SIGNING_P12_PASSWORD" -T /usr/bin/codesign >/dev/null
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pass" "$keychain" >/dev/null
-
 # Hardened runtime, no entitlements. No timestamp: Apple's timestamp server only serves Developer ID.
 codesign --force --options runtime --timestamp=none --keychain "$keychain" --sign "$sha1" "$app"
-codesign --verify --strict --verbose=2 "$app"
+codesign --verify --deep --strict --verbose=2 "$app"
 # Updates keep keychain access only while this stays the same: identifier + this certificate
 codesign -d -r- "$app" 2>&1 | grep -q "identifier \"com.avetero.seam\" and certificate leaf = H\"$(echo "$sha1" | tr A-F a-f)\"" \
   || { echo "Unexpected designated requirement" >&2; codesign -d -r- "$app"; exit 1; }
