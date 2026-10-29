@@ -1,0 +1,36 @@
+name: deploy-relay
+# Deploys the relay to Cloudflare. Never on a PR or a push to main: only when the maintainer asks,
+# from the Actions tab or by pushing a tag like relay-v0.1.0.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["relay-v*"]
+
+concurrency:
+  group: deploy-relay
+  cancel-in-progress: false # never stop a deploy halfway
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # A GitHub environment, so deploys can require the maintainer's approval and the Cloudflare
+    # secrets are only visible to this job
+    environment: production
+    defaults: { run: { working-directory: server } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
