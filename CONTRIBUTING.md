@@ -17,6 +17,7 @@ Thanks for helping. Seam is a security product first, so the bar for changes is 
 5. **The relay learns nothing new.** No new plaintext envelope field that reveals content, type, real size or device identity.
 6. **Never log** message contents, keys, phone numbers, contact or file names, or IP addresses.
 7. **Every security property has a test.** If a change claims or relies on one, it proves it.
+8. **The phone never holds a connection it doesn't need.** On battery it connects to send, when the screen turns on, and when an empty push wakes it for something urgent, then disconnects. Pings on any held connection are as rare as the network allows. Pushes carry no content.
 
 ## Setting up
 
