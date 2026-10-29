@@ -3,9 +3,10 @@ name = "seam-relay"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
-# Reachable at https://seam-relay.<your-account>.workers.dev until a custom domain is added.
-# With one, add it here and keep workers_dev on until the apps point at the new address:
-#   routes = [{ pattern = "relay.example.com", custom_domain = true }]
+# The relay's long-lived address: stored in every pairing, so it must not change (SR-5-02)
+routes = [{ pattern = "relay.avetero.com", custom_domain = true }]
+# Also reachable at seam-relay.<account>.workers.dev. Kept on only while pairings made on that
+# address exist; turn it off once they've re-paired on relay.avetero.com
 workers_dev = true
 
 # One Durable Object per pairing group: live sockets, offline queue, prekey bundles, pairing slot

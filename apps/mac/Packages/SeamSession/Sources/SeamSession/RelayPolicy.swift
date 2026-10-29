@@ -6,7 +6,7 @@ import Foundation
 public enum RelayPolicy {
     public static let developmentURL = URL(string: "ws://localhost:8787")!
     /// The production relay (server/README.md, "Deploying"). Changes when a custom domain is added.
-    public static let productionURL = URL(string: "wss://seam-relay.mattbeechey.workers.dev")!
+    public static let productionURL = URL(string: "wss://relay.avetero.com")!
 
     /// The first acceptable candidate, else the build's default. Never crashes on odd input.
     public static func resolve(_ candidates: [String?], allowInsecure: Bool) -> URL {
