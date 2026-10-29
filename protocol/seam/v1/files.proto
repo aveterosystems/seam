@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// Starts a transfer. The key travels only inside this encrypted message; chunks are sealed
+// with it (see seam-core file.rs), so the relay and R2 only ever hold ciphertext.
+message FileOffer {
+  bytes transfer_id = 1; // 16 random bytes; also the file id bound into every chunk
+  string name = 2;
+  uint64 size = 3;
+  string mime = 4;
+  bytes sha256 = 5; // of the whole plaintext file, checked after the last chunk
+  uint32 chunk_size = 6; // 1 MiB
+  uint32 chunk_count = 7;
+  bytes key = 8; // 32-byte AES-256-GCM file key
+}
+
+message FileAnswer {
+  bytes transfer_id = 1;
+  bool accept = 2;
+  string lan_addr = 3; // "host:port" when the receiver can take chunks directly over the LAN
+}
+
+// A chunk that went through R2 instead of the LAN.
+message FileChunkRef {
+  bytes transfer_id = 1;
+  uint32 index = 2;
+  bool last = 3;
+  string r2_key = 4;
+}
+
+message FileDone {
+  bytes transfer_id = 1;
+}

@@ -1,0 +1,20 @@
+name: protocol
+on:
+  push:
+    branches: [main]
+    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+  pull_request:
+    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Lints, and on pull requests fails any wire-breaking change against main
+      - uses: bufbuild/buf-action@v1
+        with:
+          input: protocol
+          breaking_against: "${{ github.event.repository.clone_url }}#branch=main,subdir=protocol"
+          breaking: ${{ github.event_name == 'pull_request' }}
+          push: false

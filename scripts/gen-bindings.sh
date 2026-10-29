@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Generates the Swift and Kotlin bindings for core/seam-ffi with UniFFI (names set in core/seam-ffi/uniffi.toml).
+# Output is committed, so the apps build without running this; rerun it whenever seam-ffi's API changes.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+core="$root/core"
+
+swift_src="$root/apps/mac/Packages/SeamCore/Sources/SeamCore"
+swift_ffi="$root/apps/mac/Packages/SeamCore/Sources/SeamCoreFFI"
+kotlin_out="$root/apps/android/core/crypto/src/main/kotlin"
+
+cd "$core"
+cargo build -p seam-ffi
+lib="$core/target/debug/libseam_ffi.dylib"
+bindgen() { cargo run -q -p seam-ffi --features bindgen --bin uniffi-bindgen -- generate --library "$lib" --no-format "$@"; }
+
+tmp="$(mktemp -d)"
+bindgen --language swift --out-dir "$tmp"
+mkdir -p "$swift_src" "$swift_ffi"
+cp "$tmp/SeamCore.swift" "$swift_src/SeamCore.swift"
+cp "$tmp/SeamCoreFFI.h" "$swift_ffi/"
+# SwiftPM's system-library target wants the map named module.modulemap
+cp "$tmp/SeamCoreFFI.modulemap" "$swift_ffi/module.modulemap"
+echo "Swift  → ${swift_src#"$root"/}"
+
+rm -rf "$kotlin_out/com/avetero/seam/crypto"
+bindgen --language kotlin --out-dir "$kotlin_out"
+echo "Kotlin → ${kotlin_out#"$root"/}"

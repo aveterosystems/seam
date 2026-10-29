@@ -1,0 +1,8 @@
+[bindings.kotlin]
+package_name = "com.avetero.seam.crypto"
+cdylib_name = "seam_ffi"
+
+[bindings.swift]
+module_name = "SeamCore"
+ffi_module_name = "SeamCoreFFI"
+ffi_module_filename = "SeamCoreFFI"

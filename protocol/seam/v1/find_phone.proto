@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// Ring the phone at full volume (even on silent), or stop.
+message FindPhone {
+  bool ring = 1;
+}

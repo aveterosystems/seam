@@ -1,0 +1,20 @@
+name: mac
+on:
+  push:
+    branches: [main]
+    paths: ["apps/mac/**", "core/**", "scripts/gen-bindings.sh", ".github/workflows/mac.yml"]
+  pull_request:
+    paths: ["apps/mac/**", "core/**", "scripts/gen-bindings.sh", ".github/workflows/mac.yml"]
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: core }
+      - name: Generated Swift and Kotlin bindings match seam-ffi
+        run: scripts/gen-bindings.sh && git diff --exit-code -- apps/
+      - name: Swift tests against the Rust core
+        working-directory: apps/mac/Packages/SeamCore
+        run: swift test

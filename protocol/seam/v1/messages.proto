@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// Text-message threads from the phone (full flavour), paged newest first.
+message MessageSync {
+  repeated MessageThread threads = 1;
+  bool more = 2;
+}
+
+message MessageThread {
+  string id = 1;
+  repeated string addresses = 2; // phone numbers or short codes
+  string title = 3; // contact name(s) when the phone knows them
+  repeated TextMessage messages = 4;
+}
+
+message TextMessage {
+  string id = 1;
+  string from = 2;
+  string text = 3;
+  int64 at = 4; // unix ms
+  bool outgoing = 5;
+}
+
+// Send a text from the Mac through the phone.
+message MessageSend {
+  string thread_id = 1;
+  string text = 2;
+  string client_id = 3; // lets the Mac match the sent message when it syncs back
+}

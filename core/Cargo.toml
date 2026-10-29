@@ -1,5 +1,5 @@
 [workspace]
-members = ["seam-core"]
+members = ["seam-core", "seam-ffi"]
 resolver = "3"
 
 [workspace.package]

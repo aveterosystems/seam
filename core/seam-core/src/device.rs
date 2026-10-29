@@ -40,7 +40,7 @@ impl Device {
         let identity = IdentityKeyPair::generate(&mut rng);
         let registration_id = rng.random_range(1..16380);
         Ok(Self {
-            address: address(name),
+            address: peer_address(name),
             store: InMemSignalProtocolStore::new(identity, registration_id)?,
             next_prekey_id: 1,
         })
@@ -193,7 +193,8 @@ fn device_id() -> DeviceId {
     DeviceId::try_from(1u8).expect("1 is a valid device id")
 }
 
-fn address(name: &str) -> ProtocolAddress {
+/// The libsignal address for a Seam device id.
+pub fn peer_address(name: &str) -> ProtocolAddress {
     ProtocolAddress::new(name.to_owned(), device_id())
 }
 

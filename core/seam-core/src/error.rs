@@ -12,6 +12,8 @@ pub enum Error {
     BadPadding,
     #[error("unknown message kind {0}")]
     UnknownKind(u8),
+    #[error("malformed prekey bundle")]
+    BadBundle,
     #[error("peer isn't paired: pin its identity key first")]
     NotPaired,
     #[error("file chunk failed to decrypt (tampered, reordered or wrong key)")]

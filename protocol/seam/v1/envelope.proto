@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// The only part the relay can read. Everything about the content is inside `ciphertext`.
+// There is deliberately no "kind" field: the relay can't tell a clipboard from a text.
+message Envelope {
+  uint32 version = 1; // protocol major version, currently 1
+  bytes msg_id = 2; // 16 random bytes; repeated inside the ciphertext so the relay can't swap envelopes
+  bytes from = 3; // sender's rotating mailbox id (not the device id)
+  bytes to = 4; // recipient's rotating mailbox id
+  int64 sent_at = 5; // unix ms, sender clock; also repeated inside the ciphertext
+  uint32 ttl_s = 6; // relay drops it after this; 0 = relay default (24 h)
+  uint32 signal_type = 7; // libsignal message type: 3 = PreKeySignalMessage (session setup), 2 = SignalMessage
+  bytes ciphertext = 8; // a libsignal message sealing a padded `Inner`
+}

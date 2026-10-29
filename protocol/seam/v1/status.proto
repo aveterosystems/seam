@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package seam.v1;
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+message Status {
+  uint32 battery_pct = 1;
+  bool charging = 2;
+  string network = 3; // "wifi:Home" | "cellular" | ""
+  uint32 signal_bars = 4;
+  bool dnd = 5;
+}
