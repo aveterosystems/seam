@@ -64,17 +64,21 @@ npx wrangler deploy  # prints the address, e.g. https://seam-relay.<account>.wor
 curl https://seam-relay.<account>.workers.dev/health
 ```
 
-**Later deploys, from GitHub** (the `deploy-relay` workflow, run from the Actions tab or by pushing a `relay-v*` tag). One-time setup:
+**Later deploys, from GitHub** (the `deploy-relay` workflow, run from the Actions tab). It deploys only a commit that's on `main`. One-time setup:
 
 1. In Cloudflare, create an API token with the **Edit Cloudflare Workers** template, limited to your account.
-2. In GitHub → Settings → Environments, create `production`. Add yourself as a required reviewer if every deploy should wait for your OK.
+2. In GitHub → Settings → Environments, create `production`, and **before adding any secret**:
+   - add yourself as a **required reviewer**, so every deploy waits for your OK;
+   - under **Deployment branches and tags**, choose **Selected branches** and allow only `main`.
 3. Add two environment secrets there: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (on the Workers overview page).
 
-The workflow runs the typecheck and tests before it deploys, and never runs on a pull request.
+The workflow runs the typecheck and tests before it deploys, and never runs on a pull request. A run started on any other branch stops before it touches the secrets.
 
 **Custom domain (optional):** add it under `routes` in `wrangler.toml` (the comment shows how) and deploy again.
 
 **Then point the apps at it:** set `RelayPolicy.productionURL` in `apps/mac/Packages/SeamSession/Sources/SeamSession/RelayPolicy.swift` to the `wss://` address. The phone needs no change: it takes the relay from the Mac's pairing code.
+
+**Changing the address later doesn't move existing pairings.** Each pairing stores the relay it was made on, on both devices, so they keep using the old address until they pair again. Keep the old address working until everyone has, or pick the long-lived address before the first public release.
 
 ## Testing
 
