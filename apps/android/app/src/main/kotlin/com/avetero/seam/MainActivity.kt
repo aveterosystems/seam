@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                         else -> ClipboardStatus.Manual
                     },
                     fromMac = fromMac,
+                    onForgetMac = { session.forgetMac() },
                     onSendClipboard = {
                         // Seam has focus here, so Android allows the read
                         Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()

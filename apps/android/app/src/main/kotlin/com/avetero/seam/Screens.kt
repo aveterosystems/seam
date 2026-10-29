@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +21,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -46,6 +51,7 @@ fun SeamScreen(
     onSendClipboard: () -> Unit = {},
     fromMac: FromMac? = null,
     now: Long = System.currentTimeMillis(),
+    onForgetMac: () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(
@@ -63,8 +69,8 @@ fun SeamScreen(
                     onAction = onScan,
                 )
                 is SessionState.Pairing -> Pairing(state)
-                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError, clipboard, onSendClipboard, fromMac, now)
-                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError, clipboard, onSendClipboard, fromMac, now)
+                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError, clipboard, onSendClipboard, fromMac, now, onForgetMac)
+                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError, clipboard, onSendClipboard, fromMac, now, onForgetMac)
                 is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
             }
         }
@@ -114,7 +120,9 @@ private fun Linked(
     onSendClipboard: () -> Unit,
     fromMac: FromMac?,
     now: Long,
+    onForgetMac: () -> Unit,
 ) {
+    var confirmForget by remember { mutableStateOf(false) }
     MacBadge()
     Text(macName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
     Text(
@@ -139,6 +147,21 @@ private fun Linked(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
     )
+    TextButton(onClick = { confirmForget = true }) { Text("Forget this Mac") }
+    if (confirmForget) {
+        AlertDialog(
+            onDismissRequest = { confirmForget = false },
+            title = { Text("Forget $macName?") },
+            text = { Text("This phone stops syncing with $macName and forgets its keys. $macName forgets this phone too: now if it's online, otherwise when it next connects. You can pair again any time.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmForget = false
+                    onForgetMac()
+                }) { Text("Forget") }
+            },
+            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text("Cancel") } },
+        )
+    }
 }
 
 /** Board A01's bottom card: what last came from the Mac, since Android's "Copied" pop-up can't say. */

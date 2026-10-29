@@ -73,6 +73,50 @@ final class SeamController: RelayHandler {
         watchClipboard()
     }
 
+    // MARK: Unpairing
+
+    /// "Unpair <phone>": tells the phone (sealed), takes it out of the relay group, and forgets it
+    /// here. A phone that's offline finds out when the relay refuses it, and is told to pair again.
+    func unpairPhone() {
+        guard let store, let phone else { return }
+        let unpair = Seam_V1_Payload.with { $0.control = .with { $0.unpair = .init() } }
+        // Not saved before sending, unlike other messages (SR-2-11): the phone's keys are deleted
+        // right after, so a crash can't reuse them
+        let farewell = (try? store.device.seal(peerId: phone.id, payload: unpair.serializedData(), ttlS: 0))
+            .flatMap { try? Seam_V1_Envelope(serializedBytes: $0) }
+            .map(Frames.send)
+        let key = removableRelayKey(phone.id)
+        // Only once forgetting it is saved: otherwise a restart would reload the phone with the
+        // ratchet from before the farewell was sealed, and could reuse its key (SR-7-04)
+        guard forgetPhone(phone.id) else { return }
+        Task {
+            if let farewell { try? await relay?.send(farewell) } // first, so a connected phone gets it before it's removed
+            if let key { try? await relay?.send(Frames.removeMember(key)) }
+        }
+    }
+
+    /// The phone is gone (unpaired here, or it unpaired us): its keys, status and anything held for it.
+    /// False if that couldn't be saved.
+    @discardableResult
+    private func forgetPhone(_ peerId: String) -> Bool {
+        guard let store else { return false }
+        store.device.removePeer(peerId: peerId)
+        let saved: Bool
+        do {
+            try store.save()
+            saved = true
+        } catch {
+            saveFailed()
+            saved = false
+        }
+        if phone?.id == peerId {
+            phone = nil
+            status = nil
+        }
+        pendingClip.clear()
+        return saved
+    }
+
     // MARK: Clipboard
 
     func setClipboardSync(_ on: Bool) {
@@ -341,6 +385,12 @@ final class SeamController: RelayHandler {
             status = s
         case .clipboard(let c):
             receivedClip(c)
+        case .control(let c):
+            if case .unpair = c.body {
+                // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)
+                let key = removableRelayKey(peerId)
+                if forgetPhone(peerId), let key { Task { try? await relay?.send(Frames.removeMember(key)) } }
+            }
         default: break
         }
     }
