@@ -21,4 +21,5 @@ dependencies {
     implementation(project(":feature:clipboard"))
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
+    testImplementation(libs.junit)
 }

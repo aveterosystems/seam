@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
                 val state by session.state.collectAsStateWithLifecycle()
                 val scope = rememberCoroutineScope()
                 val notice by session.notice.collectAsStateWithLifecycle()
+                val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
                 var scanError by remember { mutableStateOf<String?>(null) }
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 SeamScreen(
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
                         BuildConfig.FLAVOR == "full" -> ClipboardStatus.NeedsSetup
                         else -> ClipboardStatus.Manual
                     },
+                    fromMac = fromMac,
                     onSendClipboard = {
                         // Seam has focus here, so Android allows the read
                         Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()

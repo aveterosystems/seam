@@ -13,6 +13,8 @@ import com.avetero.seam.protocol.v1.Clipboard
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.session.Feature
 import com.avetero.seam.session.SessionApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Clipboard both ways. Mac → phone is always automatic. Phone → Mac is automatic in `full` builds
@@ -26,6 +28,10 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
     private val clipboard = app.getSystemService(ClipboardManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val rules = ClipRules()
+
+    /** The last clip from the Mac, for the home screen: Android's own "Copied" pop-up can't say where it came from. */
+    private val _fromMac = MutableStateFlow<FromMac?>(null)
+    val fromMac: StateFlow<FromMac?> = _fromMac
 
     /** Something new was copied on the phone (from [AutoClipboard]). */
     fun copied(text: String?) {
@@ -57,7 +63,7 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
             if (Build.VERSION.SDK_INT >= 33) {
                 clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_REMOTE_DEVICE, true) }
             }
-            runCatching { clipboard.setPrimaryClip(clip) }
+            if (runCatching { clipboard.setPrimaryClip(clip) }.isSuccess) _fromMac.value = FromMac(accepted, System.currentTimeMillis())
         }
     }
 
@@ -65,3 +71,6 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         session.send(Payload.newBuilder().setClipboard(Clipboard.newBuilder().setText(text).setCopiedAt(System.currentTimeMillis())).build())
     }
 }
+
+/** A clip that arrived from the Mac, and when (unix ms). */
+data class FromMac(val text: String, val at: Long)
