@@ -5,9 +5,9 @@ name: release-signing
 on:
   push:
     branches: [main]
-    paths: ["scripts/sign-*.sh", "scripts/make-release-keys.sh", ".github/workflows/release*.yml"]
+    paths: ["scripts/sign-*.sh", "scripts/make-release-keys.sh", "release/**", ".github/workflows/release*.yml"]
   pull_request:
-    paths: ["scripts/sign-*.sh", "scripts/make-release-keys.sh", ".github/workflows/release*.yml"]
+    paths: ["scripts/sign-*.sh", "scripts/make-release-keys.sh", "release/**", ".github/workflows/release*.yml"]
 
 permissions: { contents: read }
 
@@ -37,10 +37,12 @@ jobs:
           "$tools/aapt2" link -o "$t/unsigned.apk" -I "$jar" --manifest "$t/AndroidManifest.xml"
           ANDROID_KEYSTORE="$t/release.p12" ANDROID_KEYSTORE_PASSWORD="$(cat "$t/password")" ANDROID_CERT_PIN="$t/pin" \
             scripts/sign-android-apk.sh "$t/unsigned.apk" "$t/signed.apk"
-          # A different pin must be refused
           echo 0000000000000000000000000000000000000000000000000000000000000000 > "$t/wrong"
+          # A different pin must be refused by the pin check itself, not by any other failure (SR-16-03)
           if ANDROID_KEYSTORE="$t/release.p12" ANDROID_KEYSTORE_PASSWORD="$(cat "$t/password")" ANDROID_CERT_PIN="$t/wrong" \
-            scripts/sign-android-apk.sh "$t/unsigned.apk" "$t/signed2.apk"; then echo "A wrong pin was accepted" >&2; exit 1; fi
+            scripts/sign-android-apk.sh "$t/unsigned.apk" "$t/signed2.apk" 2> "$t/err"; then echo "A wrong pin was accepted" >&2; exit 1; fi
+          grep -q "Expected one signing certificate, the pinned 0000" "$t/err" || { cat "$t/err"; exit 1; }
+          test ! -e "$t/signed2.apk"
 
   mac:
     runs-on: macos-26
@@ -70,4 +72,5 @@ jobs:
             scripts/sign-mac-app.sh "$app"
           echo 0000000000000000000000000000000000000000000000000000000000000000 > "$t/wrong"
           if MAC_SIGNING_P12="$t/signing.p12" MAC_SIGNING_P12_PASSWORD="$(cat "$t/password")" MAC_CERT_PIN="$t/wrong" \
-            scripts/sign-mac-app.sh "$app"; then echo "A wrong pin was accepted" >&2; exit 1; fi
+            scripts/sign-mac-app.sh "$app" 2> "$t/err"; then echo "A wrong pin was accepted" >&2; exit 1; fi
+          grep -q "isn't the pinned one" "$t/err" || { cat "$t/err"; exit 1; }

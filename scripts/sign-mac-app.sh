@@ -12,10 +12,18 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 keychain="$work/signing.keychain-db"
 pass="$(openssl rand -hex 24)"
-searchlist="$(security list-keychains -d user | tr -d '"' | xargs)"
+# The user keychain search list, one quoted path per line, kept as an array so paths with spaces
+# survive (bash 3.2 on macOS: no mapfile) (SR-16-01)
+searchlist=()
+while IFS= read -r line; do
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%\"}"; line="${line#\"}"
+  [ -n "$line" ] && searchlist+=("$line")
+done < <(security list-keychains -d user)
+[ "${#searchlist[@]}" -gt 0 ] || { echo "Couldn't read the keychain search list" >&2; exit 1; }
 cleanup() {
-  # shellcheck disable=SC2086 # the saved list is several paths
-  security list-keychains -d user -s $searchlist 2>/dev/null || true
+  security list-keychains -d user -s "${searchlist[@]}" \
+    || echo "Warning: couldn't restore the keychain search list; it was: ${searchlist[*]}" >&2
   security delete-keychain "$keychain" 2>/dev/null || true
   rm -rf "$work"
 }
@@ -30,11 +38,11 @@ security import "$MAC_SIGNING_P12" -k "$keychain" -P "$MAC_SIGNING_P12_PASSWORD"
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pass" "$keychain" >/dev/null
 # codesign finds the private key only in a keychain on the search list (macOS 26 runners), so add
 # this one in front for the signing, and put the old list back on exit
-# shellcheck disable=SC2086
-security list-keychains -d user -s "$keychain" $searchlist
+security list-keychains -d user -s "$keychain" "${searchlist[@]}"
 
 # The imported certificate must be the pinned one (read from the keychain: one path, errors shown)
-certs="$(security find-certificate -a -Z "$keychain" | grep -c '^SHA-256 hash:')"
+found="$(security find-certificate -a -Z "$keychain")"
+certs="$(grep -c '^SHA-256 hash:' <<< "$found" || true)"
 [ "$certs" -eq 1 ] || { echo "Expected one certificate in the P12, found $certs" >&2; exit 1; }
 security find-certificate -a -p "$keychain" | openssl x509 -outform der > "$work/cert.der"
 actual="$(shasum -a 256 "$work/cert.der" | cut -d' ' -f1)"
@@ -45,12 +53,15 @@ if [ "$actual" != "$expected" ]; then
 fi
 sha1="$(shasum -a 1 "$work/cert.der" | cut -d' ' -f1 | tr a-f A-F)"
 # The identity (certificate + its private key) must be there, valid or not for Gatekeeper
-security find-identity -p codesigning "$keychain" | grep -q "$sha1" \
-  || { echo "The P12 has the certificate but no matching private key" >&2; security find-identity -p codesigning "$keychain" >&2; exit 1; }
+# Output captured before grepping: `grep -q` in a pipe can SIGPIPE the writer under pipefail (SR-16-02)
+identities="$(security find-identity -p codesigning "$keychain")"
+grep -q "$sha1" <<< "$identities" \
+  || { echo "The P12 has the certificate but no matching private key" >&2; echo "$identities" >&2; exit 1; }
 
 # Hardened runtime, no entitlements. No timestamp: Apple's timestamp server only serves Developer ID.
 codesign --force --options runtime --timestamp=none --keychain "$keychain" --sign "$sha1" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 # Updates keep keychain access only while this stays the same: identifier + this certificate
-codesign -d -r- "$app" 2>&1 | grep -q "identifier \"com.avetero.seam\" and certificate leaf = H\"$(echo "$sha1" | tr A-F a-f)\"" \
-  || { echo "Unexpected designated requirement" >&2; codesign -d -r- "$app"; exit 1; }
+requirement="$(codesign -d -r- "$app" 2>&1)"
+grep -q "identifier \"com.avetero.seam\" and certificate leaf = H\"$(echo "$sha1" | tr A-F a-f)\"" <<< "$requirement" \
+  || { echo "Unexpected designated requirement: $requirement" >&2; exit 1; }

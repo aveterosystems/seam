@@ -29,7 +29,7 @@ expected="$(tr -d '[:space:]' < "${ANDROID_CERT_PIN:-$root/release/android-certi
 if [ "$count" -ne 1 ] || [ "$digests" != "$expected" ]; then
   echo "Expected one signing certificate, the pinned $expected; apksigner reported:" >&2
   cat "$work/certs.txt" >&2
+  rm -f "$out" # never leave an APK signed by the wrong key (SR-16-05)
   exit 1
 fi
-actual="$digests"
-echo "Signed by the pinned certificate $actual"
+echo "Signed by the pinned certificate $digests"
