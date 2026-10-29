@@ -2,6 +2,7 @@
 package com.avetero.seam.session
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -29,13 +30,25 @@ class OkHttpRelayConnector(
     private val client: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build(),
 ) : RelayConnector {
     override fun connect(url: String, listener: RelayListener): RelayLink {
+        val closed = AtomicBoolean(false)
+        fun closeOnce(reason: String) {
+            if (closed.compareAndSet(false, true)) listener.onClosed(reason)
+        }
         val ws = client.newWebSocket(
             Request.Builder().url(url).build(),
             object : WebSocketListener() {
-                override fun onMessage(webSocket: WebSocket, bytes: ByteString) = listener.onFrame(bytes.toByteArray())
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = listener.onClosed("closed $code")
+                override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                    // Nothing legitimate is bigger than an envelope plus framing
+                    if (bytes.size <= MAX_FRAME) listener.onFrame(bytes.toByteArray())
+                }
+                // A relay-initiated close: answer it and reconnect now, not at the next failed ping
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    webSocket.close(1000, null)
+                    closeOnce("closing $code")
+                }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = closeOnce("closed $code")
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) =
-                    listener.onClosed(t.javaClass.simpleName)
+                    closeOnce(t.javaClass.simpleName)
             },
         )
         return object : RelayLink {
@@ -44,5 +57,9 @@ class OkHttpRelayConnector(
                 ws.close(1000, null)
             }
         }
+    }
+
+    private companion object {
+        const val MAX_FRAME = 1_200_000
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.avetero.seam.feature.PairingScanner
 import com.avetero.seam.feature.ScanResult
+import com.avetero.seam.session.PairingQr
 import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.launch
 
@@ -34,21 +35,29 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(colorScheme = colors) {
                 val state by session.state.collectAsStateWithLifecycle()
                 val scope = rememberCoroutineScope()
+                val notice by session.notice.collectAsStateWithLifecycle()
                 var scanError by remember { mutableStateOf<String?>(null) }
+                var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 SeamScreen(
                     state = state,
-                    scanError = scanError,
+                    scanError = scanError ?: notice,
+                    toConfirm = scanned,
+                    onConfirm = { qr ->
+                        scanned = null
+                        session.pair(qr)
+                        ConnectionService.start(this@MainActivity)
+                    },
+                    onCancelConfirm = { scanned = null },
                     onScan = {
                         scope.launch {
-                            scanError = when (val r = PairingScanner.scan(this@MainActivity)) {
+                            scanError = when (val r = PairingScanner.scan(this@MainActivity, BuildConfig.DEBUG)) {
                                 is ScanResult.Code -> {
-                                    session.pair(r.qr)
-                                    ConnectionService.start(this@MainActivity)
+                                    scanned = r.qr // nothing changes until the user confirms who this is
                                     null
                                 }
                                 ScanResult.NotSeam -> "That isn't a Seam pairing code. Open Seam on your Mac to show one."
                                 ScanResult.Cancelled -> null
-                                is ScanResult.Unavailable -> "The scanner isn't available on this phone (${r.reason})."
+                                is ScanResult.Unavailable -> "The QR scanner isn't available on this phone. It needs Google Play services."
                             }
                         }
                     },

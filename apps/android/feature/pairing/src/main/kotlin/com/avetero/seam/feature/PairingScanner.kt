@@ -19,11 +19,12 @@ sealed interface ScanResult {
 
 /** Opens the system QR scanner and reads a Mac's pairing code. */
 object PairingScanner {
-    suspend fun scan(activity: Activity): ScanResult = suspendCancellableCoroutine { cont ->
+    /** [allowCleartext]: debug builds only, for a local `wrangler dev` relay. */
+    suspend fun scan(activity: Activity, allowCleartext: Boolean): ScanResult = suspendCancellableCoroutine { cont ->
         val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
         GmsBarcodeScanning.getClient(activity, options).startScan()
             .addOnSuccessListener { barcode ->
-                val qr = barcode.rawValue?.let(PairingQr::parse)
+                val qr = barcode.rawValue?.let { PairingQr.parse(it, allowCleartext) }
                 cont.resume(if (qr != null) ScanResult.Code(qr) else ScanResult.NotSeam)
             }
             .addOnCanceledListener { cont.resume(ScanResult.Cancelled) }

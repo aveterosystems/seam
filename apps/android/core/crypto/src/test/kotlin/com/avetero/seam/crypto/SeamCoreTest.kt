@@ -4,6 +4,7 @@ package com.avetero.seam.crypto
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Calls the Rust core through the generated Kotlin bindings, the way the Android app will. */
@@ -22,6 +23,9 @@ class SeamCoreTest {
         val request = mac.acceptPairing(start.envelope)
         assertEquals(phone.id(), request.peerId)
         assertEquals(request.safetyCode, phone.safetyCode(mac.id()))
+        mac.confirmPairing(request.peerId)
+        phone.open(mac.seal(request.peerId, byteArrayOf(0x0a, 0x02, 0x32, 0x00), 0u)) // PairAccept confirms the Mac
+        assertTrue(phone.peers().single().confirmed)
         return mac to phone
     }
 
@@ -59,11 +63,17 @@ class SeamCoreTest {
         assertThrows(SeamException.BadState::class.java) { SeamDevice.restore(byteArrayOf(1, 2, 3), key) }
     }
 
-    @Test fun fileChunksRoundTripAndRejectReordering() {
-        val k = newFileKey()
-        val id = newFileId()
-        val sealed = sealChunk(k, id, 0u, false, "chunk".toByteArray())
-        assertArrayEquals("chunk".toByteArray(), openChunk(k, id, 0u, false, sealed))
-        assertThrows(SeamException.Invalid::class.java) { openChunk(k, id, 1u, false, sealed) }
+    @Test fun fileChunksRoundTripInOrderAndRefuseTruncation() {
+        val sealer = FileSealer()
+        val receiver = FileReceiver(sealer.key(), sealer.fileId())
+        val full = ByteArray(chunkDataSize().toInt()) { 1 }
+        val c0 = sealer.sealNext(full, false)
+        val c1 = sealer.sealNext("tail".toByteArray(), true)
+        assertThrows(SeamException.Invalid::class.java) { sealer.sealNext("again".toByteArray(), true) }
+        assertThrows(SeamException.Invalid::class.java) { FileReceiver(sealer.key(), sealer.fileId()).openNext(c1, true) }
+        assertArrayEquals(full, receiver.openNext(c0, false))
+        assertThrows(SeamException.Invalid::class.java) { receiver.finish() }
+        assertArrayEquals("tail".toByteArray(), receiver.openNext(c1, true))
+        receiver.finish()
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam.session
 
+import com.avetero.seam.crypto.PeerInfo
 import com.avetero.seam.crypto.SeamDevice
 import com.avetero.seam.crypto.SeamException
 import com.avetero.seam.protocol.v1.ClientFrame
@@ -35,31 +36,49 @@ sealed interface SessionState {
  */
 class Session(
     private val store: StateStore,
-    private val prefs: SessionPrefs,
     private val connector: RelayConnector,
     private val myName: String,
     private val myModel: String,
     private val scope: CoroutineScope,
     private val wait: suspend (Long) -> Unit = { delay(it) },
 ) : SessionApi {
-    private val device: SeamDevice = store.load()
-        ?.let { runCatching { SeamDevice.restore(it, store.storageKey) }.getOrNull() }
-        ?: SeamDevice.generate().also { store.save(it.exportState(store.storageKey)) }
-
     private val _state = MutableStateFlow<SessionState>(SessionState.Unpaired)
     val state: StateFlow<SessionState> = _state
 
+    /** A one-off message for the user, e.g. why a new pairing failed while the old one carries on. */
+    private val _notice = MutableStateFlow<String?>(null)
+    val notice: StateFlow<String?> = _notice
+
+    private var device: SeamDevice = openDevice()
+
     private val features = mutableListOf<Feature>()
     private val backoff = Backoff()
-    // shortcut: unsent envelopes are kept in memory only; persist the outbox when features need it
-    private val outbox = ArrayDeque<ByteArray>()
+    /** Unsealed and bounded: sealed only when it can be sent, right after a durable save. */
+    private val outbox = ArrayDeque<Payload>()
     private var link: RelayLink? = null
     private var generation = 0
     private var loggedIn = false
     private var pairing: PairingQr? = null
     private var reconnect: Job? = null
 
-    private val mac get() = device.peers().firstOrNull()
+    private val mac: PeerInfo? get() = device.peers().firstOrNull { it.confirmed }
+    private val target: RelayTarget?
+        get() = pairing?.let { RelayTarget(it.relayUrl, it.groupId) } ?: RelayTarget.decode(device.appData())
+
+    /** Never generates over saved state it couldn't open: that's moved aside and the user is told. */
+    private fun openDevice(): SeamDevice {
+        val restored = runCatching {
+            val blob = store.load() ?: return@runCatching null
+            SeamDevice.restore(blob, store.storageKey())
+        }
+        restored.getOrNull()?.let { return it }
+        if (restored.isFailure) {
+            runCatching { store.quarantine() }
+            _state.value = SessionState.Failed(RESET)
+        }
+        // A failed first save is retried by the next persist()
+        return SeamDevice.generate().also { d -> runCatching { store.save(d.exportState(store.storageKey())) } }
+    }
 
     fun register(feature: Feature) {
         features += feature
@@ -67,66 +86,86 @@ class Session(
 
     fun start() = scope.launch {
         val m = mac ?: return@launch
+        if (_state.value == SessionState.Failed(RESET)) return@launch
         _state.value = SessionState.Connecting(m.name)
         connect()
     }
 
-    /** Pair with the Mac from its scanned QR code. Replaces any earlier pairing. */
+    /** Pair with the Mac from its scanned (and user-confirmed) QR code. The current Mac stays until the new one accepts. */
     fun pair(qr: PairingQr) = scope.launch {
-        mac?.let { device.removePeer(it.id) }
-        prefs.relayUrl = qr.relayUrl
-        prefs.groupId = qr.groupId
+        outbox.clear()
         pairing = qr
+        _notice.value = null
         _state.value = SessionState.Pairing(qr.macName, null)
         connect()
     }
 
+    /** Something escaped a handler: show it instead of crashing (wired to the scope's exception handler). */
+    fun internalError() {
+        scope.launch { fail("Something went wrong. Reopen Seam to reconnect.") }
+    }
+
     override fun send(payload: Payload) {
         scope.launch {
-            val m = mac ?: return@launch
-            if (pairing != null) return@launch
-            val env = device.seal(m.id, payload.toByteArray(), 0u)
-            persist()
-            if (!(loggedIn && sendEnvelope(env))) outbox.addLast(env)
+            if (mac == null || pairing != null) return@launch
+            // Only the latest Status matters; everything else is capped
+            if (payload.bodyCase == Payload.BodyCase.STATUS) outbox.removeAll { it.bodyCase == Payload.BodyCase.STATUS }
+            if (outbox.size >= MAX_OUTBOX) outbox.removeFirst()
+            outbox.addLast(payload)
+            if (loggedIn) flush()
         }
     }
 
     private fun connect() {
         reconnect?.cancel()
         link?.close()
-        val url = prefs.relayUrl ?: return
-        val group = prefs.groupId ?: return
+        link = null
+        val t = target ?: return
         loggedIn = false
         val mine = ++generation
-        val query = Base64.getUrlEncoder().withoutPadding().encodeToString(group)
-        link = connector.connect("$url/v1/connect?group=$query", object : RelayListener {
+        val query = Base64.getUrlEncoder().withoutPadding().encodeToString(t.groupId)
+        val listener = object : RelayListener {
             override fun onFrame(frame: ByteArray) {
                 scope.launch { if (mine == generation) handle(frame) }
             }
             override fun onClosed(reason: String) {
                 scope.launch { if (mine == generation) closed() }
             }
-        })
+        }
+        link = try {
+            connector.connect("${t.url}/v1/connect?group=$query", listener)
+        } catch (_: Exception) {
+            return fail("That relay address doesn't work.")
+        }
     }
 
     private fun handle(bytes: ByteArray) {
         val frame = runCatching { ServerFrame.parseFrom(bytes) }.getOrNull() ?: return
         when (frame.frameCase) {
             ServerFrame.FrameCase.CHALLENGE -> login(frame.challenge.nonce.toByteArray())
-            ServerFrame.FrameCase.LOGIN_RESULT -> if (frame.loginResult.ok) loggedInOk() else fail("The relay refused this phone")
+            ServerFrame.FrameCase.LOGIN_RESULT -> if (frame.loginResult.ok) loggedInOk() else relayRefused("bad_login")
             ServerFrame.FrameCase.BUNDLE -> bundleArrived(frame.bundle.bundle.toByteArray())
             ServerFrame.FrameCase.DELIVER -> deliver(frame.deliver)
-            ServerFrame.FrameCase.ERROR -> if (pairing != null || !loggedIn) fail(explain(frame.error.code))
+            ServerFrame.FrameCase.ERROR -> relayRefused(frame.error.code)
             else -> Unit
         }
     }
 
+    /** Pairing-time refusals end the pairing; a paired phone just reconnects with backoff. */
+    private fun relayRefused(code: String) {
+        if (pairing != null) return fail(explain(code))
+        if (loggedIn && code !in FATAL_AFTER_LOGIN) return
+        generation++ // so this socket's own close callback doesn't reconnect a second time
+        link?.close()
+        closed()
+    }
+
     private fun login(nonce: ByteArray) {
-        val group = prefs.groupId ?: return
+        val t = target ?: return
         val login = Login.newBuilder()
-            .setGroupId(group.bs())
+            .setGroupId(t.groupId.bs())
             .setDeviceKey(device.relayKey().bs())
-            .setSignature(device.signRelayLogin(nonce, group).bs())
+            .setSignature(device.signRelayLogin(nonce, t.groupId).bs())
         pairing?.let { login.setJoinToken(it.token.bs()) }
         sendFrame(ClientFrame.newBuilder().setLogin(login).build())
     }
@@ -147,38 +186,80 @@ class Session(
         if (bundle.isEmpty()) return fail("Your Mac hasn't finished setting up. Try its pairing code again.")
         try {
             val start = device.pairWith(p.identityKey, p.relayKey, p.macName, bundle, p.token, myName, myModel)
-            persist()
             sendEnvelope(start.envelope)
             _state.value = SessionState.Pairing(p.macName, device.safetyCode(start.peerId))
-        } catch (e: SeamException) {
+        } catch (_: Exception) {
             fail("That pairing code didn't work. Show a new one on your Mac and scan again.")
         }
     }
 
     private fun deliver(env: Envelope) {
-        try {
-            val opened = device.open(env.toByteArray())
-            persist()
-            val payload = Payload.parseFrom(opened.payload)
-            val accepted = payload.bodyCase == Payload.BodyCase.CONTROL &&
-                payload.control.bodyCase == Control.BodyCase.PAIR_ACCEPT
-            if (accepted && pairing != null) {
-                pairing = null
-                becameConnected()
-            } else {
-                features.filter { payload.bodyCase in it.handles }.forEach { it.receive(payload, opened.peerId) }
-            }
+        val opened = try {
+            device.open(env.toByteArray())
         } catch (_: SeamException) {
-            // Duplicate: already handled. Anything else is dropped (never logged with content).
+            return ack(env) // already handled, or permanently unopenable: holding it only redelivers it
         }
+        try {
+            persist() // durable before acking: the relay deletes what we ack
+        } catch (_: Exception) {
+            return fail(SAVE_FAILED) // not acked, so the relay keeps it
+        }
+        try {
+            handleOpened(opened.peerId, opened.payload)
+        } catch (_: Exception) {
+            // a malformed payload or a feature bug: dropped, never a crash
+        }
+        ack(env)
+    }
+
+    private fun ack(env: Envelope) {
         sendFrame(ClientFrame.newBuilder().setDelivered(Delivered.newBuilder().setMsgId(env.msgId)).build())
+    }
+
+    private fun handleOpened(peerId: String, payloadBytes: ByteArray) {
+        val payload = Payload.parseFrom(payloadBytes)
+        val p = pairing
+        if (p != null) {
+            val accepted = payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.PAIR_ACCEPT
+            val fromPairingMac = device.peers().firstOrNull { it.id == peerId }?.relayKey?.contentEquals(p.relayKey) == true
+            if (accepted && fromPairingMac) pairingAccepted(peerId, p)
+            return // nothing else counts until the pairing finishes
+        }
+        if (peerId != mac?.id) return
+        features.filter { payload.bodyCase in it.handles }.forEach { it.receive(payload, peerId) }
+    }
+
+    private fun pairingAccepted(peerId: String, p: PairingQr) {
+        device.peers().filter { it.id != peerId }.forEach { device.removePeer(it.id) } // the old Mac, now replaced
+        device.setAppData(RelayTarget(p.relayUrl, p.groupId).encode())
+        pairing = null
+        if (runCatching { persist() }.isFailure) return fail(SAVE_FAILED)
+        becameConnected()
     }
 
     private fun becameConnected() {
         val m = mac ?: return
         _state.value = SessionState.Connected(m.name)
-        while (outbox.isNotEmpty() && sendEnvelope(outbox.first())) outbox.removeFirst()
         features.forEach { it.onConnected(this) }
+        flush()
+    }
+
+    private fun flush() {
+        val m = mac ?: return
+        while (outbox.isNotEmpty()) {
+            val env = try {
+                val e = device.seal(m.id, outbox.first().toByteArray(), 0u)
+                persist() // the ratchet moved: save before anything leaves, or a crash could reuse a key
+                e
+            } catch (_: SeamException) {
+                outbox.removeFirst()
+                continue
+            } catch (_: Exception) {
+                return fail(SAVE_FAILED)
+            }
+            outbox.removeFirst()
+            if (!sendEnvelope(env)) return
+        }
     }
 
     private fun closed() {
@@ -194,15 +275,22 @@ class Session(
     }
 
     private fun fail(reason: String) {
-        if (pairing != null) {
-            mac?.let { device.removePeer(it.id) }
-            persist()
-            pairing = null
-        }
-        _state.value = SessionState.Failed(reason)
         generation++ // ignore anything the old socket still delivers
         link?.close()
         link = null
+        loggedIn = false
+        outbox.clear()
+        if (pairing != null) {
+            pairing = null
+            device.peers().filter { !it.confirmed }.forEach { device.removePeer(it.id) }
+            runCatching { persist() }
+            if (mac != null) { // the existing pairing is untouched: carry on with it
+                _notice.value = reason
+                _state.value = SessionState.Connecting(mac!!.name)
+                return connect()
+            }
+        }
+        _state.value = SessionState.Failed(reason)
     }
 
     private fun sendEnvelope(env: ByteArray) =
@@ -210,12 +298,23 @@ class Session(
 
     private fun sendFrame(frame: ClientFrame) = link?.send(frame.toByteArray()) == true
 
-    private fun persist() = store.save(device.exportState(store.storageKey))
+    private fun persist() = store.save(device.exportState(store.storageKey()))
 
+    // Fixed texts only: the relay's own strings are never shown
     private fun explain(code: String) = when (code) {
         "bad_token" -> "That pairing code has expired or was already used. Show a new one on your Mac."
         "bad_login" -> "The relay didn't recognise this phone. Pair again."
-        else -> "The relay refused the connection ($code)."
+        "group_full" -> "Your Mac already has as many devices as it can pair."
+        "rate_limited" -> "Too many attempts. Wait a minute and try again."
+        else -> "The relay refused the connection."
+    }
+
+    private companion object {
+        const val MAX_OUTBOX = 100
+        const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
+        const val RESET = "Seam's secure storage on this phone was reset. Pair again."
+        // After login these mean the socket is unusable; others (queue_full, too_large…) are per-message
+        val FATAL_AFTER_LOGIN = setOf("bad_login", "not_member", "storage")
     }
 }
 

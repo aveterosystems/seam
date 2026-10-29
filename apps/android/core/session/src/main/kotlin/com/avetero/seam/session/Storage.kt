@@ -5,6 +5,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import java.io.File
+import java.io.FileOutputStream
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -14,10 +15,17 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** Where the core's sealed state blob lives, and the key it's sealed with. */
 interface StateStore {
-    /** 32 bytes. The core seals the state blob with it (AES-256-GCM). */
-    val storageKey: ByteArray
+    /** The saved blob, or null on first run. */
     fun load(): ByteArray?
+
+    /** 32 bytes the core seals the state with. Created on first run; throws if a saved key won't unwrap. */
+    fun storageKey(): ByteArray
+
+    /** Durable (fsync before rename). Throws on failure: callers must not send what they couldn't save. */
     fun save(blob: ByteArray)
+
+    /** Moves files that can't be opened aside instead of ever overwriting them. */
+    fun quarantine()
 }
 
 /**
@@ -27,13 +35,29 @@ interface StateStore {
  */
 class KeystoreStateStore(private val dir: File) : StateStore {
     private val stateFile = File(dir, "state.bin")
+    private val backupFile = File(dir, "state.bin.bak")
     private val wrappedKeyFile = File(dir, "storage_key.bin")
+    private var key: ByteArray? = null
 
-    override val storageKey: ByteArray by lazy { unwrapOrCreate() }
+    // A crash between the two renames in save() leaves only the backup
+    override fun load(): ByteArray? = stateFile.takeIf { it.exists() }?.readBytes() ?: backupFile.takeIf { it.exists() }?.readBytes()
 
-    override fun load(): ByteArray? = stateFile.takeIf { it.exists() }?.readBytes()
+    override fun storageKey(): ByteArray = key ?: unwrapOrCreate().also { key = it }
 
-    override fun save(blob: ByteArray) = writeAtomically(stateFile, blob)
+    override fun save(blob: ByteArray) {
+        val tmp = writeSynced("state.bin.tmp", blob)
+        if (stateFile.exists()) {
+            backupFile.delete()
+            check(stateFile.renameTo(backupFile)) { "couldn't keep a backup" }
+        }
+        check(tmp.renameTo(stateFile)) { "couldn't replace the state" }
+    }
+
+    override fun quarantine() {
+        val suffix = ".unreadable-${System.currentTimeMillis()}"
+        listOf(stateFile, backupFile, wrappedKeyFile).filter { it.exists() }.forEach { it.renameTo(File(dir, it.name + suffix)) }
+        key = null
+    }
 
     private fun unwrapOrCreate(): ByteArray {
         val wrapping = wrappingKey()
@@ -45,7 +69,7 @@ class KeystoreStateStore(private val dir: File) : StateStore {
         }
         val key = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, wrapping) }
-        writeAtomically(wrappedKeyFile, cipher.iv + cipher.doFinal(key))
+        check(writeSynced("storage_key.bin.tmp", cipher.iv + cipher.doFinal(key)).renameTo(wrappedKeyFile)) { "couldn't save the key" }
         return key
     }
 
@@ -70,11 +94,14 @@ class KeystoreStateStore(private val dir: File) : StateStore {
         }
     }
 
-    private fun writeAtomically(file: File, bytes: ByteArray) {
+    private fun writeSynced(name: String, bytes: ByteArray): File {
         dir.mkdirs()
-        val tmp = File(dir, "${file.name}.tmp")
-        tmp.writeBytes(bytes)
-        check(tmp.renameTo(file)) { "couldn't replace ${file.name}" }
+        val tmp = File(dir, name)
+        FileOutputStream(tmp).use { out ->
+            out.write(bytes)
+            out.fd.sync()
+        }
+        return tmp
     }
 
     private companion object {
@@ -82,8 +109,22 @@ class KeystoreStateStore(private val dir: File) : StateStore {
     }
 }
 
-/** Non-secret settings: which relay and group this phone belongs to. */
-interface SessionPrefs {
-    var relayUrl: String?
-    var groupId: ByteArray?
+/**
+ * Which relay and group this phone belongs to, kept inside the core's sealed state (appData) so
+ * it can never drift apart from the identity: version (1) | u16 URL length | URL | 16-byte group.
+ */
+internal data class RelayTarget(val url: String, val groupId: ByteArray) {
+    fun encode(): ByteArray {
+        val u = url.toByteArray()
+        return byteArrayOf(1, (u.size shr 8).toByte(), u.size.toByte()) + u + groupId
+    }
+
+    companion object {
+        fun decode(b: ByteArray): RelayTarget? {
+            if (b.size < 3 || b[0] != 1.toByte()) return null
+            val n = ((b[1].toInt() and 0xff) shl 8) or (b[2].toInt() and 0xff)
+            if (b.size != 3 + n + 16) return null
+            return RelayTarget(String(b, 3, n), b.copyOfRange(3 + n, b.size))
+        }
+    }
 }

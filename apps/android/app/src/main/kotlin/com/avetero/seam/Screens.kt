@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,17 +27,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.avetero.seam.session.PairingQr
 import com.avetero.seam.session.SessionState
 
 /** One screen per session state (design boards A01 Home and A02 Pairing, simplified for M1). */
 @Composable
-fun SeamScreen(state: SessionState, scanError: String?, onScan: () -> Unit) {
+fun SeamScreen(
+    state: SessionState,
+    scanError: String?,
+    toConfirm: PairingQr?,
+    onConfirm: (PairingQr) -> Unit,
+    onCancelConfirm: () -> Unit,
+    onScan: () -> Unit,
+) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(
             Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         ) {
+            if (toConfirm != null) return@Column Confirm(toConfirm, onConfirm, onCancelConfirm)
             when (state) {
                 SessionState.Unpaired -> Intro(
                     title = "Pair with your Mac",
@@ -46,8 +56,8 @@ fun SeamScreen(state: SessionState, scanError: String?, onScan: () -> Unit) {
                     onAction = onScan,
                 )
                 is SessionState.Pairing -> Pairing(state)
-                is SessionState.Connecting -> Linked(state.macName, connected = false)
-                is SessionState.Connected -> Linked(state.macName, connected = true)
+                is SessionState.Connecting -> Linked(state.macName, connected = false, notice = scanError)
+                is SessionState.Connected -> Linked(state.macName, connected = true, notice = scanError)
                 is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
             }
         }
@@ -65,6 +75,16 @@ private fun Intro(title: String, body: String, action: String, error: String?, o
 }
 
 @Composable
+private fun Confirm(qr: PairingQr, onConfirm: (PairingQr) -> Unit, onCancel: () -> Unit) {
+    MacBadge()
+    Text("Pair with ${qr.macName}?", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+    Text("Through ${qr.relayHost}", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    Spacer(Modifier.height(8.dp))
+    Button(onClick = { onConfirm(qr) }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }
+    TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+}
+
+@Composable
 private fun Pairing(state: SessionState.Pairing) {
     MacBadge()
     Text("Pairing with ${state.macName}", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
@@ -79,13 +99,14 @@ private fun Pairing(state: SessionState.Pairing) {
 }
 
 @Composable
-private fun Linked(macName: String, connected: Boolean) {
+private fun Linked(macName: String, connected: Boolean, notice: String?) {
     MacBadge()
     Text(macName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
     Text(
         if (connected) "● Connected · end-to-end encrypted" else "Reconnecting…",
         color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    if (notice != null) Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
     Text(
         "Your battery shows in your Mac's menu bar.",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
