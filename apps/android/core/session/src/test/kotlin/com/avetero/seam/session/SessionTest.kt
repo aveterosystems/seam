@@ -19,6 +19,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -30,6 +31,7 @@ private class MemoryStore : StateStore {
     var blob: ByteArray? = null
     var quarantined: ByteArray? = null
     var failSaves = false
+    val saves = mutableListOf<ByteArray>()
     var keyFailures = 0
     var keyError: () -> Exception = { StateUnreadableException(javax.crypto.AEADBadTagException()) }
     var failQuarantine = false
@@ -41,6 +43,7 @@ private class MemoryStore : StateStore {
     override fun save(blob: ByteArray) {
         if (failSaves) throw java.io.IOException("disk full")
         this.blob = blob
+        saves += blob
     }
     override fun quarantine() {
         if (failQuarantine) error("rename failed")
@@ -123,9 +126,9 @@ class SessionTest {
     private val store = MemoryStore()
     private val relay = FakeRelay(mac)
 
-    private fun TestScope.session(connector: RelayConnector = relay) = Session(
+    private fun TestScope.session(connector: RelayConnector = relay, wait: suspend (Long) -> Unit = {}) = Session(
         store, connector, "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)), wait = {},
+        TestScope(StandardTestDispatcher(testScheduler)), wait = wait,
     )
 
     private fun status(pct: Int) = Payload.newBuilder().setStatus(Status.newBuilder().setBatteryPct(pct).setCharging(true)).build()
@@ -289,6 +292,83 @@ class SessionTest {
         advanceUntilIdle()
         assertEquals(SessionState.Failed("Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."), s.state.value)
         assertArrayEquals(saved, store.blob)
+    }
+
+    @Test fun sr_2_59_aMessageWhoseSaveFailsIsStillHandledAndNotAcked() = runTest {
+        val s = session()
+        val received = mutableListOf<Int>()
+        s.register(object : Feature {
+            override val handles = setOf(Payload.BodyCase.STATUS)
+            override fun receive(payload: Payload, fromPeer: String) { received += payload.status.batteryPct }
+        })
+        s.pair(qr)
+        advanceUntilIdle()
+        val acked = relay.delivered
+        store.failSaves = true
+        relay.deliverToPhone(mac.seal(mac.peers().single().id, status(9).toByteArray(), 0u))
+        advanceUntilIdle()
+        assertEquals("handled, not lost", listOf(9), received)
+        assertEquals("not acked, so a restart from the saved state opens it again", acked, relay.delivered)
+    }
+
+    @Test fun sr_2_61_aPhoneTheRelayNoLongerKnowsIsToldToPairAgain() = runTest {
+        val s = paired()
+        repeat(5) { // MAX_REFUSALS
+            relay.error("not_member")
+            runCurrent() // reconnects at once, before the connection counts as stable
+        }
+        advanceUntilIdle()
+        assertEquals(SessionState.Failed("The relay didn't recognise this phone. Pair again."), s.state.value)
+    }
+
+    @Test fun sr_2_61_theBackoffGrowsWhileTheRelayKeepsDroppingUs() = runTest {
+        val delays = mutableListOf<Long>()
+        val s = session(wait = { delays += it })
+        s.pair(qr)
+        advanceUntilIdle()
+        repeat(3) {
+            relay.error("storage") // accepted the login, then dropped us
+            runCurrent()
+        }
+        assertEquals(3, delays.size)
+        assertTrue("each wait at least ~doubles: $delays", delays.zipWithNext().all { (a, b) -> b >= a * 3 / 2 })
+    }
+
+    @Test fun sr_2_62_aFeatureThatThrowsOnConnectDoesNotTakeTheConnectionDown() = runTest {
+        val s = session()
+        s.register(object : Feature {
+            override fun onConnected(session: SessionApi) = error("feature bug")
+        })
+        s.register(object : Feature {
+            override fun onConnected(session: SessionApi) = session.send(status(55))
+        })
+        s.pair(qr)
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        assertEquals("the next feature still ran, and its message went out", 55, relay.macReceived.single().status.batteryPct)
+    }
+
+    @Test fun sr_2_63_noSavedStateEverHoldsTwoMacs() = runTest {
+        val s = paired()
+        val before = store.saves.size
+        val newMac = SeamDevice.generate()
+        relay.mac = newMac
+        s.pair(qrFor(newMac, "Mac mini"))
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("Mac mini"), s.state.value)
+        for (blob in store.saves.drop(before)) {
+            val peers = SeamDevice.restore(blob, ByteArray(32) { 3 }).peers()
+            assertTrue("a saved state with ${peers.size} Macs", peers.size <= 1)
+        }
+    }
+
+    @Test fun sr_2_64_aPairRequestIsNeverSentUnsaved() = runTest {
+        store.failSaves = true
+        val s = session()
+        s.pair(qr)
+        advanceUntilIdle()
+        assertTrue("the Mac never got a PairRequest", mac.peers().isEmpty())
+        assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Couldn't save"))
     }
 
     @Test fun sr_2_11_nothingIsSentIfSavingFails() = runTest {

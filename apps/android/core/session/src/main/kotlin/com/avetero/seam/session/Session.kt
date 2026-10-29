@@ -62,6 +62,10 @@ class Session(
     private var loggedIn = false
     private var pairing: PairingQr? = null
     private var reconnect: Job? = null
+    /** Resets the backoff once a connection has lasted [STABLE_MS] (SR-2-61). */
+    private var stable: Job? = null
+    /** Logins the relay refused in a row because it doesn't know this phone. */
+    private var refusals = 0
 
     private val mac: PeerInfo? get() = device.peers().firstOrNull { it.confirmed }
     private val target: RelayTarget?
@@ -165,6 +169,7 @@ class Session(
     private fun relayRefused(code: String) {
         if (pairing != null) return fail(explain(code))
         if (loggedIn && code !in FATAL_AFTER_LOGIN) return
+        if (code in NOT_RECOGNISED && ++refusals >= MAX_REFUSALS) return fail(explain("bad_login"))
         generation++ // so this socket's own close callback doesn't reconnect a second time
         link?.close()
         closed()
@@ -182,7 +187,12 @@ class Session(
 
     private fun loggedInOk() {
         loggedIn = true
-        backoff.reset()
+        stable?.cancel()
+        stable = scope.launch {
+            delay(STABLE_MS)
+            backoff.reset()
+            refusals = 0
+        }
         val p = pairing
         if (p != null) {
             sendFrame(ClientFrame.newBuilder().setGetBundle(GetBundle.newBuilder().setDeviceKey(p.relayKey.bs())).build())
@@ -196,6 +206,7 @@ class Session(
         if (bundle.isEmpty()) return fail("Your Mac hasn't finished setting up. Try its pairing code again.")
         try {
             val start = device.pairWith(p.identityKey, p.relayKey, p.macName, bundle, p.token, myName, myModel)
+            if (runCatching { persist() }.isFailure) return fail(SAVE_FAILED) // SR-2-64: nothing leaves unsaved
             sendEnvelope(start.envelope)
             _state.value = SessionState.Pairing(p.macName, device.safetyCode(start.peerId))
         } catch (_: Exception) {
@@ -206,19 +217,31 @@ class Session(
     private fun deliver(env: Envelope) {
         val opened = try {
             device.open(env.toByteArray())
-        } catch (_: SeamException) {
-            return ack(env) // already handled, or permanently unopenable: holding it only redelivers it
-        }
-        try {
-            persist() // durable before acking: the relay deletes what we ack
         } catch (_: Exception) {
-            return fail(SAVE_FAILED) // not acked, so the relay keeps it
+            // Already handled, or can never be opened (SR-2-62: whatever the error): holding it only redelivers it
+            return ack(env)
         }
-        try {
-            handleOpened(opened.peerId, opened.payload)
-        } catch (_: Exception) {
-            // a malformed payload or a feature bug: dropped, never a crash
+        val payload = runCatching { Payload.parseFrom(opened.payload) }.getOrNull()
+        // A PairAccept switches Macs in memory first, so the one save below holds either the old
+        // pairing or the new one, never both (SR-2-63)
+        val accepted = payload != null && acceptPairing(opened.peerId, payload)
+        val saved = runCatching { persist() }.isSuccess // durable before acking: the relay deletes what we ack
+        if (accepted) {
+            if (!saved) return fail(SAVE_FAILED)
+            becameConnected()
+            return ack(env)
         }
+        // Handled even if the save failed: the ratchet has moved, so a redelivery in this run would
+        // open as a duplicate and be lost (SR-2-59). Not acked then, so after a restart the saved
+        // state opens it again.
+        if (payload != null) {
+            try {
+                handleOpened(opened.peerId, payload)
+            } catch (_: Exception) {
+                // a feature bug: dropped, never a crash
+            }
+        }
+        if (!saved) return fail(SAVE_FAILED)
         ack(env)
     }
 
@@ -226,31 +249,28 @@ class Session(
         sendFrame(ClientFrame.newBuilder().setDelivered(Delivered.newBuilder().setMsgId(env.msgId)).build())
     }
 
-    private fun handleOpened(peerId: String, payloadBytes: ByteArray) {
-        val payload = Payload.parseFrom(payloadBytes)
-        val p = pairing
-        if (p != null) {
-            val accepted = payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.PAIR_ACCEPT
-            val fromPairingMac = device.peers().firstOrNull { it.id == peerId }?.relayKey?.contentEquals(p.relayKey) == true
-            if (accepted && fromPairingMac) pairingAccepted(peerId, p)
-            return // nothing else counts until the pairing finishes
-        }
+    private fun handleOpened(peerId: String, payload: Payload) {
+        if (pairing != null) return // nothing but the PairAccept counts until the pairing finishes
         if (peerId != mac?.id) return
         features.filter { payload.bodyCase in it.handles }.forEach { it.receive(payload, peerId) }
     }
 
-    private fun pairingAccepted(peerId: String, p: PairingQr) {
+    /** True if this was the pairing Mac's PairAccept: the old Mac is dropped and the new relay target set. */
+    private fun acceptPairing(peerId: String, payload: Payload): Boolean {
+        val p = pairing ?: return false
+        val accepted = payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.PAIR_ACCEPT
+        val fromPairingMac = device.peers().firstOrNull { it.id == peerId }?.relayKey?.contentEquals(p.relayKey) == true
+        if (!accepted || !fromPairingMac) return false
         device.peers().filter { it.id != peerId }.forEach { device.removePeer(it.id) } // the old Mac, now replaced
         device.setAppData(RelayTarget(p.relayUrl, p.groupId).encode())
         pairing = null
-        if (runCatching { persist() }.isFailure) return fail(SAVE_FAILED)
-        becameConnected()
+        return true
     }
 
     private fun becameConnected() {
         val m = mac ?: return
         _state.value = SessionState.Connected(m.name)
-        features.forEach { it.onConnected(this) }
+        features.forEach { runCatching { it.onConnected(this) } } // a feature bug never takes the connection down
         flush()
     }
 
@@ -273,6 +293,7 @@ class Session(
     }
 
     private fun closed() {
+        stable?.cancel()
         loggedIn = false
         link = null
         if (pairing != null) return fail("Lost the connection while pairing. Try again.")
@@ -285,6 +306,7 @@ class Session(
     }
 
     private fun fail(reason: String) {
+        stable?.cancel()
         generation++ // ignore anything the old socket still delivers
         link?.close()
         link = null
@@ -329,6 +351,9 @@ class Session(
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
         // After login these mean the socket is unusable; others (queue_full, too_large…) are per-message
         val FATAL_AFTER_LOGIN = setOf("bad_login", "not_member", "storage")
+        val NOT_RECOGNISED = setOf("bad_login", "not_member")
+        const val MAX_REFUSALS = 5
+        const val STABLE_MS = 30_000L
     }
 }
 

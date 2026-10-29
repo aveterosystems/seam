@@ -4,6 +4,9 @@ package com.avetero.seam.session
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import java.io.File
 import java.io.FileOutputStream
 import java.security.GeneralSecurityException
@@ -31,7 +34,7 @@ interface StateStore {
      */
     fun storageKey(): ByteArray
 
-    /** Durable (fsync before rename). Throws on failure: callers must not send what they couldn't save. */
+    /** Durable (file fsynced before rename, directory after). Throws on failure: callers must not send what they couldn't save. */
     fun save(blob: ByteArray)
 
     /** Moves files that can't be opened aside instead of ever overwriting them. Throws if it can't. */
@@ -61,6 +64,18 @@ class KeystoreStateStore(private val dir: File) : StateStore {
             check(stateFile.renameTo(backupFile)) { "couldn't keep a backup" }
         }
         check(tmp.renameTo(stateFile)) { "couldn't replace the state" }
+        syncDir() // the renames themselves survive a power cut (SR-2-68)
+    }
+
+    private fun syncDir() {
+        val fd = Os.open(dir.path, OsConstants.O_RDONLY, 0)
+        try {
+            Os.fsync(fd)
+        } catch (e: ErrnoException) {
+            if (e.errno != OsConstants.EINVAL) throw e // some filesystems can't sync a directory: nothing more to do
+        } finally {
+            Os.close(fd)
+        }
     }
 
     override fun quarantine() {
@@ -89,6 +104,7 @@ class KeystoreStateStore(private val dir: File) : StateStore {
         val key = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, wrapping) }
         check(writeSynced("storage_key.bin.tmp", cipher.iv + cipher.doFinal(key)).renameTo(wrappedKeyFile)) { "couldn't save the key" }
+        syncDir()
         return key
     }
 
