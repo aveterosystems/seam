@@ -13,7 +13,10 @@ enum PairingWindow {
         if window == nil {
             let w = NSWindow(contentViewController: NSHostingController(rootView: PairingView(controller: controller)))
             w.title = "Pair your phone"
-            w.styleMask = [.titled, .closable]
+            // Board M02: traffic lights only, the content runs under a transparent title bar
+            w.styleMask = [.titled, .closable, .fullSizeContentView]
+            w.titlebarAppearsTransparent = true
+            w.titleVisibility = .hidden
             w.isReleasedWhenClosed = false
             // The QR code is a live pairing secret: keep it out of screenshots and screen sharing
             w.sharingType = .none
@@ -48,84 +51,105 @@ enum PairingWindow {
     }
 }
 
+/// Board M02: a 740×520 window. Left: what to do and why it's safe. Right: the code to scan, then
+/// the code to compare.
 struct PairingView: View {
     let controller: SeamController
 
     var body: some View {
-        Group {
-            switch controller.flow.state {
-            case .idle:
-                message("Pair your phone", detail: "Show a code to scan with Seam on your Android phone.", button: "Show code") {
-                    controller.startPairing()
-                }
-            case .waiting(let qr, let deadline):
-                waiting(qr, deadline: deadline)
-            case .confirm(let request):
-                ConfirmView(controller: controller, name: request.deviceName, code: request.safetyCode, sending: false)
-            case .confirming(let request):
-                ConfirmView(controller: controller, name: request.deviceName, code: request.safetyCode, sending: true)
-            case .paired(let name):
-                message("Paired with \(name)", detail: "Its battery and notifications will appear in the menu bar.", button: "Done") {
-                    PairingWindow.close()
-                }
-            case .expired:
-                message("Code expired", detail: "Pairing codes work for 5 minutes. Show a new one to pair your phone.", button: "Show a new code") {
-                    controller.startPairing()
-                }
-            case .failed(let reason):
-                message("Pairing didn't finish", detail: reason, button: "Show a new code") { controller.startPairing() }
-            }
+        HStack(alignment: .top, spacing: 40) {
+            steps
+            VStack(spacing: 16) { right }.frame(width: 260)
         }
-        .padding(32)
-        .frame(width: 640, height: 400)
+        .padding(.horizontal, 48)
+        .padding(.top, 8)
+        .padding(.bottom, 40)
+        .frame(width: 740, height: 480)
+        .tint(SeamStyle.teal)
     }
 
-    private func waiting(_ qr: String, deadline: PairingDeadline) -> some View {
-        HStack(spacing: 40) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Pair your phone").font(.title.bold())
+    private var steps: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 56, height: 56)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Pair your phone").font(.system(size: 24, weight: .bold))
                 Text("Open Seam on your Android phone and scan this code. That's the whole setup.")
-                    .foregroundStyle(.secondary)
-                Label("Keys are made on this Mac and never leave it. No account, no password.", systemImage: "lock.shield")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Label(
-                    controller.connected ? "Waiting for your phone…" : "Connecting to \(controller.relayHost)…",
-                    systemImage: controller.connected ? "dot.radiowaves.left.and.right" : "network"
-                )
-                .font(.callout)
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let left = Int(deadline.remaining(at: context.date))
-                    Text("Code works for \(left / 60):\(String(format: "%02d", left % 60))")
-                        .font(.callout.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
+                    .font(.system(size: 14)).foregroundStyle(.secondary)
             }
+            VStack(alignment: .leading, spacing: 14) {
+                step(1, Text("Get **Seam** on your phone"))
+                step(2, Text("Tap **Scan pairing code** and point the camera here"))
+                step(3, Text("Check both screens show the same code, then pair"))
+            }
+            Spacer()
+            Label("Keys are made on this Mac and never leave it. No account, no password.", systemImage: "lock")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func step(_ n: Int, _ text: Text) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("\(n)")
+                .font(.caption.weight(.semibold))
+                .frame(width: 22, height: 20)
+                .background(Capsule().fill(SeamStyle.teal.opacity(0.13)))
+                .foregroundStyle(SeamStyle.tealInk)
+            text
+        }
+    }
+
+    @ViewBuilder private var right: some View {
+        switch controller.flow.state {
+        case .idle:
+            outcome("Show a code to scan with Seam on your phone.", button: "Show code") { controller.startPairing() }
+        case .waiting(let qr, let deadline):
             if let image = QRCodeImage.make(qr) {
                 Image(nsImage: image)
                     .interpolation(.none)
                     .resizable()
-                    .frame(width: 240, height: 240)
-                    .padding(12)
+                    .frame(width: 200, height: 200)
+                    .padding(14)
                     .background(.white, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(.black.opacity(0.09)))
                     .accessibilityLabel("Pairing QR code")
             }
+            HStack(spacing: 6) {
+                Circle().fill(SeamStyle.warn).frame(width: 8, height: 8)
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let left = Int(deadline.remaining(at: context.date))
+                    Text(controller.connected
+                        ? "Waiting for your phone… code expires in \(left / 60):\(String(format: "%02d", left % 60))"
+                        : "Connecting to \(controller.relayHost)…")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+            }
+        case .confirm(let request):
+            ConfirmView(controller: controller, name: request.deviceName, code: request.safetyCode, sending: false)
+        case .confirming(let request):
+            ConfirmView(controller: controller, name: request.deviceName, code: request.safetyCode, sending: true)
+        case .paired(let name):
+            outcome("Paired with \(name).", button: "Done") { PairingWindow.close() }
+        case .expired:
+            outcome("Codes work for 5 minutes. Show a new one to pair.", button: "Show a new code") { controller.startPairing() }
+        case .failed(let reason):
+            outcome(reason, button: "Show a new code") { controller.startPairing() }
         }
     }
 
-    private func message(_ title: String, detail: String, button: String, action: @escaping () -> Void) -> some View {
-        VStack(spacing: 16) {
-            Text(title).font(.title.bold())
-            Text(detail).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Button(button, action: action).buttonStyle(.borderedProminent).controlSize(.large)
+    private func outcome(_ text: String, button: String, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 14) {
+            Spacer()
+            Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
+            Button(button, action: action).buttonStyle(.borderedProminent)
+            Spacer()
         }
     }
 }
 
-/// The safety code check. Return and Escape both mean Cancel, and Pair only takes a click once
-/// the screen has been up for a moment, so a keypress meant for something else can't pair a
-/// phone the user never looked at (SR-2-23).
+/// The safety code check, in the right column. Return and Escape both mean Cancel, and Pair only
+/// takes a click once the screen has been up for a moment, so a keypress meant for something else
+/// can't pair a phone the user never looked at (SR-2-23).
 private struct ConfirmView: View {
     let controller: SeamController
     let name: String
@@ -134,24 +158,29 @@ private struct ConfirmView: View {
     @State private var armed = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Pair with \(name)?").font(.title.bold())
-            Text("Check your phone shows the same code.").foregroundStyle(.secondary)
-            Text(code)
-                .font(.system(size: 44, weight: .medium, design: .monospaced))
-                .accessibilityLabel("Code \(code)")
-            Text("Through the relay at \(controller.relayHost)")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+        VStack(spacing: 14) {
+            Spacer()
+            Text("Pair with \(name)?").font(.headline).multilineTextAlignment(.center)
+            VStack(spacing: 4) {
+                Text("Code check").font(.caption).foregroundStyle(.tertiary)
+                Text(code)
+                    .font(.system(size: 26, weight: .medium, design: .monospaced))
+                    .tracking(3)
+                    .accessibilityLabel("Code \(code)")
+            }
+            Text("Check your phone shows the same code.").font(.caption).foregroundStyle(.secondary)
+            Text("Through \(controller.relayHost)").font(.caption).foregroundStyle(.secondary)
             HStack {
+                // Cancel is the prominent, default button: Return cancels, and the look says so (SR-10-02)
                 Button("Cancel", role: .cancel) { PairingWindow.close() }
                     .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
                     .disabled(sending)
                 Button("Pair") { controller.confirmPairing() }
                     .disabled(!armed || sending)
                 if sending { ProgressView().controlSize(.small) }
             }
-            .controlSize(.large)
+            Spacer()
         }
         .onExitCommand { if !sending { PairingWindow.close() } }
         .task {

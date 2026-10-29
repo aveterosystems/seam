@@ -22,6 +22,20 @@ struct ClipRulesTests {
         #expect(r.outgoing("a", now: t0 + ClipRules.repeatWindow) == "a")
     }
 
+    /// SR-10-03: Open only for a clip that is exactly one web address.
+    @Test func onlyAWholeWebAddressCanBeOpened() {
+        #expect(ClipRules.openableURL("https://example.com/a?b=c") != nil)
+        #expect(ClipRules.openableURL("http://example.com") != nil)
+        #expect(ClipRules.openableURL("https://looks-safe.example https://evil.example") == nil)
+        #expect(ClipRules.openableURL("https://example.com\nhttps://evil.example") == nil)
+        #expect(ClipRules.openableURL(" https://example.com") == nil)
+        #expect(ClipRules.openableURL("file:///etc/passwd") == nil)
+        #expect(ClipRules.openableURL("javascript:alert(1)") == nil)
+        #expect(ClipRules.openableURL("myapp://do-something") == nil)
+        #expect(ClipRules.openableURL("https:///no-host") == nil)
+        #expect(ClipRules.openableURL("ZK4 9QP") == nil)
+    }
+
     /// SR-4-06: a copied file is never sent as text.
     @Test func filesAreNotSentAsText() {
         #expect(!ClipRules.sendable(types: ["public.file-url", "public.utf8-plain-text"]))

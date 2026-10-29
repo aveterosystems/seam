@@ -58,6 +58,15 @@ public struct ClipRules: Sendable {
         return text
     }
 
+    /// The web address a clip may be opened as, only when the whole clip is one: a single http(s)
+    /// URL with a host and nothing around it, so what opens is what's shown (SR-10-03).
+    public static func openableURL(_ text: String) -> URL? {
+        guard !text.contains(where: \.isWhitespace), let url = URL(string: text),
+              url.scheme == "https" || url.scheme == "http", url.host?.isEmpty == false
+        else { return nil }
+        return url
+    }
+
     private func fits(_ text: String) -> Bool {
         !text.isEmpty && text.utf8.count <= maxBytes
     }

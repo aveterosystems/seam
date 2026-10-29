@@ -18,6 +18,8 @@ final class SeamController: RelayHandler {
     /// Something the user should see in the menu (a refused login, a save that failed).
     private(set) var warning: String?
     private(set) var flow = PairingFlow()
+    /// The last two things that came from the phone's clipboard, for the popover (memory only).
+    private(set) var recentFromPhone: [FromPhone] = []
     /// Clipboard both ways (menu toggle, on by default).
     private(set) var clipboardSync = UserDefaults.standard.object(forKey: "clipboardSync") as? Bool ?? true
 
@@ -112,6 +114,7 @@ final class SeamController: RelayHandler {
         if phone?.id == peerId {
             phone = nil
             status = nil
+            recentFromPhone = []
         }
         pendingClip.clear()
         return saved
@@ -123,7 +126,10 @@ final class SeamController: RelayHandler {
         clipboardSync = on
         UserDefaults.standard.set(on, forKey: "clipboardSync")
         lastChange = NSPasteboard.general.changeCount // turning it on never sends what was copied while off
-        if !on { pendingClip.clear() } // nor does turning it off let a held copy go later
+        if !on {
+            pendingClip.clear() // nor does turning it off let a held copy go later
+            recentFromPhone = [] // and it takes the phone's clips off the screen (SR-10-04)
+        }
     }
 
     /// macOS has no change notification for the pasteboard: checking its counter twice a second is the standard way, and cheap.
@@ -171,6 +177,21 @@ final class SeamController: RelayHandler {
         pb.clearContents()
         pb.setString(text, forType: .string)
         lastChange = pb.changeCount // our own write isn't a new copy
+        recentFromPhone = Array(([FromPhone(text: text, at: Date())] + recentFromPhone).prefix(2))
+    }
+
+    /// Puts an earlier clip from the phone back on this Mac's clipboard (popover "Copy").
+    func copyAgain(_ text: String) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        lastChange = pb.changeCount // and don't send it back
+    }
+
+    /// The code both devices showed at pairing, for re-checking in Settings.
+    func phoneCode() -> String? {
+        guard let store, let phone else { return nil }
+        return try? store.device.safetyCode(peerId: phone.id)
     }
 
     /// A stale clipboard is worse than none: the relay drops it after 10 minutes.
@@ -418,4 +439,13 @@ final class SeamController: RelayHandler {
         warning = "Seam couldn't save to disk. Check there's free space; messages wait on the relay until it can."
         log.error("saving state failed")
     }
+}
+
+/// One clip that arrived from the phone.
+struct FromPhone: Identifiable {
+    let id = UUID()
+    let text: String
+    let at: Date
+
+    var openableURL: URL? { ClipRules.openableURL(text) }
 }

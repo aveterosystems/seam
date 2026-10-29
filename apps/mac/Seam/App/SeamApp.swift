@@ -2,14 +2,30 @@
 import AppKit
 import SwiftUI
 
-/// A menu bar app (no Dock icon): the menu shows the paired phone, its battery and clipboard sync (board M01).
+/// A menu bar app (no Dock icon): the popover (board M01) and Settings (board M03, ⌘,).
 @main
 struct SeamApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Seam", systemImage: "rectangle.split.2x1") {
-            MenuContent(controller: appDelegate.controller)
+        MenuBarExtra {
+            PopoverView(controller: appDelegate.controller)
+        } label: {
+            Image(nsImage: SeamMark.image(connected: appDelegate.controller.connected && appDelegate.controller.phone != nil))
+        }
+        .menuBarExtraStyle(.window)
+
+        // Board M03 draws its own title and sidebar, so this is a plain window with a hidden title
+        // bar rather than the system Settings window (which centres a title and adds a toolbar)
+        Window("Seam Settings", id: "settings") {
+            SettingsView(controller: appDelegate.controller)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                SettingsCommand()
+            }
         }
     }
 }
@@ -63,40 +79,15 @@ enum UnpairPrompt {
     }
 }
 
-struct MenuContent: View {
-    let controller: SeamController
+/// ⌘, opens Seam's Settings window.
+private struct SettingsCommand: View {
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if let error = controller.startupError {
-            Text(error)
-            if controller.needsReset {
-                Button("Reset Seam…") { ResetPrompt.run(controller) }
-            }
-        } else {
-            if let phone = controller.phone {
-                Text(phone.name.isEmpty ? "Your phone" : phone.name)
-                if let s = controller.status {
-                    Text("Battery \(s.batteryPct)%\(s.charging ? " · charging" : "")")
-                } else {
-                    Text("Waiting for battery status…")
-                }
-            }
-            Text(controller.connected ? "Connected · encrypted" : "Not connected")
-            if let warning = controller.warning {
-                Label(warning, systemImage: "exclamationmark.triangle")
-            }
-            if controller.phone != nil {
-                Divider()
-                Toggle("Clipboard Sync", isOn: Binding(get: { controller.clipboardSync }, set: { controller.setClipboardSync($0) }))
-                Button("Turn On Automatic Clipboard from Phone…") { AutoClipboardSetup.run() }
-                Divider()
-                Button("Unpair \(controller.phone?.name ?? "Phone")…") { UnpairPrompt.run(controller) }
-            }
-            Divider()
-            Button(controller.phone == nil ? "Pair a phone…" : "Pair new phone…") { PairingWindow.show(controller) }
+        Button("Settings…") {
+            NSApp.activate()
+            openWindow(id: "settings")
         }
-        Divider()
-        Button("Quit Seam") { NSApplication.shared.terminate(nil) }
-            .keyboardShortcut("q")
+        .keyboardShortcut(",")
     }
 }
