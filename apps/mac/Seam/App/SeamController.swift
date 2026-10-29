@@ -209,13 +209,15 @@ final class SeamController: RelayHandler {
             log.error("dropped an envelope that failed its checks")
             return true // dropped for good: the relay can delete it
         }
-        do {
-            try store.save()
-        } catch {
-            saveFailed()
-            return false // not acked: the relay redelivers it
-        }
+        let saved = (try? store.save()) != nil
+        // Handled even if the save failed: the ratchet has moved, so a redelivery in this run opens
+        // as a duplicate and would be lost (SR-2-59). Not acked, so after a restart the saved state
+        // opens it again.
         if let payload = try? Seam_V1_Payload(serializedBytes: message.payload) { handle(payload, from: message.peerId) }
+        if !saved {
+            saveFailed()
+            return false
+        }
         return true
     }
 

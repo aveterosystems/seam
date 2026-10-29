@@ -57,7 +57,7 @@ struct Store {
         let old = defaults.data(forKey: "groupID")
         let appData = AppData(
             groupID: old?.count == 16 ? old! : AppData.newGroupID(),
-            relayURL: RelayPolicy.resolve([defaults.string(forKey: "relayURL")], allowInsecure: allowInsecureRelay).absoluteString
+            relayURL: RelayPolicy.forNewGroup(override: defaults.string(forKey: "relayURL"), allowInsecure: allowInsecureRelay).absoluteString
         )
         device.setAppData(data: appData.encoded())
         let store = Store(device: device, appData: appData, key: key, file: file)
@@ -87,7 +87,7 @@ struct Store {
         let device = try SeamDevice.generate()
         let appData = AppData(
             groupID: AppData.newGroupID(),
-            relayURL: RelayPolicy.resolve([defaults.string(forKey: "relayURL")], allowInsecure: allowInsecureRelay).absoluteString
+            relayURL: RelayPolicy.forNewGroup(override: defaults.string(forKey: "relayURL"), allowInsecure: allowInsecureRelay).absoluteString
         )
         device.setAppData(data: appData.encoded())
         let store = Store(device: device, appData: appData, key: key, file: file)

@@ -104,3 +104,16 @@ struct PairingFlowTests {
         #expect(!result10) // a cancelled code doesn't later show "expired"
     }
 }
+
+struct NewGroupRelayTests {
+    /// SR-2-60: anything in UserDefaults can't move a Release build's group to another relay.
+    @Test func releaseIgnoresTheOverride() {
+        #expect(RelayPolicy.forNewGroup(override: "wss://other.example", allowInsecure: false) == RelayPolicy.productionURL)
+        #expect(RelayPolicy.forNewGroup(override: nil, allowInsecure: false) == RelayPolicy.productionURL)
+    }
+
+    @Test func debugTakesIt() {
+        #expect(RelayPolicy.forNewGroup(override: "ws://192.168.1.4:8787", allowInsecure: true).host == "192.168.1.4")
+        #expect(RelayPolicy.forNewGroup(override: "garbage", allowInsecure: true) == RelayPolicy.developmentURL)
+    }
+}

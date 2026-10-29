@@ -16,6 +16,12 @@ public enum RelayPolicy {
         return allowInsecure ? developmentURL : productionURL
     }
 
+    /// The relay a new group is created on (first launch, or the one-time migration). Only a Debug
+    /// build takes the UserDefaults override; Release always uses its own relay (SR-2-60).
+    public static func forNewGroup(override: String?, allowInsecure: Bool) -> URL {
+        resolve(allowInsecure ? [override] : [], allowInsecure: allowInsecure)
+    }
+
     /// A ws/wss URL with a host and nothing that doesn't belong in a relay address.
     public static func acceptable(_ text: String?, allowInsecure: Bool) -> URL? {
         guard let text, text.utf8.count <= 2048, let c = URLComponents(string: text),

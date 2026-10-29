@@ -21,7 +21,8 @@ public struct StateFile: Sendable {
         }
     }
 
-    /// Durable before it returns: written to a temp file, fsynced, then renamed over the old one.
+    /// Durable before it returns, power cuts included: written to a temp file, flushed to disk,
+    /// renamed over the old one, then the directory flushed.
     /// A failed write leaves the old file as it was. Callers must not send anything a failed
     /// write would forget (SR-2-11).
     public func write(_ blob: Data) throws {
@@ -32,13 +33,22 @@ public struct StateFile: Sendable {
         let handle = try FileHandle(forWritingTo: tmp)
         do {
             try handle.write(contentsOf: blob)
-            try handle.synchronize()
+            // F_FULLFSYNC also flushes the drive's cache (plain fsync doesn't on macOS, SR-2-68);
+            // filesystems that don't support it get a normal fsync
+            if fcntl(handle.fileDescriptor, F_FULLFSYNC) == -1 { try handle.synchronize() }
             try handle.close()
         } catch {
             try? handle.close()
             throw error
         }
         guard rename(tmp.path, url.path) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        // And the rename itself survives a power cut
+        let dir = open(url.deletingLastPathComponent().path, O_RDONLY)
+        guard dir >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        defer { close(dir) }
+        if fcntl(dir, F_FULLFSYNC) == -1 && fsync(dir) != 0 && errno != EINVAL {
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
     }
