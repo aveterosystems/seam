@@ -2,7 +2,7 @@
 
 A native macOS menu bar app in Swift 6 and SwiftUI, for macOS 14 and later. It shows your phone's notifications and texts, syncs the clipboard, and sends and receives files. It follows macOS's own design and lives in the menu bar, with no Dock icon.
 
-> **Status:** M1. Pairs with a phone by QR code through the relay, keeps its keys sealed on disk under a Keychain key, and shows the phone's battery in the menu bar.
+> **Status:** 0.1.0. Pairs with a phone by QR code through relay.avetero.com, syncs the clipboard both ways, shows the phone's battery in the menu bar, and keeps its keys sealed on disk under a Keychain key. The menu bar popover (board M01), pairing window (M02) and Settings with About (M03) follow the designs. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
 
 ## How it's put together
 
@@ -28,7 +28,7 @@ flowchart TB
 
 ## Building
 
-**Needs:** Xcode 26 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), Rust (rustup) and `protoc` (`brew install protobuf`).
+**Needs:** Xcode 26 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.46 (`brew install xcodegen`), Rust (rustup) and `protoc` (`brew install protobuf`).
 
 ```bash
 # 1. Build the Rust core as an XCFramework (rerun after changing core/)
@@ -56,7 +56,7 @@ The QR code carries the Mac's relay URL, so the phone must be able to reach it. 
 defaults write com.avetero.seam relayURL ws://<this Mac's LAN IP>:8787
 ```
 
-Debug builds default to `ws://localhost:8787` and are the only ones allowed plain `ws://` (their Info.plist, `Config/Debug-Info.plist`, adds the local-networking ATS exception). Release builds have no ATS exception, accept only `wss://` relays, ignore the `defaults` override, and fall back to `RelayPolicy.productionURL` (a placeholder until the relay is deployed). The relay URL is saved with the group on first launch.
+Debug builds default to `ws://localhost:8787` and are the only ones allowed plain `ws://` (their Info.plist, `Config/Debug-Info.plist`, adds the local-networking ATS exception). Release builds have no ATS exception, accept only `wss://` relays, ignore the `defaults` override, and use `RelayPolicy.productionURL` (`wss://relay.avetero.com`). The relay URL is saved with the group on first launch.
 
 ## Where things are kept
 
@@ -66,7 +66,7 @@ Debug builds default to `ws://localhost:8787` and are the only ones allowed plai
 | The key that seals it | The login Keychain, service `com.avetero.seam` (this device only) |
 | Group id, relay URL | Inside `state.bin` (the core's sealed app data), so they can't drift from the identity they belong to. Older installs move them out of `defaults` once |
 
-Seam never overwrites saved data it can't open. If `state.bin` is damaged or its Keychain key is gone, the menu offers **Reset Seam…**, which moves the old files aside (`state.bin.unreadable-<time>`) and starts over with new keys and a new group. To start over by hand: quit Seam, delete `state.bin`, and remove the `com.avetero.seam` item in Keychain Access. Unsigned dev builds may ask for Keychain access after each rebuild, because the code signature changes.
+Seam never overwrites saved data it can't open. If `state.bin` is damaged or its Keychain key is gone, the menu offers **Reset Seam…**, which moves the old files aside (`state.bin.unreadable-<time>`) and starts over with new keys and a new group. To start over by hand: quit Seam, delete `state.bin`, and remove the `com.avetero.seam` item in Keychain Access. Unsigned dev builds may ask for Keychain access after each rebuild, because the code signature changes. Releases are signed with Seam's own certificate, so a new release keeps access without asking.
 
 ## Testing
 
@@ -99,4 +99,4 @@ Don't edit these by hand. CI fails if they drift from their sources.
 
 ## Planned
 
-The full menu bar popover, the Messages, Notifications and Files windows, Settings, the Share extension and a Finder File Provider, each as a feature module behind the shared `Feature` interface. Signed builds move the storage key to the data-protection keychain, wrapped by a Secure Enclave key. Distributed as a notarised DMG with Sparkle updates.
+The full menu bar popover, the Messages, Notifications and Files windows, Settings, the Share extension and a Finder File Provider, each as a feature module behind the shared `Feature` interface. Moving the storage key to the data-protection keychain, wrapped by a Secure Enclave key, which needs an Apple Developer signature. Releases are signed with Seam's own certificate but not notarized, so each download needs Open Anyway once; notarization and in-app updates come with an Apple Developer account.

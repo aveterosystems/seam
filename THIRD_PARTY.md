@@ -16,7 +16,10 @@ Seam is licensed under [AGPL-3.0-only](LICENSE) and builds on the open-source wo
 | [SwiftProtobuf](https://github.com/apple/swift-protobuf) | Message encoding on the Mac | Apache-2.0 |
 | [Protocol Buffers for Kotlin/Java (lite)](https://github.com/protocolbuffers/protobuf) | Message encoding on Android | BSD-3-Clause |
 | [JNA](https://github.com/java-native-access/jna) | Calls the Rust core from Kotlin | Apache-2.0 OR LGPL-2.1 |
-| [AndroidX and Jetpack Compose](https://developer.android.com/jetpack/androidx) | Android UI | Apache-2.0 |
+| [AndroidX and Jetpack Compose](https://developer.android.com/jetpack/androidx), including CameraX | Android UI and the pairing camera view | Apache-2.0 |
+| [ZXing core](https://github.com/zxing/zxing) | Reads the pairing QR code on the phone | Apache-2.0 |
+| [OkHttp](https://github.com/square/okhttp) | The phone's WebSocket to the relay | Apache-2.0 |
+| [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | The phone's session and timers | Apache-2.0 |
 
 The Rust core pulls in around 200 crates (the exact count depends on the platform). Most are `MIT OR Apache-2.0`; the rest are Apache-2.0, MIT, BSD, MPL-2.0 (UniFFI, hpke-rs) or AGPL-3.0 (libsignal). To list them yourself:
 
@@ -32,4 +35,4 @@ cd core && cargo tree -p seam-ffi -e normal --prefix none --format "{p} {l}" | s
 
 ## Build and test tools (not shipped)
 
-Gradle and the Android Gradle Plugin, Kotlin, Swift and XcodeGen, Cargo and cargo-ndk, `protoc` and buf, protoc-gen-es, wrangler, TypeScript and vitest, JUnit and Swift Testing. Each is under its own open-source licence.
+Gradle and the Android Gradle Plugin, Kotlin, Swift and XcodeGen, apksigner and zipalign, the GitHub Actions in `.github/workflows` (pinned to commits), Cargo and cargo-ndk, `protoc` and buf, protoc-gen-es, wrangler, TypeScript and vitest, JUnit and Swift Testing. Each is under its own open-source licence.
