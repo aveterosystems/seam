@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,16 +26,14 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.avetero.seam.feature.PairingScanner
+import com.avetero.seam.feature.QrViewfinder
 import com.avetero.seam.feature.ScanResult
 import com.avetero.seam.feature.clipboard.AutoClipboard
 import com.avetero.seam.session.PairingQr
 import com.avetero.seam.session.SessionState
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,12 +52,24 @@ class MainActivity : ComponentActivity() {
               Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
               Box(Modifier.safeDrawingPadding()) {
                 val state by session.state.collectAsStateWithLifecycle()
-                val scope = rememberCoroutineScope()
                 val notice by session.notice.collectAsStateWithLifecycle()
                 val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
                 var scanError by remember { mutableStateOf<String?>(null) }
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 var settings by remember { mutableStateOf(false) }
+                var scanning by remember { mutableStateOf(false) }
+                fun granted() = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                var cameraAllowed by remember { mutableStateOf(granted()) }
+                var cameraAsked by remember { mutableStateOf(false) }
+                val askCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+                    cameraAllowed = it
+                    cameraAsked = true
+                }
+                // Back from Android's settings with the camera allowed
+                LifecycleResumeEffect(Unit) {
+                    cameraAllowed = granted()
+                    onPauseOrDispose {}
+                }
                 // Board A03 follows a pairing that finished on this screen
                 var wasPairing by remember { mutableStateOf(false) }
                 var setup by remember { mutableStateOf(false) }
@@ -103,15 +121,34 @@ class MainActivity : ComponentActivity() {
                         Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()
                     },
                     onScan = {
-                        scope.launch {
-                            scanError = when (val r = PairingScanner.scan(this@MainActivity, BuildConfig.DEBUG)) {
-                                is ScanResult.Code -> {
-                                    scanned = r.qr // nothing changes until the user confirms who this is
-                                    null
+                        scanError = null
+                        scanning = true
+                        if (!cameraAllowed) askCamera.launch(Manifest.permission.CAMERA)
+                    },
+                    scanning = scanning,
+                    onCloseScan = {
+                        scanning = false
+                        scanError = null
+                    },
+                    camera = {
+                        if (cameraAllowed) {
+                            QrViewfinder(active = true, allowCleartext = BuildConfig.DEBUG, modifier = Modifier.fillMaxSize(), onResult = { r ->
+                                when (r) {
+                                    is ScanResult.Code -> {
+                                        scanned = r.qr // nothing changes until the user confirms who this is
+                                        scanning = false
+                                        scanError = null
+                                    }
+                                    ScanResult.NotSeam -> scanError = "That isn't a Seam pairing code. Open Seam on your Mac to show one."
                                 }
-                                ScanResult.NotSeam -> "That isn't a Seam pairing code. Open Seam on your Mac to show one."
-                                ScanResult.Cancelled -> null
-                                is ScanResult.Unavailable -> "The QR scanner isn't available on this phone. It needs Google Play services."
+                            })
+                        } else {
+                            CameraNeeded(asked = cameraAsked) {
+                                if (cameraAsked && !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+                                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+                                } else {
+                                    askCamera.launch(Manifest.permission.CAMERA)
+                                }
                             }
                         }
                     },

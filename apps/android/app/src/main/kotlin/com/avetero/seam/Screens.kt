@@ -62,10 +62,14 @@ fun SeamScreen(
     onPasteFromMac: (String) -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onCodesDontMatch: () -> Unit = {},
+    scanning: Boolean = false,
+    onCloseScan: () -> Unit = {},
+    camera: @Composable () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        if (toConfirm != null) return@Surface Confirm(toConfirm, onConfirm, onCancelConfirm)
-        if (state is SessionState.Pairing) return@Surface Pairing(state, onCodesDontMatch)
+        if (state is SessionState.Pairing) return@Surface PairScreen(null, onCodesDontMatch, sheet = { Pairing(state, onCodesDontMatch) })
+        if (toConfirm != null) return@Surface PairScreen(null, onCancelConfirm, sheet = { Confirm(toConfirm, onConfirm, onCancelConfirm) })
+        if (scanning) return@Surface PairScreen(camera, onCloseScan, caption = scanError ?: "Point at the code on your Mac")
         val home = when (state) {
             is SessionState.Connected -> Link.Connected
             is SessionState.Idle -> Link.Idle
@@ -212,43 +216,43 @@ private fun Intro(title: String, body: String, action: String, error: String?, o
 
 @Composable
 private fun Confirm(qr: PairingQr, onConfirm: (PairingQr) -> Unit, onCancel: () -> Unit) {
-    PairSheet(onBack = onCancel) {
-        SheetHead("Pair with ${qr.macName}?", "Through ${qr.relayHost}")
-        Spacer(Modifier.height(8.dp))
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onConfirm(qr) }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }
-            TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Cancel", fontSize = 16.sp) }
-        }
+    SheetHead("Pair with ${qr.macName}?", "Through ${qr.relayHost}")
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { onConfirm(qr) }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }
+        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Cancel", fontSize = 16.sp) }
     }
 }
 
 /** After the request is sent: the code to compare. Pairing finishes when the Mac confirms. */
 @Composable
 private fun Pairing(state: SessionState.Pairing, onCodesDontMatch: () -> Unit) {
-    PairSheet(onBack = onCodesDontMatch) {
-        val code = state.safetyCode
-        if (code == null) {
-            SheetHead("Pairing with ${state.macName}…", "Sending this phone's keys to your Mac")
-            CircularProgressIndicator(Modifier.padding(16.dp))
-        } else {
-            SheetHead("Pair with ${state.macName}?", "Check your Mac shows the same code")
-            Text(
-                code.chunked(3).joinToString(" ").replace("  ", " "),
-                fontFamily = FontFamily.Monospace, fontSize = 34.sp, letterSpacing = 4.sp, fontWeight = FontWeight.Medium,
-                modifier = Modifier.semantics { contentDescription = "Code $code" },
-            )
-            Text("Then confirm on your Mac to finish", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            TextButton(onClick = onCodesDontMatch, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Codes don't match", fontSize = 16.sp) }
-        }
+    val code = state.safetyCode
+    if (code == null) {
+        SheetHead("Pairing with ${state.macName}…", "Sending this phone's keys to your Mac")
+        CircularProgressIndicator(Modifier.padding(16.dp))
+    } else {
+        SheetHead("Pair with ${state.macName}?", "Check your Mac shows the same code, then confirm there")
+        Text(
+            code.chunked(3).joinToString(" ").replace("  ", " "),
+            fontFamily = FontFamily.Monospace, fontSize = 34.sp, letterSpacing = 4.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier.semantics { contentDescription = "Code $code" },
+        )
+        TextButton(onClick = onCodesDontMatch, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Codes don't match", fontSize = 16.sp) }
     }
 }
 
 /**
- * Board A02: a dark screen with the sheet rising from the bottom. (The scan itself is Google's code
- * scanner, a system screen, so Seam never needs the camera permission.)
+ * Board A02: dark, the viewfinder, and the sheet rising over it once a code is read. [camera] is
+ * the live view while scanning; behind a sheet the camera is off and the frame stays empty.
  */
 @Composable
-private fun PairSheet(onBack: () -> Unit, content: @Composable () -> Unit) {
+private fun PairScreen(
+    camera: (@Composable () -> Unit)?,
+    onBack: () -> Unit,
+    caption: String? = null,
+    sheet: (@Composable () -> Unit)? = null,
+) {
+    androidx.activity.compose.BackHandler(onBack = onBack)
     Column(Modifier.fillMaxSize().background(Color(0xFF0B0F0E))) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
@@ -256,30 +260,60 @@ private fun PairSheet(onBack: () -> Unit, content: @Composable () -> Unit) {
             }
             Text("Pair with a Mac", color = Color.White, fontSize = 22.sp)
         }
-        Spacer(Modifier.weight(1f))
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+        Box(Modifier.fillMaxWidth().weight(1f).background(Color(0xFF1C2422)), contentAlignment = Alignment.Center) {
+            if (camera != null) Box(Modifier.matchParentSize()) { camera() }
+            Frame()
+            if (caption != null) {
+                Text(
+                    caption, color = Color(0xFFDDE4E1), textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+                )
+            }
+        }
+        if (sheet != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Box(Modifier.padding(top = 22.dp).size(width = 32.dp, height = 4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
-                Box(
-                    Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(22.dp)),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(painterResource(R.drawable.ic_laptop), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-                content()
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Keys stay on this phone, sealed by its security chip", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.outline)
+                Column(
+                    Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Box(Modifier.padding(top = 22.dp).size(width = 32.dp, height = 4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
+                    Box(
+                        Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(22.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(painterResource(R.drawable.ic_laptop), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(34.dp)) }
+                    sheet()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Keys stay in this phone's security chip", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.outline)
+                    }
                 }
             }
         }
+    }
+}
+
+/** The board's 240 dp viewfinder corners. */
+@Composable
+private fun Frame() {
+    androidx.compose.foundation.Canvas(Modifier.size(240.dp)) {
+        val w = size.width
+        val u = w / 240f
+        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 6 * u, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        val path = androidx.compose.ui.graphics.Path()
+        fun corner(x0: Float, y0: Float, cx: Float, cy: Float, x1: Float, y1: Float) {
+            path.moveTo(x0 * u, y0 * u); path.quadraticTo(cx * u, cy * u, x1 * u, y1 * u)
+        }
+        corner(4f, 48f, 4f, 4f, 48f, 4f)
+        corner(192f, 4f, 236f, 4f, 236f, 48f)
+        corner(236f, 192f, 236f, 236f, 192f, 236f)
+        corner(48f, 236f, 4f, 236f, 4f, 192f)
+        drawPath(path, Color(0xFF9FF2E0), style = stroke)
     }
 }
 
@@ -288,5 +322,21 @@ private fun SheetHead(title: String, subtitle: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, fontSize = 24.sp, lineHeight = 32.sp, textAlign = TextAlign.Center)
         Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    }
+}
+
+/** In the viewfinder until the camera is allowed. */
+@Composable
+fun CameraNeeded(asked: Boolean, onAllow: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+    ) {
+        Text(
+            "Seam uses the camera only on this screen, to read the code on your Mac. Nothing it sees leaves this phone.",
+            color = Color(0xFFDDE4E1), textAlign = TextAlign.Center,
+        )
+        Button(onClick = onAllow) { Text(if (asked) "Allow in Settings" else "Allow camera") }
     }
 }
