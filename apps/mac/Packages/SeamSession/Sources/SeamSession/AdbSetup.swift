@@ -20,9 +20,19 @@ public enum AdbSetup {
         }
     }
 
+    /// How long one adb call may take before it's stopped (SR-4-11).
+    public static let stepTimeout: TimeInterval = 20
+
     public struct Step: Sendable, Equatable {
         public let what: String
         public let arguments: [String]
+        /// What this changes on the phone, in the words the user agrees to. Nil for a step that only looks.
+        public var grants: String? = nil
+    }
+
+    /// The consent text: every change the steps make, listed, so the user agrees to exactly what happens.
+    public static var consent: String {
+        steps(serial: "").compactMap(\.grants).map { "• \($0)" }.joined(separator: "\n")
     }
 
     /// In order. The first one fails if the full build isn't installed. The restart at the end
@@ -31,10 +41,19 @@ public enum AdbSetup {
         let shell = ["-s", serial, "shell"]
         return [
             Step(what: "Find Seam on the phone", arguments: shell + ["pm", "path", package]),
-            Step(what: "Allow reading clipboard events", arguments: shell + ["pm", "grant", package, "android.permission.READ_LOGS"]),
-            Step(what: "Allow the invisible focus window", arguments: shell + ["appops", "set", package, "SYSTEM_ALERT_WINDOW", "allow"]),
-            Step(what: "Keep Seam running in the background", arguments: shell + ["dumpsys", "deviceidle", "whitelist", "+\(package)"]),
-            Step(what: "Restart Seam", arguments: shell + ["am", "force-stop", package]),
+            Step(
+                what: "Allow reading clipboard events", arguments: shell + ["pm", "grant", package, "android.permission.READ_LOGS"],
+                grants: "Seam may read the phone's system log. It only looks for the line Android writes when something is copied."
+            ),
+            Step(
+                what: "Allow the invisible focus window", arguments: shell + ["appops", "set", package, "SYSTEM_ALERT_WINDOW", "allow"],
+                grants: "Seam may show a 1-pixel window over other apps for a moment, which Android requires before reading the clipboard."
+            ),
+            Step(
+                what: "Keep Seam running in the background", arguments: shell + ["dumpsys", "deviceidle", "whitelist", "+\(package)"],
+                grants: "Seam is exempt from battery optimisation, so the phone doesn't put it to sleep."
+            ),
+            Step(what: "Restart Seam", arguments: shell + ["am", "force-stop", package], grants: "Seam on the phone restarts once to pick these up."),
             Step(what: "Open Seam", arguments: shell + ["am", "start", "-n", "\(package)/com.avetero.seam.MainActivity"]),
         ]
     }

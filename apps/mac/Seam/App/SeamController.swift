@@ -29,8 +29,8 @@ final class SeamController: RelayHandler {
     @ObservationIgnored private var clipRules = ClipRules()
     @ObservationIgnored private var lastChange = NSPasteboard.general.changeCount
     @ObservationIgnored private var clipTask: Task<Void, Never>?
-    /// The latest copy made while the relay was unreachable; sent when it's back.
-    @ObservationIgnored private var pendingClip: Seam_V1_Payload?
+    /// The latest copy made while the relay was unreachable (SR-4-03).
+    @ObservationIgnored private var pendingClip = ClipQueue<Seam_V1_Payload>()
     // Logs codes and counts only, never contents or keys (threat model, rule 7)
     private let log = Logger(subsystem: "com.avetero.seam", category: "session")
 
@@ -79,6 +79,7 @@ final class SeamController: RelayHandler {
         clipboardSync = on
         UserDefaults.standard.set(on, forKey: "clipboardSync")
         lastChange = NSPasteboard.general.changeCount // turning it on never sends what was copied while off
+        if !on { pendingClip.clear() } // nor does turning it off let a held copy go later
     }
 
     /// macOS has no change notification for the pasteboard: checking its counter twice a second is the standard way, and cheap.
@@ -94,11 +95,19 @@ final class SeamController: RelayHandler {
 
     private func checkPasteboard() {
         let pb = NSPasteboard.general
-        guard pb.changeCount != lastChange else { return }
-        lastChange = pb.changeCount
-        guard clipboardSync, phone != nil else { return }
-        let types = pb.types?.map(\.rawValue) ?? []
-        guard !ClipRules.isPrivate(types: types), let text = clipRules.outgoing(pb.string(forType: .string)) else { return }
+        let change = pb.changeCount
+        guard change != lastChange else { return }
+        guard clipboardSync, phone != nil, let item = pb.pasteboardItems?.first else {
+            lastChange = change
+            return
+        }
+        // Types and text from the same item, then make sure nothing replaced it meanwhile: a password
+        // copied a moment later can't be read under the previous item's types (SR-4-05)
+        let types = item.types.map(\.rawValue)
+        let string = item.string(forType: .string)
+        guard pb.changeCount == change else { return } // look again on the next check
+        lastChange = change
+        guard ClipRules.sendable(types: types), let text = clipRules.outgoing(string) else { return }
         let payload = Seam_V1_Payload.with {
             $0.clipboard = .with {
                 $0.text = text
@@ -106,7 +115,7 @@ final class SeamController: RelayHandler {
             }
         }
         guard connected else {
-            pendingClip = payload
+            pendingClip.hold(payload)
             return
         }
         sendToPhone(payload, ttl: Self.clipboardTTL)
@@ -210,6 +219,7 @@ final class SeamController: RelayHandler {
         }
         expiryTask?.cancel()
         openTokenHash = nil
+        pendingClip.clear() // copied for the previous phone, if any
         phone = peer
         status = nil
         flow.finish(name: request.deviceName)
@@ -229,6 +239,7 @@ final class SeamController: RelayHandler {
     private func unpair(_ peerId: String) {
         guard let store else { return }
         let key = removableRelayKey(peerId)
+        pendingClip.clear()
         store.device.removePeer(peerId: peerId)
         do { try store.save() } catch { saveFailed() }
         closeSlot()
@@ -258,8 +269,7 @@ final class SeamController: RelayHandler {
         if warning == Self.loginRefused { warning = nil }
         await announcePairing()
         await uploadBundlesIfNeeded()
-        if let clip = pendingClip {
-            pendingClip = nil
+        if let clip = pendingClip.take(syncOn: clipboardSync) {
             sendToPhone(clip, ttl: Self.clipboardTTL)
         }
     }

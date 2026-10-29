@@ -6,7 +6,11 @@ import SeamSession
 /// how it went. Only ever runs the adb found in a known place, with fixed arguments.
 @MainActor
 enum AutoClipboardSetup {
+    /// One run at a time: overlapping runs would interleave the restart steps (SR-4-11).
+    private static var running = false
+
     static func run() {
+        guard !running else { return show("Setup is already running", "Wait for it to finish, then try again if it didn't work.") }
         guard let adb = AdbSetup.locate(home: NSHomeDirectory(), exists: FileManager.default.isExecutableFile(atPath:)) else {
             return show("Seam needs Android's adb tool", "Install it with Homebrew (brew install android-platform-tools), then try again.")
         }
@@ -14,7 +18,9 @@ enum AutoClipboardSetup {
         intro.messageText = "Turn on automatic clipboard from your phone?"
         intro.informativeText = """
             Connect your phone with a USB cable (or wireless debugging) with USB debugging on, in Settings → Developer options. \
-            Seam then gives itself permission, once, to notice when you copy something. Nothing else on the phone changes.
+            Then, once, on the phone:
+
+            \(AdbSetup.consent)
 
             You need the Seam build from GitHub: the Play Store build can't do this.
             """
@@ -23,9 +29,13 @@ enum AutoClipboardSetup {
         NSApp.activate()
         guard intro.runModal() == .alertFirstButtonReturn else { return }
 
+        running = true
         Task.detached {
             let outcome = grant(adb: adb)
-            await MainActor.run { show(outcome.title, outcome.detail) }
+            await MainActor.run {
+                running = false
+                show(outcome.title, outcome.detail)
+            }
         }
     }
 
@@ -63,6 +73,9 @@ enum AutoClipboardSetup {
         p.standardOutput = pipe
         p.standardError = pipe
         try p.run()
+        // A stuck adb or a phone that never answers can't hang setup: stopped after the timeout (SR-4-11)
+        nonisolated(unsafe) let watched = p // Process isn't Sendable; isRunning and terminate are safe from any thread
+        DispatchQueue.global().asyncAfter(deadline: .now() + AdbSetup.stepTimeout) { if watched.isRunning { watched.terminate() } }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
         return (p.terminationStatus, String(decoding: data, as: UTF8.self))
