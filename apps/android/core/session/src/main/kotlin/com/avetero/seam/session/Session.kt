@@ -46,8 +46,8 @@ class Session(
     private val scope: CoroutineScope,
     private val wait: suspend (Long) -> Unit = { delay(it) },
     private val now: () -> Long = System::currentTimeMillis,
-    /** Debug builds only: the connection manager's decisions, never content, keys or addresses. */
-    private val trace: (String) -> Unit = {},
+    /** Debug builds only: the connection manager's decisions, never content, keys or addresses. Null: not built at all. */
+    private val trace: ((String) -> Unit)? = null,
 ) : SessionApi {
     private val _state = MutableStateFlow<SessionState>(SessionState.Unpaired)
     val state: StateFlow<SessionState> = _state
@@ -139,8 +139,14 @@ class Session(
      * send, or activity in the last [IDLE_MS]. Otherwise it costs radio wake-ups for nothing.
      */
     private fun wanted(): Boolean =
-        pairing != null || screenOn || charging || outbox.any { it.payload.bodyCase !in LAZY } ||
+        pairing != null || screenOn || charging || outbox.any { it.payload.bodyCase !in LAZY && !expired(it) } ||
             now() - lastActivity < IDLE_MS
+
+    /** Past its TTL: dropped at the next flush, and no reason to keep trying to connect (SR-8-01). */
+    private fun expired(q: Queued): Boolean {
+        val ttl = ttlFor(q.payload)
+        return ttl != 0u && now() - q.at > ttl.toLong() * 1000
+    }
 
     private fun touch() {
         lastActivity = now()
@@ -161,7 +167,7 @@ class Session(
      */
     private fun reconsider(connect: Boolean = true) {
         val m = mac ?: return
-        trace(
+        trace?.invoke(
             "reconsider connect=$connect screen=$screenOn charging=$charging urgent=${outbox.count { it.payload.bodyCase !in LAZY }} " +
                 "sinceActivity=${now() - lastActivity}ms link=${link != null} pairing=${pairing != null} state=${_state.value::class.simpleName}",
         )
@@ -171,7 +177,9 @@ class Session(
                 _state.value = SessionState.Connecting(m.name)
                 connect()
             }
-            if (!screenOn && !charging) scheduleIdleCheck() // look again once the activity window ends
+            // Look again when the activity window ends, if it hasn't. A queued copy that can't go yet is
+            // retried by the reconnect backoff, never by a timer: rescheduling for 0 ms spins (SR-8-01)
+            if (!screenOn && !charging && lastActivity + IDLE_MS > now()) scheduleIdleCheck()
         } else if (link != null || reconnect?.isActive == true) {
             sleep(m)
         }
@@ -179,7 +187,7 @@ class Session(
 
     /** Closes the connection on purpose: no reconnect until something wants one. */
     private fun sleep(m: PeerInfo) {
-        trace("sleep: closing the idle connection")
+        trace?.invoke("sleep: closing the idle connection")
         stable?.cancel()
         reconnect?.cancel()
         generation++ // so this socket's close callback doesn't count as a drop
@@ -406,7 +414,7 @@ class Session(
             val env = try {
                 val next = outbox.first()
                 val ttl = ttlFor(next.payload)
-                if (ttl != 0u && now() - next.at > ttl.toLong() * 1000) {
+                if (expired(next)) {
                     outbox.removeFirst()
                     continue
                 }

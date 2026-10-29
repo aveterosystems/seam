@@ -34,7 +34,7 @@ class SeamApplication : Application() {
             myModel = Build.MODEL,
             // One thread for all session state: no locks, no races. Nothing that escapes a handler
             // may crash the process; the session shows it instead.
-            trace = { if (BuildConfig.DEBUG) android.util.Log.d("SeamSession", it) },
+            trace = if (BuildConfig.DEBUG) { line -> android.util.Log.d("SeamSession", line) } else null,
             scope = CoroutineScope(
                 SupervisorJob() + Dispatchers.Default.limitedParallelism(1) +
                     CoroutineExceptionHandler { _, _ -> if (::session.isInitialized) session.internalError() },
