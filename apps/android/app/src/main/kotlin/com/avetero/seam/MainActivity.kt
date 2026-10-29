@@ -22,15 +22,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.avetero.seam.feature.QrViewfinder
 import com.avetero.seam.feature.ScanResult
@@ -53,9 +49,7 @@ class MainActivity : ComponentActivity() {
         BootReceiver.dismiss(this)
 
         setContent {
-            val context = LocalContext.current
-            val colors = if (isSystemInDarkTheme()) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-            MaterialTheme(colorScheme = colors) {
+            SeamTheme {
               Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
               Box(Modifier.safeDrawingPadding()) {
                 val state by session.state.collectAsStateWithLifecycle()

@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +25,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
@@ -57,8 +54,7 @@ class ShareToMacActivity : ComponentActivity() {
             text.isNullOrEmpty() -> return done("Nothing to send")
         }
         setContent {
-            val colors = if (isSystemInDarkTheme()) dynamicDarkColorScheme(this) else dynamicLightColorScheme(this)
-            MaterialTheme(colorScheme = colors) {
+            SeamTheme {
                 ModalBottomSheet(onDismissRequest = { finish() }) {
                     // The sheet has its own window: refuse taps that pass through another app's overlay (SR-11-02)
                     val view = LocalView.current

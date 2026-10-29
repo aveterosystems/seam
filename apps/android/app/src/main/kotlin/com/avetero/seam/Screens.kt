@@ -154,7 +154,7 @@ private fun Home(
             Text(macName, fontSize = 36.sp, lineHeight = 44.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).background(if (link == Link.Connecting) MaterialTheme.colorScheme.outline else OK, CircleShape))
+                Box(Modifier.size(8.dp).background(if (link == Link.Connecting) MaterialTheme.colorScheme.outline else okColor, CircleShape))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     when (link) {
@@ -222,8 +222,6 @@ internal fun ago(ms: Long): String = when {
     else -> "${ms / 3_600_000} h ago"
 }
 
-/** The status dot's colour: the design's `ok` green, not a theme role. */
-private val OK = Color(0xFF1C7C3A)
 
 @Composable
 private fun Intro(title: String, body: String, action: String, error: String?, onAction: () -> Unit) {
