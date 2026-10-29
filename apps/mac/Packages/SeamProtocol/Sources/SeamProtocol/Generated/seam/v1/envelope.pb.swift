@@ -40,16 +40,16 @@ public nonisolated struct Seam_V1_Envelope: Sendable {
   /// 16 random bytes; repeated inside the ciphertext so the relay can't swap envelopes
   public var msgID: Data = Data()
 
-  /// sender's rotating mailbox id (not the device id)
+  /// sender's relay key (rotating mailbox ids are planned); repeated inside the ciphertext
   public var from: Data = Data()
 
-  /// recipient's rotating mailbox id
+  /// recipient's relay key; repeated inside the ciphertext
   public var to: Data = Data()
 
   /// unix ms, sender clock; also repeated inside the ciphertext
   public var sentAt: Int64 = 0
 
-  /// relay drops it after this; 0 = relay default (24 h)
+  /// relay drops it after this; 0 = relay default (24 h); repeated inside the ciphertext
   public var ttlS: UInt32 = 0
 
   /// libsignal message type: 3 = PreKeySignalMessage (session setup), 2 = SignalMessage

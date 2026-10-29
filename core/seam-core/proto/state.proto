@@ -14,6 +14,7 @@ message State {
   repeated bytes prekeys = 6; // PreKeyRecord
   repeated bytes signed_prekeys = 7; // SignedPreKeyRecord
   repeated bytes kyber_prekeys = 8; // KyberPreKeyRecord
+  bytes app_data = 9; // the app's own settings (group id, relay URL), sealed with the keys
 }
 
 message Peer {

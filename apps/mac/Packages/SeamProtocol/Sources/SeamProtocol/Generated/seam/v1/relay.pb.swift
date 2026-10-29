@@ -84,6 +84,22 @@ public nonisolated struct Seam_V1_ClientFrame: Sendable {
     set {frame = .openPairing(newValue)}
   }
 
+  public var removeMember: Seam_V1_RemoveMember {
+    get {
+      if case .removeMember(let v)? = frame {return v}
+      return Seam_V1_RemoveMember()
+    }
+    set {frame = .removeMember(newValue)}
+  }
+
+  public var closePairing: Seam_V1_ClosePairing {
+    get {
+      if case .closePairing(let v)? = frame {return v}
+      return Seam_V1_ClosePairing()
+    }
+    set {frame = .closePairing(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Frame: Equatable, Sendable {
@@ -95,6 +111,8 @@ public nonisolated struct Seam_V1_ClientFrame: Sendable {
     case putBundles(Seam_V1_PutBundles)
     case getBundle(Seam_V1_GetBundle)
     case openPairing(Seam_V1_OpenPairing)
+    case removeMember(Seam_V1_RemoveMember)
+    case closePairing(Seam_V1_ClosePairing)
 
   }
 
@@ -201,6 +219,9 @@ public nonisolated struct Seam_V1_Login: Sendable {
   /// only when joining through pairing: the QR's one-time token
   public var joinToken: Data = Data()
 
+  /// set only by the first device; a plain login never creates a group
+  public var createGroup: Bool = false
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -275,6 +296,7 @@ public nonisolated struct Seam_V1_BundleResult: Sendable {
 }
 
 /// Opens a 5-minute pairing slot: a device logging in with the matching token joins the group.
+/// Refused ("slot_open") while another member's slot is still open.
 public nonisolated struct Seam_V1_OpenPairing: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -285,6 +307,30 @@ public nonisolated struct Seam_V1_OpenPairing: Sendable {
 
   /// at most 300
   public var ttlS: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Unpairing: removes a member (or yourself) from the group, deleting its queue and bundles.
+public nonisolated struct Seam_V1_RemoveMember: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var deviceKey: Data = Data()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Closes the open pairing slot early (cancelled, or the QR expired).
+public nonisolated struct Seam_V1_ClosePairing: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -309,7 +355,7 @@ public nonisolated struct Seam_V1_RelayError: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large"
+  /// "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage"
   public var code: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -323,7 +369,7 @@ fileprivate nonisolated let _protobuf_package = "seam.v1"
 
 nonisolated extension Seam_V1_ClientFrame: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ClientFrame"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}login\0\u{1}send\0\u{1}delivered\0\u{3}put_bundles\0\u{3}get_bundle\0\u{3}open_pairing\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}login\0\u{1}send\0\u{1}delivered\0\u{3}put_bundles\0\u{3}get_bundle\0\u{3}open_pairing\0\u{3}remove_member\0\u{3}close_pairing\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -409,6 +455,32 @@ nonisolated extension Seam_V1_ClientFrame: SwiftProtobuf.Message, SwiftProtobuf.
           self.frame = .openPairing(v)
         }
       }()
+      case 7: try {
+        var v: Seam_V1_RemoveMember?
+        var hadOneofValue = false
+        if let current = self.frame {
+          hadOneofValue = true
+          if case .removeMember(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.frame = .removeMember(v)
+        }
+      }()
+      case 8: try {
+        var v: Seam_V1_ClosePairing?
+        var hadOneofValue = false
+        if let current = self.frame {
+          hadOneofValue = true
+          if case .closePairing(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.frame = .closePairing(v)
+        }
+      }()
       default: break
       }
     }
@@ -443,6 +515,14 @@ nonisolated extension Seam_V1_ClientFrame: SwiftProtobuf.Message, SwiftProtobuf.
     case .openPairing?: try {
       guard case .openPairing(let v)? = self.frame else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    }()
+    case .removeMember?: try {
+      guard case .removeMember(let v)? = self.frame else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    case .closePairing?: try {
+      guard case .closePairing(let v)? = self.frame else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }()
     case nil: break
     }
@@ -623,7 +703,7 @@ nonisolated extension Seam_V1_Challenge: SwiftProtobuf.Message, SwiftProtobuf._M
 
 nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Login"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}group_id\0\u{3}device_key\0\u{1}signature\0\u{3}join_token\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}group_id\0\u{3}device_key\0\u{1}signature\0\u{3}join_token\0\u{3}create_group\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -635,6 +715,7 @@ nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 2: try { try decoder.decodeSingularBytesField(value: &self.deviceKey) }()
       case 3: try { try decoder.decodeSingularBytesField(value: &self.signature) }()
       case 4: try { try decoder.decodeSingularBytesField(value: &self.joinToken) }()
+      case 5: try { try decoder.decodeSingularBoolField(value: &self.createGroup) }()
       default: break
       }
     }
@@ -653,6 +734,9 @@ nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if !self.joinToken.isEmpty {
       try visitor.visitSingularBytesField(value: self.joinToken, fieldNumber: 4)
     }
+    if self.createGroup != false {
+      try visitor.visitSingularBoolField(value: self.createGroup, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -661,6 +745,7 @@ nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if lhs.deviceKey != rhs.deviceKey {return false}
     if lhs.signature != rhs.signature {return false}
     if lhs.joinToken != rhs.joinToken {return false}
+    if lhs.createGroup != rhs.createGroup {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -856,6 +941,55 @@ nonisolated extension Seam_V1_OpenPairing: SwiftProtobuf.Message, SwiftProtobuf.
   public static func ==(lhs: Seam_V1_OpenPairing, rhs: Seam_V1_OpenPairing) -> Bool {
     if lhs.tokenHash != rhs.tokenHash {return false}
     if lhs.ttlS != rhs.ttlS {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_RemoveMember: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".RemoveMember"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_key\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBytesField(value: &self.deviceKey) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.deviceKey.isEmpty {
+      try visitor.visitSingularBytesField(value: self.deviceKey, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_RemoveMember, rhs: Seam_V1_RemoveMember) -> Bool {
+    if lhs.deviceKey != rhs.deviceKey {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_ClosePairing: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ClosePairing"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_ClosePairing, rhs: Seam_V1_ClosePairing) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

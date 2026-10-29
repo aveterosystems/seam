@@ -208,10 +208,13 @@ public nonisolated struct Seam_V1_PairRequest: Sendable {
 
   public var pairingToken: Data = Data()
 
-  /// "Pixel 9"
+  /// "Pixel 9", at most 64 characters, no control characters
   public var deviceName: String = String()
 
   public var model: String = String()
+
+  /// the phone's relay key, inside the encryption: must equal Envelope.from
+  public var relayKey: Data = Data()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -498,7 +501,7 @@ nonisolated extension Seam_V1_Unpair: SwiftProtobuf.Message, SwiftProtobuf._Mess
 
 nonisolated extension Seam_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".PairRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pairing_token\0\u{3}device_name\0\u{1}model\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}pairing_token\0\u{3}device_name\0\u{1}model\0\u{3}relay_key\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -509,6 +512,7 @@ nonisolated extension Seam_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobuf.
       case 1: try { try decoder.decodeSingularBytesField(value: &self.pairingToken) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.deviceName) }()
       case 3: try { try decoder.decodeSingularStringField(value: &self.model) }()
+      case 4: try { try decoder.decodeSingularBytesField(value: &self.relayKey) }()
       default: break
       }
     }
@@ -524,6 +528,9 @@ nonisolated extension Seam_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobuf.
     if !self.model.isEmpty {
       try visitor.visitSingularStringField(value: self.model, fieldNumber: 3)
     }
+    if !self.relayKey.isEmpty {
+      try visitor.visitSingularBytesField(value: self.relayKey, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -531,6 +538,7 @@ nonisolated extension Seam_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobuf.
     if lhs.pairingToken != rhs.pairingToken {return false}
     if lhs.deviceName != rhs.deviceName {return false}
     if lhs.model != rhs.model {return false}
+    if lhs.relayKey != rhs.relayKey {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -675,17 +675,25 @@ internal object IntegrityCheckingUniffiLib {
     }
 
     internal fun ensureInitialized() = Unit
-    external fun uniffi_seam_ffi_checksum_func_chunk_size(
+    external fun uniffi_seam_ffi_checksum_func_chunk_data_size(
     ): Int
-    external fun uniffi_seam_ffi_checksum_func_new_file_id(
+    external fun uniffi_seam_ffi_checksum_method_filereceiver_finish(
     ): Int
-    external fun uniffi_seam_ffi_checksum_func_new_file_key(
+    external fun uniffi_seam_ffi_checksum_method_filereceiver_open_next(
     ): Int
-    external fun uniffi_seam_ffi_checksum_func_open_chunk(
+    external fun uniffi_seam_ffi_checksum_method_filesealer_file_id(
     ): Int
-    external fun uniffi_seam_ffi_checksum_func_seal_chunk(
+    external fun uniffi_seam_ffi_checksum_method_filesealer_key(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_filesealer_seal_next(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_app_data(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_confirm_pairing(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_export_state(
     ): Int
@@ -701,6 +709,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundles(
     ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_reject_pairing(
+    ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_relay_key(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_remove_peer(
@@ -709,9 +719,15 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_seal(
     ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_set_app_data(
+    ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_start_pairing(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_constructor_filereceiver_new(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_constructor_filesealer_new(
     ): Int
     external fun uniffi_seam_ffi_checksum_constructor_seamdevice_generate(
     ): Int
@@ -737,6 +753,28 @@ internal object UniffiLib {
     }
 
     internal fun ensureInitialized() = Unit
+    external fun uniffi_seam_ffi_fn_clone_filereceiver(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_free_filereceiver(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_seam_ffi_fn_constructor_filereceiver_new(`key`: RustBuffer.ByValue,`fileId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_method_filereceiver_finish(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_seam_ffi_fn_method_filereceiver_open_next(`ptr`: Long,`sealed`: RustBuffer.ByValue,`last`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_clone_filesealer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_free_filesealer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_seam_ffi_fn_constructor_filesealer_new(uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_method_filesealer_file_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_filesealer_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_filesealer_seal_next(`ptr`: Long,`data`: RustBuffer.ByValue,`last`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_clone_seamdevice(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun uniffi_seam_ffi_fn_free_seamdevice(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -747,6 +785,12 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_app_data(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_export_state(`ptr`: Long,`storageKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -761,6 +805,8 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_prekey_bundles(`ptr`: Long,`count`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_reject_pairing(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_relay_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_remove_peer(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -769,20 +815,14 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_seal(`ptr`: Long,`peerId`: RustBuffer.ByValue,`payload`: RustBuffer.ByValue,`ttlS`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_set_app_data(`ptr`: Long,`data`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_sign_relay_login(`ptr`: Long,`nonce`: RustBuffer.ByValue,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_start_pairing(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_func_chunk_size(uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_func_chunk_data_size(uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    external fun uniffi_seam_ffi_fn_func_new_file_id(uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_func_new_file_key(uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_func_open_chunk(`key`: RustBuffer.ByValue,`fileId`: RustBuffer.ByValue,`index`: Int,`last`: Byte,`sealed`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_func_seal_chunk(`key`: RustBuffer.ByValue,`fileId`: RustBuffer.ByValue,`index`: Int,`last`: Byte,`plain`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
     external fun ffi_seam_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun ffi_seam_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -902,22 +942,34 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
-    if ((lib.uniffi_seam_ffi_checksum_func_chunk_size() and 0xFFFF) != 55450) {
+    if ((lib.uniffi_seam_ffi_checksum_func_chunk_data_size() and 0xFFFF) != 5213) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_func_new_file_id() and 0xFFFF) != 50796) {
+    if ((lib.uniffi_seam_ffi_checksum_method_filereceiver_finish() and 0xFFFF) != 55133) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_func_new_file_key() and 0xFFFF) != 16379) {
+    if ((lib.uniffi_seam_ffi_checksum_method_filereceiver_open_next() and 0xFFFF) != 22677) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_func_open_chunk() and 0xFFFF) != 22119) {
+    if ((lib.uniffi_seam_ffi_checksum_method_filesealer_file_id() and 0xFFFF) != 44702) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_func_seal_chunk() and 0xFFFF) != 39026) {
+    if ((lib.uniffi_seam_ffi_checksum_method_filesealer_key() and 0xFFFF) != 2065) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_filesealer_seal_next() and 0xFFFF) != 34290) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() and 0xFFFF) != 62568) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_app_data() and 0xFFFF) != 51916) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() and 0xFFFF) != 4348) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_confirm_pairing() and 0xFFFF) != 49616) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_export_state() and 0xFFFF) != 4850) {
@@ -941,6 +993,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundles() and 0xFFFF) != 52402) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_reject_pairing() and 0xFFFF) != 50480) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_relay_key() and 0xFFFF) != 25316) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -950,13 +1005,22 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_safety_code() and 0xFFFF) != 38571) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_seal() and 0xFFFF) != 59125) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_seal() and 0xFFFF) != 4361) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() and 0xFFFF) != 38592) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() and 0xFFFF) != 30714) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_start_pairing() and 0xFFFF) != 54107) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_constructor_filereceiver_new() and 0xFFFF) != 31203) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_constructor_filesealer_new() and 0xFFFF) != 36088) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_constructor_seamdevice_generate() and 0xFFFF) != 39377) {
@@ -1364,6 +1428,611 @@ public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
 
 
 /**
+ * Opens one received file's chunks, in order, and checks it wasn't cut short.
+ */
+public interface FileReceiverInterface {
+    
+    /**
+     * Fails unless the last chunk arrived.
+     */
+    fun `finish`()
+    
+    fun `openNext`(`sealed`: kotlin.ByteArray, `last`: kotlin.Boolean): kotlin.ByteArray
+    
+    companion object
+}
+
+/**
+ * Opens one received file's chunks, in order, and checks it wasn't cut short.
+ */
+open class FileReceiver: Disposable, AutoCloseable, FileReceiverInterface
+{
+
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
+    }
+
+    /**
+     * @suppress
+     *
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
+    }
+    constructor(`key`: kotlin.ByteArray, `fileId`: kotlin.ByteArray) :
+        this(UniffiWithHandle, 
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_constructor_filereceiver_new(
+    
+        
+        FfiConverterByteArray.lower(`key`),
+        FfiConverterByteArray.lower(`fileId`),_status)
+}
+    )
+
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    /**
+     * Whether the current object has been destroyed and its reference is gone in the Rust side.
+     */
+    val uniffiIsDestroyed: Boolean get() = wasDestroyed.get()
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the handle being freed concurrently.
+        try {
+            return block(this.uniffiCloneHandle())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
+        override fun run() {
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_seam_ffi_fn_free_filereceiver(handle, status)
+            }
+        }
+    }
+
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
+        return uniffiRustCall() { status ->
+            UniffiLib.uniffi_seam_ffi_fn_clone_filereceiver(handle, status)
+        }
+    }
+
+    
+    /**
+     * Fails unless the last chunk arrived.
+     */
+    @Throws(SeamException::class)override fun `finish`()
+        = 
+    callWithHandle {
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_filereceiver_finish(
+        it,
+        _status)
+}
+    }
+    
+    
+
+    
+    @Throws(SeamException::class)override fun `openNext`(`sealed`: kotlin.ByteArray, `last`: kotlin.Boolean): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_filereceiver_open_next(
+        it,
+        
+        FfiConverterByteArray.lower(`sealed`),
+        FfiConverterBoolean.lower(`last`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+
+
+    
+    
+    /**
+     * @suppress
+     */
+    companion object
+    
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFileReceiver: FfiConverter<FileReceiver, Long> {
+    override fun lower(value: FileReceiver): Long {
+        return value.uniffiCloneHandle()
+    }
+
+    override fun lift(value: Long): FileReceiver {
+        return FileReceiver(UniffiWithHandle, value)
+    }
+
+    override fun read(buf: ByteBuffer): FileReceiver {
+        return lift(buf.getLong())
+    }
+
+    override fun allocationSize(value: FileReceiver) = 8UL
+
+    override fun write(value: FileReceiver, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a handle
+// to the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its handle should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the handle, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+/**
+ * Seals one file for sending. Makes its own key and id (put them in the FileOffer), and
+ * enforces chunk order and a single last chunk, so a nonce can never repeat.
+ */
+public interface FileSealerInterface {
+    
+    fun `fileId`(): kotlin.ByteArray
+    
+    fun `key`(): kotlin.ByteArray
+    
+    /**
+     * Every chunk but the last must be exactly `chunk_data_size()` bytes.
+     */
+    fun `sealNext`(`data`: kotlin.ByteArray, `last`: kotlin.Boolean): kotlin.ByteArray
+    
+    companion object
+}
+
+/**
+ * Seals one file for sending. Makes its own key and id (put them in the FileOffer), and
+ * enforces chunk order and a single last chunk, so a nonce can never repeat.
+ */
+open class FileSealer: Disposable, AutoCloseable, FileSealerInterface
+{
+
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
+    }
+
+    /**
+     * @suppress
+     *
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
+    }
+    constructor() :
+        this(UniffiWithHandle, 
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_constructor_filesealer_new(
+    
+        _status)
+}
+    )
+
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    /**
+     * Whether the current object has been destroyed and its reference is gone in the Rust side.
+     */
+    val uniffiIsDestroyed: Boolean get() = wasDestroyed.get()
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the handle being freed concurrently.
+        try {
+            return block(this.uniffiCloneHandle())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
+        override fun run() {
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_seam_ffi_fn_free_filesealer(handle, status)
+            }
+        }
+    }
+
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
+        return uniffiRustCall() { status ->
+            UniffiLib.uniffi_seam_ffi_fn_clone_filesealer(handle, status)
+        }
+    }
+
+    override fun `fileId`(): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_filesealer_file_id(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    override fun `key`(): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_filesealer_key(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Every chunk but the last must be exactly `chunk_data_size()` bytes.
+     */
+    @Throws(SeamException::class)override fun `sealNext`(`data`: kotlin.ByteArray, `last`: kotlin.Boolean): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_filesealer_seal_next(
+        it,
+        
+        FfiConverterByteArray.lower(`data`),
+        FfiConverterBoolean.lower(`last`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+
+
+    
+    
+    /**
+     * @suppress
+     */
+    companion object
+    
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFileSealer: FfiConverter<FileSealer, Long> {
+    override fun lower(value: FileSealer): Long {
+        return value.uniffiCloneHandle()
+    }
+
+    override fun lift(value: Long): FileSealer {
+        return FileSealer(UniffiWithHandle, value)
+    }
+
+    override fun read(buf: ByteBuffer): FileSealer {
+        return lift(buf.getLong())
+    }
+
+    override fun allocationSize(value: FileSealer) = 8UL
+
+    override fun write(value: FileSealer, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a handle
+// to the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its handle should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the handle, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+/**
  * This device: identity, peers and sessions. Safe to share across threads.
  */
 public interface SeamDeviceInterface {
@@ -1372,6 +2041,21 @@ public interface SeamDeviceInterface {
      * Mac: check the phone's first envelope against the open pairing slot.
      */
     fun `acceptPairing`(`envelope`: kotlin.ByteArray): PairingRequest
+    
+    /**
+     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     */
+    fun `appData`(): kotlin.ByteArray
+    
+    /**
+     * Mac: close the pairing slot early (window closed, QR expired).
+     */
+    fun `cancelPairing`()
+    
+    /**
+     * Mac: the user confirmed the safety code. Then seal and send PairAccept.
+     */
+    fun `confirmPairing`(`peerId`: kotlin.String)
     
     /**
      * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
@@ -1400,6 +2084,11 @@ public interface SeamDeviceInterface {
      */
     fun `prekeyBundles`(`count`: kotlin.UInt): List<kotlin.ByteArray>
     
+    /**
+     * Mac: the codes didn't match, or the user cancelled. The phone is forgotten.
+     */
+    fun `rejectPairing`(`peerId`: kotlin.String)
+    
     fun `relayKey`(): kotlin.ByteArray
     
     fun `removePeer`(`peerId`: kotlin.String)
@@ -1408,8 +2097,11 @@ public interface SeamDeviceInterface {
     
     /**
      * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+     * The ratchet has advanced: save `export_state` durably *before* sending the envelope.
      */
     fun `seal`(`peerId`: kotlin.String, `payload`: kotlin.ByteArray, `ttlS`: kotlin.UInt): kotlin.ByteArray
+    
+    fun `setAppData`(`data`: kotlin.ByteArray)
     
     /**
      * The answer to the relay's login challenge.
@@ -1548,6 +2240,54 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
 
     
     /**
+     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     */override fun `appData`(): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_app_data(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Mac: close the pairing slot early (window closed, QR expired).
+     */override fun `cancelPairing`()
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(
+        it,
+        _status)
+}
+    }
+    
+    
+
+    
+    /**
+     * Mac: the user confirmed the safety code. Then seal and send PairAccept.
+     */
+    @Throws(SeamException::class)override fun `confirmPairing`(`peerId`: kotlin.String)
+        = 
+    callWithHandle {
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(
+        it,
+        
+        FfiConverterString.lower(`peerId`),_status)
+}
+    }
+    
+    
+
+    
+    /**
      * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
      * after anything that changes state: a seal, an open, pairing, new bundles.
      */
@@ -1664,6 +2404,22 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     }
     
 
+    
+    /**
+     * Mac: the codes didn't match, or the user cancelled. The phone is forgotten.
+     */override fun `rejectPairing`(`peerId`: kotlin.String)
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_reject_pairing(
+        it,
+        
+        FfiConverterString.lower(`peerId`),_status)
+}
+    }
+    
+    
+
     override fun `relayKey`(): kotlin.ByteArray {
             return FfiConverterByteArray.lift(
     callWithHandle {
@@ -1708,6 +2464,7 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     
     /**
      * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+     * The ratchet has advanced: save `export_state` durably *before* sending the envelope.
      */
     @Throws(SeamException::class)override fun `seal`(`peerId`: kotlin.String, `payload`: kotlin.ByteArray, `ttlS`: kotlin.UInt): kotlin.ByteArray {
             return FfiConverterByteArray.lift(
@@ -1723,6 +2480,19 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     }
     )
     }
+    
+
+    override fun `setAppData`(`data`: kotlin.ByteArray)
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_set_app_data(
+        it,
+        
+        FfiConverterByteArray.lower(`data`),_status)
+}
+    }
+    
     
 
     
@@ -2019,6 +2789,11 @@ data class PeerInfo (
     var `name`: kotlin.String
     , 
     var `relayKey`: kotlin.ByteArray
+    , 
+    /**
+     * False between a verified pairing request and confirmation; unconfirmed peers aren't saved.
+     */
+    var `confirmed`: kotlin.Boolean
     
 ){
     
@@ -2038,19 +2813,22 @@ public object FfiConverterTypePeerInfo: FfiConverterRustBuffer<PeerInfo> {
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
             FfiConverterByteArray.read(buf),
+            FfiConverterBoolean.read(buf),
         )
     }
 
     override fun allocationSize(value: PeerInfo) = (
             FfiConverterString.allocationSize(value.`id`) +
             FfiConverterString.allocationSize(value.`name`) +
-            FfiConverterByteArray.allocationSize(value.`relayKey`)
+            FfiConverterByteArray.allocationSize(value.`relayKey`) +
+            FfiConverterBoolean.allocationSize(value.`confirmed`)
     )
 
     override fun write(value: PeerInfo, buf: ByteBuffer) {
             FfiConverterString.write(value.`id`, buf)
             FfiConverterString.write(value.`name`, buf)
             FfiConverterByteArray.write(value.`relayKey`, buf)
+            FfiConverterBoolean.write(value.`confirmed`, buf)
     }
 }
 
@@ -2073,6 +2851,15 @@ sealed class SeamException: kotlin.Exception() {
      * A key doesn't match the one from pairing: treat as an attack, don't retry.
      */
     class UntrustedIdentity(
+        ) : SeamException() {
+        override val message
+            get() = ""
+    }
+    
+    /**
+     * The peer hasn't been confirmed yet, so only pairing messages are allowed.
+     */
+    class NotConfirmed(
         ) : SeamException() {
         override val message
             get() = ""
@@ -2139,12 +2926,13 @@ public object FfiConverterTypeSeamError : FfiConverterRustBuffer<SeamException> 
         return when(buf.getInt()) {
             1 -> SeamException.NotPaired()
             2 -> SeamException.UntrustedIdentity()
-            3 -> SeamException.Duplicate()
-            4 -> SeamException.PairingFailed(
+            3 -> SeamException.NotConfirmed()
+            4 -> SeamException.Duplicate()
+            5 -> SeamException.PairingFailed(
                 FfiConverterString.read(buf),
                 )
-            5 -> SeamException.BadState()
-            6 -> SeamException.Invalid(
+            6 -> SeamException.BadState()
+            7 -> SeamException.Invalid(
                 FfiConverterString.read(buf),
                 )
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
@@ -2158,6 +2946,10 @@ public object FfiConverterTypeSeamError : FfiConverterRustBuffer<SeamException> 
                 4UL
             )
             is SeamException.UntrustedIdentity -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+            )
+            is SeamException.NotConfirmed -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
             )
@@ -2192,21 +2984,25 @@ public object FfiConverterTypeSeamError : FfiConverterRustBuffer<SeamException> 
                 buf.putInt(2)
                 Unit
             }
-            is SeamException.Duplicate -> {
+            is SeamException.NotConfirmed -> {
                 buf.putInt(3)
                 Unit
             }
-            is SeamException.PairingFailed -> {
+            is SeamException.Duplicate -> {
                 buf.putInt(4)
+                Unit
+            }
+            is SeamException.PairingFailed -> {
+                buf.putInt(5)
                 FfiConverterString.write(value.`reason`, buf)
                 Unit
             }
             is SeamException.BadState -> {
-                buf.putInt(5)
+                buf.putInt(6)
                 Unit
             }
             is SeamException.Invalid -> {
-                buf.putInt(6)
+                buf.putInt(7)
                 FfiConverterString.write(value.`detail`, buf)
                 Unit
             }
@@ -2269,64 +3065,15 @@ public object FfiConverterSequenceTypePeerInfo: FfiConverterRustBuffer<List<Peer
             FfiConverterTypePeerInfo.write(it, buf)
         }
     }
-} fun `chunkSize`(): kotlin.UInt {
+}
+        /**
+         * File bytes per chunk (everything but the last chunk must be exactly this size).
+         */ fun `chunkDataSize`(): kotlin.UInt {
             return FfiConverterUInt.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_func_chunk_size(
+    UniffiLib.uniffi_seam_ffi_fn_func_chunk_data_size(
     
         _status)
-}
-    )
-    }
-    
- fun `newFileId`(): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_func_new_file_id(
-    
-        _status)
-}
-    )
-    }
-    
- fun `newFileKey`(): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_func_new_file_key(
-    
-        _status)
-}
-    )
-    }
-    
-
-    @Throws(SeamException::class) fun `openChunk`(`key`: kotlin.ByteArray, `fileId`: kotlin.ByteArray, `index`: kotlin.UInt, `last`: kotlin.Boolean, `sealed`: kotlin.ByteArray): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
-    uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_func_open_chunk(
-    
-        
-        FfiConverterByteArray.lower(`key`),
-        FfiConverterByteArray.lower(`fileId`),
-        FfiConverterUInt.lower(`index`),
-        FfiConverterBoolean.lower(`last`),
-        FfiConverterByteArray.lower(`sealed`),_status)
-}
-    )
-    }
-    
-
-    @Throws(SeamException::class) fun `sealChunk`(`key`: kotlin.ByteArray, `fileId`: kotlin.ByteArray, `index`: kotlin.UInt, `last`: kotlin.Boolean, `plain`: kotlin.ByteArray): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
-    uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_func_seal_chunk(
-    
-        
-        FfiConverterByteArray.lower(`key`),
-        FfiConverterByteArray.lower(`fileId`),
-        FfiConverterUInt.lower(`index`),
-        FfiConverterBoolean.lower(`last`),
-        FfiConverterByteArray.lower(`plain`),_status)
 }
     )
     }

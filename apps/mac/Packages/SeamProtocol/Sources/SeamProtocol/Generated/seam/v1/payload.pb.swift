@@ -27,8 +27,9 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
-/// What actually gets encrypted. msg_id and sent_at must match the envelope, or the receiver
-/// drops the message: this binds the plaintext envelope to the ciphertext.
+/// What actually gets encrypted. Every routing field is repeated here and must match the
+/// envelope, or the receiver drops the message: this binds the plaintext envelope to the
+/// ciphertext, so a relay can't re-address, re-time or re-route it.
 public nonisolated struct Seam_V1_Inner: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -46,6 +47,12 @@ public nonisolated struct Seam_V1_Inner: Sendable {
   public var hasPayload: Bool {self._payload != nil}
   /// Clears the value of `payload`. Subsequent reads from it will return its default value.
   public mutating func clearPayload() {self._payload = nil}
+
+  public var from: Data = Data()
+
+  public var to: Data = Data()
+
+  public var ttlS: UInt32 = 0
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -200,7 +207,7 @@ fileprivate nonisolated let _protobuf_package = "seam.v1"
 
 nonisolated extension Seam_V1_Inner: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Inner"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}msg_id\0\u{3}sent_at\0\u{1}payload\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}msg_id\0\u{3}sent_at\0\u{1}payload\0\u{1}from\0\u{1}to\0\u{3}ttl_s\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -211,6 +218,9 @@ nonisolated extension Seam_V1_Inner: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 1: try { try decoder.decodeSingularBytesField(value: &self.msgID) }()
       case 2: try { try decoder.decodeSingularInt64Field(value: &self.sentAt) }()
       case 3: try { try decoder.decodeSingularMessageField(value: &self._payload) }()
+      case 4: try { try decoder.decodeSingularBytesField(value: &self.from) }()
+      case 5: try { try decoder.decodeSingularBytesField(value: &self.to) }()
+      case 6: try { try decoder.decodeSingularUInt32Field(value: &self.ttlS) }()
       default: break
       }
     }
@@ -230,6 +240,15 @@ nonisolated extension Seam_V1_Inner: SwiftProtobuf.Message, SwiftProtobuf._Messa
     try { if let v = self._payload {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
     } }()
+    if !self.from.isEmpty {
+      try visitor.visitSingularBytesField(value: self.from, fieldNumber: 4)
+    }
+    if !self.to.isEmpty {
+      try visitor.visitSingularBytesField(value: self.to, fieldNumber: 5)
+    }
+    if self.ttlS != 0 {
+      try visitor.visitSingularUInt32Field(value: self.ttlS, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -237,6 +256,9 @@ nonisolated extension Seam_V1_Inner: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if lhs.msgID != rhs.msgID {return false}
     if lhs.sentAt != rhs.sentAt {return false}
     if lhs._payload != rhs._payload {return false}
+    if lhs.from != rhs.from {return false}
+    if lhs.to != rhs.to {return false}
+    if lhs.ttlS != rhs.ttlS {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

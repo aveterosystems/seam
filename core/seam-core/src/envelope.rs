@@ -31,8 +31,15 @@ pub struct Opened {
 
 impl Device {
     /// Seal a Payload (protobuf bytes) for a paired peer. Returns the Envelope's bytes.
+    ///
+    /// The ratchet has advanced once this returns: save `export_state` durably before sending
+    /// the envelope, or a crash could make the next seal reuse a message key.
     pub fn seal(&mut self, peer_id: &str, payload: &[u8], ttl_s: u32) -> Result<Vec<u8>> {
         let payload = Payload::decode(payload)?;
+        let peer = self.peers.get(peer_id).ok_or(Error::NotPaired)?;
+        if !peer.confirmed && !is_control(&payload) {
+            return Err(Error::NotConfirmed);
+        }
         Ok(self.seal_payload(peer_id, payload, ttl_s)?.encode_to_vec())
     }
 
@@ -46,23 +53,29 @@ impl Device {
         let mut msg_id = vec![0u8; 16];
         rand::rng().fill_bytes(&mut msg_id);
         let sent_at = now_millis() as i64;
+        let ttl_s = if ttl_s == 0 {
+            DEFAULT_TTL_S
+        } else {
+            ttl_s.min(DEFAULT_TTL_S)
+        };
+        let from = self.relay_key().to_vec();
+        // Every routing field is repeated inside the encryption, so the relay can't change them
         let inner = Inner {
             msg_id: msg_id.clone(),
             sent_at,
             payload: Some(payload),
+            from: from.clone(),
+            to: to.to_vec(),
+            ttl_s,
         };
         let sealed = self.encrypt(&peer_address(peer_id), &inner.encode_to_vec())?;
         Ok(Envelope {
             version: VERSION,
             msg_id,
-            from: self.relay_key().to_vec(),
+            from,
             to: to.to_vec(),
             sent_at,
-            ttl_s: if ttl_s == 0 {
-                DEFAULT_TTL_S
-            } else {
-                ttl_s.min(DEFAULT_TTL_S)
-            },
+            ttl_s,
             signal_type: u32::from(sealed.kind),
             ciphertext: sealed.bytes,
         })
@@ -70,10 +83,23 @@ impl Device {
 
     /// Open an Envelope (bytes) from a paired peer. `Error::Duplicate` means it was already
     /// handled: ack it and move on.
+    ///
+    /// From a peer that isn't confirmed yet only pairing messages are accepted; a PairAccept from
+    /// it confirms it (that's the phone learning the user approved on the Mac).
     pub fn open(&mut self, envelope: &[u8]) -> Result<Opened> {
         let env = self.decode_for_me(envelope)?;
         let peer_id = self.peer_by_relay_key(&env.from).ok_or(Error::NotPaired)?;
-        self.open_from(&peer_id, &env)
+        let opened = self.open_from(&peer_id, &env, true)?;
+        if !self.peers[&peer_id].confirmed {
+            let payload = Payload::decode(opened.payload.as_slice())?;
+            if !is_control(&payload) {
+                return Err(Error::NotConfirmed);
+            }
+            if is_pair_accept(&payload) {
+                self.confirm_peer(&peer_id)?;
+            }
+        }
+        Ok(opened)
     }
 
     pub(crate) fn decode_for_me(&self, envelope: &[u8]) -> Result<Envelope> {
@@ -87,20 +113,35 @@ impl Device {
         Ok(env)
     }
 
-    pub(crate) fn open_from(&mut self, peer_id: &str, env: &Envelope) -> Result<Opened> {
+    /// `trusted`: false only for a pairing request, whose sender isn't in the peers map yet.
+    pub(crate) fn open_from(
+        &mut self,
+        peer_id: &str,
+        env: &Envelope,
+        trusted: bool,
+    ) -> Result<Opened> {
         let kind = u8::try_from(env.signal_type).map_err(|_| Error::UnknownKind(u8::MAX))?;
         let sealed = Sealed {
             kind,
             bytes: env.ciphertext.clone(),
         };
-        let plain = self
-            .decrypt(&peer_address(peer_id), &sealed)
-            .map_err(|e| match e {
-                Error::Signal(SignalProtocolError::DuplicatedMessage(..)) => Error::Duplicate,
-                e => e,
-            })?;
+        let address = peer_address(peer_id);
+        let result = if trusted {
+            self.decrypt(&address, &sealed)
+        } else {
+            self.decrypt_unchecked(&address, &sealed)
+        };
+        let plain = result.map_err(|e| match e {
+            Error::Signal(SignalProtocolError::DuplicatedMessage(..)) => Error::Duplicate,
+            e => e,
+        })?;
         let inner = Inner::decode(plain.as_slice())?;
-        if inner.msg_id != env.msg_id || inner.sent_at != env.sent_at {
+        let bound = inner.msg_id == env.msg_id
+            && inner.sent_at == env.sent_at
+            && inner.from == env.from
+            && inner.to == env.to
+            && inner.ttl_s == env.ttl_s;
+        if !bound {
             return Err(Error::EnvelopeMismatch);
         }
         let payload = inner
@@ -120,6 +161,20 @@ impl Device {
             .find(|(_, p)| p.relay_key == relay_key)
             .map(|(id, _)| id.clone())
     }
+}
+
+fn is_control(p: &Payload) -> bool {
+    matches!(p.body, Some(crate::proto::v1::payload::Body::Control(_)))
+}
+
+fn is_pair_accept(p: &Payload) -> bool {
+    use crate::proto::v1::{Control, control, payload::Body};
+    matches!(
+        &p.body,
+        Some(Body::Control(Control {
+            body: Some(control::Body::PairAccept(_))
+        }))
+    )
 }
 
 #[cfg(test)]

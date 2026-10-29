@@ -32,9 +32,11 @@ impl Device {
             registration_id: block_on(s.identity_store.get_local_registration_id())?,
             next_prekey_id: self.next_prekey_id,
             relay_key_seed: self.relay_key.to_bytes().to_vec(),
+            app_data: self.app_data.clone(),
             ..Default::default()
         };
-        for (id, peer) in &self.peers {
+        // Unconfirmed peers are never saved: a restart mid-pairing forgets them
+        for (id, peer) in self.peers.iter().filter(|(_, p)| p.confirmed) {
             let session = block_on(s.session_store.load_session(&peer_address(id)))?;
             out.peers.push(state::Peer {
                 id: id.clone(),
@@ -102,6 +104,7 @@ impl Device {
             st.next_prekey_id,
             SigningKey::from_bytes(&seed),
         )?;
+        device.app_data = st.app_data;
 
         for p in st.peers {
             let relay_key: [u8; 32] = p
@@ -128,6 +131,7 @@ impl Device {
                     identity_key: p.identity_key,
                     relay_key,
                     name: p.name,
+                    confirmed: true,
                 },
             );
         }

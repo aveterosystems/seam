@@ -59,7 +59,8 @@ impl Device {
     }
 
     /// Phone side, after scanning the QR code and fetching the Mac's bundle from the relay.
-    /// Returns the Mac's peer id and the first envelope (a sealed PairRequest).
+    /// Returns the Mac's peer id and the first envelope (a sealed PairRequest). The Mac stays
+    /// unconfirmed until its PairAccept arrives (`open` confirms it).
     #[allow(clippy::too_many_arguments)]
     pub fn pair_with(
         &mut self,
@@ -71,14 +72,16 @@ impl Device {
         my_name: &str,
         my_model: &str,
     ) -> Result<(String, Vec<u8>)> {
-        let peer_id = self.add_peer(identity_key, relay_key, name)?;
+        let previous = self.peers.get(&crate::device_id_for(identity_key)).cloned();
+        let peer_id = self.insert_peer(identity_key, relay_key, name, false)?;
         let result = self
             .start_session(&crate::peer_address(&peer_id), bundle)
             .and_then(|()| {
                 let request = PairRequest {
                     pairing_token: token.to_vec(),
-                    device_name: my_name.to_owned(),
-                    model: my_model.to_owned(),
+                    device_name: crate::device::sanitize_name(my_name),
+                    model: crate::device::sanitize_name(my_model),
+                    relay_key: self.relay_key().to_vec(),
                 };
                 let body = control::Body::PairRequest(request);
                 let payload = Payload {
@@ -90,12 +93,18 @@ impl Device {
             Ok(env) => Ok((peer_id, env.encode_to_vec())),
             Err(e) => {
                 self.remove_peer(&peer_id);
+                // A failed re-pair must not cost the existing pairing with this Mac
+                if let Some(p) = previous {
+                    self.peers.insert(peer_id, p);
+                }
                 Err(e)
             }
         }
     }
 
-    /// Mac side: check the phone's first envelope against the open pairing slot.
+    /// Mac side: check the phone's first envelope against the open pairing slot. On success
+    /// the phone is a peer but unconfirmed: show the safety code, then `confirm_pairing` or
+    /// `reject_pairing`.
     pub fn accept_pairing(&mut self, envelope: &[u8]) -> Result<PairingRequest> {
         let pending = self
             .pending_pairing
@@ -114,15 +123,29 @@ impl Device {
         }
     }
 
+    /// Mac side: the user confirmed the safety code.
+    pub fn confirm_pairing(&mut self, peer_id: &str) -> Result<()> {
+        self.confirm_peer(peer_id)
+    }
+
+    /// Mac side: the user said the codes don't match (or cancelled). The phone is forgotten.
+    pub fn reject_pairing(&mut self, peer_id: &str) {
+        if self.peers.get(peer_id).is_some_and(|p| !p.confirmed) {
+            self.remove_peer(peer_id);
+        }
+    }
+
+    /// Mac side: close the pairing slot early (window closed, QR expired).
+    pub fn cancel_pairing(&mut self) {
+        self.pending_pairing = None;
+    }
+
     fn check_pairing_request(
         &mut self,
         envelope: &[u8],
         token: &[u8; 32],
     ) -> Result<PairingRequest> {
         let env = self.decode_for_me(envelope)?;
-        if self.peer_by_relay_key(&env.from).is_some() {
-            return Err(Error::BadPairing("that device is already paired"));
-        }
         if env.signal_type != CiphertextMessageType::PreKey as u32 {
             return Err(Error::BadPairing("expected a session-setup message"));
         }
@@ -134,9 +157,17 @@ impl Device {
         let identity = PreKeySignalMessage::try_from(env.ciphertext.as_slice())?
             .identity_key()
             .serialize();
+        let peer_id = crate::device_id_for(&identity);
+        // Judge by the identity the message carries, never by the unauthenticated `from`: an
+        // attempt must not be able to touch a device that's already paired.
+        if self.peers.contains_key(&peer_id) || self.peer_by_relay_key(&env.from).is_some() {
+            return Err(Error::BadPairing("that device is already paired"));
+        }
 
-        let peer_id = self.add_peer(&identity, relay_key, "")?;
-        let checked = self.open_from(&peer_id, &env).and_then(|opened| {
+        // Pinned in libsignal only for this one decryption; trusted only once the token checks out
+        let address = crate::peer_address(&peer_id);
+        self.pin_peer(&address, &identity)?;
+        let checked = self.open_from(&peer_id, &env, false).and_then(|opened| {
             let payload = Payload::decode(opened.payload.as_slice())?;
             match payload.body {
                 Some(payload::Body::Control(Control {
@@ -146,19 +177,36 @@ impl Device {
             }
         });
         let request = match checked {
-            Ok(r) if bool::from(r.pairing_token.ct_eq(token)) => r,
-            Ok(_) => Err(Error::BadPairing("wrong pairing code"))
-                .inspect_err(|_| self.remove_peer(&peer_id))?,
-            Err(e) => Err(e).inspect_err(|_| self.remove_peer(&peer_id))?,
+            Ok(r) if !bool::from(r.pairing_token.ct_eq(token)) => {
+                Err(Error::BadPairing("wrong pairing code"))
+            }
+            Ok(r) if r.relay_key != env.from => {
+                Err(Error::BadPairing("relay key doesn't match the request"))
+            }
+            other => other,
         };
-        if let Some(p) = self.peers.get_mut(&peer_id) {
-            p.name = request.device_name.clone();
-        }
+        let request = match request {
+            Ok(r) => r,
+            Err(e) => {
+                self.reset_session(&address)?;
+                return Err(e);
+            }
+        };
+        let name = crate::device::sanitize_name(&request.device_name);
+        self.peers.insert(
+            peer_id.clone(),
+            crate::Peer {
+                identity_key: identity.to_vec(),
+                relay_key,
+                name: name.clone(),
+                confirmed: false,
+            },
+        );
         Ok(PairingRequest {
             safety_code: self.safety_code(&peer_id)?,
             peer_id,
-            device_name: request.device_name,
-            model: request.model,
+            device_name: name,
+            model: crate::device::sanitize_name(&request.model),
         })
     }
 

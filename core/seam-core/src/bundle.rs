@@ -113,8 +113,11 @@ mod tests {
         let mut mac = Device::generate().unwrap();
         let mut phone = Device::generate().unwrap();
         let (m, p) = (mac.address().clone(), phone.address().clone());
-        mac.pin_peer(&p, &phone.identity_key()).unwrap();
-        phone.pin_peer(&m, &mac.identity_key()).unwrap();
+        mac.add_peer(&phone.identity_key(), phone.relay_key(), "phone")
+            .unwrap();
+        phone
+            .add_peer(&mac.identity_key(), mac.relay_key(), "mac")
+            .unwrap();
 
         let bytes = super::encode(&phone.prekey_bundle().unwrap()).unwrap();
         let bundle = super::decode(&bytes).unwrap();
@@ -141,7 +144,8 @@ mod tests {
         let mut mac = Device::generate().unwrap();
         let mut phone = Device::generate().unwrap();
         let p = phone.address().clone();
-        mac.pin_peer(&p, &phone.identity_key()).unwrap();
+        mac.add_peer(&phone.identity_key(), phone.relay_key(), "phone")
+            .unwrap();
         let mut bytes = super::encode(&phone.prekey_bundle().unwrap()).unwrap();
         // The signed-prekey signature sits after: version, reg id, flag, id, key field, id, key field
         let key_len = |at: usize, b: &[u8]| u16::from_be_bytes([b[at], b[at + 1]]) as usize;

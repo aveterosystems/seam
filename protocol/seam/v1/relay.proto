@@ -12,8 +12,9 @@ option java_package = "com.avetero.seam.protocol.v1";
 // WebSocket message. The relay only ever sees these and sealed Envelopes; it holds no private keys.
 //
 // Login: the relay sends Challenge, the device answers Login signed with its relay key (Ed25519).
-// A login to an unknown group creates it with that device as its first member (the Mac, at
-// setup). Anyone else joins by presenting the one-time token from the pairing QR code.
+// A login with create_group to an unknown group creates it with that device as its first
+// member (the Mac, at setup). Anyone else joins by presenting the one-time token from the
+// pairing QR code. A group has at most 8 members.
 
 message ClientFrame {
   oneof frame {
@@ -23,6 +24,8 @@ message ClientFrame {
     PutBundles put_bundles = 4;
     GetBundle get_bundle = 5;
     OpenPairing open_pairing = 6;
+    RemoveMember remove_member = 7;
+    ClosePairing close_pairing = 8;
   }
 }
 
@@ -46,6 +49,7 @@ message Login {
   bytes device_key = 2; // the device's Ed25519 relay-login public key (32 bytes)
   bytes signature = 3; // Ed25519 over "seam-relay-login-v1" || nonce || group_id
   bytes join_token = 4; // only when joining through pairing: the QR's one-time token
+  bool create_group = 5; // set only by the first device; a plain login never creates a group
 }
 
 message LoginResult {
@@ -73,10 +77,19 @@ message BundleResult {
 }
 
 // Opens a 5-minute pairing slot: a device logging in with the matching token joins the group.
+// Refused ("slot_open") while another member's slot is still open.
 message OpenPairing {
   bytes token_hash = 1; // SHA-256 of the 32-byte token in the QR code; the relay never sees the token's value before use
   uint32 ttl_s = 2; // at most 300
 }
+
+// Unpairing: removes a member (or yourself) from the group, deleting its queue and bundles.
+message RemoveMember {
+  bytes device_key = 1;
+}
+
+// Closes the open pairing slot early (cancelled, or the QR expired).
+message ClosePairing {}
 
 // Sent to existing members when a device joins through pairing.
 message PeerJoined {
@@ -84,5 +97,5 @@ message PeerJoined {
 }
 
 message RelayError {
-  string code = 1; // "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large"
+  string code = 1; // "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage"
 }

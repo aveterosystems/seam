@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/relay.proto.
  */
 export const file_seam_v1_relay: GenFile = /*@__PURE__*/
-  fileDesc("ChNzZWFtL3YxL3JlbGF5LnByb3RvEgdzZWFtLnYxIocCCgtDbGllbnRGcmFtZRIfCgVsb2dpbhgBIAEoCzIOLnNlYW0udjEuTG9naW5IABIhCgRzZW5kGAIgASgLMhEuc2VhbS52MS5FbnZlbG9wZUgAEicKCWRlbGl2ZXJlZBgDIAEoCzISLnNlYW0udjEuRGVsaXZlcmVkSAASKgoLcHV0X2J1bmRsZXMYBCABKAsyEy5zZWFtLnYxLlB1dEJ1bmRsZXNIABIoCgpnZXRfYnVuZGxlGAUgASgLMhIuc2VhbS52MS5HZXRCdW5kbGVIABIsCgxvcGVuX3BhaXJpbmcYBiABKAsyFC5zZWFtLnYxLk9wZW5QYWlyaW5nSABCBwoFZnJhbWUijgIKC1NlcnZlckZyYW1lEicKCWNoYWxsZW5nZRgBIAEoCzISLnNlYW0udjEuQ2hhbGxlbmdlSAASLAoMbG9naW5fcmVzdWx0GAIgASgLMhQuc2VhbS52MS5Mb2dpblJlc3VsdEgAEiQKB2RlbGl2ZXIYAyABKAsyES5zZWFtLnYxLkVudmVsb3BlSAASJwoGYnVuZGxlGAQgASgLMhUuc2VhbS52MS5CdW5kbGVSZXN1bHRIABIkCgVlcnJvchgFIAEoCzITLnNlYW0udjEuUmVsYXlFcnJvckgAEioKC3BlZXJfam9pbmVkGAYgASgLMhMuc2VhbS52MS5QZWVySm9pbmVkSABCBwoFZnJhbWUiGgoJQ2hhbGxlbmdlEg0KBW5vbmNlGAEgASgMIlQKBUxvZ2luEhAKCGdyb3VwX2lkGAEgASgMEhIKCmRldmljZV9rZXkYAiABKAwSEQoJc2lnbmF0dXJlGAMgASgMEhIKCmpvaW5fdG9rZW4YBCABKAwiKgoLTG9naW5SZXN1bHQSCgoCb2sYASABKAgSDwoHbWVtYmVycxgCIAMoDCIbCglEZWxpdmVyZWQSDgoGbXNnX2lkGAEgASgMIh0KClB1dEJ1bmRsZXMSDwoHYnVuZGxlcxgBIAMoDCIfCglHZXRCdW5kbGUSEgoKZGV2aWNlX2tleRgBIAEoDCIyCgxCdW5kbGVSZXN1bHQSEgoKZGV2aWNlX2tleRgBIAEoDBIOCgZidW5kbGUYAiABKAwiMAoLT3BlblBhaXJpbmcSEgoKdG9rZW5faGFzaBgBIAEoDBINCgV0dGxfcxgCIAEoDSIgCgpQZWVySm9pbmVkEhIKCmRldmljZV9rZXkYASABKAwiGgoKUmVsYXlFcnJvchIMCgRjb2RlGAEgASgJQiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z", [file_seam_v1_envelope]);
+  fileDesc("ChNzZWFtL3YxL3JlbGF5LnByb3RvEgdzZWFtLnYxIucCCgtDbGllbnRGcmFtZRIfCgVsb2dpbhgBIAEoCzIOLnNlYW0udjEuTG9naW5IABIhCgRzZW5kGAIgASgLMhEuc2VhbS52MS5FbnZlbG9wZUgAEicKCWRlbGl2ZXJlZBgDIAEoCzISLnNlYW0udjEuRGVsaXZlcmVkSAASKgoLcHV0X2J1bmRsZXMYBCABKAsyEy5zZWFtLnYxLlB1dEJ1bmRsZXNIABIoCgpnZXRfYnVuZGxlGAUgASgLMhIuc2VhbS52MS5HZXRCdW5kbGVIABIsCgxvcGVuX3BhaXJpbmcYBiABKAsyFC5zZWFtLnYxLk9wZW5QYWlyaW5nSAASLgoNcmVtb3ZlX21lbWJlchgHIAEoCzIVLnNlYW0udjEuUmVtb3ZlTWVtYmVySAASLgoNY2xvc2VfcGFpcmluZxgIIAEoCzIVLnNlYW0udjEuQ2xvc2VQYWlyaW5nSABCBwoFZnJhbWUijgIKC1NlcnZlckZyYW1lEicKCWNoYWxsZW5nZRgBIAEoCzISLnNlYW0udjEuQ2hhbGxlbmdlSAASLAoMbG9naW5fcmVzdWx0GAIgASgLMhQuc2VhbS52MS5Mb2dpblJlc3VsdEgAEiQKB2RlbGl2ZXIYAyABKAsyES5zZWFtLnYxLkVudmVsb3BlSAASJwoGYnVuZGxlGAQgASgLMhUuc2VhbS52MS5CdW5kbGVSZXN1bHRIABIkCgVlcnJvchgFIAEoCzITLnNlYW0udjEuUmVsYXlFcnJvckgAEioKC3BlZXJfam9pbmVkGAYgASgLMhMuc2VhbS52MS5QZWVySm9pbmVkSABCBwoFZnJhbWUiGgoJQ2hhbGxlbmdlEg0KBW5vbmNlGAEgASgMImoKBUxvZ2luEhAKCGdyb3VwX2lkGAEgASgMEhIKCmRldmljZV9rZXkYAiABKAwSEQoJc2lnbmF0dXJlGAMgASgMEhIKCmpvaW5fdG9rZW4YBCABKAwSFAoMY3JlYXRlX2dyb3VwGAUgASgIIioKC0xvZ2luUmVzdWx0EgoKAm9rGAEgASgIEg8KB21lbWJlcnMYAiADKAwiGwoJRGVsaXZlcmVkEg4KBm1zZ19pZBgBIAEoDCIdCgpQdXRCdW5kbGVzEg8KB2J1bmRsZXMYASADKAwiHwoJR2V0QnVuZGxlEhIKCmRldmljZV9rZXkYASABKAwiMgoMQnVuZGxlUmVzdWx0EhIKCmRldmljZV9rZXkYASABKAwSDgoGYnVuZGxlGAIgASgMIjAKC09wZW5QYWlyaW5nEhIKCnRva2VuX2hhc2gYASABKAwSDQoFdHRsX3MYAiABKA0iIgoMUmVtb3ZlTWVtYmVyEhIKCmRldmljZV9rZXkYASABKAwiDgoMQ2xvc2VQYWlyaW5nIiAKClBlZXJKb2luZWQSEgoKZGV2aWNlX2tleRgBIAEoDCIaCgpSZWxheUVycm9yEgwKBGNvZGUYASABKAlCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM", [file_seam_v1_envelope]);
 
 /**
  * @generated from message seam.v1.ClientFrame
@@ -63,6 +63,18 @@ export type ClientFrame = Message<"seam.v1.ClientFrame"> & {
      */
     value: OpenPairing;
     case: "openPairing";
+  } | {
+    /**
+     * @generated from field: seam.v1.RemoveMember remove_member = 7;
+     */
+    value: RemoveMember;
+    case: "removeMember";
+  } | {
+    /**
+     * @generated from field: seam.v1.ClosePairing close_pairing = 8;
+     */
+    value: ClosePairing;
+    case: "closePairing";
   } | { case: undefined; value?: undefined };
 };
 
@@ -176,6 +188,13 @@ export type Login = Message<"seam.v1.Login"> & {
    * @generated from field: bytes join_token = 4;
    */
   joinToken: Uint8Array;
+
+  /**
+   * set only by the first device; a plain login never creates a group
+   *
+   * @generated from field: bool create_group = 5;
+   */
+  createGroup: boolean;
 };
 
 /**
@@ -289,6 +308,7 @@ export const BundleResultSchema: GenMessage<BundleResult> = /*@__PURE__*/
 
 /**
  * Opens a 5-minute pairing slot: a device logging in with the matching token joins the group.
+ * Refused ("slot_open") while another member's slot is still open.
  *
  * @generated from message seam.v1.OpenPairing
  */
@@ -316,6 +336,40 @@ export const OpenPairingSchema: GenMessage<OpenPairing> = /*@__PURE__*/
   messageDesc(file_seam_v1_relay, 9);
 
 /**
+ * Unpairing: removes a member (or yourself) from the group, deleting its queue and bundles.
+ *
+ * @generated from message seam.v1.RemoveMember
+ */
+export type RemoveMember = Message<"seam.v1.RemoveMember"> & {
+  /**
+   * @generated from field: bytes device_key = 1;
+   */
+  deviceKey: Uint8Array;
+};
+
+/**
+ * Describes the message seam.v1.RemoveMember.
+ * Use `create(RemoveMemberSchema)` to create a new message.
+ */
+export const RemoveMemberSchema: GenMessage<RemoveMember> = /*@__PURE__*/
+  messageDesc(file_seam_v1_relay, 10);
+
+/**
+ * Closes the open pairing slot early (cancelled, or the QR expired).
+ *
+ * @generated from message seam.v1.ClosePairing
+ */
+export type ClosePairing = Message<"seam.v1.ClosePairing"> & {
+};
+
+/**
+ * Describes the message seam.v1.ClosePairing.
+ * Use `create(ClosePairingSchema)` to create a new message.
+ */
+export const ClosePairingSchema: GenMessage<ClosePairing> = /*@__PURE__*/
+  messageDesc(file_seam_v1_relay, 11);
+
+/**
  * Sent to existing members when a device joins through pairing.
  *
  * @generated from message seam.v1.PeerJoined
@@ -332,14 +386,14 @@ export type PeerJoined = Message<"seam.v1.PeerJoined"> & {
  * Use `create(PeerJoinedSchema)` to create a new message.
  */
 export const PeerJoinedSchema: GenMessage<PeerJoined> = /*@__PURE__*/
-  messageDesc(file_seam_v1_relay, 10);
+  messageDesc(file_seam_v1_relay, 12);
 
 /**
  * @generated from message seam.v1.RelayError
  */
 export type RelayError = Message<"seam.v1.RelayError"> & {
   /**
-   * "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large"
+   * "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage"
    *
    * @generated from field: string code = 1;
    */
@@ -351,5 +405,5 @@ export type RelayError = Message<"seam.v1.RelayError"> & {
  * Use `create(RelayErrorSchema)` to create a new message.
  */
 export const RelayErrorSchema: GenMessage<RelayError> = /*@__PURE__*/
-  messageDesc(file_seam_v1_relay, 11);
+  messageDesc(file_seam_v1_relay, 13);
 

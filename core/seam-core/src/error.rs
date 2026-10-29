@@ -29,6 +29,8 @@ pub enum Error {
     NotForMe,
     #[error("envelope doesn't match its encrypted contents")]
     EnvelopeMismatch,
+    #[error("peer isn't confirmed yet: only pairing messages allowed")]
+    NotConfirmed,
     #[error("already received")]
     Duplicate,
     #[error("pairing failed: {0}")]

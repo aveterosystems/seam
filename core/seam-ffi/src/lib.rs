@@ -18,6 +18,9 @@ pub enum SeamError {
     /// A key doesn't match the one from pairing: treat as an attack, don't retry.
     #[error("peer's identity doesn't match the paired one")]
     UntrustedIdentity,
+    /// The peer hasn't been confirmed yet, so only pairing messages are allowed.
+    #[error("peer isn't confirmed yet")]
+    NotConfirmed,
     /// Already received: ack it to the relay and ignore it.
     #[error("already received")]
     Duplicate,
@@ -39,6 +42,7 @@ impl From<seam_core::Error> for SeamError {
             E::NotPaired => Self::NotPaired,
             E::Signal(SignalProtocolError::UntrustedIdentity(_)) => Self::UntrustedIdentity,
             E::Duplicate => Self::Duplicate,
+            E::NotConfirmed => Self::NotConfirmed,
             E::BadPairing(reason) => Self::PairingFailed {
                 reason: reason.to_owned(),
             },
@@ -57,6 +61,8 @@ pub struct PeerInfo {
     pub id: String,
     pub name: String,
     pub relay_key: Vec<u8>,
+    /// False between a verified pairing request and confirmation; unconfirmed peers aren't saved.
+    pub confirmed: bool,
 }
 
 /// A message that passed every check. `payload` is a seam.v1.Payload.
@@ -161,6 +167,7 @@ impl SeamDevice {
                 id: id.clone(),
                 name: p.name.clone(),
                 relay_key: p.relay_key.to_vec(),
+                confirmed: p.confirmed,
             })
             .collect()
     }
@@ -173,7 +180,17 @@ impl SeamDevice {
         Ok(self.lock().safety_code(&peer_id)?)
     }
 
+    /// The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+    pub fn app_data(&self) -> Vec<u8> {
+        self.lock().app_data().to_vec()
+    }
+
+    pub fn set_app_data(&self, data: Vec<u8>) {
+        self.lock().set_app_data(&data);
+    }
+
     /// Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+    /// The ratchet has advanced: save `export_state` durably *before* sending the envelope.
     pub fn seal(&self, peer_id: String, payload: Vec<u8>, ttl_s: u32) -> Result<Vec<u8>> {
         Ok(self.lock().seal(&peer_id, &payload, ttl_s)?)
     }
@@ -223,6 +240,21 @@ impl SeamDevice {
         Ok(PairingStart { peer_id, envelope })
     }
 
+    /// Mac: the user confirmed the safety code. Then seal and send PairAccept.
+    pub fn confirm_pairing(&self, peer_id: String) -> Result<()> {
+        Ok(self.lock().confirm_pairing(&peer_id)?)
+    }
+
+    /// Mac: the codes didn't match, or the user cancelled. The phone is forgotten.
+    pub fn reject_pairing(&self, peer_id: String) {
+        self.lock().reject_pairing(&peer_id);
+    }
+
+    /// Mac: close the pairing slot early (window closed, QR expired).
+    pub fn cancel_pairing(&self) {
+        self.lock().cancel_pairing();
+    }
+
     /// Mac: check the phone's first envelope against the open pairing slot.
     pub fn accept_pairing(&self, envelope: Vec<u8>) -> Result<PairingRequest> {
         let r = self.lock().accept_pairing(&envelope)?;
@@ -235,59 +267,95 @@ impl SeamDevice {
     }
 }
 
-#[uniffi::export]
-pub fn new_file_key() -> Vec<u8> {
-    file::new_file_key().to_vec()
+/// Seals one file for sending. Makes its own key and id (put them in the FileOffer), and
+/// enforces chunk order and a single last chunk, so a nonce can never repeat.
+#[derive(uniffi::Object)]
+pub struct FileSealer {
+    inner: Mutex<file::FileSealer>,
 }
 
 #[uniffi::export]
-pub fn new_file_id() -> Vec<u8> {
-    file::new_file_id().to_vec()
-}
-
-#[uniffi::export]
-pub fn seal_chunk(
-    key: Vec<u8>,
-    file_id: Vec<u8>,
-    index: u32,
-    last: bool,
-    plain: Vec<u8>,
-) -> Result<Vec<u8>> {
-    let (key, id) = file_args(&key, &file_id)?;
-    if plain.len() > file::CHUNK_SIZE {
-        return Err(invalid("chunk larger than 1 MiB"));
+impl FileSealer {
+    #[uniffi::constructor]
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            inner: Mutex::new(file::FileSealer::new()),
+        })
     }
-    Ok(file::seal_chunk(&key, &id, index, last, &plain)?)
+
+    pub fn key(&self) -> Vec<u8> {
+        self.inner
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .key()
+            .to_vec()
+    }
+
+    pub fn file_id(&self) -> Vec<u8> {
+        self.inner
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .id()
+            .to_vec()
+    }
+
+    /// Every chunk but the last must be exactly `chunk_data_size()` bytes.
+    pub fn seal_next(&self, data: Vec<u8>, last: bool) -> Result<Vec<u8>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .seal_next(&data, last)?)
+    }
+}
+
+/// Opens one received file's chunks, in order, and checks it wasn't cut short.
+#[derive(uniffi::Object)]
+pub struct FileReceiver {
+    inner: Mutex<file::FileReceiver>,
 }
 
 #[uniffi::export]
-pub fn open_chunk(
-    key: Vec<u8>,
-    file_id: Vec<u8>,
-    index: u32,
-    last: bool,
-    sealed: Vec<u8>,
-) -> Result<Vec<u8>> {
-    let (key, id) = file_args(&key, &file_id)?;
-    Ok(file::open_chunk(&key, &id, index, last, &sealed)?)
+impl FileReceiver {
+    #[uniffi::constructor]
+    pub fn new(key: Vec<u8>, file_id: Vec<u8>) -> Result<Arc<Self>> {
+        let id = file_id
+            .as_slice()
+            .try_into()
+            .map_err(|_| invalid("file id must be 16 bytes"))?;
+        Ok(Arc::new(Self {
+            inner: Mutex::new(file::FileReceiver::new(key32(&key)?, id)),
+        }))
+    }
+
+    pub fn open_next(&self, sealed: Vec<u8>, last: bool) -> Result<Vec<u8>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .open_next(&sealed, last)?)
+    }
+
+    /// Fails unless the last chunk arrived.
+    pub fn finish(&self) -> Result<()> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .finish()?)
+    }
 }
 
+/// File bytes per chunk (everything but the last chunk must be exactly this size).
 #[uniffi::export]
-pub fn chunk_size() -> u32 {
-    file::CHUNK_SIZE as u32
+pub fn chunk_data_size() -> u32 {
+    file::CHUNK_DATA as u32
 }
 
 fn key32(bytes: &[u8]) -> Result<[u8; 32]> {
     bytes
         .try_into()
         .map_err(|_| invalid("key must be 32 bytes"))
-}
-
-fn file_args(key: &[u8], id: &[u8]) -> Result<(file::FileKey, file::FileId)> {
-    let id = id
-        .try_into()
-        .map_err(|_| invalid("file id must be 16 bytes"))?;
-    Ok((key32(key)?, id))
 }
 
 fn invalid(detail: &str) -> SeamError {
@@ -327,6 +395,11 @@ mod tests {
         let request = mac.accept_pairing(start.envelope).unwrap();
         assert_eq!(request.peer_id, phone.id());
         assert_eq!(request.safety_code, phone.safety_code(mac.id()).unwrap());
+        mac.confirm_pairing(request.peer_id.clone()).unwrap();
+        let accept = vec![0x0a, 0x02, 0x32, 0x00]; // Payload{control{pair_accept{}}}
+        phone
+            .open(mac.seal(request.peer_id, accept, 0).unwrap())
+            .unwrap();
 
         // Both restart from saved state
         let mac = SeamDevice::restore(mac.export_state(key.clone()).unwrap(), key.clone()).unwrap();
@@ -374,7 +447,7 @@ mod tests {
             Err(SeamError::Invalid { .. })
         ));
         assert!(matches!(
-            seal_chunk(vec![0; 31], vec![0; 16], 0, true, vec![]),
+            FileReceiver::new(vec![0; 31], vec![0; 16]),
             Err(SeamError::Invalid { .. })
         ));
     }

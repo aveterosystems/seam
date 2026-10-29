@@ -586,6 +586,320 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 /**
+ * Opens one received file's chunks, in order, and checks it wasn't cut short.
+ */
+public protocol FileReceiverProtocol: AnyObject, Sendable {
+    
+    /**
+     * Fails unless the last chunk arrived.
+     */
+    func finish() throws 
+    
+    func openNext(sealed: Data, last: Bool) throws  -> Data
+    
+}
+/**
+ * Opens one received file's chunks, in order, and checks it wasn't cut short.
+ */
+open class FileReceiver: FileReceiverProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_filereceiver(self.handle, $0) }
+    }
+public convenience init(key: Data, fileId: Data)throws  {
+    let handle =
+        try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_filereceiver_new(
+        FfiConverterData.lower(key),
+        FfiConverterData.lower(fileId),uniffiCallStatus
+    )
+}
+    self.init(unsafeFromHandle: handle)
+}
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_filereceiver(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Fails unless the last chunk arrived.
+     */
+open func finish()throws   {try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filereceiver_finish(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+open func openNext(sealed: Data, last: Bool)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filereceiver_open_next(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(sealed),
+        FfiConverterBool.lower(last),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFileReceiver: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = FileReceiver
+
+    public static func lift(_ handle: UInt64) throws -> FileReceiver {
+        return FileReceiver(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: FileReceiver) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FileReceiver {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: FileReceiver, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileReceiver_lift(_ handle: UInt64) throws -> FileReceiver {
+    return try FfiConverterTypeFileReceiver.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileReceiver_lower(_ value: FileReceiver) -> UInt64 {
+    return FfiConverterTypeFileReceiver.lower(value)
+}
+
+
+
+
+
+
+/**
+ * Seals one file for sending. Makes its own key and id (put them in the FileOffer), and
+ * enforces chunk order and a single last chunk, so a nonce can never repeat.
+ */
+public protocol FileSealerProtocol: AnyObject, Sendable {
+    
+    func fileId()  -> Data
+    
+    func key()  -> Data
+    
+    /**
+     * Every chunk but the last must be exactly `chunk_data_size()` bytes.
+     */
+    func sealNext(data: Data, last: Bool) throws  -> Data
+    
+}
+/**
+ * Seals one file for sending. Makes its own key and id (put them in the FileOffer), and
+ * enforces chunk order and a single last chunk, so a nonce can never repeat.
+ */
+open class FileSealer: FileSealerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_filesealer(self.handle, $0) }
+    }
+public convenience init() {
+    let handle =
+        try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_filesealer_new(uniffiCallStatus
+    )
+}
+    self.init(unsafeFromHandle: handle)
+}
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_filesealer(handle, $0) }
+    }
+
+    
+
+    
+open func fileId() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filesealer_file_id(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+open func key() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filesealer_key(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Every chunk but the last must be exactly `chunk_data_size()` bytes.
+     */
+open func sealNext(data: Data, last: Bool)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_filesealer_seal_next(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(data),
+        FfiConverterBool.lower(last),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFileSealer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = FileSealer
+
+    public static func lift(_ handle: UInt64) throws -> FileSealer {
+        return FileSealer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: FileSealer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FileSealer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: FileSealer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileSealer_lift(_ handle: UInt64) throws -> FileSealer {
+    return try FfiConverterTypeFileSealer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFileSealer_lower(_ value: FileSealer) -> UInt64 {
+    return FfiConverterTypeFileSealer.lower(value)
+}
+
+
+
+
+
+
+/**
  * This device: identity, peers and sessions. Safe to share across threads.
  */
 public protocol SeamDeviceProtocol: AnyObject, Sendable {
@@ -594,6 +908,21 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
      * Mac: check the phone's first envelope against the open pairing slot.
      */
     func acceptPairing(envelope: Data) throws  -> PairingRequest
+    
+    /**
+     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     */
+    func appData()  -> Data
+    
+    /**
+     * Mac: close the pairing slot early (window closed, QR expired).
+     */
+    func cancelPairing() 
+    
+    /**
+     * Mac: the user confirmed the safety code. Then seal and send PairAccept.
+     */
+    func confirmPairing(peerId: String) throws 
     
     /**
      * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
@@ -622,6 +951,11 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
      */
     func prekeyBundles(count: UInt32) throws  -> [Data]
     
+    /**
+     * Mac: the codes didn't match, or the user cancelled. The phone is forgotten.
+     */
+    func rejectPairing(peerId: String) 
+    
     func relayKey()  -> Data
     
     func removePeer(peerId: String) 
@@ -630,8 +964,11 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     
     /**
      * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+     * The ratchet has advanced: save `export_state` durably *before* sending the envelope.
      */
     func seal(peerId: String, payload: Data, ttlS: UInt32) throws  -> Data
+    
+    func setAppData(data: Data) 
     
     /**
      * The answer to the relay's login challenge.
@@ -738,6 +1075,41 @@ open func acceptPairing(envelope: Data)throws  -> PairingRequest  {
 }
     
     /**
+     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     */
+open func appData() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_app_data(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Mac: close the pairing slot early (window closed, QR expired).
+     */
+open func cancelPairing()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Mac: the user confirmed the safety code. Then seal and send PairAccept.
+     */
+open func confirmPairing(peerId: String)throws   {try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),uniffiCallStatus
+    )
+}
+}
+    
+    /**
      * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
      * after anything that changes state: a seal, an open, pairing, new bundles.
      */
@@ -823,6 +1195,18 @@ open func prekeyBundles(count: UInt32)throws  -> [Data]  {
 })
 }
     
+    /**
+     * Mac: the codes didn't match, or the user cancelled. The phone is forgotten.
+     */
+open func rejectPairing(peerId: String)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_reject_pairing(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),uniffiCallStatus
+    )
+}
+}
+    
 open func relayKey() -> Data  {
     return try!  FfiConverterData.lift(try! rustCall() {
         uniffiCallStatus in
@@ -853,6 +1237,7 @@ open func safetyCode(peerId: String)throws  -> String  {
     
     /**
      * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+     * The ratchet has advanced: save `export_state` durably *before* sending the envelope.
      */
 open func seal(peerId: String, payload: Data, ttlS: UInt32)throws  -> Data  {
     return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
@@ -864,6 +1249,15 @@ open func seal(peerId: String, payload: Data, ttlS: UInt32)throws  -> Data  {
         FfiConverterUInt32.lower(ttlS),uniffiCallStatus
     )
 })
+}
+    
+open func setAppData(data: Data)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_set_app_data(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(data),uniffiCallStatus
+    )
+}
 }
     
     /**
@@ -1188,13 +1582,21 @@ public struct PeerInfo: Equatable, Hashable {
     public var id: String
     public var name: String
     public var relayKey: Data
+    /**
+     * False between a verified pairing request and confirmation; unconfirmed peers aren't saved.
+     */
+    public var confirmed: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(id: String, name: String, relayKey: Data) {
+    public init(id: String, name: String, relayKey: Data, 
+        /**
+         * False between a verified pairing request and confirmation; unconfirmed peers aren't saved.
+         */confirmed: Bool) {
         self.id = id
         self.name = name
         self.relayKey = relayKey
+        self.confirmed = confirmed
     }
 
     
@@ -1215,7 +1617,8 @@ public struct FfiConverterTypePeerInfo: FfiConverterRustBuffer {
             try PeerInfo(
                 id: FfiConverterString.read(from: &buf), 
                 name: FfiConverterString.read(from: &buf), 
-                relayKey: FfiConverterData.read(from: &buf)
+                relayKey: FfiConverterData.read(from: &buf), 
+                confirmed: FfiConverterBool.read(from: &buf)
         )
     }
 
@@ -1223,6 +1626,7 @@ public struct FfiConverterTypePeerInfo: FfiConverterRustBuffer {
         FfiConverterString.write(value.id, into: &buf)
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterData.write(value.relayKey, into: &buf)
+        FfiConverterBool.write(value.confirmed, into: &buf)
     }
 }
 
@@ -1255,6 +1659,10 @@ enum SeamError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
      * A key doesn't match the one from pairing: treat as an attack, don't retry.
      */
     case UntrustedIdentity
+    /**
+     * The peer hasn't been confirmed yet, so only pairing messages are allowed.
+     */
+    case NotConfirmed
     /**
      * Already received: ack it to the relay and ignore it.
      */
@@ -1304,12 +1712,13 @@ public struct FfiConverterTypeSeamError: FfiConverterRustBuffer {
         
         case 1: return .NotPaired
         case 2: return .UntrustedIdentity
-        case 3: return .Duplicate
-        case 4: return .PairingFailed(
+        case 3: return .NotConfirmed
+        case 4: return .Duplicate
+        case 5: return .PairingFailed(
             reason: try FfiConverterString.read(from: &buf)
             )
-        case 5: return .BadState
-        case 6: return .Invalid(
+        case 6: return .BadState
+        case 7: return .Invalid(
             detail: try FfiConverterString.read(from: &buf)
             )
 
@@ -1332,21 +1741,25 @@ public struct FfiConverterTypeSeamError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         
         
-        case .Duplicate:
+        case .NotConfirmed:
             writeInt(&buf, Int32(3))
         
         
-        case let .PairingFailed(reason):
+        case .Duplicate:
             writeInt(&buf, Int32(4))
+        
+        
+        case let .PairingFailed(reason):
+            writeInt(&buf, Int32(5))
             FfiConverterString.write(reason, into: &buf)
             
         
         case .BadState:
-            writeInt(&buf, Int32(5))
+            writeInt(&buf, Int32(6))
         
         
         case let .Invalid(detail):
-            writeInt(&buf, Int32(6))
+            writeInt(&buf, Int32(7))
             FfiConverterString.write(detail, into: &buf)
             
         }
@@ -1417,48 +1830,13 @@ fileprivate struct FfiConverterSequenceTypePeerInfo: FfiConverterRustBuffer {
         return seq
     }
 }
-public func chunkSize() -> UInt32  {
+/**
+ * File bytes per chunk (everything but the last chunk must be exactly this size).
+ */
+public func chunkDataSize() -> UInt32  {
     return try!  FfiConverterUInt32.lift(try! rustCall() {
         uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_chunk_size(uniffiCallStatus
-    )
-})
-}
-public func newFileId() -> Data  {
-    return try!  FfiConverterData.lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_new_file_id(uniffiCallStatus
-    )
-})
-}
-public func newFileKey() -> Data  {
-    return try!  FfiConverterData.lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_new_file_key(uniffiCallStatus
-    )
-})
-}
-public func openChunk(key: Data, fileId: Data, index: UInt32, last: Bool, sealed: Data)throws  -> Data  {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_open_chunk(
-        FfiConverterData.lower(key),
-        FfiConverterData.lower(fileId),
-        FfiConverterUInt32.lower(index),
-        FfiConverterBool.lower(last),
-        FfiConverterData.lower(sealed),uniffiCallStatus
-    )
-})
-}
-public func sealChunk(key: Data, fileId: Data, index: UInt32, last: Bool, plain: Data)throws  -> Data  {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_func_seal_chunk(
-        FfiConverterData.lower(key),
-        FfiConverterData.lower(fileId),
-        FfiConverterUInt32.lower(index),
-        FfiConverterBool.lower(last),
-        FfiConverterData.lower(plain),uniffiCallStatus
+    uniffi_seam_ffi_fn_func_chunk_data_size(uniffiCallStatus
     )
 })
 }
@@ -1478,22 +1856,34 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_chunk_size() != 55450) {
+    if (uniffi_seam_ffi_checksum_func_chunk_data_size() != 5213) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_new_file_id() != 50796) {
+    if (uniffi_seam_ffi_checksum_method_filereceiver_finish() != 55133) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_new_file_key() != 16379) {
+    if (uniffi_seam_ffi_checksum_method_filereceiver_open_next() != 22677) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_open_chunk() != 22119) {
+    if (uniffi_seam_ffi_checksum_method_filesealer_file_id() != 44702) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_func_seal_chunk() != 39026) {
+    if (uniffi_seam_ffi_checksum_method_filesealer_key() != 2065) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_filesealer_seal_next() != 34290) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() != 62568) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 51916) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() != 4348) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_confirm_pairing() != 49616) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_export_state() != 4850) {
@@ -1517,6 +1907,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundles() != 52402) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_reject_pairing() != 50480) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_method_seamdevice_relay_key() != 25316) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1526,13 +1919,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_safety_code() != 38571) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_seal() != 59125) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_seal() != 4361) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() != 38592) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() != 30714) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_start_pairing() != 54107) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_filereceiver_new() != 31203) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_filesealer_new() != 36088) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_constructor_seamdevice_generate() != 39377) {

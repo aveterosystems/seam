@@ -116,3 +116,11 @@ fn two_exports_never_reuse_a_nonce() {
     );
     assert_ne!(a[1..13], b[1..13]);
 }
+
+#[test]
+fn app_data_is_sealed_with_the_keys() {
+    let (mut mac, ..) = linked();
+    mac.set_app_data(b"group-id+relay-url");
+    let back = Device::restore(&mac.export_state(&KEY).unwrap(), &KEY).unwrap();
+    assert_eq!(back.app_data(), b"group-id+relay-url");
+}

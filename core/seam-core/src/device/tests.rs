@@ -6,9 +6,9 @@ fn paired() -> (Device, Device) {
     let mut mac = Device::generate().unwrap();
     let mut phone = Device::generate().unwrap();
     let (mac_key, phone_key) = (mac.identity_key(), phone.identity_key());
-    let (mac_addr, phone_addr) = (mac.address().clone(), phone.address().clone());
-    mac.pin_peer(&phone_addr, &phone_key).unwrap();
-    phone.pin_peer(&mac_addr, &mac_key).unwrap();
+    mac.add_peer(&phone_key, phone.relay_key(), "phone")
+        .unwrap();
+    phone.add_peer(&mac_key, mac.relay_key(), "mac").unwrap();
     (mac, phone)
 }
 
@@ -129,8 +129,11 @@ fn one_time_prekey_is_used_up() {
     let mut mac2 = Device::generate().unwrap();
     // A second device replays the old bundle (as if it were copied off the relay)
     let m2 = mac2.address().clone();
-    phone.pin_peer(&m2, &mac2.identity_key()).unwrap();
-    mac2.pin_peer(&p, &phone.identity_key()).unwrap();
+    phone
+        .add_peer(&mac2.identity_key(), mac2.relay_key(), "mac2")
+        .unwrap();
+    mac2.add_peer(&phone.identity_key(), phone.relay_key(), "phone")
+        .unwrap();
     mac2.start_session(&p, &bundle).unwrap();
     let replayed_setup = mac2.encrypt(&p, b"second").unwrap();
     let err = phone.decrypt(&m2, &replayed_setup).unwrap_err();

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/control.proto.
  */
 export const file_seam_v1_control: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5InQKBUhlbGxvEhMKC2FwcF92ZXJzaW9uGAEgASgJEhAKCHBsYXRmb3JtGAIgASgJEhQKDGNhcGFiaWxpdGllcxgDIAMoCRIuChJhbGxvd2VkX3RyYW5zcG9ydHMYBCADKA4yEi5zZWFtLnYxLlRyYW5zcG9ydCIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiSAoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCSIMCgpQYWlyQWNjZXB0Kk4KCVRyYW5zcG9ydBIZChVUUkFOU1BPUlRfVU5TUEVDSUZJRUQQABIRCg1UUkFOU1BPUlRfTEFOEAESEwoPVFJBTlNQT1JUX1JFTEFZEAJCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM");
+  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5InQKBUhlbGxvEhMKC2FwcF92ZXJzaW9uGAEgASgJEhAKCHBsYXRmb3JtGAIgASgJEhQKDGNhcGFiaWxpdGllcxgDIAMoCRIuChJhbGxvd2VkX3RyYW5zcG9ydHMYBCADKA4yEi5zZWFtLnYxLlRyYW5zcG9ydCIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiWwoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCRIRCglyZWxheV9rZXkYBCABKAwiDAoKUGFpckFjY2VwdCpOCglUcmFuc3BvcnQSGQoVVFJBTlNQT1JUX1VOU1BFQ0lGSUVEEAASEQoNVFJBTlNQT1JUX0xBThABEhMKD1RSQU5TUE9SVF9SRUxBWRACQiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z");
 
 /**
  * @generated from message seam.v1.Control
@@ -174,7 +174,7 @@ export type PairRequest = Message<"seam.v1.PairRequest"> & {
   pairingToken: Uint8Array;
 
   /**
-   * "Pixel 9"
+   * "Pixel 9", at most 64 characters, no control characters
    *
    * @generated from field: string device_name = 2;
    */
@@ -184,6 +184,13 @@ export type PairRequest = Message<"seam.v1.PairRequest"> & {
    * @generated from field: string model = 3;
    */
   model: string;
+
+  /**
+   * the phone's relay key, inside the encryption: must equal Envelope.from
+   *
+   * @generated from field: bytes relay_key = 4;
+   */
+  relayKey: Uint8Array;
 };
 
 /**

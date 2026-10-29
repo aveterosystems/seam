@@ -59,6 +59,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         device_key: device.relay_key().to_vec(),
         signature,
         join_token: vec![],
+        // The Mac creates its group on first login; the relay never creates one by accident
+        create_group: true,
     };
     send(&mut ws, client_frame::Frame::Login(login))?;
     match recv(&mut ws)? {
@@ -176,10 +178,11 @@ fn pair(
     let mut answer = String::new();
     std::io::stdin().lock().read_line(&mut answer)?;
     if !answer.trim().eq_ignore_ascii_case("y") {
-        device.remove_peer(&request.peer_id);
+        device.reject_pairing(&request.peer_id);
         println!("Cancelled.");
         return Ok(());
     }
+    device.confirm_pairing(&request.peer_id)?;
     let accept = Payload {
         body: Some(payload::Body::Control(Control {
             body: Some(control::Body::PairAccept(PairAccept {})),

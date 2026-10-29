@@ -148,3 +148,38 @@ fn ttl_is_capped_at_a_day() {
         DEFAULT_TTL_S
     );
 }
+
+#[test]
+fn sr_2_10_every_routing_field_is_bound_inside_the_encryption() {
+    let (mut mac, mut phone, _, p) = linked();
+    let retimed = tamper(&mac.seal(&p, &status(1), 0).unwrap(), |e| e.ttl_s = 60);
+    assert!(matches!(phone.open(&retimed), Err(Error::EnvelopeMismatch)));
+    let rerouted = tamper(&mac.seal(&p, &status(2), 0).unwrap(), |e| {
+        e.from = phone.relay_key().to_vec()
+    });
+    assert!(phone.open(&rerouted).is_err());
+}
+
+#[test]
+fn sr_2_09_a_removed_peer_is_refused_on_every_path_and_its_session_is_gone() {
+    let (mut mac, mut phone, m, p) = linked();
+    phone.open(&mac.seal(&p, &status(1), 0).unwrap()).unwrap(); // the phone now has a session too
+    mac.remove_peer(&p);
+    let addr = crate::peer_address(&p);
+    assert!(matches!(mac.encrypt(&addr, b"x"), Err(Error::NotPaired)));
+    assert!(matches!(
+        mac.start_session(&addr, &phone.prekey_bundle().unwrap()),
+        Err(Error::NotPaired)
+    ));
+    let from_phone = phone.seal(&m, &status(2), 0).unwrap();
+    assert!(matches!(mac.open(&from_phone), Err(Error::NotPaired)));
+
+    // Re-adding the same phone doesn't revive the old session
+    mac.add_peer(&phone.identity_key(), phone.relay_key(), "Phone")
+        .unwrap();
+    assert!(
+        mac.seal(&p, &status(3), 0).is_err(),
+        "no session until a fresh one is set up"
+    );
+    assert!(mac.open(&from_phone).is_err(), "old session state is gone");
+}
