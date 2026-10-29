@@ -250,6 +250,14 @@ class Session(
         _state.value = if (runCatching { persist() }.isSuccess) SessionState.Unpaired else SessionState.Failed(FORGET_FAILED)
     }
 
+    /**
+     * "Codes don't match": stop pairing from the phone. Nothing new is trusted (the Mac stays
+     * unconfirmed here until its PairAccept), and an existing Mac stays paired.
+     */
+    fun abortPairing() = scope.launch {
+        if (pairing != null) fail(CODES_DONT_MATCH)
+    }
+
     /** Something escaped a handler: show it instead of crashing (wired to the scope's exception handler). */
     fun internalError() {
         scope.launch { fail("Something went wrong. Reopen Seam to reconnect.") }
@@ -497,6 +505,7 @@ class Session(
         const val MAX_OUTBOX = 100
         const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
         const val RESET = "Seam's secure storage on this phone was reset. Pair again."
+        const val CODES_DONT_MATCH = "Nothing was paired, because the codes didn't match. If you're sure it's your Mac, show a new code on it and scan again."
         const val FORGET_FAILED = "Couldn't finish forgetting your Mac: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
         // After login these mean the socket is unusable; others (queue_full, too_large…) are per-message

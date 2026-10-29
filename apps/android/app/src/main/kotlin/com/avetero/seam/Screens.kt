@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -30,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -59,8 +61,11 @@ fun SeamScreen(
     now: Long = System.currentTimeMillis(),
     onPasteFromMac: (String) -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onCodesDontMatch: () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        if (toConfirm != null) return@Surface Confirm(toConfirm, onConfirm, onCancelConfirm)
+        if (state is SessionState.Pairing) return@Surface Pairing(state, onCodesDontMatch)
         val home = when (state) {
             is SessionState.Connected -> Link.Connected
             is SessionState.Idle -> Link.Idle
@@ -77,9 +82,7 @@ fun SeamScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         ) {
-            if (toConfirm != null) return@Column Confirm(toConfirm, onConfirm, onCancelConfirm)
             when (state) {
-                is SessionState.Pairing -> Pairing(state)
                 is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
                 else -> Intro(
                     title = "Pair with your Mac",
@@ -195,7 +198,7 @@ internal fun ago(ms: Long): String = when {
 }
 
 /** The status dot's colour: the design's `ok` green, not a theme role. */
-private val OK = androidx.compose.ui.graphics.Color(0xFF1C7C3A)
+private val OK = Color(0xFF1C7C3A)
 
 @Composable
 private fun Intro(title: String, body: String, action: String, error: String?, onAction: () -> Unit) {
@@ -209,25 +212,81 @@ private fun Intro(title: String, body: String, action: String, error: String?, o
 
 @Composable
 private fun Confirm(qr: PairingQr, onConfirm: (PairingQr) -> Unit, onCancel: () -> Unit) {
-    Hero("your Mac", linked = false, size = 220.dp)
-    Text("Pair with ${qr.macName}?", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-    Text("Through ${qr.relayHost}", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-    Spacer(Modifier.height(8.dp))
-    Button(onClick = { onConfirm(qr) }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }
-    TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
-}
-
-@Composable
-private fun Pairing(state: SessionState.Pairing) {
-    Hero("your Mac", linked = false, size = 220.dp)
-    Text("Pairing with ${state.macName}", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-    val code = state.safetyCode
-    if (code == null) {
-        CircularProgressIndicator()
-    } else {
-        Text("Check your Mac shows the same code", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(code, fontFamily = FontFamily.Monospace, fontSize = 40.sp, letterSpacing = 4.sp, fontWeight = FontWeight.Medium)
-        Text("Then confirm on your Mac.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    PairSheet(onBack = onCancel) {
+        SheetHead("Pair with ${qr.macName}?", "Through ${qr.relayHost}")
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onConfirm(qr) }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }
+            TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Cancel", fontSize = 16.sp) }
+        }
     }
 }
 
+/** After the request is sent: the code to compare. Pairing finishes when the Mac confirms. */
+@Composable
+private fun Pairing(state: SessionState.Pairing, onCodesDontMatch: () -> Unit) {
+    PairSheet(onBack = onCodesDontMatch) {
+        val code = state.safetyCode
+        if (code == null) {
+            SheetHead("Pairing with ${state.macName}…", "Sending this phone's keys to your Mac")
+            CircularProgressIndicator(Modifier.padding(16.dp))
+        } else {
+            SheetHead("Pair with ${state.macName}?", "Check your Mac shows the same code")
+            Text(
+                code.chunked(3).joinToString(" ").replace("  ", " "),
+                fontFamily = FontFamily.Monospace, fontSize = 34.sp, letterSpacing = 4.sp, fontWeight = FontWeight.Medium,
+                modifier = Modifier.semantics { contentDescription = "Code $code" },
+            )
+            Text("Then confirm on your Mac to finish", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            TextButton(onClick = onCodesDontMatch, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Codes don't match", fontSize = 16.sp) }
+        }
+    }
+}
+
+/**
+ * Board A02: a dark screen with the sheet rising from the bottom. (The scan itself is Google's code
+ * scanner, a system screen, so Seam never needs the camera permission.)
+ */
+@Composable
+private fun PairSheet(onBack: () -> Unit, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxSize().background(Color(0xFF0B0F0E))) {
+        Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+            Text("Pair with a Mac", color = Color.White, fontSize = 22.sp)
+        }
+        Spacer(Modifier.weight(1f))
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Box(Modifier.padding(top = 22.dp).size(width = 32.dp, height = 4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
+                Box(
+                    Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(22.dp)),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(painterResource(R.drawable.ic_laptop), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                content()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Keys stay on this phone, sealed by its security chip", fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetHead(title: String, subtitle: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, fontSize = 24.sp, lineHeight = 32.sp, textAlign = TextAlign.Center)
+        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    }
+}

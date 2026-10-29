@@ -152,7 +152,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun Section(title: String, items: @Composable () -> Unit) {
+internal fun Section(title: String, items: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.clip24()) { items() }
@@ -164,7 +164,7 @@ private fun Section(title: String, items: @Composable () -> Unit) {
  * the group; the group clips its outer corners to 24 dp.
  */
 @Composable
-private fun Item(
+internal fun Item(
     title: String,
     subtitle: String? = null,
     mono: String? = null,

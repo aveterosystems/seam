@@ -536,6 +536,18 @@ class SessionTest {
         assertEquals(logins, relay.logins.size)
     }
 
+    @Test fun codesDontMatchStopsPairingAndTrustsNothing() = runTest {
+        relay.withholdAccept = true // the Mac shows its code and waits for the user
+        val s = session()
+        s.pair(qr)
+        advanceUntilIdle()
+        assertTrue((s.state.value as SessionState.Pairing).safetyCode != null)
+        s.abortPairing()
+        advanceUntilIdle()
+        assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Nothing was paired"))
+        assertTrue("no Mac saved", store.blob == null || SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
+    }
+
     @Test fun sr_2_11_nothingIsSentIfSavingFails() = runTest {
         val s = paired()
         store.failSaves = true
