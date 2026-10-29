@@ -16,7 +16,9 @@ Seam is licensed under [AGPL-3.0-only](LICENSE) and builds on the open-source wo
 | [SwiftProtobuf](https://github.com/apple/swift-protobuf) | Message encoding on the Mac | Apache-2.0 |
 | [Protocol Buffers for Kotlin/Java (lite)](https://github.com/protocolbuffers/protobuf) | Message encoding on Android | BSD-3-Clause |
 | [JNA](https://github.com/java-native-access/jna) | Calls the Rust core from Kotlin | Apache-2.0 OR LGPL-2.1 |
-| [AndroidX and Jetpack Compose](https://developer.android.com/jetpack/androidx), including CameraX | Android UI and the pairing camera view | Apache-2.0 |
+| [AndroidX](https://developer.android.com/jetpack/androidx): Compose, Lifecycle, CameraX | Android UI, lifecycle and the pairing camera view | Apache-2.0 |
+| [Kotlin standard library](https://github.com/JetBrains/kotlin) | The Kotlin runtime | Apache-2.0 |
+| [Okio](https://github.com/square/okio) | Used by OkHttp | Apache-2.0 |
 | [ZXing core](https://github.com/zxing/zxing) | Reads the pairing QR code on the phone | Apache-2.0 |
 | [OkHttp](https://github.com/square/okhttp) | The phone's WebSocket to the relay | Apache-2.0 |
 | [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | The phone's session and timers | Apache-2.0 |

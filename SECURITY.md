@@ -43,6 +43,6 @@ Each release is built by `.github/workflows/release.yml` from a tag on `main`, s
 - End-to-end encryption with the Signal Protocol, through Signal's own libsignal (pinned release): PQXDH post-quantum session setup and the triple ratchet
 - One shared Rust core for both apps: no crypto is implemented twice, and none is home-made
 - Peer keys pinned at pairing by QR code: never trusted on first use
-- Fixed-size padding, envelopes bound to their ciphertext, a relay that logs no IPs or contents (pushes, when added, carry nothing)
-- Every security property has a test in `core/seam-core` and the Swift and Kotlin bindings
+- Fixed-size padding, envelopes bound to their ciphertext, a relay that logs no IPs or contents (its host, Cloudflare, still sees IPs at its edge; pushes, when added, carry nothing)
+- Security properties are tested in `core/seam-core`, the Swift and Kotlin bindings and the apps; the threat model lists what isn't covered yet
 - An independent audit is planned before 1.0

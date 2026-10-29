@@ -63,10 +63,10 @@ Debug builds default to `ws://localhost:8787` and are the only ones allowed plai
 | What | Where |
 |---|---|
 | Identity, peers, Signal sessions, prekeys | `~/Library/Application Support/Seam/state.bin`, sealed with AES-256-GCM by the Rust core, file mode 0600 |
-| The key that seals it | The login Keychain, service `com.avetero.seam` (this device only) |
+| The key that seals it | The login Keychain, service `com.avetero.seam` (local to this Mac) |
 | Group id, relay URL | Inside `state.bin` (the core's sealed app data), so they can't drift from the identity they belong to. Older installs move them out of `defaults` once |
 
-Seam never overwrites saved data it can't open. If `state.bin` is damaged or its Keychain key is gone, the menu offers **Reset Seam…**, which moves the old files aside (`state.bin.unreadable-<time>`) and starts over with new keys and a new group. To start over by hand: quit Seam, delete `state.bin`, and remove the `com.avetero.seam` item in Keychain Access. Unsigned dev builds may ask for Keychain access after each rebuild, because the code signature changes. Releases are signed with Seam's own certificate, so a new release keeps access without asking.
+Seam never overwrites saved data it can't open. If `state.bin` is damaged or its Keychain key is gone, the menu offers **Reset Seam…**, which moves the old files aside (`state.bin.unreadable-<time>`) and starts over with new keys and a new group. To start over by hand: quit Seam, delete `state.bin`, and remove the `com.avetero.seam` item in Keychain Access. Unsigned dev builds may ask for Keychain access after each rebuild, because the code signature changes. Releases are signed with Seam's own certificate, so a new release should keep access without asking (to be confirmed across two real releases).
 
 ## Testing
 

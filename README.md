@@ -76,9 +76,9 @@ flowchart LR
 - **Keys never leave your devices.** They're created on-device and stored encrypted: on Android under a key in the hardware keystore, on the Mac under a key in your login keychain (moving to the Secure Enclave is planned).
 - **Pinned at pairing.** Each device trusts exactly one key, the one it learned from the QR code. A server can't slip itself in between.
 - **Every message gets its own key**, and old keys are deleted. A leaked key opens one message, not your history.
-- **Fixed-size padding** and **a relay that logs no IP addresses or contents** keep metadata to a minimum. Push notifications, when they arrive, will be empty: no content, no sender.
+- **Fixed-size padding** and **a relay that logs no IP addresses or contents** keep metadata to a minimum (Cloudflare, which hosts the relay, still sees IP addresses at its network edge). Push notifications, when they arrive, will be empty: no content, no sender.
 - **Signed releases you can check.** Each release is built by GitHub Actions from a tag on `main`, signed with Seam's own pinned keys, and carries build attestations.
-- **Every security claim is tested**, from Rust, Swift and Kotlin. An independent audit is planned before 1.0.
+- **Security properties are tested** from Rust, Swift and Kotlin, and the threat model lists what isn't covered yet. An independent audit is planned before 1.0.
 
 Found a vulnerability? Please see [SECURITY.md](SECURITY.md).
 
