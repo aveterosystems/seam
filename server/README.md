@@ -2,9 +2,9 @@
 
 The internet path between your devices: a Cloudflare Worker that routes sealed envelopes, queues them while a device sleeps, and wakes it with an empty push. It's a **blind postman**. It can't read anything it carries, and it's built so that it never needs to.
 
-> **Status:** M0 skeleton. A health check, the generated message types and tests. The relay itself arrives in M1.
+> **Status:** M1. Login, groups, pairing, the offline queue and prekey bundles work and are tested. Push notifications and R2 file storage arrive with the features that need them.
 
-## What it will do
+## What it does
 
 ```mermaid
 flowchart LR
@@ -16,11 +16,13 @@ flowchart LR
 
 | Job | Detail |
 |---|---|
-| **Log in** | The device signs a random challenge with its identity key. No passwords or tokens. |
-| **Route** | Sealed envelopes go between a pairing's rotating mailbox ids, never device ids |
-| **Queue** | Up to 1,000 envelopes or 10 MB per device, for at most 24 hours; deleted on ack |
-| **Prekeys** | Stores public prekey bundles so a device can start a session while the other is offline |
-| **Wake** | Sends an FCM or APNs push that says only "check in" |
+| **Log in** | The relay sends a fresh 32-byte challenge; the device signs `"seam-relay-login-v1" ‖ challenge ‖ group id` with its Ed25519 relay key. No passwords or tokens. |
+| **Groups** | The first device to log in to a group id creates it (the Mac, at setup). Others join only with the one-time token from the pairing QR code; members are told with `PeerJoined`. |
+| **Pair** | A member opens a single-use slot holding only the token's SHA-256, valid for at most 5 minutes |
+| **Route** | Sealed envelopes go between members' relay keys. The sender must be the logged-in key and the recipient another member. Rotating mailbox ids come later. |
+| **Queue** | Every envelope is queued until the recipient sends `Delivered` (at least once). Up to 1,000 envelopes or 10 MB per device, 1.1 MB each, for at most 24 hours; delivered oldest first on login |
+| **Prekeys** | Stores each device's opaque prekey bundles and hands out one per request, keeping the last as a last resort |
+| **Wake** (later) | Will send an FCM or APNs push that says only "check in" |
 
 ### What it must never do
 
@@ -28,6 +30,14 @@ flowchart LR
 - Log IP addresses, envelope contents or who sent what to whom
 - Keep messages after they're acked or expired
 - Depend on Cloudflare-only features the protocol can't live without. The relay has to stay **self-hostable**, for people who run their own.
+
+## Layout
+
+| File | What |
+|---|---|
+| `src/index.ts` | Worker entry: `/health`, and `/v1/connect?group=<base64url>` → the group's Durable Object |
+| `src/pair-group.ts` | The `PairGroup` Durable Object: hibernating WebSockets and storage, adapted onto `group.ts` |
+| `src/group.ts` | All the protocol logic, free of Cloudflare APIs so it's tested in plain Node |
 
 ## Running locally
 
@@ -45,10 +55,10 @@ npm test             # vitest
 npm run typecheck    # Worker code and tests, separately
 ```
 
-| Test | What it proves |
+| Suite | What it proves |
 |---|---|
-| Golden vector | The relay decodes the shared vector exactly as the Mac and Android apps do |
-| Health check | Answers `/health` and 404s everything else |
+| `relay.test.ts` | Login (fresh challenge per connection, bad signature, wrong group, replayed challenge, strangers), pairing (valid, wrong, expired, reused and over-long slots), relaying (online, queued then delivered in order, ack deletes, redelivery, spoofed sender, non-members, size, count and byte limits, expiry), prekey bundles, routes |
+| `protocol.test.ts` | The relay decodes the shared golden vector exactly as the Mac and Android apps do |
 
 ## Generated code
 

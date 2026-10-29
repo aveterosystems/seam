@@ -11,6 +11,13 @@ rust-version.workspace = true
 # Pinned to a release tag; bump deliberately and re-run the test vectors
 libsignal-protocol = { git = "https://github.com/signalapp/libsignal", tag = "v0.106.1" }
 aes-gcm = "0.10"
+ed25519-dalek = "3"
 futures = "0.3"
+prost = "0.14"
 rand = "0.9.4"
+sha2 = "0.11"
+subtle = "2.6"
 thiserror = "2"
+
+[build-dependencies]
+prost-build = "0.14"

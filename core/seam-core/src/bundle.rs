@@ -110,8 +110,8 @@ mod tests {
 
     #[test]
     fn a_session_starts_from_a_decoded_bundle() {
-        let mut mac = Device::new("mac").unwrap();
-        let mut phone = Device::new("phone").unwrap();
+        let mut mac = Device::generate().unwrap();
+        let mut phone = Device::generate().unwrap();
         let (m, p) = (mac.address().clone(), phone.address().clone());
         mac.pin_peer(&p, &phone.identity_key()).unwrap();
         phone.pin_peer(&m, &mac.identity_key()).unwrap();
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn rejects_truncated_extended_and_wrong_version_bundles() {
-        let mut phone = Device::new("phone").unwrap();
+        let mut phone = Device::generate().unwrap();
         let bytes = super::encode(&phone.prekey_bundle().unwrap()).unwrap();
         assert!(super::decode(&bytes[..bytes.len() - 1]).is_err());
         let mut longer = bytes.clone();
@@ -138,8 +138,8 @@ mod tests {
 
     #[test]
     fn tampered_signature_fails_when_the_session_starts() {
-        let mut mac = Device::new("mac").unwrap();
-        let mut phone = Device::new("phone").unwrap();
+        let mut mac = Device::generate().unwrap();
+        let mut phone = Device::generate().unwrap();
         let p = phone.address().clone();
         mac.pin_peer(&p, &phone.identity_key()).unwrap();
         let mut bytes = super::encode(&phone.prekey_bundle().unwrap()).unwrap();

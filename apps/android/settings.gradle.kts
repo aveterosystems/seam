@@ -14,3 +14,6 @@ rootProject.name = "seam"
 include(":app")
 include(":core:protocol")
 include(":core:crypto")
+include(":core:session")
+include(":feature:pairing")
+include(":feature:status")

@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+syntax = "proto3";
+
+package seam.v1;
+
+import "seam/v1/envelope.proto";
+
+option java_multiple_files = true;
+option java_package = "com.avetero.seam.protocol.v1";
+
+// Frames on the device ↔ relay WebSocket (wss://<relay>/v1/connect), one binary protobuf per
+// WebSocket message. The relay only ever sees these and sealed Envelopes; it holds no private keys.
+//
+// Login: the relay sends Challenge, the device answers Login signed with its relay key (Ed25519).
+// A login to an unknown group creates it with that device as its first member (the Mac, at
+// setup). Anyone else joins by presenting the one-time token from the pairing QR code.
+
+message ClientFrame {
+  oneof frame {
+    Login login = 1;
+    Envelope send = 2; // to: recipient's relay key; from must be the logged-in key
+    Delivered delivered = 3; // the relay may now delete that queued envelope
+    PutBundles put_bundles = 4;
+    GetBundle get_bundle = 5;
+    OpenPairing open_pairing = 6;
+  }
+}
+
+message ServerFrame {
+  oneof frame {
+    Challenge challenge = 1;
+    LoginResult login_result = 2;
+    Envelope deliver = 3;
+    BundleResult bundle = 4;
+    RelayError error = 5;
+    PeerJoined peer_joined = 6;
+  }
+}
+
+message Challenge {
+  bytes nonce = 1; // 32 random bytes, fresh per connection
+}
+
+message Login {
+  bytes group_id = 1; // 16 random bytes, chosen by the first device
+  bytes device_key = 2; // the device's Ed25519 relay-login public key (32 bytes)
+  bytes signature = 3; // Ed25519 over "seam-relay-login-v1" || nonce || group_id
+  bytes join_token = 4; // only when joining through pairing: the QR's one-time token
+}
+
+message LoginResult {
+  bool ok = 1;
+  repeated bytes members = 2; // relay keys of every device in the group, including this one
+}
+
+message Delivered {
+  bytes msg_id = 1;
+}
+
+// Opaque prekey bundles (seam-core's bundle format). GetBundle hands out one per request and
+// deletes it, except the last one, which is kept as a last resort.
+message PutBundles {
+  repeated bytes bundles = 1;
+}
+
+message GetBundle {
+  bytes device_key = 1;
+}
+
+message BundleResult {
+  bytes device_key = 1;
+  bytes bundle = 2; // empty when that device has uploaded none
+}
+
+// Opens a 5-minute pairing slot: a device logging in with the matching token joins the group.
+message OpenPairing {
+  bytes token_hash = 1; // SHA-256 of the 32-byte token in the QR code; the relay never sees the token's value before use
+  uint32 ttl_s = 2; // at most 300
+}
+
+// Sent to existing members when a device joins through pairing.
+message PeerJoined {
+  bytes device_key = 1;
+}
+
+message RelayError {
+  string code = 1; // "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large"
+}

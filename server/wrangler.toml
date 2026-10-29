@@ -3,4 +3,13 @@ name = "seam-relay"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
-# The PairGroup Durable Object, R2 bucket and push secrets are added in M1 (docs/architecture/infrastructure.md)
+# One Durable Object per pairing group: live sockets, offline queue, prekey bundles, pairing slot
+[[durable_objects.bindings]]
+name = "PAIR_GROUP"
+class_name = "PairGroup"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PairGroup"]
+
+# R2 (file chunks) and push secrets arrive with the features that need them (docs/architecture/infrastructure.md)

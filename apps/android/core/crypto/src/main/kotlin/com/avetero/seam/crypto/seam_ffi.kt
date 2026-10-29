@@ -685,19 +685,37 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_func_seal_chunk(
     ): Int
-    external fun uniffi_seam_ffi_checksum_method_seamdevice_decrypt(
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing(
     ): Int
-    external fun uniffi_seam_ffi_checksum_method_seamdevice_encrypt(
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_export_state(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_id(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_identity_key(
     ): Int
-    external fun uniffi_seam_ffi_checksum_method_seamdevice_pin_peer(
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_open(
     ): Int
-    external fun uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundle(
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_pair_with(
     ): Int
-    external fun uniffi_seam_ffi_checksum_method_seamdevice_start_session(
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_peers(
     ): Int
-    external fun uniffi_seam_ffi_checksum_constructor_seamdevice_new(
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundles(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_relay_key(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_remove_peer(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_safety_code(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_seal(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_start_pairing(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_constructor_seamdevice_generate(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_constructor_seamdevice_restore(
     ): Int
     external fun ffi_seam_ffi_uniffi_contract_version(
     ): Int
@@ -723,20 +741,38 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_seam_ffi_fn_free_seamdevice(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_seam_ffi_fn_constructor_seamdevice_new(`deviceId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_constructor_seamdevice_generate(uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    external fun uniffi_seam_ffi_fn_method_seamdevice_decrypt(`ptr`: Long,`peer`: RustBuffer.ByValue,`sealed`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_constructor_seamdevice_restore(`state`: RustBuffer.ByValue,`storageKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_method_seamdevice_encrypt(`ptr`: Long,`peer`: RustBuffer.ByValue,`plaintext`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_method_seamdevice_export_state(`ptr`: Long,`storageKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_identity_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_method_seamdevice_pin_peer(`ptr`: Long,`peer`: RustBuffer.ByValue,`identityKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    external fun uniffi_seam_ffi_fn_method_seamdevice_prekey_bundle(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_method_seamdevice_open(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_method_seamdevice_start_session(`ptr`: Long,`peer`: RustBuffer.ByValue,`bundle`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_method_seamdevice_pair_with(`ptr`: Long,`identityKey`: RustBuffer.ByValue,`relayKey`: RustBuffer.ByValue,`name`: RustBuffer.ByValue,`bundle`: RustBuffer.ByValue,`token`: RustBuffer.ByValue,`myName`: RustBuffer.ByValue,`myModel`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_peers(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_prekey_bundles(`ptr`: Long,`count`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_relay_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_remove_peer(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_seam_ffi_fn_method_seamdevice_safety_code(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_seal(`ptr`: Long,`peerId`: RustBuffer.ByValue,`payload`: RustBuffer.ByValue,`ttlS`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_sign_relay_login(`ptr`: Long,`nonce`: RustBuffer.ByValue,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_start_pairing(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_chunk_size(uniffi_out_err: UniffiRustCallStatus, 
     ): Int
     external fun uniffi_seam_ffi_fn_func_new_file_id(uniffi_out_err: UniffiRustCallStatus, 
@@ -881,25 +917,52 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_func_seal_chunk() and 0xFFFF) != 39026) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_decrypt() and 0xFFFF) != 31144) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() and 0xFFFF) != 62568) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_encrypt() and 0xFFFF) != 64647) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_export_state() and 0xFFFF) != 4850) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_id() and 0xFFFF) != 27846) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_identity_key() and 0xFFFF) != 47370) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_pin_peer() and 0xFFFF) != 14405) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_open() and 0xFFFF) != 5951) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundle() and 0xFFFF) != 52178) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_pair_with() and 0xFFFF) != 17484) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_start_session() and 0xFFFF) != 5015) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_peers() and 0xFFFF) != 46298) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_constructor_seamdevice_new() and 0xFFFF) != 28732) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_prekey_bundles() and 0xFFFF) != 52402) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_relay_key() and 0xFFFF) != 25316) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_remove_peer() and 0xFFFF) != 46663) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_safety_code() and 0xFFFF) != 38571) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_seal() and 0xFFFF) != 59125) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() and 0xFFFF) != 30714) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_start_pairing() and 0xFFFF) != 54107) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_constructor_seamdevice_generate() and 0xFFFF) != 39377) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_constructor_seamdevice_restore() and 0xFFFF) != 15264) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1062,33 +1125,6 @@ private class JavaLangRefCleanable(
 /**
  * @suppress
  */
-public object FfiConverterUByte: FfiConverter<UByte, Byte> {
-    override fun lift(value: Byte): UByte {
-        return value.toUByte()
-    }
-
-    fun lift(value: Int): UByte {
-        return value.toUByte()
-    }
-
-    override fun read(buf: ByteBuffer): UByte {
-        return lift(buf.get())
-    }
-
-    override fun lower(value: UByte): Byte {
-        return value.toByte()
-    }
-
-    override fun allocationSize(value: UByte) = 1UL
-
-    override fun write(value: UByte, buf: ByteBuffer) {
-        buf.put(value.toByte())
-    }
-}
-
-/**
- * @suppress
- */
 public object FfiConverterUInt: FfiConverter<UInt, Int> {
     override fun lift(value: Int): UInt {
         return value.toUInt()
@@ -1106,6 +1142,29 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 
     override fun write(value: UInt, buf: ByteBuffer) {
         buf.putInt(value.toInt())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterLong: FfiConverter<Long, Long> {
+    override fun lift(value: Long): Long {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Long {
+        return buf.getLong()
+    }
+
+    override fun lower(value: Long): Long {
+        return value
+    }
+
+    override fun allocationSize(value: Long) = 8UL
+
+    override fun write(value: Long, buf: ByteBuffer) {
+        buf.putLong(value)
     }
 }
 
@@ -1305,30 +1364,68 @@ public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
 
 
 /**
- * This device's identity and sessions. Safe to share across threads.
+ * This device: identity, peers and sessions. Safe to share across threads.
  */
 public interface SeamDeviceInterface {
     
-    fun `decrypt`(`peer`: kotlin.String, `sealed`: SealedMessage): kotlin.ByteArray
+    /**
+     * Mac: check the phone's first envelope against the open pairing slot.
+     */
+    fun `acceptPairing`(`envelope`: kotlin.ByteArray): PairingRequest
     
-    fun `encrypt`(`peer`: kotlin.String, `plaintext`: kotlin.ByteArray): SealedMessage
+    /**
+     * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
+     * after anything that changes state: a seal, an open, pairing, new bundles.
+     */
+    fun `exportState`(`storageKey`: kotlin.ByteArray): kotlin.ByteArray
+    
+    fun `id`(): kotlin.String
     
     fun `identityKey`(): kotlin.ByteArray
     
-    fun `pinPeer`(`peer`: kotlin.String, `identityKey`: kotlin.ByteArray)
+    /**
+     * Open an Envelope from a paired peer.
+     */
+    fun `open`(`envelope`: kotlin.ByteArray): OpenedMessage
     
     /**
-     * A fresh signed bundle to upload to the relay.
+     * Phone: pair with the Mac from its QR code and bundle. Send the returned envelope.
      */
-    fun `prekeyBundle`(): kotlin.ByteArray
+    fun `pairWith`(`identityKey`: kotlin.ByteArray, `relayKey`: kotlin.ByteArray, `name`: kotlin.String, `bundle`: kotlin.ByteArray, `token`: kotlin.ByteArray, `myName`: kotlin.String, `myModel`: kotlin.String): PairingStart
     
-    fun `startSession`(`peer`: kotlin.String, `bundle`: kotlin.ByteArray)
+    fun `peers`(): List<PeerInfo>
+    
+    /**
+     * `count` fresh signed prekey bundles to upload to the relay.
+     */
+    fun `prekeyBundles`(`count`: kotlin.UInt): List<kotlin.ByteArray>
+    
+    fun `relayKey`(): kotlin.ByteArray
+    
+    fun `removePeer`(`peerId`: kotlin.String)
+    
+    fun `safetyCode`(`peerId`: kotlin.String): kotlin.String
+    
+    /**
+     * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
+     */
+    fun `seal`(`peerId`: kotlin.String, `payload`: kotlin.ByteArray, `ttlS`: kotlin.UInt): kotlin.ByteArray
+    
+    /**
+     * The answer to the relay's login challenge.
+     */
+    fun `signRelayLogin`(`nonce`: kotlin.ByteArray, `groupId`: kotlin.ByteArray): kotlin.ByteArray
+    
+    /**
+     * Mac: open a 5-minute pairing slot.
+     */
+    fun `startPairing`(): PairingOffer
     
     companion object
 }
 
 /**
- * This device's identity and sessions. Safe to share across threads.
+ * This device: identity, peers and sessions. Safe to share across threads.
  */
 open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
 {
@@ -1354,15 +1451,6 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
         this.handle = 0
         this.cleanable = null
     }
-    constructor(`deviceId`: kotlin.String) :
-        this(UniffiWithHandle, 
-    uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_constructor_seamdevice_new(
-    
-        
-        FfiConverterString.lower(`deviceId`),_status)
-}
-    )
 
     protected val handle: Long
     protected val cleanable: UniffiCleaner.Cleanable?
@@ -1441,15 +1529,17 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     }
 
     
-    @Throws(SeamException::class)override fun `decrypt`(`peer`: kotlin.String, `sealed`: SealedMessage): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
+    /**
+     * Mac: check the phone's first envelope against the open pairing slot.
+     */
+    @Throws(SeamException::class)override fun `acceptPairing`(`envelope`: kotlin.ByteArray): PairingRequest {
+            return FfiConverterTypePairingRequest.lift(
     callWithHandle {
     uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_decrypt(
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(
         it,
         
-        FfiConverterString.lower(`peer`),
-        FfiConverterTypeSealedMessage.lower(`sealed`),_status)
+        FfiConverterByteArray.lower(`envelope`),_status)
 }
     }
     )
@@ -1457,15 +1547,31 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     
 
     
-    @Throws(SeamException::class)override fun `encrypt`(`peer`: kotlin.String, `plaintext`: kotlin.ByteArray): SealedMessage {
-            return FfiConverterTypeSealedMessage.lift(
+    /**
+     * Everything to carry on after a restart, sealed under `storage_key` (32 bytes). Save it
+     * after anything that changes state: a seal, an open, pairing, new bundles.
+     */
+    @Throws(SeamException::class)override fun `exportState`(`storageKey`: kotlin.ByteArray): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
     callWithHandle {
     uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_encrypt(
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_export_state(
         it,
         
-        FfiConverterString.lower(`peer`),
-        FfiConverterByteArray.lower(`plaintext`),_status)
+        FfiConverterByteArray.lower(`storageKey`),_status)
+}
+    }
+    )
+    }
+    
+
+    override fun `id`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_id(
+        it,
+        _status)
 }
     }
     )
@@ -1486,29 +1592,52 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     
 
     
-    @Throws(SeamException::class)override fun `pinPeer`(`peer`: kotlin.String, `identityKey`: kotlin.ByteArray)
-        = 
+    /**
+     * Open an Envelope from a paired peer.
+     */
+    @Throws(SeamException::class)override fun `open`(`envelope`: kotlin.ByteArray): OpenedMessage {
+            return FfiConverterTypeOpenedMessage.lift(
     callWithHandle {
     uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_pin_peer(
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_open(
         it,
         
-        FfiConverterString.lower(`peer`),
-        FfiConverterByteArray.lower(`identityKey`),_status)
+        FfiConverterByteArray.lower(`envelope`),_status)
 }
     }
-    
+    )
+    }
     
 
     
     /**
-     * A fresh signed bundle to upload to the relay.
+     * Phone: pair with the Mac from its QR code and bundle. Send the returned envelope.
      */
-    @Throws(SeamException::class)override fun `prekeyBundle`(): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
+    @Throws(SeamException::class)override fun `pairWith`(`identityKey`: kotlin.ByteArray, `relayKey`: kotlin.ByteArray, `name`: kotlin.String, `bundle`: kotlin.ByteArray, `token`: kotlin.ByteArray, `myName`: kotlin.String, `myModel`: kotlin.String): PairingStart {
+            return FfiConverterTypePairingStart.lift(
     callWithHandle {
     uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_prekey_bundle(
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_pair_with(
+        it,
+        
+        FfiConverterByteArray.lower(`identityKey`),
+        FfiConverterByteArray.lower(`relayKey`),
+        FfiConverterString.lower(`name`),
+        FfiConverterByteArray.lower(`bundle`),
+        FfiConverterByteArray.lower(`token`),
+        FfiConverterString.lower(`myName`),
+        FfiConverterString.lower(`myModel`),_status)
+}
+    }
+    )
+    }
+    
+
+    override fun `peers`(): List<PeerInfo> {
+            return FfiConverterSequenceTypePeerInfo.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_peers(
         it,
         _status)
 }
@@ -1518,31 +1647,159 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     
 
     
-    @Throws(SeamException::class)override fun `startSession`(`peer`: kotlin.String, `bundle`: kotlin.ByteArray)
-        = 
+    /**
+     * `count` fresh signed prekey bundles to upload to the relay.
+     */
+    @Throws(SeamException::class)override fun `prekeyBundles`(`count`: kotlin.UInt): List<kotlin.ByteArray> {
+            return FfiConverterSequenceByteArray.lift(
     callWithHandle {
     uniffiRustCallWithError(SeamException) { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_start_session(
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_prekey_bundles(
         it,
         
-        FfiConverterString.lower(`peer`),
-        FfiConverterByteArray.lower(`bundle`),_status)
+        FfiConverterUInt.lower(`count`),_status)
+}
+    }
+    )
+    }
+    
+
+    override fun `relayKey`(): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_relay_key(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    override fun `removePeer`(`peerId`: kotlin.String)
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_remove_peer(
+        it,
+        
+        FfiConverterString.lower(`peerId`),_status)
 }
     }
     
     
 
     
-
+    @Throws(SeamException::class)override fun `safetyCode`(`peerId`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_safety_code(
+        it,
+        
+        FfiConverterString.lower(`peerId`),_status)
+}
+    }
+    )
+    }
     
 
-
-    
     
     /**
-     * @suppress
+     * Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
      */
-    companion object
+    @Throws(SeamException::class)override fun `seal`(`peerId`: kotlin.String, `payload`: kotlin.ByteArray, `ttlS`: kotlin.UInt): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_seal(
+        it,
+        
+        FfiConverterString.lower(`peerId`),
+        FfiConverterByteArray.lower(`payload`),
+        FfiConverterUInt.lower(`ttlS`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The answer to the relay's login challenge.
+     */override fun `signRelayLogin`(`nonce`: kotlin.ByteArray, `groupId`: kotlin.ByteArray): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_sign_relay_login(
+        it,
+        
+        FfiConverterByteArray.lower(`nonce`),
+        FfiConverterByteArray.lower(`groupId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Mac: open a 5-minute pairing slot.
+     */override fun `startPairing`(): PairingOffer {
+            return FfiConverterTypePairingOffer.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_start_pairing(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+
+
+    
+    companion object {
+        
+    /**
+     * A brand-new device identity. Call once, then `export_state` and keep the blob.
+     */
+    @Throws(SeamException::class) fun `generate`(): SeamDevice {
+            return FfiConverterTypeSeamDevice.lift(
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_constructor_seamdevice_generate(
+    
+        _status)
+}
+    )
+    }
+    
+
+        
+    /**
+     * Rebuild from `export_state`'s blob and the storage key it was sealed with.
+     */
+    @Throws(SeamException::class) fun `restore`(`state`: kotlin.ByteArray, `storageKey`: kotlin.ByteArray): SeamDevice {
+            return FfiConverterTypeSeamDevice.lift(
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_constructor_seamdevice_restore(
+    
+        
+        FfiConverterByteArray.lower(`state`),
+        FfiConverterByteArray.lower(`storageKey`),_status)
+}
+    )
+    }
+    
+
+        
+    }
     
 }
 
@@ -1573,12 +1830,16 @@ public object FfiConverterTypeSeamDevice: FfiConverter<SeamDevice, Long> {
 
 
 /**
- * An encrypted message; `kind` goes in Envelope.signal_type.
+ * A message that passed every check. `payload` is a seam.v1.Payload.
  */
-data class SealedMessage (
-    var `kind`: kotlin.UByte
+data class OpenedMessage (
+    var `peerId`: kotlin.String
     , 
-    var `bytes`: kotlin.ByteArray
+    var `msgId`: kotlin.ByteArray
+    , 
+    var `sentAt`: kotlin.Long
+    , 
+    var `payload`: kotlin.ByteArray
     
 ){
     
@@ -1592,22 +1853,204 @@ data class SealedMessage (
 /**
  * @suppress
  */
-public object FfiConverterTypeSealedMessage: FfiConverterRustBuffer<SealedMessage> {
-    override fun read(buf: ByteBuffer): SealedMessage {
-        return SealedMessage(
-            FfiConverterUByte.read(buf),
+public object FfiConverterTypeOpenedMessage: FfiConverterRustBuffer<OpenedMessage> {
+    override fun read(buf: ByteBuffer): OpenedMessage {
+        return OpenedMessage(
+            FfiConverterString.read(buf),
+            FfiConverterByteArray.read(buf),
+            FfiConverterLong.read(buf),
             FfiConverterByteArray.read(buf),
         )
     }
 
-    override fun allocationSize(value: SealedMessage) = (
-            FfiConverterUByte.allocationSize(value.`kind`) +
-            FfiConverterByteArray.allocationSize(value.`bytes`)
+    override fun allocationSize(value: OpenedMessage) = (
+            FfiConverterString.allocationSize(value.`peerId`) +
+            FfiConverterByteArray.allocationSize(value.`msgId`) +
+            FfiConverterLong.allocationSize(value.`sentAt`) +
+            FfiConverterByteArray.allocationSize(value.`payload`)
     )
 
-    override fun write(value: SealedMessage, buf: ByteBuffer) {
-            FfiConverterUByte.write(value.`kind`, buf)
-            FfiConverterByteArray.write(value.`bytes`, buf)
+    override fun write(value: OpenedMessage, buf: ByteBuffer) {
+            FfiConverterString.write(value.`peerId`, buf)
+            FfiConverterByteArray.write(value.`msgId`, buf)
+            FfiConverterLong.write(value.`sentAt`, buf)
+            FfiConverterByteArray.write(value.`payload`, buf)
+    }
+}
+
+
+
+/**
+ * What the Mac shows in the QR code (`token`) and sends the relay (`token_hash`).
+ */
+data class PairingOffer (
+    var `token`: kotlin.ByteArray
+    , 
+    var `tokenHash`: kotlin.ByteArray
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePairingOffer: FfiConverterRustBuffer<PairingOffer> {
+    override fun read(buf: ByteBuffer): PairingOffer {
+        return PairingOffer(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PairingOffer) = (
+            FfiConverterByteArray.allocationSize(value.`token`) +
+            FfiConverterByteArray.allocationSize(value.`tokenHash`)
+    )
+
+    override fun write(value: PairingOffer, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`token`, buf)
+            FfiConverterByteArray.write(value.`tokenHash`, buf)
+    }
+}
+
+
+
+/**
+ * A pairing request the Mac has verified, waiting for the user to confirm the code.
+ */
+data class PairingRequest (
+    var `peerId`: kotlin.String
+    , 
+    var `deviceName`: kotlin.String
+    , 
+    var `model`: kotlin.String
+    , 
+    var `safetyCode`: kotlin.String
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePairingRequest: FfiConverterRustBuffer<PairingRequest> {
+    override fun read(buf: ByteBuffer): PairingRequest {
+        return PairingRequest(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PairingRequest) = (
+            FfiConverterString.allocationSize(value.`peerId`) +
+            FfiConverterString.allocationSize(value.`deviceName`) +
+            FfiConverterString.allocationSize(value.`model`) +
+            FfiConverterString.allocationSize(value.`safetyCode`)
+    )
+
+    override fun write(value: PairingRequest, buf: ByteBuffer) {
+            FfiConverterString.write(value.`peerId`, buf)
+            FfiConverterString.write(value.`deviceName`, buf)
+            FfiConverterString.write(value.`model`, buf)
+            FfiConverterString.write(value.`safetyCode`, buf)
+    }
+}
+
+
+
+/**
+ * The phone's first envelope to the Mac, and the Mac's id.
+ */
+data class PairingStart (
+    var `peerId`: kotlin.String
+    , 
+    var `envelope`: kotlin.ByteArray
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePairingStart: FfiConverterRustBuffer<PairingStart> {
+    override fun read(buf: ByteBuffer): PairingStart {
+        return PairingStart(
+            FfiConverterString.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PairingStart) = (
+            FfiConverterString.allocationSize(value.`peerId`) +
+            FfiConverterByteArray.allocationSize(value.`envelope`)
+    )
+
+    override fun write(value: PairingStart, buf: ByteBuffer) {
+            FfiConverterString.write(value.`peerId`, buf)
+            FfiConverterByteArray.write(value.`envelope`, buf)
+    }
+}
+
+
+
+data class PeerInfo (
+    var `id`: kotlin.String
+    , 
+    var `name`: kotlin.String
+    , 
+    var `relayKey`: kotlin.ByteArray
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePeerInfo: FfiConverterRustBuffer<PeerInfo> {
+    override fun read(buf: ByteBuffer): PeerInfo {
+        return PeerInfo(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PeerInfo) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterByteArray.allocationSize(value.`relayKey`)
+    )
+
+    override fun write(value: PeerInfo, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterByteArray.write(value.`relayKey`, buf)
     }
 }
 
@@ -1618,7 +2061,7 @@ public object FfiConverterTypeSealedMessage: FfiConverterRustBuffer<SealedMessag
 sealed class SeamException: kotlin.Exception() {
     
     /**
-     * The peer was never paired (its identity key wasn't pinned).
+     * The other device isn't paired (or was unpaired).
      */
     class NotPaired(
         ) : SeamException() {
@@ -1627,7 +2070,7 @@ sealed class SeamException: kotlin.Exception() {
     }
     
     /**
-     * The peer's key doesn't match the one from pairing: treat as an attack, don't retry.
+     * A key doesn't match the one from pairing: treat as an attack, don't retry.
      */
     class UntrustedIdentity(
         ) : SeamException() {
@@ -1636,7 +2079,36 @@ sealed class SeamException: kotlin.Exception() {
     }
     
     /**
-     * Anything else: malformed, tampered or replayed input.
+     * Already received: ack it to the relay and ignore it.
+     */
+    class Duplicate(
+        ) : SeamException() {
+        override val message
+            get() = ""
+    }
+    
+    /**
+     * Pairing was refused (wrong or expired code, nothing open, already paired…).
+     */
+    class PairingFailed(
+        
+        val `reason`: kotlin.String
+        ) : SeamException() {
+        override val message
+            get() = "reason=${ `reason` }"
+    }
+    
+    /**
+     * Saved state can't be opened: wrong storage key or damaged file.
+     */
+    class BadState(
+        ) : SeamException() {
+        override val message
+            get() = ""
+    }
+    
+    /**
+     * Anything else: malformed, tampered, misaddressed or unsupported input. Drop it.
      */
     class Invalid(
         
@@ -1667,7 +2139,12 @@ public object FfiConverterTypeSeamError : FfiConverterRustBuffer<SeamException> 
         return when(buf.getInt()) {
             1 -> SeamException.NotPaired()
             2 -> SeamException.UntrustedIdentity()
-            3 -> SeamException.Invalid(
+            3 -> SeamException.Duplicate()
+            4 -> SeamException.PairingFailed(
+                FfiConverterString.read(buf),
+                )
+            5 -> SeamException.BadState()
+            6 -> SeamException.Invalid(
                 FfiConverterString.read(buf),
                 )
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
@@ -1681,6 +2158,19 @@ public object FfiConverterTypeSeamError : FfiConverterRustBuffer<SeamException> 
                 4UL
             )
             is SeamException.UntrustedIdentity -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+            )
+            is SeamException.Duplicate -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+            )
+            is SeamException.PairingFailed -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+                + FfiConverterString.allocationSize(value.`reason`)
+            )
+            is SeamException.BadState -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
             )
@@ -1702,14 +2192,83 @@ public object FfiConverterTypeSeamError : FfiConverterRustBuffer<SeamException> 
                 buf.putInt(2)
                 Unit
             }
-            is SeamException.Invalid -> {
+            is SeamException.Duplicate -> {
                 buf.putInt(3)
+                Unit
+            }
+            is SeamException.PairingFailed -> {
+                buf.putInt(4)
+                FfiConverterString.write(value.`reason`, buf)
+                Unit
+            }
+            is SeamException.BadState -> {
+                buf.putInt(5)
+                Unit
+            }
+            is SeamException.Invalid -> {
+                buf.putInt(6)
                 FfiConverterString.write(value.`detail`, buf)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
     }
 
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceByteArray: FfiConverterRustBuffer<List<kotlin.ByteArray>> {
+    override fun read(buf: ByteBuffer): List<kotlin.ByteArray> {
+        val len = buf.getInt()
+        return List<kotlin.ByteArray>(len) {
+            FfiConverterByteArray.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<kotlin.ByteArray>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterByteArray.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<kotlin.ByteArray>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterByteArray.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypePeerInfo: FfiConverterRustBuffer<List<PeerInfo>> {
+    override fun read(buf: ByteBuffer): List<PeerInfo> {
+        val len = buf.getInt()
+        return List<PeerInfo>(len) {
+            FfiConverterTypePeerInfo.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<PeerInfo>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypePeerInfo.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<PeerInfo>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypePeerInfo.write(it, buf)
+        }
+    }
 } fun `chunkSize`(): kotlin.UInt {
             return FfiConverterUInt.lift(
     uniffiRustCall() { _status ->

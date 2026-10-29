@@ -8,13 +8,15 @@ android {
     namespace = "com.avetero.seam"
     defaultConfig {
         applicationId = "com.avetero.seam"
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = 2
+        versionName = "0.1.0"
     }
 }
 
 dependencies {
-    implementation(project(":core:crypto"))
-    implementation(project(":core:protocol"))
+    implementation(project(":core:session"))
+    implementation(project(":feature:pairing"))
+    implementation(project(":feature:status"))
     implementation(libs.activity.compose)
+    implementation(libs.lifecycle.runtime.compose)
 }
