@@ -11,8 +11,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -23,8 +21,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 
 sealed interface ScanResult {
-    /** [frame]: the camera's last picture, held on screen behind the sheet once the camera is off. */
-    data class Code(val qr: PairingQr, val frame: ImageBitmap?) : ScanResult
+    data class Code(val qr: PairingQr) : ScanResult
     /** Read a QR code that isn't a Seam pairing code. */
     data object NotSeam : ScanResult
 }
@@ -39,7 +36,6 @@ fun QrViewfinder(active: Boolean, allowCleartext: Boolean, onResult: (ScanResult
     val owner = LocalLifecycleOwner.current
     val reading = rememberUpdatedState(active)
     val report = rememberUpdatedState(onResult)
-    val view = remember { arrayOfNulls<PreviewView>(1) }
     val scanner = remember { BarcodeScanning.getClient(BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()) }
     val controller = remember {
         LifecycleCameraController(context).apply {
@@ -50,7 +46,7 @@ fun QrViewfinder(active: Boolean, allowCleartext: Boolean, onResult: (ScanResult
                     if (!reading.value) return@MlKitAnalyzer
                     val raw = r.getValue(scanner)?.firstOrNull()?.rawValue ?: return@MlKitAnalyzer
                     val qr = PairingQr.parse(raw, allowCleartext)
-                    report.value(if (qr != null) ScanResult.Code(qr, view[0]?.bitmap?.asImageBitmap()) else ScanResult.NotSeam)
+                    report.value(if (qr != null) ScanResult.Code(qr) else ScanResult.NotSeam)
                 },
             )
         }
@@ -63,7 +59,7 @@ fun QrViewfinder(active: Boolean, allowCleartext: Boolean, onResult: (ScanResult
         }
     }
     AndroidView(
-        factory = { PreviewView(it).apply { scaleType = PreviewView.ScaleType.FILL_CENTER; this.controller = controller; view[0] = this } },
+        factory = { PreviewView(it).apply { scaleType = PreviewView.ScaleType.FILL_CENTER; this.controller = controller } },
         modifier = modifier,
     )
 }

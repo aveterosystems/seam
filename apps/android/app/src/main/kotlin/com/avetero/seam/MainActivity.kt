@@ -58,9 +58,7 @@ class MainActivity : ComponentActivity() {
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 var settings by remember { mutableStateOf(false) }
                 var scanning by remember { mutableStateOf(false) }
-                var frozen by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
                 if (state is SessionState.Pairing) scanned = null
-                if (scanned == null && state !is SessionState.Pairing && !scanning) frozen = null
                 fun granted() = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                 var cameraAllowed by remember { mutableStateOf(granted()) }
                 var cameraAsked by remember { mutableStateOf(false) }
@@ -79,6 +77,7 @@ class MainActivity : ComponentActivity() {
                 if (state is SessionState.Pairing) wasPairing = true
                 else if (wasPairing) {
                     wasPairing = false
+                    scanning = false // the pairing screen closes when pairing ends, either way
                     setup = state is SessionState.Connected || state is SessionState.Idle || state is SessionState.Connecting
                 }
                 val clipboardStatus = when {
@@ -111,7 +110,10 @@ class MainActivity : ComponentActivity() {
                         session.pair(qr)
                         ConnectionService.start(this@MainActivity)
                     },
-                    onCancelConfirm = { scanned = null },
+                    onCancelConfirm = {
+                        scanned = null
+                        scanning = false
+                    },
                     fromMac = fromMac,
                     onPasteFromMac = { text ->
                         app.clipboard.putBack(text)
@@ -129,19 +131,16 @@ class MainActivity : ComponentActivity() {
                         if (!cameraAllowed) askCamera.launch(Manifest.permission.CAMERA)
                     },
                     scanning = scanning,
-                    frozen = frozen,
                     onCloseScan = {
                         scanning = false
                         scanError = null
                     },
-                    camera = {
+                    camera = { reading ->
                         if (cameraAllowed) {
-                            QrViewfinder(active = true, allowCleartext = BuildConfig.DEBUG, modifier = Modifier.fillMaxSize(), onResult = { r ->
+                            QrViewfinder(active = reading, allowCleartext = BuildConfig.DEBUG, modifier = Modifier.fillMaxSize(), onResult = { r ->
                                 when (r) {
                                     is ScanResult.Code -> {
                                         scanned = r.qr // nothing changes until the user confirms who this is
-                                        frozen = r.frame
-                                        scanning = false
                                         scanError = null
                                     }
                                     ScanResult.NotSeam -> scanError = "That isn't a Seam pairing code. Open Seam on your Mac to show one."

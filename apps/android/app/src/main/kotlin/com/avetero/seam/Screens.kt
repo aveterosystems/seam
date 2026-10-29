@@ -66,8 +66,7 @@ fun SeamScreen(
     onCodesDontMatch: () -> Unit = {},
     scanning: Boolean = false,
     onCloseScan: () -> Unit = {},
-    camera: @Composable () -> Unit = {},
-    frozen: androidx.compose.ui.graphics.ImageBitmap? = null,
+    camera: @Composable (reading: Boolean) -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         // One call site, so the sheet slides up once and then changes in place (confirm, then the code)
@@ -83,10 +82,10 @@ fun SeamScreen(
                 else -> onCloseScan
             }
             return@Surface PairScreen(
-                camera = if (sheet == null) camera else null,
+                // Board A02: the live view and frame stay behind the sheet; reading pauses
+                camera = { camera(sheet == null) },
                 onBack = back,
                 caption = scanError ?: "Point at the code on your Mac",
-                frozen = frozen,
                 sheet = sheet,
             )
         }
@@ -263,14 +262,13 @@ private fun Pairing(state: SessionState.Pairing, onCodesDontMatch: () -> Unit) {
 
 /**
  * Board A02: dark, the viewfinder, and the sheet rising over it once a code is read. [camera] is
- * the live view while scanning; behind a sheet the camera is off and the frame stays empty.
+ * the live view; it stays on behind the sheet until the pairing screen closes.
  */
 @Composable
 private fun PairScreen(
     camera: (@Composable () -> Unit)?,
     onBack: () -> Unit,
     caption: String? = null,
-    frozen: androidx.compose.ui.graphics.ImageBitmap? = null,
     sheet: (@Composable () -> Unit)? = null,
 ) {
     androidx.activity.compose.BackHandler(onBack = onBack)
@@ -286,22 +284,12 @@ private fun PairScreen(
         }
         Box(Modifier.fillMaxWidth().weight(1f).background(Color(0xFF1C2422))) {
             if (camera != null) Box(Modifier.matchParentSize()) { camera() }
-            if (frozen != null) {
-                androidx.compose.foundation.Image(
-                    frozen, contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    modifier = Modifier.matchParentSize(),
+            Box(Modifier.align(Alignment.Center)) { Frame() }
+            if (sheet == null && caption != null) {
+                Text(
+                    caption, color = Color(0xFFDDE4E1), textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
                 )
-            }
-            if (sheet == null) {
-                Box(Modifier.align(Alignment.Center)) { Frame() }
-                if (caption != null) {
-                    Text(
-                        caption, color = Color(0xFFDDE4E1), textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
-                    )
-                }
-            } else {
-                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.45f)))
             }
             androidx.compose.animation.AnimatedVisibility(
                 visibleState = shown,
