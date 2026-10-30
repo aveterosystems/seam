@@ -41,7 +41,9 @@ impl From<seam_core::Error> for SeamError {
         match e {
             E::NotPaired => Self::NotPaired,
             // A LAN proof from a key that isn't the paired one: the same "not who we paired" signal
-            E::Signal(SignalProtocolError::UntrustedIdentity(_)) | E::WrongPeer => Self::UntrustedIdentity,
+            E::Signal(SignalProtocolError::UntrustedIdentity(_)) | E::WrongPeer => {
+                Self::UntrustedIdentity
+            }
             E::Duplicate => Self::Duplicate,
             E::NotConfirmed => Self::NotConfirmed,
             E::BadPairing(reason) => Self::PairingFailed {

@@ -419,7 +419,10 @@ mod tests {
         // Swap the Mac's proof between the two connections (same lengths: handshake then proof)
         let split = r1.send.len() - (2 + 1 + 64 + TAG);
         let spliced = [&r2.send[..split], &r1.send[split..]].concat();
-        assert!(matches!(p2.receive(&spliced), Err(Error::Malformed(_))), "damaged, not foreign");
+        assert!(
+            matches!(p2.receive(&spliced), Err(Error::Malformed(_))),
+            "damaged, not foreign"
+        );
         assert!(p1.receive(&r1.send).is_ok());
     }
 }
