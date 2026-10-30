@@ -2,17 +2,17 @@
 
 A native Android app in Kotlin and Jetpack Compose (Material 3), for Android 12 (API 31) and later. It mirrors notifications and texts to your Mac, syncs the clipboard, and sends and receives files.
 
-> **Status:** 0.1.0. Pairs with a Mac by scanning its QR code, syncs the clipboard both ways, sends the battery level, and connects only when there's something to move (decision 0005). Tested on a Galaxy S25 Ultra running Android 17. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
+> **Status:** 0.2.0. Pairs with a Mac by scanning its QR code, syncs the clipboard both ways, sends the battery level, mirrors the notifications of the apps you choose (with reply and dismiss from the Mac), and connects only when there's something to move (decision 0005). Tested on a Galaxy S25 Ultra running Android 17. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
 
 ## Screens
 
-Built to the design boards: Home (A01), pairing with Seam's own camera view (A02), the set-up checklist after pairing (A03), the Send to Mac share sheet (A04) and Settings with About (A06). The colours are Seam's teal, the same as the Mac, in light and dark.
+Built to the design boards: Home (A01), pairing with Seam's own camera view (A02), the set-up checklist after pairing (A03), the Send to Mac share sheet (A04), and Settings with Notifications and About (A06). Teal accents, the same as the Mac, on neutral surfaces, in light and dark. Screens are built from the shared pieces in `Components.kt`.
 
 ## Modules
 
 ```mermaid
 flowchart TB
-    app[":app<br/>screens · service · flavours"] --> features[":feature:pairing · :feature:clipboard · :feature:status"]
+    app[":app<br/>screens · service · flavours"] --> features[":feature:pairing · :feature:clipboard · :feature:notifications · :feature:status"]
     app --> session
     features --> session[":core:session<br/>relay link · pairing · delivery"]
     session --> crypto[":core:crypto<br/>Kotlin bindings + Rust core .so"]
@@ -28,6 +28,7 @@ flowchart TB
 | `core/session` | The phone's link to its Mac: relay login, pairing, delivery and acks, and when to connect (decision 0005) |
 | `feature/pairing` | The camera view: CameraX frames decoded on the phone by ZXing (no network code, no Google services) |
 | `feature/clipboard` | Clipboard both ways, the share and copy rules, and automatic phone → Mac in the `full` build |
+| `feature/notifications` | The notification listener, the per-app settings (every app starts off; the phone filters before anything is sent), and reply, buttons and dismiss from the Mac |
 | `feature/status` | The battery level for the Mac |
 | `core/crypto` | The Kotlin bindings to the Rust core (`seam_ffi.kt`, generated) and the native library for each ABI |
 | `core/protocol` | Message types generated from `protocol/` at build time (protobuf-kotlin lite) |

@@ -2,7 +2,7 @@
 
 A native macOS menu bar app in Swift 6 and SwiftUI, for macOS 14 and later. It shows your phone's notifications and texts, syncs the clipboard, and sends and receives files. It follows macOS's own design and lives in the menu bar, with no Dock icon.
 
-> **Status:** 0.1.0. Pairs with a phone by QR code through relay.avetero.com, syncs the clipboard both ways, shows the phone's battery in the menu bar, and keeps its keys sealed on disk under a Keychain key. The menu bar popover (board M01), pairing window (M02) and Settings with About (M03) follow the designs. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
+> **Status:** 0.2.0. Pairs with a phone by QR code through relay.avetero.com, syncs the clipboard both ways, shows the phone's battery in the menu bar, shows the phone's notifications as banners with reply and dismiss (settings in Settings › Notifications, on/off and pause in the popover), and keeps its keys sealed on disk under a Keychain key. The menu bar popover (board M01), pairing window (M02) and Settings with About (M03) follow the designs. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
 
 ## How it's put together
 
@@ -22,6 +22,8 @@ flowchart TB
 | `Seam/App/` | Entry point and menu (`SeamApp.swift`), and `SeamController`: the device, the relay connection, pairing and the phone's status |
 | `Seam/Storage/` | `Keychain` (the 32-byte storage key) and `Store` (the sealed state file, group id, relay URL) |
 | `Seam/Pairing/` | The pairing window (board M02) and QR rendering |
+| `Seam/Notifications/` | `PhoneNotifications`: the phone's notifications as banners, and what you do to them sent back |
+| `Seam/UI/` | The popover, Settings, and `Components.swift`: the shared pieces (module button, settings group and row) every screen is built from |
 | `Packages/SeamSession/` | `RelayClient` (login by signed challenge, acks, reconnect with backoff), frame builders, the pairing QR format, and their tests |
 | `Packages/SeamCore/` | Swift bindings to the Rust core (`Sources/SeamCore/SeamCore.swift`, generated), the C header and module map (`FFI/include/`), and the tests |
 | `Packages/SeamProtocol/` | The generated message types (`Sources/SeamProtocol/Generated/`) and the golden-vector tests |
@@ -53,8 +55,10 @@ cd server && npm ci && npx wrangler dev --ip 0.0.0.0     # the relay on port 878
 The QR code carries the Mac's relay URL, so the phone must be able to reach it. For a real phone on the same Wi‑Fi, point a Debug build at the Mac's LAN address before launching Seam:
 
 ```bash
-defaults write com.avetero.seam relayURL ws://<this Mac's LAN IP>:8787
+defaults write com.avetero.seam.debug relayURL ws://<this Mac's LAN IP>:8787
 ```
+
+Debug builds are **Seam Debug** (`com.avetero.seam.debug`), with their own data folder (`Application Support/Seam Debug`), Keychain item and pairing, so they run next to an installed Seam without touching it. To try one against the real relay, use `wss://relay.avetero.com` above. macOS only lets an app post notifications from a normal location, so copy Seam Debug to `/Applications` to test them.
 
 Debug builds default to `ws://localhost:8787` and are the only ones allowed plain `ws://` (their Info.plist, `Config/Debug-Info.plist`, adds the local-networking ATS exception). Release builds have no ATS exception, accept only `wss://` relays, ignore the `defaults` override, and use `RelayPolicy.productionURL` (`wss://relay.avetero.com`). The relay URL is saved with the group on first launch.
 
@@ -99,7 +103,7 @@ Don't edit these by hand. CI fails if they drift from their sources.
 
 ## Planned
 
-The full menu bar popover, the Messages, Notifications and Files windows, Settings, the Share extension and a Finder File Provider, each as a feature module behind the shared `Feature` interface. Moving the storage key to the data-protection keychain, wrapped by a Secure Enclave key, which needs an Apple Developer signature. Releases are signed with Seam's own certificate but not notarized, so the first download needs Open Anyway once; notarization comes with an Apple Developer account.
+The rest of the menu bar popover, the Messages, Notifications history and Files windows, the Share extension and a Finder File Provider, each as a feature module behind the shared `Feature` interface. Moving the storage key to the data-protection keychain, wrapped by a Secure Enclave key, which needs an Apple Developer signature. Releases are signed with Seam's own certificate but not notarized, so the first download needs Open Anyway once; notarization comes with an Apple Developer account.
 
 ## Updates
 
