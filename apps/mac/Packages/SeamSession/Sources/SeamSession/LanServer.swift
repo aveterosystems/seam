@@ -111,6 +111,7 @@ public final class LanServer: @unchecked Sendable {
                 return false
             }
             link.unsent += 1
+            WireDump.record(wire, out: true)
             link.connection.send(content: wire, completion: .contentProcessed { [weak self] error in
                 link.unsent -= 1 // on `queue`: the connection runs there
                 if error != nil {
@@ -281,8 +282,12 @@ public final class LanServer: @unchecked Sendable {
 
     /// False closes the link: the channel refused the bytes (a stranger, tampering, garbage).
     private func handle(_ link: Link, _ data: Data) -> Bool {
+        WireDump.record(data, out: false)
         guard let out = try? link.channel.receive(bytes: data) else { return false }
-        if !out.send.isEmpty { link.connection.send(content: out.send, completion: .idempotent) }
+        if !out.send.isEmpty {
+            WireDump.record(out.send, out: true)
+            link.connection.send(content: out.send, completion: .idempotent)
+        }
         if let peer = out.authenticated {
             pending.removeAll { $0 === link }
             link.peer = peer
@@ -336,5 +341,27 @@ final class Once: @unchecked Sendable {
         done = true
         body()
         return true
+    }
+}
+
+/// Debug builds only, and only when started with SEAM_WIRE_DUMP=<file>: appends every byte the
+/// direct link sends or receives on the socket (before any decryption), so a test can check that
+/// nothing readable crosses the network. Compiled out of Release.
+enum WireDump {
+    #if DEBUG
+    private static let file: FileHandle? = ProcessInfo.processInfo.environment["SEAM_WIRE_DUMP"].flatMap { path in
+        FileManager.default.createFile(atPath: path, contents: nil, attributes: [.posixPermissions: 0o600])
+        return FileHandle(forWritingAtPath: path)
+    }
+    private static let lock = NSLock()
+    #endif
+
+    static func record(_ bytes: Data, out: Bool) {
+        #if DEBUG
+        guard let file else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        file.write(Data((out ? ">" : "<").utf8) + withUnsafeBytes(of: UInt32(bytes.count).bigEndian) { Data($0) } + bytes)
+        #endif
     }
 }

@@ -154,7 +154,8 @@ struct Store {
 
     /// Debug builds keep their own pairing, so they run next to the installed app without touching it.
     #if DEBUG
-    private static let dataFolder = "Seam Debug"
+    /// SEAM_DATA_FOLDER picks another folder, to run a second Debug Mac with its own identity (device tests).
+    private static let dataFolder = ProcessInfo.processInfo.environment["SEAM_DATA_FOLDER"].flatMap { $0.contains("/") ? nil : $0 } ?? "Seam Debug"
     #else
     private static let dataFolder = "Seam"
     #endif
