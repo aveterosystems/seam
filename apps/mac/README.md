@@ -24,7 +24,7 @@ flowchart TB
 | `Seam/Pairing/` | The pairing window (board M02) and QR rendering |
 | `Seam/Notifications/` | `PhoneNotifications`: the phone's notifications as banners, and what you do to them sent back |
 | `Seam/UI/` | The popover, Settings, and `Components.swift`: the shared pieces (module button, settings group and row) every screen is built from |
-| `Packages/SeamSession/` | `RelayClient` (login by signed challenge, acks, reconnect with backoff), `LanServer` (the same‑Wi‑Fi link: Bonjour `_seam._tcp`, crypto in the core's `LanChannel`), `Paths`/`Outbox` (which path a message may take; decision 0006), `RelayLink` (your own relay; decision 0007), frame builders, the pairing QR format, and their tests |
+| `Packages/SeamSession/` | `RelayClient` (login by signed challenge, acks, reconnect with backoff), `LanServer` (the same‑Wi‑Fi link: Bonjour `_seam._tcp`, crypto in the core's `LanChannel`), `Session` (the actor that owns delivery, the clipboard, notifications and status features, forgetting the phone and pairing; which path a message may take is the core's, decision 0006), `Outbox`, `RelayLink` (your own relay; decision 0007), frame builders, the pairing QR format, and their tests |
 | `Packages/SeamCore/` | Swift bindings to the Rust core (`Sources/SeamCore/SeamCore.swift`, generated), the C header and module map (`FFI/include/`), and the tests |
 | `Packages/SeamProtocol/` | The generated message types (`Sources/SeamProtocol/Generated/`) and the golden-vector tests |
 
@@ -88,7 +88,9 @@ swift test --package-path apps/mac/Packages/SeamSession    # relay login, acks, 
 | `PairingQRTests` | The QR format round-trips, uses only unreserved characters, and rejects wrong schemes, versions and lengths |
 | `FramesTests` | The login signature verifies over the relay's exact bytes; frames round-trip; backoff doubles from 1 s, caps at 60 s, and resets only after 30 s connected |
 | `RelayClientTests` | Login answers a 32-byte challenge and asks to create the group; nothing but a login result is accepted before login, and no second challenge after; a silent relay times out; a refused login reaches the app; envelopes are acked only after they're handled |
-| `AppDataTests` | The group id and relay URL encoding round-trips, refuses anything malformed, and survives the core's sealed state |
+| `SessionDeliveryTests` | Through the session with fake paths and a real phone: sealed, saved, then sent; Same Wi‑Fi first; unacked messages resent in order when a link drops; relay failures retried, relay successes not repeated; switched-off paths never used, but a Hello always gets through; expired messages dropped; the outbox capped and reloaded after a restart |
+| `SessionFeatureTests` | Clipboard not echoed and sent only with sync on; icons asked for 40 at a time, once; dismiss-both; the battery clamp; forgetting the phone clears every feature; unpair tells the phone once on the path that's up |
+| `SessionPairingTests` | The code's relay slot lasts 5 minutes, is re-announced with only what's left, and closes on cancel; PairAccept is retried, then the pairing undone; a rejected phone leaves the relay group |
 | `RelayPolicyTests` | Release builds accept only `wss://`; odd relay values fall back instead of crashing |
 | `PairingFlowTests` | Codes expire after 5 minutes and a reconnect re-announces only what's left; Pair works once and can't race Cancel; late events can't skip a step |
 

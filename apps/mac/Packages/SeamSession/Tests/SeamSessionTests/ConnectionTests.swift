@@ -5,40 +5,6 @@ import Testing
 
 @testable import SeamSession
 
-struct PathsTests {
-    @Test func onlyPathsAllowedAtBothEndsAreUsed() {
-        let mine = Paths.mine(wifi: true, relay: true)
-        #expect(Paths.allowed(mine: mine, peer: [.lan]) == [.lan])
-        #expect(Paths.allowed(mine: Paths.mine(wifi: false, relay: true), peer: [.lan]).isEmpty)
-        #expect(Paths.allowed(mine: mine, peer: nil) == Paths.all, "never heard from: everything")
-        #expect(Paths.allowed(mine: mine, peer: []) == Paths.all, "an older phone's empty Hello")
-        #expect(Paths.allowed(mine: Paths.mine(wifi: true, relay: false), peer: nil) == [.lan], "but never more than mine")
-    }
-
-    @Test func aHelloTakesAnyPathThisMacAllowsSoChangesAlwaysReachThePhone() {
-        // The phone last said "Wi‑Fi only", but it's away and only the relay is up
-        let mine = Paths.mine(wifi: true, relay: true)
-        let shared = Paths.allowed(mine: mine, peer: [.lan])
-        #expect(Paths.route(allowed: shared, lanUp: false, relayUp: true) == nil, "a payload waits")
-        #expect(Paths.helloRoute(mine: mine, lanUp: false, relayUp: true) == .relay, "a Hello still goes")
-        // The deadlock from real devices: each remembers the other's old single-path choice
-        let macRelayOnly = Paths.mine(wifi: false, relay: true)
-        #expect(Paths.allowed(mine: macRelayOnly, peer: [.lan]).isEmpty)
-        #expect(Paths.helloRoute(mine: macRelayOnly, lanUp: false, relayUp: true) == .relay)
-        // Never a path this Mac switched off, and the direct link first
-        #expect(Paths.helloRoute(mine: macRelayOnly, lanUp: true, relayUp: false) == nil)
-        #expect(Paths.helloRoute(mine: mine, lanUp: true, relayUp: true) == .lan)
-        #expect(Paths.helloRoute(mine: mine, lanUp: false, relayUp: false) == nil, "waits in the outbox")
-    }
-
-    @Test func prefersTheDirectLinkAndNeverFallsBackToADisallowedPath() {
-        #expect(Paths.route(allowed: Paths.all, lanUp: true, relayUp: true) == .lan)
-        #expect(Paths.route(allowed: Paths.all, lanUp: false, relayUp: true) == .relay)
-        #expect(Paths.route(allowed: [.lan], lanUp: false, relayUp: true) == nil, "waits instead of using the relay")
-        #expect(Paths.route(allowed: [.relay], lanUp: true, relayUp: false) == nil)
-    }
-}
-
 struct OutboxTests {
     private func env(_ id: UInt8, sentAt: Int64 = 999_000, ttl: UInt32 = 600) -> Seam_V1_Envelope {
         .with { $0.msgID = Data([id]); $0.sentAt = sentAt; $0.ttlS = ttl; $0.ciphertext = Data(repeating: id, count: 32) }
@@ -175,19 +141,5 @@ struct RelayLinkTests {
         ] {
             #expect(RelayLink.parse(bad, allowInsecure: false) == nil, "\(bad.prefix(60))")
         }
-    }
-}
-
-struct AppDataOwnerKeyTests {
-    @Test func roundTripsAndStaysV1WithoutAKey() throws {
-        let g = Data(repeating: 1, count: 16)
-        let plain = AppData(groupID: g, relayURL: "wss://relay.avetero.com")
-        #expect(plain.encoded().first == 1, "older versions can still open the usual case")
-        #expect(AppData(decoding: plain.encoded()) == plain)
-        let owned = AppData(groupID: g, relayURL: "wss://relay.example.com", ownerKey: Data(repeating: 9, count: 32))
-        #expect(owned.encoded().first == 2)
-        #expect(AppData(decoding: owned.encoded()) == owned)
-        #expect(AppData(decoding: owned.encoded().dropLast()) == nil, "truncated")
-        #expect(AppData(decoding: owned.encoded() + Data([0])) == nil, "trailing bytes")
     }
 }

@@ -25,7 +25,7 @@ enum PairingWindow {
             delegate = d
             window = w
         }
-        switch controller.flow.state {
+        switch controller.pairing {
         case .waiting, .confirm, .confirming: break
         case .idle, .paired, .expired, .failed: controller.startPairing()
         }
@@ -111,7 +111,7 @@ struct PairingView: View {
     }
 
     @ViewBuilder private var pairing: some View {
-        switch controller.flow.state {
+        switch controller.pairing {
         case .idle:
             outcome("Show a code to scan with Seam on your phone.", button: "Show code") { controller.startPairing() }
         case .waiting(let qr, let deadline):

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Foundation
 import SeamProtocol
+import SeamSession
 import UserNotifications
 
 /// The phone's notifications as macOS banners (board M07). Reply, buttons and dismissing here
@@ -104,3 +105,5 @@ final class PhoneNotifications: NSObject, UNUserNotificationCenterDelegate {
     private nonisolated static let reply = "reply"
     private nonisolated static let button = "button:"
 }
+
+extension PhoneNotifications: NotificationCentre {}

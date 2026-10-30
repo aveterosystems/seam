@@ -5,34 +5,6 @@ import Testing
 
 @testable import SeamSession
 
-struct AppDataTests {
-    @Test func roundTrips() {
-        let data = AppData(groupID: AppData.newGroupID(), relayURL: "wss://relay.example.com")
-        #expect(data.groupID.count == 16)
-        #expect(AppData(decoding: data.encoded()) == data)
-    }
-
-    @Test func refusesAnythingElse() {
-        let good = AppData(groupID: Data(repeating: 1, count: 16), relayURL: "wss://r.example").encoded()
-        #expect(AppData(decoding: Data()) == nil) // a state from before appData existed
-        #expect(AppData(decoding: good.dropLast()) == nil)
-        #expect(AppData(decoding: good + [0]) == nil)
-        var v2 = good
-        v2[0] = 2
-        #expect(AppData(decoding: v2) == nil)
-        #expect(AppData(decoding: AppData(groupID: Data([1, 2]), relayURL: "wss://r").encoded()) == nil)
-    }
-
-    @Test func survivesTheCoresSealedState() throws {
-        let device = try SeamDevice.generate()
-        let data = AppData(groupID: AppData.newGroupID(), relayURL: "wss://relay.example.com")
-        device.setAppData(data: data.encoded())
-        let key = Data(repeating: 3, count: 32)
-        let restored = try SeamDevice.restore(state: try device.exportState(storageKey: key), storageKey: key)
-        #expect(AppData(decoding: restored.appData()) == data)
-    }
-}
-
 struct RelayPolicyTests {
     @Test func releaseOnlyTalksTLS() {
         #expect(RelayPolicy.acceptable("wss://relay.example.com", allowInsecure: false) != nil)

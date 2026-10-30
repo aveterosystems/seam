@@ -1,36 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Foundation
+import SeamCore
 import SeamProtocol
-
-/// Which paths may carry messages to the phone (decision 0006): only those switched on at both
-/// ends. A phone that never sent a Hello (an older version) allows everything.
-public enum Paths {
-    public static let all: Set<Seam_V1_Transport> = [.lan, .relay]
-
-    /// What this Mac's switches allow, in Hello form.
-    public static func mine(wifi: Bool, relay: Bool) -> Set<Seam_V1_Transport> {
-        Set([wifi ? .lan : nil, relay ? .relay : nil].compactMap { $0 })
-    }
-
-    /// `peer` nil or empty: never heard from (or an older version), so everything.
-    public static func allowed(mine: Set<Seam_V1_Transport>, peer: Set<Seam_V1_Transport>?) -> Set<Seam_V1_Transport> {
-        mine.intersection(peer.flatMap { $0.isEmpty ? nil : $0 } ?? all)
-    }
-
-    /// The path to send on now: the direct link first, then the relay; nil means wait in the outbox.
-    public static func route(allowed: Set<Seam_V1_Transport>, lanUp: Bool, relayUp: Bool) -> Seam_V1_Transport? {
-        if lanUp && allowed.contains(.lan) { return .lan }
-        if relayUp && allowed.contains(.relay) { return .relay }
-        return nil
-    }
-
-    /// A Hello's path: any up path this Mac's own switches allow, even one the phone's last list
-    /// excludes, so a change of switches always reaches it (two devices that each remember the
-    /// other's old single-path choice could otherwise never reach each other). Only for Hellos.
-    public static func helloRoute(mine: Set<Seam_V1_Transport>, lanUp: Bool, relayUp: Bool) -> Seam_V1_Transport? {
-        route(allowed: mine, lanUp: lanUp, relayUp: relayUp)
-    }
-}
 
 /// Sealed envelopes for the phone that haven't been delivered yet, oldest first: `waiting` for an
 /// allowed path, and `sent` directly but not yet acked by the phone's Delivered. Saved to disk
@@ -238,6 +209,21 @@ public struct LinkLook: Equatable, Sendable {
         }
     }
 
+    /// The same, from the core's connection rules.
+    public static func of(route: PeerPath?, allowed: [PeerPath], ownRelay: Bool) -> LinkLook {
+        of(route: route?.transport, allowed: Set(allowed.map(\.transport)), ownRelay: ownRelay)
+    }
+
     /// The whole line in words, for VoiceOver and anywhere there's no room for the icon.
     public var sentence: String { connected ? "Connected · \(label)" : label }
+}
+
+extension PeerPath {
+    /// In Hello form.
+    public var transport: Seam_V1_Transport {
+        switch self {
+        case .lan: .lan
+        case .relay: .relay
+        }
+    }
 }
