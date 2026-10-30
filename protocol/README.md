@@ -29,7 +29,7 @@ flowchart TB
 | `seam/v1/control.proto` | `Hello` (capabilities and allowed transports), `Ack`, `Ping`, `Unpair`, `PairRequest`, `PairAccept` |
 | `seam/v1/clipboard.proto` | `Clipboard` |
 | `seam/v1/files.proto` | `FileOffer`, `FileAnswer`, `FileChunkRef`, `FileDone` |
-| `seam/v1/notifications.proto` | `Notification`, `NotificationButton`, `NotificationAction` |
+| `seam/v1/notifications.proto` | `Notification`, `NotificationButton`, `NotificationAction`, and the phone-owned settings: `NotificationSettings`, `NotificationApp`, `NotificationMode`, `NotificationSettingsChange` |
 | `seam/v1/messages.proto` | `MessageSync`, `MessageThread`, `TextMessage`, `MessageSend` |
 | `seam/v1/status.proto` | `Status` |
 | `seam/v1/find_phone.proto` | `FindPhone` |
