@@ -53,6 +53,9 @@ targets:
         # Local networking for dev relays (plain ws://) in Debug only; Release has no ATS exception
         Debug:
           INFOPLIST_FILE: Config/Debug-Info.plist
+          # Its own identity (Keychain, defaults, notification permission) next to the installed app
+          PRODUCT_BUNDLE_IDENTIFIER: com.avetero.seam.debug
+          INFOPLIST_KEY_CFBundleDisplayName: Seam Debug
         # Sparkle's feed and the public key that every update and the feed itself must be signed with
         Release:
           INFOPLIST_FILE: Config/Release-Info.plist

@@ -82,7 +82,8 @@ class Session(
     // Decision 0005: the connection is held only while it's cheap or needed
     private var screenOn = true
     private var charging = false
-    private var lastActivity = now()
+    /** The connection is wanted until then: [IDLE_MS] after the last thing it carried, longer for a reply window. */
+    private var activeUntil = now() + IDLE_MS
     private var idle: Job? = null
 
     private val mac: PeerInfo? get() = device.peers().firstOrNull { it.confirmed }
@@ -142,7 +143,7 @@ class Session(
      */
     private fun wanted(): Boolean =
         pairing != null || screenOn || charging || outbox.any { it.payload.bodyCase !in LAZY && !expired(it) } ||
-            now() - lastActivity < IDLE_MS
+            now() < activeUntil
 
     /** Past its TTL: dropped at the next flush, and no reason to keep trying to connect (SR-8-01). */
     private fun expired(q: Queued): Boolean {
@@ -150,15 +151,15 @@ class Session(
         return ttl != 0u && now() - q.at > ttl.toLong() * 1000
     }
 
-    private fun touch() {
-        lastActivity = now()
+    private fun touch(windowMs: Long = IDLE_MS) {
+        activeUntil = maxOf(activeUntil, now() + windowMs)
         scheduleIdleCheck()
     }
 
     private fun scheduleIdleCheck() {
         idle?.cancel()
         idle = scope.launch {
-            delay((lastActivity + IDLE_MS - now()).coerceAtLeast(0))
+            delay((activeUntil - now()).coerceAtLeast(0))
             reconsider(connect = false) // the end of an activity window is only ever a reason to close
         }
     }
@@ -171,7 +172,7 @@ class Session(
         val m = mac ?: return
         trace?.invoke(
             "reconsider connect=$connect screen=$screenOn charging=$charging urgent=${outbox.count { it.payload.bodyCase !in LAZY }} " +
-                "sinceActivity=${now() - lastActivity}ms link=${link != null} pairing=${pairing != null} state=${_state.value::class.simpleName}",
+                "activeFor=${activeUntil - now()}ms link=${link != null} pairing=${pairing != null} state=${_state.value::class.simpleName}",
         )
         if (pairing != null || storageBlocked || _state.value is SessionState.Failed) return
         if (wanted()) {
@@ -181,7 +182,7 @@ class Session(
             }
             // Look again when the activity window ends, if it hasn't. A queued copy that can't go yet is
             // retried by the reconnect backoff, never by a timer: rescheduling for 0 ms spins (SR-8-01)
-            if (!screenOn && !charging && lastActivity + IDLE_MS > now()) scheduleIdleCheck()
+            if (!screenOn && !charging && activeUntil > now()) scheduleIdleCheck()
         } else if (link != null || reconnect?.isActive == true) {
             sleep(m)
         }
@@ -295,7 +296,10 @@ class Session(
                 scope.launch { if (mine == generation) handle(frame) }
             }
             override fun onClosed(reason: String) {
-                scope.launch { if (mine == generation) closed() }
+                scope.launch {
+                    trace?.invoke("relay closed: $reason")
+                    if (mine == generation) closed()
+                }
             }
         }
         link = try {
@@ -307,6 +311,7 @@ class Session(
 
     private fun handle(bytes: ByteArray) {
         val frame = runCatching { ServerFrame.parseFrom(bytes) }.getOrNull() ?: return
+        trace?.invoke("relay frame: ${frame.frameCase}${if (frame.hasError()) " " + frame.error.code else ""}")
         when (frame.frameCase) {
             ServerFrame.FrameCase.CHALLENGE -> login(frame.challenge.nonce.toByteArray())
             ServerFrame.FrameCase.LOGIN_RESULT -> if (frame.loginResult.ok) loggedInOk() else relayRefused("bad_login")
@@ -444,15 +449,17 @@ class Session(
                 val e = device.seal(m.id, next.payload.toByteArray(), ttl)
                 persist() // the ratchet moved: save before anything leaves, or a crash could reuse a key
                 e
-            } catch (_: SeamException) {
+            } catch (e: SeamException) {
+                trace?.invoke("seal failed, dropped: ${outbox.first().payload.bodyCase} $e")
                 outbox.removeFirst()
                 continue
             } catch (_: Exception) {
                 return fail(SAVE_FAILED)
             }
-            outbox.removeFirst()
+            val sent = outbox.removeFirst()
+            trace?.invoke("flush: ${sent.payload.bodyCase} ${sent.payload.serializedSize} bytes")
             if (!sendEnvelope(env)) return
-            touch()
+            touch(windowFor(sent.payload))
         }
     }
 
@@ -491,8 +498,10 @@ class Session(
         _state.value = SessionState.Failed(reason)
     }
 
-    private fun sendEnvelope(env: ByteArray) =
-        sendFrame(ClientFrame.newBuilder().setSend(Envelope.parseFrom(env)).build())
+    private fun sendEnvelope(env: ByteArray): Boolean {
+        trace?.invoke("send: ${env.size} bytes")
+        return sendFrame(ClientFrame.newBuilder().setSend(Envelope.parseFrom(env)).build())
+    }
 
     private fun sendFrame(frame: ClientFrame) = link?.send(frame.toByteArray()) == true
 
@@ -523,16 +532,23 @@ class Session(
         // After login these mean the socket is unusable; others (queue_full, too_large…) are per-message
         val FATAL_AFTER_LOGIN = setOf("bad_login", "not_member", "storage")
         val NOT_RECOGNISED = setOf("bad_login", "not_member")
-        val LATEST_ONLY = setOf(Payload.BodyCase.STATUS, Payload.BodyCase.CLIPBOARD)
+        val LATEST_ONLY = setOf(Payload.BodyCase.STATUS, Payload.BodyCase.CLIPBOARD, Payload.BodyCase.NOTIFICATION_SETTINGS)
         /** Sent on the next connection, never worth one of their own (a battery change). */
         val LAZY = setOf(Payload.BodyCase.STATUS)
         /** How long a connection stays after the last thing it carried, when nothing else wants it. */
         const val IDLE_MS = 60_000L
+        /** After a notification you can reply to: long enough that a reply from the Mac needs no push. */
+        const val REPLY_WINDOW_MS = 5 * 60_000L
+
+        fun windowFor(payload: Payload): Long =
+            if (payload.hasNotification() && payload.notification.canReply) REPLY_WINDOW_MS else IDLE_MS
 
         /** How long the relay may hold it (docs/architecture/protocol.md): a stale clipboard is worse than none. */
         fun ttlFor(payload: Payload): UInt = when (payload.bodyCase) {
             Payload.BodyCase.CLIPBOARD -> 600u
             Payload.BodyCase.STATUS -> 120u
+            Payload.BodyCase.NOTIFICATION_SETTINGS -> 600u // sent again on every connection
+            Payload.BodyCase.NOTIFICATION -> 3600u // a Mac that was away gets the last hour, not a flood
             else -> 0u // the core's default
         }
         const val MAX_REFUSALS = 5

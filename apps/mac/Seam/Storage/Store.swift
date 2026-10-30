@@ -24,7 +24,7 @@ struct Store {
     private static var defaults: UserDefaults { .standard }
 
     /// The relay this Mac's group lives on. A Debug build also honours
-    /// `defaults write com.avetero.seam relayURL ws://<this Mac's LAN IP>:8787`.
+    /// `defaults write com.avetero.seam.debug relayURL ws://<this Mac's LAN IP>:8787` (Debug builds only).
     var relayURL: URL {
         RelayPolicy.resolve(
             Self.allowInsecureRelay ? [Self.defaults.string(forKey: "relayURL"), appData.relayURL] : [appData.relayURL],
@@ -96,10 +96,17 @@ struct Store {
         return store
     }
 
+    /// Debug builds keep their own pairing, so they run next to the installed app without touching it.
+    #if DEBUG
+    private static let dataFolder = "Seam Debug"
+    #else
+    private static let dataFolder = "Seam"
+    #endif
+
     private static func stateFile() throws -> StateFile {
         let dir = try FileManager.default
             .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            .appendingPathComponent("Seam", isDirectory: true)
+            .appendingPathComponent(dataFolder, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return StateFile(url: dir.appendingPathComponent("state.bin"))
     }

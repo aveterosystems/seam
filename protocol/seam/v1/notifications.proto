@@ -35,3 +35,39 @@ message NotificationAction {
     string button_id = 4;
   }
 }
+
+// The phone's notification settings. The phone keeps them and filters before anything leaves it,
+// so an app that's off never sends a word. Phone → Mac on every connection and after every change.
+message NotificationSettings {
+  bool enabled = 1; // "Show on your Mac"
+  bool dismiss_both = 2; // dismissing on one device dismisses on both
+  bool quiet_while_using_phone = 3; // nothing goes over while the phone is unlocked and in use
+  repeated NotificationApp apps = 4; // every app that can notify, each off until the user turns it on
+  int64 paused_until = 5; // unix ms; nothing goes over before then. 0: not paused
+}
+
+message NotificationApp {
+  string app_id = 1;
+  string app_name = 2;
+  NotificationMode mode = 3;
+  bool can_reply = 4; // has posted a notification with a reply action
+  bytes icon_png = 5; // only when the Mac asked for it (NotificationSettingsChange.need_icons)
+}
+
+enum NotificationMode {
+  NOTIFICATION_MODE_UNSPECIFIED = 0;
+  NOTIFICATION_MODE_ON = 1;
+  NOTIFICATION_MODE_TITLE_ONLY = 2;
+  NOTIFICATION_MODE_OFF = 3;
+}
+
+// Mac → phone: a settings change made on the Mac, or icons the Mac doesn't have. Unset fields
+// leave the phone's settings as they are. The phone answers with NotificationSettings.
+message NotificationSettingsChange {
+  optional bool enabled = 1;
+  optional bool dismiss_both = 2;
+  optional bool quiet_while_using_phone = 3;
+  repeated NotificationApp apps = 4; // app_id and mode only
+  repeated string need_icons = 5; // app ids
+  optional int64 paused_until = 6; // unix ms; 0 resumes
+}

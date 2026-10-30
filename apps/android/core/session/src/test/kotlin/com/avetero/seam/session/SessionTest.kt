@@ -9,6 +9,7 @@ import com.avetero.seam.protocol.v1.ClientFrame
 import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.LoginResult
+import com.avetero.seam.protocol.v1.Notification
 import com.avetero.seam.protocol.v1.PairAccept
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.RelayError
@@ -472,6 +473,17 @@ class SessionTest {
         assertEquals(logins + 1, relay.logins.size)
         assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "sent from an idle phone" })
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun aNotificationYouCanReplyToKeepsTheConnectionForTheReply() = runTest {
+        val s = paired()
+        s.setScreenOn(false)
+        advanceUntilIdle()
+        s.send(Payload.newBuilder().setNotification(Notification.newBuilder().setKey("k").setCanReply(true)).build())
+        advanceTimeBy(2 * 60_000L) // past the usual one-minute idle
+        assertEquals("still there for a reply after the usual minute", SessionState.Connected("MacBook Pro"), s.state.value)
+        advanceUntilIdle()
+        assertEquals("but not for ever", SessionState.Idle("MacBook Pro"), s.state.value)
     }
 
     @Test fun d0005_aBatteryChangeWaitsForTheNextConnection() = runTest {

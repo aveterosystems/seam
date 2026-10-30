@@ -138,6 +138,22 @@ public nonisolated struct Seam_V1_Payload: Sendable {
     set {body = .notificationAction(newValue)}
   }
 
+  public var notificationSettings: Seam_V1_NotificationSettings {
+    get {
+      if case .notificationSettings(let v)? = body {return v}
+      return Seam_V1_NotificationSettings()
+    }
+    set {body = .notificationSettings(newValue)}
+  }
+
+  public var notificationSettingsChange: Seam_V1_NotificationSettingsChange {
+    get {
+      if case .notificationSettingsChange(let v)? = body {return v}
+      return Seam_V1_NotificationSettingsChange()
+    }
+    set {body = .notificationSettingsChange(newValue)}
+  }
+
   /// 40–49: messages
   public var messageSync: Seam_V1_MessageSync {
     get {
@@ -188,6 +204,8 @@ public nonisolated struct Seam_V1_Payload: Sendable {
     /// 30–39: notifications
     case notification(Seam_V1_Notification)
     case notificationAction(Seam_V1_NotificationAction)
+    case notificationSettings(Seam_V1_NotificationSettings)
+    case notificationSettingsChange(Seam_V1_NotificationSettingsChange)
     /// 40–49: messages
     case messageSync(Seam_V1_MessageSync)
     case messageSend(Seam_V1_MessageSend)
@@ -266,7 +284,7 @@ nonisolated extension Seam_V1_Inner: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 nonisolated extension Seam_V1_Payload: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Payload"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}control\0\u{2}\u{9}clipboard\0\u{4}\u{a}file_offer\0\u{3}file_answer\0\u{3}file_chunk\0\u{3}file_done\0\u{2}\u{7}notification\0\u{3}notification_action\0\u{4}\u{9}message_sync\0\u{3}message_send\0\u{2}\u{9}status\0\u{4}\u{a}find_phone\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}control\0\u{2}\u{9}clipboard\0\u{4}\u{a}file_offer\0\u{3}file_answer\0\u{3}file_chunk\0\u{3}file_done\0\u{2}\u{7}notification\0\u{3}notification_action\0\u{3}notification_settings\0\u{3}notification_settings_change\0\u{4}\u{7}message_sync\0\u{3}message_send\0\u{2}\u{9}status\0\u{4}\u{a}find_phone\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -378,6 +396,32 @@ nonisolated extension Seam_V1_Payload: SwiftProtobuf.Message, SwiftProtobuf._Mes
           self.body = .notificationAction(v)
         }
       }()
+      case 32: try {
+        var v: Seam_V1_NotificationSettings?
+        var hadOneofValue = false
+        if let current = self.body {
+          hadOneofValue = true
+          if case .notificationSettings(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.body = .notificationSettings(v)
+        }
+      }()
+      case 33: try {
+        var v: Seam_V1_NotificationSettingsChange?
+        var hadOneofValue = false
+        if let current = self.body {
+          hadOneofValue = true
+          if case .notificationSettingsChange(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.body = .notificationSettingsChange(v)
+        }
+      }()
       case 40: try {
         var v: Seam_V1_MessageSync?
         var hadOneofValue = false
@@ -472,6 +516,14 @@ nonisolated extension Seam_V1_Payload: SwiftProtobuf.Message, SwiftProtobuf._Mes
     case .notificationAction?: try {
       guard case .notificationAction(let v)? = self.body else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 31)
+    }()
+    case .notificationSettings?: try {
+      guard case .notificationSettings(let v)? = self.body else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 32)
+    }()
+    case .notificationSettingsChange?: try {
+      guard case .notificationSettingsChange(let v)? = self.body else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 33)
     }()
     case .messageSync?: try {
       guard case .messageSync(let v)? = self.body else { preconditionFailure() }

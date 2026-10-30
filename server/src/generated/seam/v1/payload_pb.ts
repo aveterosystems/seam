@@ -16,7 +16,7 @@ import type { FindPhone } from "./find_phone_pb";
 import { file_seam_v1_find_phone } from "./find_phone_pb";
 import type { MessageSend, MessageSync } from "./messages_pb";
 import { file_seam_v1_messages } from "./messages_pb";
-import type { Notification, NotificationAction } from "./notifications_pb";
+import type { Notification, NotificationAction, NotificationSettings, NotificationSettingsChange } from "./notifications_pb";
 import { file_seam_v1_notifications } from "./notifications_pb";
 import type { Status } from "./status_pb";
 import { file_seam_v1_status } from "./status_pb";
@@ -26,7 +26,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/payload.proto.
  */
 export const file_seam_v1_payload: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL3BheWxvYWQucHJvdG8SB3NlYW0udjEidAoFSW5uZXISDgoGbXNnX2lkGAEgASgMEg8KB3NlbnRfYXQYAiABKAMSIQoHcGF5bG9hZBgDIAEoCzIQLnNlYW0udjEuUGF5bG9hZBIMCgRmcm9tGAQgASgMEgoKAnRvGAUgASgMEg0KBXR0bF9zGAYgASgNIp4ECgdQYXlsb2FkEiMKB2NvbnRyb2wYASABKAsyEC5zZWFtLnYxLkNvbnRyb2xIABInCgljbGlwYm9hcmQYCiABKAsyEi5zZWFtLnYxLkNsaXBib2FyZEgAEigKCmZpbGVfb2ZmZXIYFCABKAsyEi5zZWFtLnYxLkZpbGVPZmZlckgAEioKC2ZpbGVfYW5zd2VyGBUgASgLMhMuc2VhbS52MS5GaWxlQW5zd2VySAASKwoKZmlsZV9jaHVuaxgWIAEoCzIVLnNlYW0udjEuRmlsZUNodW5rUmVmSAASJgoJZmlsZV9kb25lGBcgASgLMhEuc2VhbS52MS5GaWxlRG9uZUgAEi0KDG5vdGlmaWNhdGlvbhgeIAEoCzIVLnNlYW0udjEuTm90aWZpY2F0aW9uSAASOgoTbm90aWZpY2F0aW9uX2FjdGlvbhgfIAEoCzIbLnNlYW0udjEuTm90aWZpY2F0aW9uQWN0aW9uSAASLAoMbWVzc2FnZV9zeW5jGCggASgLMhQuc2VhbS52MS5NZXNzYWdlU3luY0gAEiwKDG1lc3NhZ2Vfc2VuZBgpIAEoCzIULnNlYW0udjEuTWVzc2FnZVNlbmRIABIhCgZzdGF0dXMYMiABKAsyDy5zZWFtLnYxLlN0YXR1c0gAEigKCmZpbmRfcGhvbmUYPCABKAsyEi5zZWFtLnYxLkZpbmRQaG9uZUgAQgYKBGJvZHlCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM", [file_seam_v1_clipboard, file_seam_v1_control, file_seam_v1_files, file_seam_v1_find_phone, file_seam_v1_messages, file_seam_v1_notifications, file_seam_v1_status]);
+  fileDesc("ChVzZWFtL3YxL3BheWxvYWQucHJvdG8SB3NlYW0udjEidAoFSW5uZXISDgoGbXNnX2lkGAEgASgMEg8KB3NlbnRfYXQYAiABKAMSIQoHcGF5bG9hZBgDIAEoCzIQLnNlYW0udjEuUGF5bG9hZBIMCgRmcm9tGAQgASgMEgoKAnRvGAUgASgMEg0KBXR0bF9zGAYgASgNIqsFCgdQYXlsb2FkEiMKB2NvbnRyb2wYASABKAsyEC5zZWFtLnYxLkNvbnRyb2xIABInCgljbGlwYm9hcmQYCiABKAsyEi5zZWFtLnYxLkNsaXBib2FyZEgAEigKCmZpbGVfb2ZmZXIYFCABKAsyEi5zZWFtLnYxLkZpbGVPZmZlckgAEioKC2ZpbGVfYW5zd2VyGBUgASgLMhMuc2VhbS52MS5GaWxlQW5zd2VySAASKwoKZmlsZV9jaHVuaxgWIAEoCzIVLnNlYW0udjEuRmlsZUNodW5rUmVmSAASJgoJZmlsZV9kb25lGBcgASgLMhEuc2VhbS52MS5GaWxlRG9uZUgAEi0KDG5vdGlmaWNhdGlvbhgeIAEoCzIVLnNlYW0udjEuTm90aWZpY2F0aW9uSAASOgoTbm90aWZpY2F0aW9uX2FjdGlvbhgfIAEoCzIbLnNlYW0udjEuTm90aWZpY2F0aW9uQWN0aW9uSAASPgoVbm90aWZpY2F0aW9uX3NldHRpbmdzGCAgASgLMh0uc2VhbS52MS5Ob3RpZmljYXRpb25TZXR0aW5nc0gAEksKHG5vdGlmaWNhdGlvbl9zZXR0aW5nc19jaGFuZ2UYISABKAsyIy5zZWFtLnYxLk5vdGlmaWNhdGlvblNldHRpbmdzQ2hhbmdlSAASLAoMbWVzc2FnZV9zeW5jGCggASgLMhQuc2VhbS52MS5NZXNzYWdlU3luY0gAEiwKDG1lc3NhZ2Vfc2VuZBgpIAEoCzIULnNlYW0udjEuTWVzc2FnZVNlbmRIABIhCgZzdGF0dXMYMiABKAsyDy5zZWFtLnYxLlN0YXR1c0gAEigKCmZpbmRfcGhvbmUYPCABKAsyEi5zZWFtLnYxLkZpbmRQaG9uZUgAQgYKBGJvZHlCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM", [file_seam_v1_clipboard, file_seam_v1_control, file_seam_v1_files, file_seam_v1_find_phone, file_seam_v1_messages, file_seam_v1_notifications, file_seam_v1_status]);
 
 /**
  * What actually gets encrypted. Every routing field is repeated here and must match the
@@ -140,6 +140,18 @@ export type Payload = Message<"seam.v1.Payload"> & {
      */
     value: NotificationAction;
     case: "notificationAction";
+  } | {
+    /**
+     * @generated from field: seam.v1.NotificationSettings notification_settings = 32;
+     */
+    value: NotificationSettings;
+    case: "notificationSettings";
+  } | {
+    /**
+     * @generated from field: seam.v1.NotificationSettingsChange notification_settings_change = 33;
+     */
+    value: NotificationSettingsChange;
+    case: "notificationSettingsChange";
   } | {
     /**
      * 40–49: messages
