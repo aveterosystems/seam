@@ -66,7 +66,11 @@ class MainActivity : ComponentActivity() {
                 val updateStatus by app.updater.status.collectAsStateWithLifecycle()
                 val updatesAsked by app.updater.asked.collectAsStateWithLifecycle()
                 var scanError by remember { mutableStateOf<String?>(null) }
-                var scanned by remember { mutableStateOf<PairingQr?>(null) }
+                // Debug builds only: a pairing code passed at launch (device tests on an emulator, which
+                // has no camera to scan with). It still goes through the same confirm and safety code
+                var scanned by remember {
+                    mutableStateOf(if (BuildConfig.DEBUG) intent?.dataString?.let { PairingQr.parse(it, allowCleartext = true) } else null)
+                }
                 var settings by remember { mutableStateOf(false) }
                 var notificationSettings by remember { mutableStateOf(false) }
                 var scanning by remember { mutableStateOf(false) }

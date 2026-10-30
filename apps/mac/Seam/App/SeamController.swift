@@ -598,6 +598,12 @@ final class SeamController: RelayHandler {
             identityKey: store.device.identityKey(), relayKey: store.device.relayKey(), name: Host.current().localizedName ?? "Mac"
         )
         flow.start(qr: qr.url, now: Date())
+        #if DEBUG
+        // Device tests: hand the code to an emulator, which has no camera to scan with
+        if let path = ProcessInfo.processInfo.environment["SEAM_PAIRING_CODE_FILE"] {
+            FileManager.default.createFile(atPath: path, contents: Data(qr.url.utf8), attributes: [.posixPermissions: 0o600])
+        }
+        #endif
         expiryTask?.cancel()
         expiryTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(PairingDeadline.lifetime))
