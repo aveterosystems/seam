@@ -37,7 +37,7 @@ After that, both apps update themselves: once a day they check GitHub for a newe
 |---|---|---|
 | 🔔 | **Phone notifications on your Mac**, in Notification Centre, with reply and dismiss that sync both ways. Every app starts off; you choose which ones reach the Mac, and the phone filters before anything leaves it | In 0.2.0 |
 | 💬 | **Texts on your Mac**: read and reply from the menu bar or a full Messages window | Planned |
-| 📋 | **Clipboard both ways**: Mac to phone automatically; phone to Mac automatically in the GitHub build after a one-time setup from the Mac, otherwise one tap | In 0.1.0 |
+| 📋 | **Clipboard both ways**: Mac to phone automatically; phone to Mac automatically in the GitHub build once you turn on Seam in Android's Accessibility settings (or a one-time setup from the Mac over USB), otherwise one tap | In 0.1.0 |
 | 📁 | **Files in either direction**: share sheet, drag onto the menu bar, or the phone in Finder | Planned |
 | 🔋 | **Battery and status**: the phone's battery in the Mac's menu bar; a desktop widget later | Battery in 0.1.0 |
 | 📣 | **Ring my phone** from the Mac, even on silent | Planned |

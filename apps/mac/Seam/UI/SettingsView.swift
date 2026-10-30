@@ -278,8 +278,8 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Phone → Mac").font(.headline)
             SettingsGroup {
-                SettingsRow("Automatic clipboard from your phone", "Mac → phone is always automatic. Phone → Mac is automatic once set up here, with the phone connected by USB or wireless debugging (Seam build from GitHub).") {
-                    Button("Turn On…") { AutoClipboardSetup.run() }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                SettingsRow("Automatic clipboard from your phone", "Mac → phone is always automatic. For phone → Mac, open Seam on the phone and turn on Automatic clipboard in its Settings (Seam build from GitHub). Rather not use Android's Accessibility? Set it up from here instead, with the phone connected by USB or wireless debugging.") {
+                    Button("Set Up with USB…") { AutoClipboardSetup.run() }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                 }
             }
         }
