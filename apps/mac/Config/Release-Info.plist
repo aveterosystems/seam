@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Release builds only (project.yml): merged with the generated keys. Sparkle updates come from
+     the latest GitHub release's appcast.xml. Both the feed and each update must carry an EdDSA
+     signature from Seam's update key (public half below, set by scripts/make-update-key.sh). That
+     key is the root of trust for Mac updates: Sparkle 2.10 doesn't also require the new app to be
+     signed by this app's certificate (SR-17-02). Sparkle asks the user once before checking. -->
+<plist version="1.0">
+<dict>
+	<key>SUFeedURL</key>
+	<string>https://github.com/aveterosystems/seam/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>1rIKVnoDagQQKR86KN625cN6MygQi2yUQVYgBfx7TBU=</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+	<key>SUSignedFeedFailureExpirationInterval</key>
+	<integer>0</integer>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUAllowsAutomaticUpdates</key>
+	<false/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
+</dict>
+</plist>

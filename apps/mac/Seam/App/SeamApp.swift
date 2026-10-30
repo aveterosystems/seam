@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         controller.start()
+        Updates.shared.start()
         if controller.needsReset {
             ResetPrompt.run(controller)
         } else if controller.phone == nil, controller.startupError == nil {

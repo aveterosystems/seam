@@ -29,6 +29,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +60,7 @@ fun SettingsScreen(
     version: String,
     onForgetMac: () -> Unit,
     onBack: () -> Unit,
+    updater: Updater? = null,
 ) {
     BackHandler(onBack = onBack)
     var explainClipboard by remember { mutableStateOf(false) }
@@ -108,6 +110,18 @@ fun SettingsScreen(
                         Item(title = macName, subtitle = "Paired", lead = painterResource(R.drawable.ic_laptop)) {
                             TextButton(onClick = { confirmForget = true }) { Text("Forget", color = MaterialTheme.colorScheme.error) }
                         }
+                    }
+                }
+                if (updater?.available == true) {
+                    val status by updater.status.collectAsState()
+                    var automatic by remember { mutableStateOf(updater.automatic) }
+                    Section("Updates") {
+                        Item("Check for updates automatically", "Once a day, Seam asks GitHub for a newer release. GitHub sees this phone's IP address and Seam's version when it does.") {
+                            Switch(checked = automatic, onCheckedChange = { automatic = it; updater.answer(it) })
+                        }
+                        Item("Check now", status ?: "Installs only updates signed by Seam", onClick = { updater.checkNow() })
+                        // SR-17-14: the grant outlives the update
+                        Item("After updating", "You can turn off Install unknown apps for Seam in Android's settings; Seam asks again next time")
                     }
                 }
                 Section("About") {

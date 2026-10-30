@@ -3,7 +3,8 @@ name: release
 # opens a draft release with checksums and build attestations. The maintainer reviews and publishes.
 #
 # Builds run with no secrets. Signing runs in its own jobs on fresh runners, in the `release`
-# environment (required reviewer, v* tags only), and runs nothing but the signing tools (SR-14-01, 02).
+# environment (required reviewer, v* tags only), and runs only the signing tools: zipalign and
+# apksigner, codesign and security, and Sparkle's sign_update (pinned by SHA-256) (SR-14-01, 02).
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
@@ -21,6 +22,9 @@ env:
   CARGO_NDK: "4.1.2"
   XCODEGEN: "2.46.0"
   XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+  # Sparkle's sign_update signs Mac updates and the appcast; the app's Sparkle comes from SwiftPM
+  SPARKLE: "2.10.0"
+  SPARKLE_SHA256: "c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
 
 jobs:
   versions:
@@ -83,10 +87,14 @@ jobs:
           echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
-      - name: Release build (universal, unsigned)
+      - name: Release build (universal, unsigned), packages exactly as pinned
         run: |
           cd apps/mac && xcodegen generate
+          # Sparkle and SwiftProtobuf at the commits in apps/mac/Package.resolved, nothing newer (SR-17-03)
+          mkdir -p Seam.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+          cp Package.resolved Seam.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
           xcodebuild -project Seam.xcodeproj -scheme Seam -configuration Release \
+            -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution \
             -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build | tail -20
           app="$RUNNER_TEMP/dd/Build/Products/Release/Seam.app"
           test "$(lipo -archs "$app/Contents/MacOS/Seam")" = "x86_64 arm64"
@@ -126,21 +134,45 @@ jobs:
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false, sparse-checkout: "release\nscripts" }
+        with: { persist-credentials: false, sparse-checkout: "release\nscripts\napps/mac/Config" }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: mac-unsigned, path: in }
-      - name: Sign with Seam's pinned certificate, then zip
+      - name: Sparkle ${{ env.SPARKLE }}'s sign_update, checked against its pinned SHA-256
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE/Sparkle-$SPARKLE.tar.xz"
+          echo "$SPARKLE_SHA256  $RUNNER_TEMP/sparkle.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle" ./bin/sign_update
+      - name: Sign with Seam's pinned certificate, zip, sign the update and the appcast
         env:
           P12_BASE64: ${{ secrets.MAC_SIGNING_P12_BASE64 }}
           MAC_SIGNING_P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
+          SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
           VERSION: ${{ needs.versions.outputs.version }}
         run: |
           keys="$(mktemp -d)"
           trap 'rm -rf "$keys"' EXIT
-          (umask 077; base64 -d <<< "$P12_BASE64" > "$keys/signing.p12")
+          (umask 077; base64 -d <<< "$P12_BASE64" > "$keys/signing.p12"; printf '%s\n' "$SPARKLE_KEY" > "$keys/sparkle.key")
+          # From here on only files carry the keys, so nothing else this step runs inherits them (SR-17-12)
+          unset P12_BASE64 SPARKLE_KEY
           ditto -x -k in/unsigned.zip "$keys/app"
-          MAC_SIGNING_P12="$keys/signing.p12" scripts/sign-mac-app.sh "$keys/app/Seam.app"
-          mkdir -p dist && ditto -c -k --keepParent "$keys/app/Seam.app" "dist/Seam-$VERSION-mac.zip"
+          app="$keys/app/Seam.app"
+          MAC_SIGNING_P12="$keys/signing.p12" scripts/sign-mac-app.sh "$app"
+          mkdir -p dist && ditto -c -k --keepParent "$app" "dist/Seam-$VERSION-mac.zip"
+          build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")"
+          public="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")"
+          EXPECTED_PUBLIC_KEY="$public" SPARKLE_KEY_FILE="$keys/sparkle.key" SIGN_UPDATE="$RUNNER_TEMP/sparkle/bin/sign_update" \
+            scripts/make-appcast.sh "dist/Seam-$VERSION-mac.zip" "$VERSION" "$build" dist/appcast.xml
+      - name: The signed app launches (Sparkle loads; no keys in this step)
+        env:
+          VERSION: ${{ needs.versions.outputs.version }}
+        run: |
+          t="$(mktemp -d)"
+          ditto -x -k "dist/Seam-$VERSION-mac.zip" "$t"
+          "$t/Seam.app/Contents/MacOS/Seam" & pid=$!
+          sleep 10
+          # A refused framework kills it at launch; still running means it loaded (SR-17-01)
+          kill -0 "$pid" || { echo "Seam.app exited at launch" >&2; exit 1; }
+          kill "$pid"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: mac, path: dist/, if-no-files-found: error, retention-days: 7 }
 
@@ -158,11 +190,16 @@ jobs:
         with: { name: android, path: dist }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: mac, path: dist }
-      - name: Checksums
+      - name: Checksums, and every file a release needs
         working-directory: dist
-        run: sha256sum Seam-* > SHA256SUMS && cat SHA256SUMS
+        run: |
+          # The Mac updater reads releases/latest/download/appcast.xml: a release without it stops Mac updates (SR-17-17)
+          for f in "Seam-${{ needs.versions.outputs.version }}-android.apk" "Seam-${{ needs.versions.outputs.version }}-mac.zip" appcast.xml; do
+            test -s "$f" || { echo "Missing $f" >&2; exit 1; }
+          done
+          sha256sum Seam-* > SHA256SUMS && cat SHA256SUMS
       - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
-        with: { subject-path: "dist/Seam-*\ndist/SHA256SUMS" }
+        with: { subject-path: "dist/Seam-*\ndist/SHA256SUMS\ndist/appcast.xml" }
       - name: Draft release
         env:
           GH_TOKEN: ${{ github.token }}

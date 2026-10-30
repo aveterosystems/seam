@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
                 val state by session.state.collectAsStateWithLifecycle()
                 val notice by session.notice.collectAsStateWithLifecycle()
                 val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
+                val updateOffer by app.updater.offer.collectAsStateWithLifecycle()
+                val updateStatus by app.updater.status.collectAsStateWithLifecycle()
+                val updatesAsked by app.updater.asked.collectAsStateWithLifecycle()
                 var scanError by remember { mutableStateOf<String?>(null) }
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 var settings by remember { mutableStateOf(false) }
@@ -111,6 +114,7 @@ class MainActivity : ComponentActivity() {
                             session.forgetMac()
                         },
                         onBack = { settings = false },
+                        updater = app.updater,
                     )
                 }
                 SeamScreen(
@@ -133,6 +137,11 @@ class MainActivity : ComponentActivity() {
                     },
                     onOpenSettings = { settings = true },
                     onCodesDontMatch = { session.abortPairing() },
+                    update = updateOffer,
+                    updateStatus = updateStatus,
+                    onUpdate = { app.updater.install(it) },
+                    askUpdates = app.updater.available && !updatesAsked,
+                    onAnswerUpdates = { app.updater.answer(it) },
                     onSendClipboard = {
                         // Seam has focus here, so Android allows the read
                         Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()

@@ -3,6 +3,7 @@
 # Signs Seam.app with Seam's own (self-signed) certificate, in a throwaway keychain.
 #   MAC_SIGNING_P12 (path) and MAC_SIGNING_P12_PASSWORD must be set; scripts/sign-mac-app.sh path/to/Seam.app
 #   MAC_CERT_PIN overrides the pin file (CI's signing check uses a throwaway certificate).
+#   MAC_ENTITLEMENTS overrides apps/mac/Config/Release.entitlements (the app's entitlements).
 # The certificate must be the one pinned in release/mac-certificate.sha256: a swapped secret fails
 # here instead of shipping an app whose updates lose access to the user's keychain.
 set -euo pipefail
@@ -58,8 +59,20 @@ identities="$(security find-identity -p codesigning "$keychain")"
 grep -q "$sha1" <<< "$identities" \
   || { echo "The P12 has the certificate but no matching private key" >&2; echo "$identities" >&2; exit 1; }
 
-# Hardened runtime, no entitlements. No timestamp: Apple's timestamp server only serves Developer ID.
-codesign --force --options runtime --timestamp=none --keychain "$keychain" --sign "$sha1" "$app"
+# Nested code first, innermost first (Sparkle's helpers, then its framework), as Sparkle's own
+# re-signing guide does: no entitlements carried over. Symlinks point at the real Versions/B copies.
+if [ -d "$app/Contents/Frameworks" ]; then
+  while IFS= read -r -d '' item; do
+    codesign --force --options runtime --timestamp=none \
+      --keychain "$keychain" --sign "$sha1" "$item"
+  done < <(find "$app/Contents/Frameworks" -depth -not -type l \
+    \( -name '*.xpc' -o -name '*.app' -o -name 'Autoupdate' -o -name '*.framework' -o -name '*.dylib' \) -print0)
+fi
+# The app: hardened runtime, with library validation off so it can load its own frameworks (see the
+# entitlements file). No timestamp: Apple's timestamp server only serves Developer ID.
+entitlements="${MAC_ENTITLEMENTS:-$root/apps/mac/Config/Release.entitlements}"
+codesign --force --options runtime --timestamp=none --entitlements "$entitlements" \
+  --keychain "$keychain" --sign "$sha1" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 # Updates keep keychain access only while this stays the same: identifier + this certificate
 requirement="$(codesign -d -r- "$app" 2>&1)"

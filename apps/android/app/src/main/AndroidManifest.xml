@@ -49,6 +49,9 @@
             </intent-filter>
         </receiver>
 
+        <!-- The package installer's answer to an update Seam started: only the system sends it -->
+        <receiver android:name=".InstallResult" android:exported="false" />
+
         <service
             android:name=".ConnectionService"
             android:exported="false"

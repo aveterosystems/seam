@@ -14,6 +14,7 @@ Seam is licensed under [AGPL-3.0-only](LICENSE) and builds on the open-source wo
 | [UniFFI](https://github.com/mozilla/uniffi-rs) | Swift and Kotlin bindings for the Rust core | MPL-2.0 |
 | [hpke-rs](https://github.com/cryspen/hpke-rs) | Pulled in by libsignal | MPL-2.0 |
 | [SwiftProtobuf](https://github.com/apple/swift-protobuf) | Message encoding on the Mac | Apache-2.0 |
+| [Sparkle](https://github.com/sparkle-project/Sparkle) | In-app updates on the Mac | MIT |
 | [Protocol Buffers for Kotlin/Java (lite)](https://github.com/protocolbuffers/protobuf) | Message encoding on Android | BSD-3-Clause |
 | [JNA](https://github.com/java-native-access/jna) | Calls the Rust core from Kotlin | Apache-2.0 OR LGPL-2.1 |
 | [AndroidX](https://developer.android.com/jetpack/androidx): Compose, Lifecycle, CameraX | Android UI, lifecycle and the pairing camera view | Apache-2.0 |

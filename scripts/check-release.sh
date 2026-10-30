@@ -35,4 +35,7 @@ fi
 for pin in release/android-certificate.sha256 release/mac-certificate.sha256; do
   [[ "$(tr -d '[:space:]' < "$pin" 2>/dev/null)" =~ ^[0-9a-f]{64}$ ]] || fail "$pin must be one SHA-256 (64 hex characters)"
 done
+# The Mac app's Sparkle public key must be set (scripts/make-update-key.sh), or updates can't verify
+edkey="$(sed -n '/<key>SUPublicEDKey<\/key>/{n;s/.*<string>\(.*\)<\/string>.*/\1/p;}' apps/mac/Config/Release-Info.plist)"
+[[ "$edkey" =~ ^[A-Za-z0-9+/]{43}=$ ]] || fail "apps/mac/Config/Release-Info.plist SUPublicEDKey isn't set: run scripts/make-update-key.sh"
 echo "version=$version"

@@ -7,9 +7,11 @@ Helpers for code generation, builds and releases. Run them from anywhere; they f
 | `gen-protocol.sh` | Checks the schema compiles, then generates Swift (`protoc-gen-swift`) and TypeScript (`protoc-gen-es`) from `protocol/`. Skips any generator that isn't installed, with a message. | After changing anything in `protocol/` |
 | `gen-bindings.sh` | Builds `core/seam-ffi` and generates its Swift and Kotlin bindings with UniFFI | After changing `seam-ffi`'s public API |
 | `build-mac-core.sh` | Builds the Rust core as `SeamCoreFFI.xcframework` for the Mac app. Host architecture by default; `ARCHS="arm64 x86_64"` for universal. | Before building or testing the Mac app, and after changing `core/` |
-| `check-release.sh` | The release gate: the tag is on `main`, both apps carry its version, both build numbers went up since the last release, and the certificate pins are well formed | Run by the release workflow; locally with `MAIN_REF=HEAD scripts/check-release.sh vX.Y.Z` |
+| `check-release.sh` | The release gate: the tag is on `main`, both apps carry its version, both build numbers went up since the last release, the certificate pins are well formed, and the Mac update key is set | Run by the release workflow; locally with `MAIN_REF=HEAD scripts/check-release.sh vX.Y.Z` |
 | `sign-mac-app.sh` | Signs `Seam.app` with Seam's certificate in a throwaway keychain, after checking it's the one pinned in `release/` | Run by the release workflow; `release-signing.yml` tests it with a throwaway certificate |
 | `sign-android-apk.sh` | Aligns and signs an APK with Seam's key, and checks it has exactly one signer, the pinned one | Run by the release workflow; `release-signing.yml` tests it with a throwaway key |
+| `make-appcast.sh` | Writes Sparkle's `appcast.xml` for a release, signs the Mac update and the feed with the update key, and checks the key matches the app's `SUPublicEDKey` | Run by the release workflow |
+| `make-update-key.sh` | One-time: makes the Mac update key in the release-keys disk image, stores it as a `release` secret, writes its public half to `apps/mac/Config/Release-Info.plist` | Once, by the maintainer, after `make-release-keys.sh` |
 | `make-release-keys.sh` | One-time: protects releases on GitHub, makes the signing keys in an encrypted disk image, sets them as `release` environment secrets, and writes the fingerprints to `release/` | Once, by the maintainer (done for 0.1.0) |
 
 ```mermaid

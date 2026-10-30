@@ -23,6 +23,7 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 - The relay (`server/`): authentication, routing, queueing, logging of anything it shouldn't
 - The apps (`apps/`): key storage, anything that sends content outside the end-to-end encryption, never-sync rules (passwords, sensitive notifications)
 - Releases (`.github/workflows/release.yml`, `scripts/`, `release/`): anything that could get an unreviewed build signed or published
+- Updates (Sparkle on the Mac, `Updates.kt` on Android): anything that could get an update installed that Seam's release workflow didn't sign
 
 ## Out of scope
 
