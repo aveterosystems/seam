@@ -95,11 +95,12 @@ jobs:
           printf '%s' "$("$openssl" genpkey -algorithm ed25519)" > "$t/pem"
           "$openssl" pkey -in "$t/pem" -outform DER | tail -c 32 | base64 > "$t/key"
           public="$("$openssl" pkey -in "$t/pem" -pubout -outform DER | tail -c 32 | base64)"
-          echo "stand-in" > "$t/Seam-0.0.1-mac.zip"
+          echo "stand-in" > "$t/Seam-0.1.1-mac.zip"
           EXPECTED_PUBLIC_KEY="$public" SPARKLE_KEY_FILE="$t/key" SIGN_UPDATE="$RUNNER_TEMP/sparkle/bin/sign_update" \
-            scripts/make-appcast.sh "$t/Seam-0.0.1-mac.zip" 0.0.1 1 "$t/appcast.xml"
+            scripts/make-appcast.sh "$t/Seam-0.1.1-mac.zip" 0.1.1 1 "$t/appcast.xml"
           grep -q "sparkle-signatures" "$t/appcast.xml"
+          grep -q "In-app updates for both apps" "$t/appcast.xml"
           # A key the app doesn't trust must be refused
           if EXPECTED_PUBLIC_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" SPARKLE_KEY_FILE="$t/key" SIGN_UPDATE="$RUNNER_TEMP/sparkle/bin/sign_update" \
-            scripts/make-appcast.sh "$t/Seam-0.0.1-mac.zip" 0.0.1 1 "$t/appcast2.xml" 2> "$t/err"; then echo "A wrong update key was accepted" >&2; exit 1; fi
+            scripts/make-appcast.sh "$t/Seam-0.1.1-mac.zip" 0.1.1 1 "$t/appcast2.xml" 2> "$t/err"; then echo "A wrong update key was accepted" >&2; exit 1; fi
           grep -q "isn't the app's SUPublicEDKey" "$t/err" || { cat "$t/err"; exit 1; }

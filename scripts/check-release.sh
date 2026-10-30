@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # The release workflow's gate: scripts/check-release.sh vX.Y.Z  (prints version=X.Y.Z)
 # Fails unless the tagged commit is on main, both apps carry this version, their build numbers went
-# up since the last release tag, and the certificate pins are 64 hex characters (SR-14-01, 03, 08, 09).
+# up since the last release tag, CHANGELOG.md says what changed, and the certificate pins are 64 hex characters (SR-14-01, 03, 08, 09).
 set -euo pipefail
 tag="$1"
 version="${tag#v}"
@@ -38,4 +38,5 @@ done
 # The Mac app's Sparkle public key must be set (scripts/make-update-key.sh), or updates can't verify
 edkey="$(sed -n '/<key>SUPublicEDKey<\/key>/{n;s/.*<string>\(.*\)<\/string>.*/\1/p;}' apps/mac/Config/Release-Info.plist)"
 [[ "$edkey" =~ ^[A-Za-z0-9+/]{43}=$ ]] || fail "apps/mac/Config/Release-Info.plist SUPublicEDKey isn't set: run scripts/make-update-key.sh"
+scripts/changes.sh "$version" >/dev/null || fail "Add a ## $version section to CHANGELOG.md"
 echo "version=$version"
