@@ -23,29 +23,30 @@ extension Color {
 /// outlined when not. A template image, so macOS tints it like any other menu bar item.
 enum SeamMark {
     static func image(connected: Bool) -> NSImage {
-        let img = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
-            let left = NSBezierPath(roundedRect: NSRect(x: 2.5, y: 3.5, width: 5.5, height: 11), xRadius: 1.6, yRadius: 1.6)
-            let right = NSBezierPath(roundedRect: NSRect(x: 10, y: 3.5, width: 5.5, height: 11), xRadius: 1.6, yRadius: 1.6)
+        // Panels fill 15 of the 18 pt (16.5 with the outline), like the system's own menu bar glyphs
+        let img = NSImage(size: NSSize(width: 20, height: 18), flipped: true) { _ in
+            let left = NSBezierPath(roundedRect: NSRect(x: 1.25, y: 1.5, width: 7.5, height: 15), xRadius: 2.2, yRadius: 2.2)
+            let right = NSBezierPath(roundedRect: NSRect(x: 11.25, y: 1.5, width: 7.5, height: 15), xRadius: 2.2, yRadius: 2.2)
             NSColor.black.set()
             if connected {
                 left.fill()
                 right.fill()
             } else {
                 for p in [left, right] {
-                    p.lineWidth = 1.3
+                    p.lineWidth = 1.5
                     p.stroke()
                 }
             }
-            for y in [6.5, 9.0, 11.5] {
+            for y in [5.6, 9.0, 12.4] {
                 let s = NSBezierPath()
-                s.move(to: NSPoint(x: 6.5, y: y))
-                s.line(to: NSPoint(x: 11.5, y: y))
-                s.lineWidth = 1.3
+                s.move(to: NSPoint(x: 6.75, y: y))
+                s.line(to: NSPoint(x: 13.25, y: y))
+                s.lineWidth = 1.5
                 s.lineCapStyle = .round
                 // On the filled panels the stitch has to be cut out to show
                 if connected {
                     NSGraphicsContext.current?.compositingOperation = .destinationOut
-                    s.lineWidth = 1.6
+                    s.lineWidth = 2
                 }
                 s.stroke()
                 NSGraphicsContext.current?.compositingOperation = .sourceOver
