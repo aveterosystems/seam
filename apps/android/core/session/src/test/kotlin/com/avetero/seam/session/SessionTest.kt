@@ -536,6 +536,17 @@ class SessionTest {
         assertEquals("a restart stays unpaired", SessionState.Unpaired, again.state.value)
     }
 
+    @Test fun forgettingTheMacResetsEveryFeature() = runTest {
+        val s = paired()
+        var resets = 0
+        s.register(object : Feature {
+            override fun reset() { resets++ }
+        })
+        s.forgetMac()
+        advanceUntilIdle()
+        assertEquals(1, resets)
+    }
+
     @Test fun sr_7_01_aForgetThatCantBeSavedSaysSoAndSendsNothing() = runTest {
         val s = paired()
         store.failSaves = true
@@ -740,6 +751,21 @@ class SessionTest {
         advanceUntilIdle()
         assertEquals(SessionState.Connected("Mac mini"), s.state.value)
         assertEquals(PairingOutcome.NewMac, s.pairingOutcome.value)
+    }
+
+    @Test fun sr_11_06_anAcceptThatCantBeSavedIsNotANewMac() = runTest {
+        relay.withholdAccept = true
+        val s = session()
+        s.pair(qr)
+        advanceUntilIdle()
+        store.failSaves = true
+        val phoneId = mac.peers().single().id
+        mac.confirmPairing(phoneId)
+        val accept = Payload.newBuilder().setControl(Control.newBuilder().setPairAccept(PairAccept.getDefaultInstance())).build()
+        relay.deliverToPhone(mac.seal(phoneId, accept.toByteArray(), 0u))
+        advanceUntilIdle()
+        assertTrue(s.state.value is SessionState.Failed)
+        assertTrue("no setup screens over a failure", s.pairingOutcome.value != PairingOutcome.NewMac)
     }
 
     @Test fun sr_11_06_aFailedPairingWhilePairedReportsStillOnThePreviousMac() = runTest {
@@ -1136,6 +1162,13 @@ class SessionTest {
         assertEquals("and gone from preferences", ConnectionSettings(), old.load())
         val again = session(settings = old)
         assertEquals(9L, again.settings.value.helloSeq)
+    }
+
+    @Test fun oldPreferencesWithOnlyAnUnusablePathMeanNothingInCommon() = runTest {
+        paired()
+        val old = MemorySettingsStore(ConnectionSettings(wifi = true, relay = true, macAllows = setOf(Transport.TRANSPORT_BLUETOOTH), macHelloSeq = 4, helloSeq = 9))
+        val s = session(settings = old)
+        assertEquals(emptySet<Transport>(), s.settings.value.macAllows)
     }
 
     /** Connected over Same Wi‑Fi, with the relay up too. */

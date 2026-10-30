@@ -246,6 +246,9 @@ fn reads_the_macs_earlier_formats() {
         Some(vec![]),
         "the Mac stored an unknown value: nothing in common"
     );
+    // The Mac kept an older phone's empty Hello as an empty list, and read it as everything
+    let old_phone = AppData::decode(&mac_bytes(3, &[], Some((1, 2, Some(&[]))))).unwrap();
+    assert_eq!(old_phone.allowed(true, true), vec![Lan, Relay]);
     assert_eq!(
         AppData::decode(&mac_bytes(2, &[], None)),
         None,

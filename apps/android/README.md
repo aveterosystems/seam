@@ -78,6 +78,7 @@ cd apps/android
 | `SeamCoreTest` | Kotlin can pin, start a session, encrypt and decrypt through the Rust core; impostors fail with `UntrustedIdentity`; unpaired peers fail with `NotPaired`; file chunks reject reordering |
 | `ProtocolTest` | The golden vector decodes and re-encodes byte for byte; fields from newer apps don't break parsing |
 | `SessionTest` | Pairing, Codes don't match (including just after the Mac accepted), delivery and acks, unpairing, and when the phone connects and goes idle |
+| `LanPathTest` | A Same Wi‑Fi handshake that takes too long is given up |
 | `ClipRulesTest` | No echoes or repeats, size limits, the share preview shows hidden characters, a Mac copy stops showing after 10 minutes |
 | `QrDecoderTest` | A QR code is read from a padded camera frame; an empty frame reads nothing |
 | `NoGoogleTelemetryTest` | No ML Kit, Google telemetry transport or Firebase on the app's classpath |

@@ -29,6 +29,7 @@ flowchart LR
 | `padding.rs` | Pads every message to a fixed bucket (1 KB · 16 KB · 256 KB · 1 MB) so sizes give nothing away |
 | `bundle.rs` | A versioned byte format for prekey bundles, so they can be stored on the relay. libsignal re-verifies every signature when a session starts. |
 | `file.rs` | AES-256-GCM file chunks, bound to the file id, the chunk index and a last-chunk flag |
+| `links.rs` | Which path may carry a message (decision 0006: Same Wi‑Fi first, then the relay, only paths on at both ends), applying a Hello, and the app's saved data (relay group, owner key, Hello counters). Reads both apps' earlier formats. |
 | `error.rs` | One error type; the apps see `NotPaired`, `UntrustedIdentity` or `Invalid` |
 
 ## What Seam adds to libsignal

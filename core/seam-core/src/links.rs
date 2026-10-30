@@ -210,8 +210,10 @@ fn mac_layout(bytes: &[u8]) -> Option<AppData> {
         data.hello_seq_sent = r.u64()?;
         data.hello_seq_applied = r.u64()?;
         let count = r.u8()?;
-        if count != NEVER_HEARD {
-            // v3 stored values it didn't know as unspecified, so they count as nothing in common
+        // v3 kept an older phone's empty Hello as count 0, meaning everything; v4's count 0 is
+        // nothing in common. v3 stored values it didn't know as unspecified: nothing in common too.
+        let everything = count == NEVER_HEARD || (v == 3 && count == 0);
+        if !everything {
             data.peer_allowed = Some(known(r.take(count as usize)?.iter().map(|&b| b as i32)));
         }
     }

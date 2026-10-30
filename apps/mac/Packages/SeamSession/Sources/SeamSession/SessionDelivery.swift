@@ -23,41 +23,44 @@ extension Session {
         // Saved to the outbox first, then onto the best path; otherwise it waits there
         outbox.add(envelope)
         guard saveOutbox() else { return } // stays in memory; the next flush tries again
-        await attempt(envelope)
+        _ = await attempt(envelope)
     }
 
     func send(_ outgoing: [Outgoing]) async {
         for out in outgoing { await sendToPhone(out.payload, ttl: out.ttl) }
     }
 
-    /// Never a disallowed path, and never a path before it's on disk.
-    private func attempt(_ envelope: Seam_V1_Envelope) async {
-        guard let phone, !inFlight.contains(envelope.msgID) else { return }
+    /// Never a disallowed path, and never a path before it's on disk. False if a relay send
+    /// failed, so a flush stops there and nothing later overtakes it.
+    private func attempt(_ envelope: Seam_V1_Envelope) async -> Bool {
+        guard let phone, !inFlight.contains(envelope.msgID) else { return true }
         let hello = hellos.contains(envelope.msgID)
         switch device.route(wifi: wifi, relay: relayOn, lanUp: lanUp, relayUp: relayUp, hello: hello) {
         case .lan?:
-            guard lan?.send(.with { $0.deliver = envelope }, to: phone.id) == true else { return }
+            guard lan?.send(.with { $0.deliver = envelope }, to: phone.id) == true else { return true }
             outbox.markSent(envelope.msgID) // until the phone's Delivered; resent if the link drops first
             saveOutbox()
         case .relay?:
-            guard let relay else { return }
+            guard let relay else { return true }
             inFlight.insert(envelope.msgID)
             let ok = (try? await relay.send(Frames.send(envelope))) != nil
             inFlight.remove(envelope.msgID)
-            guard ok, self.phone?.id == phone.id else { return } // a failed send waits for the next flush
+            guard ok else { return false } // waits for the next flush
+            guard self.phone?.id == phone.id else { return true }
             outbox.remove(envelope.msgID) // the relay holds it now
             hellos.remove(envelope.msgID)
             saveOutbox()
         case nil:
             break
         }
+        return true
     }
 
     /// Everything waiting, oldest first, now that a path may have opened.
     func flush() async {
         _ = outbox.dropExpired(now: timers.now())
         guard saveOutbox() else { return } // nothing goes out that isn't on disk (an earlier save may have failed)
-        for envelope in outbox.waiting { await attempt(envelope) }
+        for envelope in outbox.waiting { guard await attempt(envelope) else { return } }
     }
 
     @discardableResult

@@ -97,7 +97,7 @@ class Session(
             if (mac) {
                 d.helloSeqApplied = prefs.macHelloSeq.toULong()
                 // An empty list was an older Mac's Hello: everything allowed, as the core reads it now
-                d.peerAllowed = prefs.macAllows?.mapNotNull { it.toPath() }?.takeIf { it.isNotEmpty() }
+                d.peerAllowed = prefs.macAllows?.takeIf { it.isNotEmpty() }?.mapNotNull { it.toPath() }
             }
             device.setAppData(d)
             // The old keys go only once the move is saved; until then the next start tries again
@@ -322,6 +322,7 @@ class Session(
         clearQueues()
         device.peers().forEach { device.removePeer(it.id) }
         device.clearAppData()
+        features.forEach { runCatching { it.reset() } } // a feature bug never blocks forgetting
         syncPeer()
         _state.value = if (runCatching { persist() }.isSuccess) SessionState.Unpaired else SessionState.Failed(FORGET_FAILED)
     }
@@ -409,6 +410,7 @@ class Session(
         val saved = runCatching { persist() }.isSuccess // durable before acking: the relay deletes what we ack
         if (accepted) {
             if (!saved) return fail(SAVE_FAILED)
+            _pairingOutcome.value = PairingOutcome.NewMac // only once it's saved: a restart keeps it
             becameConnected()
             return ack(env, via)
         }
@@ -452,7 +454,6 @@ class Session(
         syncPeer()
         pairing = null
         pairedAt = now()
-        _pairingOutcome.value = PairingOutcome.NewMac
         return true
     }
 

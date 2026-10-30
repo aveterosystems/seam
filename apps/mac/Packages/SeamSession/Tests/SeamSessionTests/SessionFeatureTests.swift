@@ -133,6 +133,17 @@ struct SessionFeatureTests {
         #expect(rig.relay.frames.last?.removeMember.deviceKey == rig.phone.relayKey(), "and it's out of the relay group")
     }
 
+    @Test func sr_7_04_anUnpairThatCantBeSavedSendsNoGoodbye() async throws {
+        let rig = try await Rig()
+        await rig.relayUp()
+        await rig.lanUp()
+        let (relayBefore, lanBefore) = (rig.relay.frames.count, rig.lan.frames.count)
+        rig.saved.failing = true
+        #expect(await rig.session.unpairPhone() == false)
+        #expect(rig.relay.frames.count == relayBefore, "nothing on the relay, not even the removal")
+        #expect(rig.lan.frames.count == lanBefore)
+    }
+
     @Test func unpairingTellsThePhoneOnceOnThePathThatsUp() async throws {
         let rig = try await Rig()
         await rig.relayUp()

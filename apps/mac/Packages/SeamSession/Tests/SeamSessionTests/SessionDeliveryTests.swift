@@ -78,6 +78,19 @@ struct SessionDeliveryTests {
         #expect(await rig.session.state.waiting == 0)
     }
 
+    @Test func aFailedRelaySendStopsTheFlushSoNothingOvertakesIt() async throws {
+        let rig = try await Rig(wifi: false)
+        await rig.sendSomething(1) // no path: both wait
+        await rig.sendSomething(2)
+        rig.relay.failing = true
+        await rig.relayUp()
+        #expect(rig.relay.attempts == 2, "1, then this Mac's Hello (which may go ahead); 2 isn't tried once 1 failed")
+        rig.relay.failing = false
+        await rig.session.relayDisconnected()
+        await rig.session.relayConnected()
+        #expect(try rig.onRelay().numbers == [1, 2])
+    }
+
     @Test func whatTheRelayTookIsntSentAgain() async throws {
         let rig = try await Rig()
         await rig.relayUp()
