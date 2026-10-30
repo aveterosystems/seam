@@ -8,6 +8,11 @@
     <!-- In-app updates from GitHub Releases (the Play build is updated by Play) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application>
+        <!-- Declared in main too; repeated so lint, which checks this variant's manifest on its own, sees the type -->
+        <service
+            android:name="com.avetero.seam.ConnectionService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
         <!-- Only the system can bind it, and only once the user turns it on in Accessibility settings -->
         <service
             android:name="com.avetero.seam.feature.clipboard.CopyWatcher"
