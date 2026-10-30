@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
                 var scanError by remember { mutableStateOf<String?>(null) }
                 var scanned by remember { mutableStateOf<PairingQr?>(null) }
                 var settings by remember { mutableStateOf(false) }
+                var notificationSettings by remember { mutableStateOf(false) }
                 var scanning by remember { mutableStateOf(false) }
                 if (state is SessionState.Pairing) scanned = null
                 fun granted() = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -103,6 +104,9 @@ class MainActivity : ComponentActivity() {
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 }
                 if (setup && macName != null) return@Box SetupScreen(macName, clipboardStatus) { setup = false }
+                if (settings && notificationSettings) {
+                    return@Box NotificationsScreen(app.notifications) { notificationSettings = false }
+                }
                 if (settings) {
                     return@Box SettingsScreen(
                         macName = macName,
@@ -115,6 +119,8 @@ class MainActivity : ComponentActivity() {
                         },
                         onBack = { settings = false },
                         updater = app.updater,
+                        notifications = app.notifications,
+                        onOpenNotifications = { notificationSettings = true },
                     )
                 }
                 SeamScreen(

@@ -36,6 +36,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.avetero.seam.feature.notifications.NotificationsFeature
 
 /** Board A03: right after pairing, the permissions that make Seam work, each skippable. */
 @Composable
@@ -63,6 +65,7 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
             ) {
                 if (notifications) Done() else FilledTonalButton(onClick = { ask.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow") }
             }
+            NotificationAccessItem()
             Item(
                 title = "Automatic clipboard",
                 subtitle = when (clipboard) {
@@ -86,5 +89,23 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
     }
 }
 
+/** Board A03 / A06 "Notifications on your Mac": opens Android's access screen, re-checked on return. */
 @Composable
-private fun Done() = Icon(Icons.Filled.CheckCircle, contentDescription = "Done", tint = MaterialTheme.colorScheme.primary)
+internal fun NotificationAccessItem() {
+    val context = LocalContext.current
+    var granted by remember { mutableStateOf(NotificationsFeature.accessGranted(context)) }
+    LifecycleResumeEffect(Unit) {
+        granted = NotificationsFeature.accessGranted(context)
+        onPauseOrDispose {}
+    }
+    val open = { context.startActivity(NotificationsFeature.accessIntent(context)) }
+    Item(
+        title = "Notifications on your Mac",
+        // Sideloaded installs hit Android's "Restricted setting" block first; say how past it
+        subtitle = if (granted) "On" else "Off. If Android says Restricted setting: App info › ⋮ › Allow restricted settings",
+        lead = painterResource(R.drawable.ic_laptop),
+        onClick = if (granted) null else open,
+    ) {
+        if (granted) Done() else FilledTonalButton(onClick = open) { Text("Allow") }
+    }
+}

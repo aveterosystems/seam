@@ -35,7 +35,7 @@ After that, both apps update themselves: once a day they check GitHub for a newe
 
 | | Feature | |
 |---|---|---|
-| 🔔 | **Phone notifications on your Mac**, in Notification Centre, with reply and dismiss that sync both ways | Planned |
+| 🔔 | **Phone notifications on your Mac**, in Notification Centre, with reply and dismiss that sync both ways. Every app starts off; you choose which ones reach the Mac, and the phone filters before anything leaves it | Next release |
 | 💬 | **Texts on your Mac**: read and reply from the menu bar or a full Messages window | Planned |
 | 📋 | **Clipboard both ways**: Mac to phone automatically; phone to Mac automatically in the GitHub build after a one-time setup from the Mac, otherwise one tap | In 0.1.0 |
 | 📁 | **Files in either direction**: share sheet, drag onto the menu bar, or the phone in Finder | Planned |

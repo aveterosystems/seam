@@ -6,6 +6,7 @@ import android.os.Build
 import android.provider.Settings
 import com.avetero.seam.feature.StatusFeature
 import com.avetero.seam.feature.clipboard.ClipboardFeature
+import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.launch
 import com.avetero.seam.session.KeystoreStateStore
@@ -25,6 +26,8 @@ class SeamApplication : Application() {
     lateinit var clipboard: ClipboardFeature
         private set
     lateinit var updater: Updater
+        private set
+    lateinit var notifications: NotificationsFeature
         private set
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -46,6 +49,7 @@ class SeamApplication : Application() {
         )
         session.register(StatusFeature(this))
         clipboard = ClipboardFeature(this, session).also(session::register)
+        notifications = NotificationsFeature(this, session).also(session::register)
         session.start()
         // Checks only once paired and the user has answered the updates question (SR-17-04)
         updater = Updater(this) { session.paired }.also { it.start() }

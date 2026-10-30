@@ -20,6 +20,12 @@ final class SeamController: RelayHandler {
     private(set) var flow = PairingFlow()
     /// The last two things that came from the phone's clipboard, for the popover (memory only).
     private(set) var recentFromPhone: [FromPhone] = []
+    /// The phone's notification settings as it last sent them (the phone owns them). Memory only.
+    private(set) var notificationSettings: Seam_V1_NotificationSettings?
+    /// Set to open Settings at a pane (the popover's "Notification Settings…"); Settings clears it.
+    var requestedSettingsPane: SettingsView.Pane?
+    /// Phone apps' icons, from the phone when asked for. Memory only.
+    private(set) var appIcons: [String: NSImage] = [:]
     /// Clipboard both ways (menu toggle, on by default).
     private(set) var clipboardSync = UserDefaults.standard.object(forKey: "clipboardSync") as? Bool ?? true
 
@@ -33,6 +39,10 @@ final class SeamController: RelayHandler {
     @ObservationIgnored private var clipTask: Task<Void, Never>?
     /// The latest copy made while the relay was unreachable (SR-4-03).
     @ObservationIgnored private var pendingClip = ClipQueue<Seam_V1_Payload>()
+    @ObservationIgnored private let notifications = PhoneNotifications()
+    @ObservationIgnored private var iconPNGs: [String: Data] = [:]
+    /// Asked once per launch each, so an app whose icon the phone can't draw isn't asked for forever.
+    @ObservationIgnored private var iconsAsked: Set<String> = []
     // Logs codes and counts only, never contents or keys (threat model, rule 7)
     private let log = Logger(subsystem: "com.avetero.seam", category: "session")
 
@@ -73,6 +83,11 @@ final class SeamController: RelayHandler {
         self.relay = relay
         relayTask = Task { await relay.run() }
         watchClipboard()
+        notifications.start { [weak self] action in
+            guard let self else { return }
+            if action.dismissed, notificationSettings?.dismissBoth == false { return }
+            sendToPhone(.with { $0.notificationAction = action }, ttl: 0)
+        }
     }
 
     // MARK: Unpairing
@@ -117,6 +132,11 @@ final class SeamController: RelayHandler {
             recentFromPhone = []
         }
         pendingClip.clear()
+        notifications.removeAll()
+        notificationSettings = nil
+        appIcons = [:]
+        iconPNGs = [:]
+        iconsAsked = []
         return saved
     }
 
@@ -211,6 +231,71 @@ final class SeamController: RelayHandler {
         }
         Task { try? await relay?.send(frame) }
     }
+
+    // MARK: Notifications
+
+    func setNotifications(enabled: Bool) {
+        notificationSettings?.enabled = enabled
+        changeNotificationSettings { $0.enabled = enabled }
+    }
+
+    func setNotifications(quietWhileUsingPhone on: Bool) {
+        notificationSettings?.quietWhileUsingPhone = on
+        changeNotificationSettings { $0.quietWhileUsingPhone = on }
+    }
+
+    func setNotifications(dismissBoth on: Bool) {
+        notificationSettings?.dismissBoth = on
+        changeNotificationSettings { $0.dismissBoth = on }
+    }
+
+    /// Until a time, or nil to resume. The phone holds it, so a paused phone sends nothing.
+    func pauseNotifications(until: Date?) {
+        let ms = until.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0
+        notificationSettings?.pausedUntil = ms
+        changeNotificationSettings { $0.pausedUntil = ms }
+    }
+
+    func setNotificationMode(_ mode: Seam_V1_NotificationMode, for appIDs: Set<String>) {
+        guard !appIDs.isEmpty else { return }
+        for i in notificationSettings?.apps.indices ?? 0..<0 where appIDs.contains(notificationSettings!.apps[i].appID) {
+            notificationSettings?.apps[i].mode = mode
+        }
+        changeNotificationSettings { $0.apps = appIDs.sorted().map { id in .with { $0.appID = id; $0.mode = mode } } }
+    }
+
+    /// The phone owns the settings: this asks it to change them, and the phone's answer confirms.
+    private func changeNotificationSettings(_ edit: (inout Seam_V1_NotificationSettingsChange) -> Void) {
+        var change = Seam_V1_NotificationSettingsChange()
+        edit(&change)
+        sendToPhone(.with { $0.notificationSettingsChange = change }, ttl: Self.settingsTTL)
+    }
+
+    private func receivedNotificationSettings(_ received: Seam_V1_NotificationSettings) {
+        log.info("notification settings: \(received.apps.count, privacy: .public) apps, \(received.apps.filter { !$0.iconPng.isEmpty }.count, privacy: .public) icons")
+        var s = received
+        for i in s.apps.indices where !s.apps[i].iconPng.isEmpty {
+            let png = s.apps[i].iconPng
+            // From the phone, but still checked: a small, real image or nothing
+            if png.count <= 256 * 1024, let image = NSImage(data: png) {
+                iconPNGs[s.apps[i].appID] = png
+                appIcons[s.apps[i].appID] = image
+            }
+            s.apps[i].iconPng = Data()
+        }
+        notificationSettings = s
+        // In batches the phone answers in one message; each answer brings the next request
+        let missing = Array(s.apps.map(\.appID).filter { iconPNGs[$0] == nil && !iconsAsked.contains($0) }.prefix(Self.iconBatch))
+        guard !missing.isEmpty else { return }
+        iconsAsked.formUnion(missing)
+        changeNotificationSettings { $0.needIcons = missing }
+    }
+
+    /// Matches the phone's limit per message (NotificationsFeature.MAX_ICONS).
+    private static let iconBatch = 40
+
+    /// A settings change is worth little once the phone has moved on.
+    private static let settingsTTL: UInt32 = 600
 
     // MARK: Pairing
 
@@ -406,6 +491,12 @@ final class SeamController: RelayHandler {
             status = s
         case .clipboard(let c):
             receivedClip(c)
+        case .notification(let n):
+            notifications.show(n, icon: iconPNGs[n.appID])
+        case .notificationSettings(let s):
+            receivedNotificationSettings(s)
+        case .notificationAction(let a):
+            if a.dismissed { notifications.dismiss(key: a.key) }
         case .control(let c):
             if case .unpair = c.body {
                 // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)

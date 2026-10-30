@@ -38,6 +38,8 @@ message Payload {
     FileDone file_done = 23;
     Notification notification = 30; // 30–39: notifications
     NotificationAction notification_action = 31;
+    NotificationSettings notification_settings = 32;
+    NotificationSettingsChange notification_settings_change = 33;
     MessageSync message_sync = 40; // 40–49: messages
     MessageSend message_send = 41;
     Status status = 50; // 50–59: status

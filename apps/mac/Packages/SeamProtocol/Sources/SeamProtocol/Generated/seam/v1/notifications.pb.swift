@@ -27,6 +27,48 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
+public nonisolated enum Seam_V1_NotificationMode: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+  case on // = 1
+  case titleOnly // = 2
+  case off // = 3
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .on
+    case 2: self = .titleOnly
+    case 3: self = .off
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .on: return 1
+    case .titleOnly: return 2
+    case .off: return 3
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Seam_V1_NotificationMode] = [
+    .unspecified,
+    .on,
+    .titleOnly,
+    .off,
+  ]
+
+}
+
 /// A phone notification mirrored to the Mac. Per-app filtering happens on the phone before sending;
 /// sensitive apps send title only.
 public nonisolated struct Seam_V1_Notification: Sendable {
@@ -121,9 +163,122 @@ public nonisolated struct Seam_V1_NotificationAction: Sendable {
   public init() {}
 }
 
+/// The phone's notification settings. The phone keeps them and filters before anything leaves it,
+/// so an app that's off never sends a word. Phone → Mac on every connection and after every change.
+public nonisolated struct Seam_V1_NotificationSettings: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// "Show on your Mac"
+  public var enabled: Bool = false
+
+  /// dismissing on one device dismisses on both
+  public var dismissBoth: Bool = false
+
+  /// nothing goes over while the phone is unlocked and in use
+  public var quietWhileUsingPhone: Bool = false
+
+  /// every app that can notify, each off until the user turns it on
+  public var apps: [Seam_V1_NotificationApp] = []
+
+  /// unix ms; nothing goes over before then. 0: not paused
+  public var pausedUntil: Int64 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Seam_V1_NotificationApp: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var appID: String = String()
+
+  public var appName: String = String()
+
+  public var mode: Seam_V1_NotificationMode = .unspecified
+
+  /// has posted a notification with a reply action
+  public var canReply: Bool = false
+
+  /// only when the Mac asked for it (NotificationSettingsChange.need_icons)
+  public var iconPng: Data = Data()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Mac → phone: a settings change made on the Mac, or icons the Mac doesn't have. Unset fields
+/// leave the phone's settings as they are. The phone answers with NotificationSettings.
+public nonisolated struct Seam_V1_NotificationSettingsChange: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var enabled: Bool {
+    get {_enabled ?? false}
+    set {_enabled = newValue}
+  }
+  /// Returns true if `enabled` has been explicitly set.
+  public var hasEnabled: Bool {self._enabled != nil}
+  /// Clears the value of `enabled`. Subsequent reads from it will return its default value.
+  public mutating func clearEnabled() {self._enabled = nil}
+
+  public var dismissBoth: Bool {
+    get {_dismissBoth ?? false}
+    set {_dismissBoth = newValue}
+  }
+  /// Returns true if `dismissBoth` has been explicitly set.
+  public var hasDismissBoth: Bool {self._dismissBoth != nil}
+  /// Clears the value of `dismissBoth`. Subsequent reads from it will return its default value.
+  public mutating func clearDismissBoth() {self._dismissBoth = nil}
+
+  public var quietWhileUsingPhone: Bool {
+    get {_quietWhileUsingPhone ?? false}
+    set {_quietWhileUsingPhone = newValue}
+  }
+  /// Returns true if `quietWhileUsingPhone` has been explicitly set.
+  public var hasQuietWhileUsingPhone: Bool {self._quietWhileUsingPhone != nil}
+  /// Clears the value of `quietWhileUsingPhone`. Subsequent reads from it will return its default value.
+  public mutating func clearQuietWhileUsingPhone() {self._quietWhileUsingPhone = nil}
+
+  /// app_id and mode only
+  public var apps: [Seam_V1_NotificationApp] = []
+
+  /// app ids
+  public var needIcons: [String] = []
+
+  /// unix ms; 0 resumes
+  public var pausedUntil: Int64 {
+    get {_pausedUntil ?? 0}
+    set {_pausedUntil = newValue}
+  }
+  /// Returns true if `pausedUntil` has been explicitly set.
+  public var hasPausedUntil: Bool {self._pausedUntil != nil}
+  /// Clears the value of `pausedUntil`. Subsequent reads from it will return its default value.
+  public mutating func clearPausedUntil() {self._pausedUntil = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _enabled: Bool? = nil
+  fileprivate var _dismissBoth: Bool? = nil
+  fileprivate var _quietWhileUsingPhone: Bool? = nil
+  fileprivate var _pausedUntil: Int64? = nil
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate nonisolated let _protobuf_package = "seam.v1"
+
+nonisolated extension Seam_V1_NotificationMode: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0NOTIFICATION_MODE_UNSPECIFIED\0\u{1}NOTIFICATION_MODE_ON\0\u{1}NOTIFICATION_MODE_TITLE_ONLY\0\u{1}NOTIFICATION_MODE_OFF\0")
+}
 
 nonisolated extension Seam_V1_Notification: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Notification"
@@ -304,6 +459,165 @@ nonisolated extension Seam_V1_NotificationAction: SwiftProtobuf.Message, SwiftPr
   public static func ==(lhs: Seam_V1_NotificationAction, rhs: Seam_V1_NotificationAction) -> Bool {
     if lhs.key != rhs.key {return false}
     if lhs.action != rhs.action {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_NotificationSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".NotificationSettings"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}enabled\0\u{3}dismiss_both\0\u{3}quiet_while_using_phone\0\u{1}apps\0\u{3}paused_until\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.enabled) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self.dismissBoth) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.quietWhileUsingPhone) }()
+      case 4: try { try decoder.decodeRepeatedMessageField(value: &self.apps) }()
+      case 5: try { try decoder.decodeSingularInt64Field(value: &self.pausedUntil) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.enabled != false {
+      try visitor.visitSingularBoolField(value: self.enabled, fieldNumber: 1)
+    }
+    if self.dismissBoth != false {
+      try visitor.visitSingularBoolField(value: self.dismissBoth, fieldNumber: 2)
+    }
+    if self.quietWhileUsingPhone != false {
+      try visitor.visitSingularBoolField(value: self.quietWhileUsingPhone, fieldNumber: 3)
+    }
+    if !self.apps.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.apps, fieldNumber: 4)
+    }
+    if self.pausedUntil != 0 {
+      try visitor.visitSingularInt64Field(value: self.pausedUntil, fieldNumber: 5)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_NotificationSettings, rhs: Seam_V1_NotificationSettings) -> Bool {
+    if lhs.enabled != rhs.enabled {return false}
+    if lhs.dismissBoth != rhs.dismissBoth {return false}
+    if lhs.quietWhileUsingPhone != rhs.quietWhileUsingPhone {return false}
+    if lhs.apps != rhs.apps {return false}
+    if lhs.pausedUntil != rhs.pausedUntil {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_NotificationApp: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".NotificationApp"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}app_id\0\u{3}app_name\0\u{1}mode\0\u{3}can_reply\0\u{3}icon_png\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.appID) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.appName) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.mode) }()
+      case 4: try { try decoder.decodeSingularBoolField(value: &self.canReply) }()
+      case 5: try { try decoder.decodeSingularBytesField(value: &self.iconPng) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.appID.isEmpty {
+      try visitor.visitSingularStringField(value: self.appID, fieldNumber: 1)
+    }
+    if !self.appName.isEmpty {
+      try visitor.visitSingularStringField(value: self.appName, fieldNumber: 2)
+    }
+    if self.mode != .unspecified {
+      try visitor.visitSingularEnumField(value: self.mode, fieldNumber: 3)
+    }
+    if self.canReply != false {
+      try visitor.visitSingularBoolField(value: self.canReply, fieldNumber: 4)
+    }
+    if !self.iconPng.isEmpty {
+      try visitor.visitSingularBytesField(value: self.iconPng, fieldNumber: 5)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_NotificationApp, rhs: Seam_V1_NotificationApp) -> Bool {
+    if lhs.appID != rhs.appID {return false}
+    if lhs.appName != rhs.appName {return false}
+    if lhs.mode != rhs.mode {return false}
+    if lhs.canReply != rhs.canReply {return false}
+    if lhs.iconPng != rhs.iconPng {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_NotificationSettingsChange: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".NotificationSettingsChange"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}enabled\0\u{3}dismiss_both\0\u{3}quiet_while_using_phone\0\u{1}apps\0\u{3}need_icons\0\u{3}paused_until\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self._enabled) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self._dismissBoth) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self._quietWhileUsingPhone) }()
+      case 4: try { try decoder.decodeRepeatedMessageField(value: &self.apps) }()
+      case 5: try { try decoder.decodeRepeatedStringField(value: &self.needIcons) }()
+      case 6: try { try decoder.decodeSingularInt64Field(value: &self._pausedUntil) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._enabled {
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._dismissBoth {
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._quietWhileUsingPhone {
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 3)
+    } }()
+    if !self.apps.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.apps, fieldNumber: 4)
+    }
+    if !self.needIcons.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.needIcons, fieldNumber: 5)
+    }
+    try { if let v = self._pausedUntil {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 6)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_NotificationSettingsChange, rhs: Seam_V1_NotificationSettingsChange) -> Bool {
+    if lhs._enabled != rhs._enabled {return false}
+    if lhs._dismissBoth != rhs._dismissBoth {return false}
+    if lhs._quietWhileUsingPhone != rhs._quietWhileUsingPhone {return false}
+    if lhs.apps != rhs.apps {return false}
+    if lhs.needIcons != rhs.needIcons {return false}
+    if lhs._pausedUntil != rhs._pausedUntil {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

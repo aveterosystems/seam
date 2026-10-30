@@ -81,26 +81,55 @@ struct PopoverView: View {
         .accessibilityLabel("Phone battery \(s.batteryPct) percent\(s.charging ? ", charging" : "")")
     }
 
-    /// Control Centre-style round modules on a four-column grid. Clipboard sync is the one built so far.
+    /// Control Centre-style round modules on a four-column grid.
     private var modules: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-            Button {
+            ModuleButton(title: "Clipboard sync", symbol: "doc.on.clipboard", on: controller.clipboardSync) {
                 controller.setClipboardSync(!controller.clipboardSync)
-            } label: {
-                VStack(spacing: 6) {
-                    Image(systemName: "doc.on.clipboard")
-                        .font(.system(size: 17))
-                        .frame(width: 44, height: 44)
-                        .background(Circle().fill(controller.clipboardSync ? SeamStyle.teal : Color.primary.opacity(0.08)))
-                        .foregroundStyle(controller.clipboardSync ? Color.white : Color.primary)
-                    Text("Clipboard sync").font(.system(size: 11, weight: .medium)).multilineTextAlignment(.center)
-                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Clipboard sync")
-            .accessibilityValue(controller.clipboardSync ? "On" : "Off")
+            notificationsModule
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
+    }
+
+    /// On or off with a click; pause and settings on right-click. The phone holds the setting,
+    /// so it waits (dimmed) until the phone has sent it.
+    private var notificationsModule: some View {
+        let s = controller.notificationSettings
+        let pausedUntil = s.map { Date(timeIntervalSince1970: TimeInterval($0.pausedUntil) / 1000) }.flatMap { $0 > Date() ? $0 : nil }
+        let on = s?.enabled == true && pausedUntil == nil
+        return ModuleButton(
+            title: pausedUntil == nil ? "Notifications" : "Paused",
+            symbol: pausedUntil == nil ? "bell" : "bell.slash",
+            on: on,
+            value: pausedUntil.map { "Paused until \($0.formatted(date: .omitted, time: .shortened))" }
+        ) {
+            guard let s else { return }
+            if pausedUntil != nil { controller.pauseNotifications(until: nil) } else { controller.setNotifications(enabled: !s.enabled) }
+        }
+        .disabled(s == nil)
+        .opacity(s == nil ? 0.5 : 1)
+        .help(pausedUntil.map { "Paused until \($0.formatted(date: .omitted, time: .shortened)). Click to resume." } ?? "Right-click to pause")
+        .contextMenu {
+            if pausedUntil != nil {
+                Button("Resume") { controller.pauseNotifications(until: nil) }
+            } else {
+                Button("Pause for 1 Hour") { controller.pauseNotifications(until: Date().addingTimeInterval(3600)) }
+                Button("Pause Until Tomorrow") { controller.pauseNotifications(until: Self.tomorrowMorning()) }
+            }
+            Divider()
+            Button("Notification Settings…") {
+                controller.requestedSettingsPane = .notifications
+                open()
+            }
+        }
+    }
+
+    /// 8 in the morning, tomorrow.
+    private static func tomorrowMorning() -> Date {
+        let cal = Calendar.current
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        return cal.date(bySettingHour: 8, minute: 0, second: 0, of: tomorrow) ?? tomorrow
     }
 
     private var fromPhone: some View {

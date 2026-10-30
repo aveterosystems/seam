@@ -4,15 +4,15 @@
 // @generated from file seam/v1/notifications.proto (package seam.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file seam/v1/notifications.proto.
  */
 export const file_seam_v1_notifications: GenFile = /*@__PURE__*/
-  fileDesc("ChtzZWFtL3YxL25vdGlmaWNhdGlvbnMucHJvdG8SB3NlYW0udjEi2QEKDE5vdGlmaWNhdGlvbhILCgNrZXkYASABKAkSDgoGYXBwX2lkGAIgASgJEhAKCGFwcF9uYW1lGAMgASgJEg0KBXRpdGxlGAQgASgJEgwKBHRleHQYBSABKAkSEAoIaWNvbl9wbmcYBiABKAwSEQoJcG9zdGVkX2F0GAcgASgDEiwKB2J1dHRvbnMYCCADKAsyGy5zZWFtLnYxLk5vdGlmaWNhdGlvbkJ1dHRvbhIRCgljYW5fcmVwbHkYCSABKAgSFwoPY29udmVyc2F0aW9uX2lkGAogASgJIi8KEk5vdGlmaWNhdGlvbkJ1dHRvbhIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCSJrChJOb3RpZmljYXRpb25BY3Rpb24SCwoDa2V5GAEgASgJEhQKCnJlcGx5X3RleHQYAiABKAlIABITCglkaXNtaXNzZWQYAyABKAhIABITCglidXR0b25faWQYBCABKAlIAEIICgZhY3Rpb25CIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM");
+  fileDesc("ChtzZWFtL3YxL25vdGlmaWNhdGlvbnMucHJvdG8SB3NlYW0udjEi2QEKDE5vdGlmaWNhdGlvbhILCgNrZXkYASABKAkSDgoGYXBwX2lkGAIgASgJEhAKCGFwcF9uYW1lGAMgASgJEg0KBXRpdGxlGAQgASgJEgwKBHRleHQYBSABKAkSEAoIaWNvbl9wbmcYBiABKAwSEQoJcG9zdGVkX2F0GAcgASgDEiwKB2J1dHRvbnMYCCADKAsyGy5zZWFtLnYxLk5vdGlmaWNhdGlvbkJ1dHRvbhIRCgljYW5fcmVwbHkYCSABKAgSFwoPY29udmVyc2F0aW9uX2lkGAogASgJIi8KEk5vdGlmaWNhdGlvbkJ1dHRvbhIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCSJrChJOb3RpZmljYXRpb25BY3Rpb24SCwoDa2V5GAEgASgJEhQKCnJlcGx5X3RleHQYAiABKAlIABITCglkaXNtaXNzZWQYAyABKAhIABITCglidXR0b25faWQYBCABKAlIAEIICgZhY3Rpb24inAEKFE5vdGlmaWNhdGlvblNldHRpbmdzEg8KB2VuYWJsZWQYASABKAgSFAoMZGlzbWlzc19ib3RoGAIgASgIEh8KF3F1aWV0X3doaWxlX3VzaW5nX3Bob25lGAMgASgIEiYKBGFwcHMYBCADKAsyGC5zZWFtLnYxLk5vdGlmaWNhdGlvbkFwcBIUCgxwYXVzZWRfdW50aWwYBSABKAMigQEKD05vdGlmaWNhdGlvbkFwcBIOCgZhcHBfaWQYASABKAkSEAoIYXBwX25hbWUYAiABKAkSJwoEbW9kZRgDIAEoDjIZLnNlYW0udjEuTm90aWZpY2F0aW9uTW9kZRIRCgljYW5fcmVwbHkYBCABKAgSEAoIaWNvbl9wbmcYBSABKAwilAIKGk5vdGlmaWNhdGlvblNldHRpbmdzQ2hhbmdlEhQKB2VuYWJsZWQYASABKAhIAIgBARIZCgxkaXNtaXNzX2JvdGgYAiABKAhIAYgBARIkChdxdWlldF93aGlsZV91c2luZ19waG9uZRgDIAEoCEgCiAEBEiYKBGFwcHMYBCADKAsyGC5zZWFtLnYxLk5vdGlmaWNhdGlvbkFwcBISCgpuZWVkX2ljb25zGAUgAygJEhkKDHBhdXNlZF91bnRpbBgGIAEoA0gDiAEBQgoKCF9lbmFibGVkQg8KDV9kaXNtaXNzX2JvdGhCGgoYX3F1aWV0X3doaWxlX3VzaW5nX3Bob25lQg8KDV9wYXVzZWRfdW50aWwqjAEKEE5vdGlmaWNhdGlvbk1vZGUSIQodTk9USUZJQ0FUSU9OX01PREVfVU5TUEVDSUZJRUQQABIYChROT1RJRklDQVRJT05fTU9ERV9PThABEiAKHE5PVElGSUNBVElPTl9NT0RFX1RJVExFX09OTFkQAhIZChVOT1RJRklDQVRJT05fTU9ERV9PRkYQA0IgChxjb20uYXZldGVyby5zZWFtLnByb3RvY29sLnYxUAFiBnByb3RvMw");
 
 /**
  * A phone notification mirrored to the Mac. Per-app filtering happens on the phone before sending;
@@ -146,4 +146,177 @@ export type NotificationAction = Message<"seam.v1.NotificationAction"> & {
  */
 export const NotificationActionSchema: GenMessage<NotificationAction> = /*@__PURE__*/
   messageDesc(file_seam_v1_notifications, 2);
+
+/**
+ * The phone's notification settings. The phone keeps them and filters before anything leaves it,
+ * so an app that's off never sends a word. Phone → Mac on every connection and after every change.
+ *
+ * @generated from message seam.v1.NotificationSettings
+ */
+export type NotificationSettings = Message<"seam.v1.NotificationSettings"> & {
+  /**
+   * "Show on your Mac"
+   *
+   * @generated from field: bool enabled = 1;
+   */
+  enabled: boolean;
+
+  /**
+   * dismissing on one device dismisses on both
+   *
+   * @generated from field: bool dismiss_both = 2;
+   */
+  dismissBoth: boolean;
+
+  /**
+   * nothing goes over while the phone is unlocked and in use
+   *
+   * @generated from field: bool quiet_while_using_phone = 3;
+   */
+  quietWhileUsingPhone: boolean;
+
+  /**
+   * every app that can notify, each off until the user turns it on
+   *
+   * @generated from field: repeated seam.v1.NotificationApp apps = 4;
+   */
+  apps: NotificationApp[];
+
+  /**
+   * unix ms; nothing goes over before then. 0: not paused
+   *
+   * @generated from field: int64 paused_until = 5;
+   */
+  pausedUntil: bigint;
+};
+
+/**
+ * Describes the message seam.v1.NotificationSettings.
+ * Use `create(NotificationSettingsSchema)` to create a new message.
+ */
+export const NotificationSettingsSchema: GenMessage<NotificationSettings> = /*@__PURE__*/
+  messageDesc(file_seam_v1_notifications, 3);
+
+/**
+ * @generated from message seam.v1.NotificationApp
+ */
+export type NotificationApp = Message<"seam.v1.NotificationApp"> & {
+  /**
+   * @generated from field: string app_id = 1;
+   */
+  appId: string;
+
+  /**
+   * @generated from field: string app_name = 2;
+   */
+  appName: string;
+
+  /**
+   * @generated from field: seam.v1.NotificationMode mode = 3;
+   */
+  mode: NotificationMode;
+
+  /**
+   * has posted a notification with a reply action
+   *
+   * @generated from field: bool can_reply = 4;
+   */
+  canReply: boolean;
+
+  /**
+   * only when the Mac asked for it (NotificationSettingsChange.need_icons)
+   *
+   * @generated from field: bytes icon_png = 5;
+   */
+  iconPng: Uint8Array;
+};
+
+/**
+ * Describes the message seam.v1.NotificationApp.
+ * Use `create(NotificationAppSchema)` to create a new message.
+ */
+export const NotificationAppSchema: GenMessage<NotificationApp> = /*@__PURE__*/
+  messageDesc(file_seam_v1_notifications, 4);
+
+/**
+ * Mac → phone: a settings change made on the Mac, or icons the Mac doesn't have. Unset fields
+ * leave the phone's settings as they are. The phone answers with NotificationSettings.
+ *
+ * @generated from message seam.v1.NotificationSettingsChange
+ */
+export type NotificationSettingsChange = Message<"seam.v1.NotificationSettingsChange"> & {
+  /**
+   * @generated from field: optional bool enabled = 1;
+   */
+  enabled?: boolean | undefined;
+
+  /**
+   * @generated from field: optional bool dismiss_both = 2;
+   */
+  dismissBoth?: boolean | undefined;
+
+  /**
+   * @generated from field: optional bool quiet_while_using_phone = 3;
+   */
+  quietWhileUsingPhone?: boolean | undefined;
+
+  /**
+   * app_id and mode only
+   *
+   * @generated from field: repeated seam.v1.NotificationApp apps = 4;
+   */
+  apps: NotificationApp[];
+
+  /**
+   * app ids
+   *
+   * @generated from field: repeated string need_icons = 5;
+   */
+  needIcons: string[];
+
+  /**
+   * unix ms; 0 resumes
+   *
+   * @generated from field: optional int64 paused_until = 6;
+   */
+  pausedUntil?: bigint | undefined;
+};
+
+/**
+ * Describes the message seam.v1.NotificationSettingsChange.
+ * Use `create(NotificationSettingsChangeSchema)` to create a new message.
+ */
+export const NotificationSettingsChangeSchema: GenMessage<NotificationSettingsChange> = /*@__PURE__*/
+  messageDesc(file_seam_v1_notifications, 5);
+
+/**
+ * @generated from enum seam.v1.NotificationMode
+ */
+export enum NotificationMode {
+  /**
+   * @generated from enum value: NOTIFICATION_MODE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: NOTIFICATION_MODE_ON = 1;
+   */
+  ON = 1,
+
+  /**
+   * @generated from enum value: NOTIFICATION_MODE_TITLE_ONLY = 2;
+   */
+  TITLE_ONLY = 2,
+
+  /**
+   * @generated from enum value: NOTIFICATION_MODE_OFF = 3;
+   */
+  OFF = 3,
+}
+
+/**
+ * Describes the enum seam.v1.NotificationMode.
+ */
+export const NotificationModeSchema: GenEnum<NotificationMode> = /*@__PURE__*/
+  enumDesc(file_seam_v1_notifications, 0);
 

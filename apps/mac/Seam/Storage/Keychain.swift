@@ -9,7 +9,8 @@ import Security
 /// Secure Enclave key, needs code signing and a keychain-access-groups entitlement; do it with the
 /// first signed release, migrating the existing item.
 enum Keychain {
-    private static let service = "com.avetero.seam"
+    // Debug builds have their own bundle id, so their key never touches the installed app's
+    private static let service = Bundle.main.bundleIdentifier ?? "com.avetero.seam"
     private static let account = "state-key"
 
     struct Failure: Error, CustomStringConvertible {

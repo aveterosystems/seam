@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":feature:pairing"))
     implementation(project(":feature:status"))
     implementation(project(":feature:clipboard"))
+    implementation(project(":feature:notifications"))
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.okhttp)

@@ -18,7 +18,10 @@ android {
 
 fun Exec.rustInputs() {
     workingDir = coreDir
-    inputs.files(fileTree(coreDir) { include("seam-*/src/**", "seam-*/Cargo.toml", "Cargo.lock") })
+    // build.rs compiles protocol/seam/v1 into the core: a proto change must rebuild it, or the
+    // core silently drops payload fields it doesn't know
+    inputs.files(fileTree(coreDir) { include("seam-*/src/**", "seam-*/build.rs", "seam-*/proto/**", "seam-*/Cargo.toml", "Cargo.lock") })
+    inputs.dir(coreDir.resolve("../protocol/seam/v1"))
 }
 
 // libseam_ffi.so for each ABI the app ships (needs the NDK, cargo-ndk and the rustup Android targets)
