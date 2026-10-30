@@ -272,6 +272,11 @@ impl SeamDevice {
         self.lock().set_app_data(&data.into());
     }
 
+    /// Unpaired: drops the relay group and Hello state.
+    pub fn clear_app_data(&self) {
+        self.lock().clear_app_data();
+    }
+
     /// Paths switched on at both ends (decision 0006): this device's switches and the peer's
     /// last applied Hello.
     pub fn allowed_paths(&self, wifi: bool, relay: bool) -> Vec<PeerPath> {

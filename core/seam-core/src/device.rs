@@ -176,6 +176,11 @@ impl Device {
         self.app_data = data.encode();
     }
 
+    /// Back to no app data: unpaired, with no relay group.
+    pub fn clear_app_data(&mut self) {
+        self.app_data.clear();
+    }
+
     /// Changes the saved app data in place; None (and no change) if there isn't any.
     pub fn edit_app_data<R>(&mut self, edit: impl FnOnce(&mut AppData) -> R) -> Option<R> {
         let mut data = self.app_data()?;

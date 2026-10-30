@@ -1164,6 +1164,11 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     func cancelPairing() 
     
     /**
+     * Unpaired: drops the relay group and Hello state.
+     */
+    func clearAppData() 
+    
+    /**
      * Mac: the user confirmed the safety code. Then seal and send PairAccept.
      */
     func confirmPairing(peerId: String) throws 
@@ -1384,6 +1389,17 @@ open func applyHello(seq: UInt64, allowedTransports: [Int32]) -> Bool  {
 open func cancelPairing()  {try! rustCall() {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Unpaired: drops the relay group and Hello state.
+     */
+open func clearAppData()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_clear_app_data(
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
@@ -2731,6 +2747,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() != 4348) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_clear_app_data() != 34959) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_confirm_pairing() != 49616) {

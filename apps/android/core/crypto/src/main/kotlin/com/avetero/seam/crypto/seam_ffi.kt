@@ -705,6 +705,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing(
     ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_clear_app_data(
+    ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_confirm_pairing(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_export_state(
@@ -830,6 +832,8 @@ internal object UniffiLib {
     external fun uniffi_seam_ffi_fn_method_seamdevice_apply_hello(`ptr`: Long,`seq`: Long,`allowedTransports`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
     external fun uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_seam_ffi_fn_method_seamdevice_clear_app_data(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -1033,6 +1037,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() and 0xFFFF) != 4348) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_clear_app_data() and 0xFFFF) != 34959) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_confirm_pairing() and 0xFFFF) != 49616) {
@@ -2550,6 +2557,11 @@ public interface SeamDeviceInterface {
     fun `cancelPairing`()
     
     /**
+     * Unpaired: drops the relay group and Hello state.
+     */
+    fun `clearAppData`()
+    
+    /**
      * Mac: the user confirmed the safety code. Then seal and send PairAccept.
      */
     fun `confirmPairing`(`peerId`: kotlin.String)
@@ -2815,6 +2827,21 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     callWithHandle {
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(
+        it,
+        _status)
+}
+    }
+    
+    
+
+    
+    /**
+     * Unpaired: drops the relay group and Hello state.
+     */override fun `clearAppData`()
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_clear_app_data(
         it,
         _status)
 }

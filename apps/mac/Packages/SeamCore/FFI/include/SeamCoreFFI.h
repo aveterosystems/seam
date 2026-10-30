@@ -385,6 +385,11 @@ int8_t uniffi_seam_ffi_fn_method_seamdevice_apply_hello(uint64_t ptr, uint64_t s
 void uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+void uniffi_seam_ffi_fn_method_seamdevice_clear_app_data(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CONFIRM_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CONFIRM_PAIRING
 void uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(uint64_t ptr, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
@@ -833,6 +838,12 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_apply_hello(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CANCEL_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CANCEL_PAIRING
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_clear_app_data(void
     
 );
 #endif

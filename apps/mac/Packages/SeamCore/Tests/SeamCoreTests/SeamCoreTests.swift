@@ -73,9 +73,13 @@ struct SeamCoreTests {
 
     @Test func appDataIsSealedWithTheState() throws {
         let mac = try SeamDevice.generate()
-        mac.setAppData(data: Data([1, 2, 3]))
+        let data = AppData(
+            groupId: Data(repeating: 1, count: 16), relayUrl: "wss://relay.example.com", ownerKey: Data([9]),
+            helloSeqSent: 2, helloSeqApplied: 3, peerAllowed: [.lan]
+        )
+        mac.setAppData(data: data)
         let restored = try SeamDevice.restore(state: try mac.exportState(storageKey: key), storageKey: key)
-        #expect(restored.appData() == Data([1, 2, 3]))
+        #expect(restored.appData() == data)
     }
 
     @Test func fileChunksRoundTripInOrderOnly() throws {

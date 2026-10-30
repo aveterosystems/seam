@@ -142,4 +142,7 @@ fn app_data_edits_save_only_when_there_is_some() {
         Some((1, vec![1]))
     );
     assert_eq!(mac.app_data().unwrap().hello_seq_sent, 1);
+    mac.clear_app_data();
+    let back = Device::restore(&mac.export_state(&KEY).unwrap(), &KEY).unwrap();
+    assert_eq!(back.app_data(), None, "cleared stays cleared");
 }
