@@ -41,6 +41,17 @@ class NotificationRulesTest {
         assertEquals(Mirror.TitleOnly, NotificationRules("x").decide(msg, AppMode.TitleOnly))
     }
 
+    @Test fun sr_19_01_theMacMayActOnlyOnWhatItWasSent() {
+        val r = NotificationRules("x")
+        assertFalse("never sent: an app the user kept off the Mac", r.mirrored("k"))
+        r.decide(msg.copy(app = "com.authenticator"), AppMode.Off)
+        assertFalse("an Off app's notification is never actionable", r.mirrored("k"))
+        r.decide(msg)
+        assertTrue(r.mirrored("k"))
+        r.removed("k")
+        assertFalse("gone from the phone", r.mirrored("k"))
+    }
+
     @Test fun onlyMirroredRemovalsReachTheMac() {
         val r = NotificationRules("x")
         assertFalse(r.removed("k"))

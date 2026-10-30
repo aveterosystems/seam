@@ -43,6 +43,9 @@ class NotificationRules(private val ownApp: String) {
         return if (p.secret || mode == AppMode.TitleOnly) Mirror.TitleOnly else Mirror.Full
     }
 
+    /** The Mac was sent this one and it's still showing: the only notifications the Mac may act on (SR-19-01). */
+    fun mirrored(key: String): Boolean = key in mirrored
+
     /** It left the phone: true if the Mac has it and should drop it too. */
     fun removed(key: String): Boolean = mirrored.remove(key) != null
 

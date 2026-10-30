@@ -86,7 +86,9 @@ final class SeamController: RelayHandler {
         notifications.start { [weak self] action in
             guard let self else { return }
             if action.dismissed, notificationSettings?.dismissBoth == false { return }
-            sendToPhone(.with { $0.notificationAction = action }, ttl: 0)
+            // A typed reply waits for the phone like any message; a stale dismiss or button press
+            // could hit a later notification that reuses the key (SR-19-03)
+            sendToPhone(.with { $0.notificationAction = action }, ttl: action.replyText.isEmpty ? Self.settingsTTL : 0)
         }
     }
 

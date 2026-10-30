@@ -63,6 +63,8 @@ final class PhoneNotifications: NSObject, UNUserNotificationCenterDelegate {
         actions += n.buttons.map { UNNotificationAction(identifier: Self.button + $0.id, title: $0.title, options: []) }
         let id = "phone" + (n.canReply ? ".r" : "") + n.buttons.map { ".\($0.id)=\($0.title)" }.joined()
         if !categories.contains(where: { $0.identifier == id }) {
+            // Titles that change every time ("Copy 482913") would add one each: start over past the cap (SR-19-04)
+            if categories.count >= Self.maxCategories { categories.removeAll() }
             // .customDismissAction: clearing a banner tells us, so the phone clears it too
             categories.insert(UNNotificationCategory(identifier: id, actions: actions, intentIdentifiers: [], options: [.customDismissAction]))
             center.setNotificationCategories(categories)
@@ -97,6 +99,7 @@ final class PhoneNotifications: NSObject, UNUserNotificationCenterDelegate {
         onAction(a)
     }
 
+    private static let maxCategories = 64
     private nonisolated static let prefix = "phone:"
     private nonisolated static let reply = "reply"
     private nonisolated static let button = "button:"

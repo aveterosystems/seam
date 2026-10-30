@@ -112,7 +112,8 @@ class NotificationsFeature(context: Context, private val session: SessionApi) : 
             .setPostedAt(sbn.postTime)
             .setCanReply(reply != null)
             .setConversationId(n.shortcutId.orEmpty())
-        n.actions.orEmpty().forEachIndexed { i, a ->
+        // Button titles can carry content ("Copy 482913"): Title only sends none (SR-19-02)
+        if (mirror == Mirror.Full) n.actions.orEmpty().forEachIndexed { i, a ->
             if (a !== reply && !a.title.isNullOrBlank() && out.buttonsCount < MAX_BUTTONS) {
                 out.addButtons(NotificationButton.newBuilder().setId(i.toString()).setTitle(a.title.toString()))
             }
@@ -166,6 +167,9 @@ class NotificationsFeature(context: Context, private val session: SessionApi) : 
     private fun act(a: NotificationAction) {
         val service = MirrorService.active ?: return
         val sbn = runCatching { service.getActiveNotifications(arrayOf(a.key)) }.getOrNull()?.firstOrNull() ?: return // already gone
+        // Only what the Mac was sent, from an app still on: never an app the user kept off the Mac (SR-19-01)
+        val prefs = store.state.value
+        if (!rules.mirrored(a.key) || !prefs.enabled || prefs.mode(sbn.packageName) == AppMode.Off) return
         val n = sbn.notification
         when (a.actionCase) {
             NotificationAction.ActionCase.DISMISSED -> {
