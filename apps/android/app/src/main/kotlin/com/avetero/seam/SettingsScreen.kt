@@ -18,9 +18,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,14 +108,22 @@ fun SettingsScreen(
         if (updater?.available == true) {
             val status by updater.status.collectAsState()
             var automatic by remember { mutableStateOf(updater.automatic) }
+            var interval by remember { mutableStateOf(updater.interval) }
+            var chooseInterval by remember { mutableStateOf(false) }
             Section("Updates") {
-                SwitchItem("Check for updates automatically", "Once a day, Seam asks GitHub for a newer release. GitHub sees this phone's IP address and Seam's version when it does.", automatic, {
+                SwitchItem("Check for updates automatically", "Seam asks GitHub for a newer release. GitHub sees this phone's IP address and Seam's version when it does.", automatic, {
                     automatic = it
                     updater.answer(it)
                 })
+                if (automatic) Item("How often", intervalLabel(interval), onClick = { chooseInterval = true })
                 Item("Check now", status ?: "Installs only updates signed by Seam", onClick = { updater.checkNow() })
                 // SR-17-14: the grant outlives the update
                 Item("After updating", "You can turn off Install unknown apps for Seam in Android's settings; Seam asks again next time")
+            }
+            if (chooseInterval) IntervalSheet(interval, onDismiss = { chooseInterval = false }) {
+                chooseInterval = false
+                interval = it
+                updater.interval = it
             }
         }
         Section("About") {
@@ -151,5 +162,29 @@ fun SettingsScreen(
             },
             dismissButton = { TextButton(onClick = { confirmForget = false }) { Text("Cancel") } },
         )
+    }
+}
+
+private fun intervalLabel(ms: Long) = when (ms) {
+    Updater.INTERVALS[0] -> "Every 30 minutes"
+    Updater.INTERVALS[1] -> "Every hour"
+    Updater.INTERVALS[2] -> "Every day"
+    else -> "Every week"
+}
+
+/** How often to check for updates: a sheet in the same grouped style as Settings. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IntervalSheet(current: Long, onDismiss: () -> Unit, onPick: (Long) -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
+            Section("Check for updates") {
+                Updater.INTERVALS.forEach { ms ->
+                    Item(intervalLabel(ms), highlighted = ms == current, onClick = { onPick(ms) }) {
+                        if (ms == current) Icon(Icons.Filled.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
+        }
     }
 }

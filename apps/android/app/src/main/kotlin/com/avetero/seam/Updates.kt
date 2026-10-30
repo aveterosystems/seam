@@ -77,11 +77,12 @@ object UpdateFeed {
 }
 
 /**
- * Updates for the GitHub build (`full`): once a day, with the screen on, Seam asks GitHub for the
+ * Updates for the GitHub build (`full`): as often as the user picks (a day by default), with the screen on, Seam asks GitHub for the
  * latest release, and if it's newer, offers it. Nothing is checked until the phone is paired and the
  * user has answered whether to check (SR-17-04). An update is installed only after its checksum
  * matches the release's SHA256SUMS and its only signing certificate is Seam's pinned one; Android then
- * checks the same key signed the installed app, and asks the user. The Play build is updated by Play,
+ * checks the same key signed the installed app. Tapping Update is the user's yes: once Seam installed
+ * itself before, Android installs without asking again; otherwise it shows its confirm screen. The Play build is updated by Play,
  * and debug builds never update.
  */
 class Updater(private val app: Context, private val paired: () -> Boolean) {
@@ -106,6 +107,11 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
         get() = prefs.getBoolean("automatic", true)
         set(value) { prefs.edit().putBoolean("automatic", value).apply() }
 
+    /** How often to check, in ms: one of [INTERVALS]. */
+    var interval: Long
+        get() = prefs.getLong("interval", DAY_MS).takeIf { it in INTERVALS } ?: DAY_MS
+        set(value) { prefs.edit().putLong("interval", value).apply() }
+
     /** The user's answer to Home's one-time question. */
     fun answer(checkAutomatically: Boolean) {
         automatic = checkAutomatically
@@ -113,15 +119,15 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
         _asked.value = true
     }
 
-    /** Checks when a day has passed since the last successful check, while the screen is on. */
+    /** Checks when [interval] has passed since the last successful check, while the screen is on. */
     fun start() {
         if (!available) return
         val power = app.getSystemService(PowerManager::class.java)
         scope.launch {
             while (true) {
-                val due = System.currentTimeMillis() - prefs.getLong("lastCheck", 0) >= DAY_MS
+                val due = System.currentTimeMillis() - prefs.getLong("lastCheck", 0) >= interval
                 if (due && automatic && _asked.value && paired() && power.isInteractive) check(notify = true)
-                delay(HOUR_MS) // a failed check is tried again in an hour, not a day
+                delay(HALF_HOUR_MS) // the shortest interval; a failed check is tried again then
             }
         }
     }
@@ -242,7 +248,8 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
         val installer = app.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(app.packageName)
-            setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+            // The user tapped Update. Android still asks if Seam isn't the app's installer of record yet
+            setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }
         val id = installer.createSession(params)
         try {
@@ -302,8 +309,10 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
     companion object {
         private const val CHANNEL = "updates"
         private const val NOTIFICATION_ID = 3
+        private const val HALF_HOUR_MS = 1_800_000L
         private const val DAY_MS = 24 * 3_600_000L
-        private const val HOUR_MS = 3_600_000L
+        /** The check intervals Settings offers, shortest first. */
+        val INTERVALS = listOf(HALF_HOUR_MS, 2 * HALF_HOUR_MS, DAY_MS, 7 * DAY_MS)
     }
 }
 

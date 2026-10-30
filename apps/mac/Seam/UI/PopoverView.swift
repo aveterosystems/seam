@@ -34,6 +34,17 @@ struct PopoverView: View {
                     .font(.caption).foregroundStyle(SeamStyle.warn)
                     .padding(.horizontal, 14).padding(.vertical, 10)
             }
+            if let version = Updates.shared.found {
+                Divider()
+                HStack(spacing: 10) {
+                    Label("Seam \(version) is available", systemImage: "arrow.down.circle.fill")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(SeamStyle.tealInk)
+                    Spacer(minLength: 0)
+                    Button("Update") { NSApp.activate(); Updates.shared.checkNow() }
+                        .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 10)
+            }
             Divider()
             footer
         }

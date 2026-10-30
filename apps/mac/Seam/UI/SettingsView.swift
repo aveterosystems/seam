@@ -11,6 +11,8 @@ struct SettingsView: View {
     @State private var appQuery = ""
     @State private var selecting = false
     @State private var selectedApps: Set<String> = []
+    @State private var checksAutomatically = Updates.shared.checksAutomatically
+    @State private var checkInterval = Updates.shared.checkInterval
 
     enum Pane: Hashable { case general, phone, notifications, clipboard, privacy, about }
 
@@ -314,18 +316,25 @@ struct SettingsView: View {
             SettingsRow("Source code", nil) { Link("github.com/aveterosystems/seam", destination: URL(string: "https://github.com/aveterosystems/seam")!) }
         }
         SettingsGroup {
-            if Updates.shared.available {
-                SettingsRow("Check for updates automatically", "Once a day, Seam asks GitHub for a newer release. GitHub sees this Mac's IP address and Seam's version when it does.") {
-                    Toggle("", isOn: Binding(get: { Updates.shared.checksAutomatically }, set: { Updates.shared.checksAutomatically = $0 }))
-                        .labelsHidden()
+            // Development builds show and save these too, so they can be tried; only checking is off
+            SettingsRow("Check for updates automatically", "Seam asks GitHub for a newer release. GitHub sees this Mac's IP address and Seam's version when it does.") {
+                Toggle("", isOn: Binding(get: { checksAutomatically }, set: { Updates.shared.checksAutomatically = $0; checksAutomatically = $0 }))
+                    .labelsHidden()
+            }
+            SettingsRow("How often", nil) {
+                Picker("", selection: Binding(get: { checkInterval }, set: { Updates.shared.checkInterval = $0; checkInterval = $0 })) {
+                    Text("Every 30 minutes").tag(Updates.intervals[0])
+                    Text("Every hour").tag(Updates.intervals[1])
+                    Text("Every day").tag(Updates.intervals[2])
+                    Text("Every week").tag(Updates.intervals[3])
                 }
-                SettingsRow("Updates", "Installed only if signed with Seam's update key, and only when you say") {
-                    Button("Check Now") { Updates.shared.checkNow() }
-                        .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                        .disabled(!Updates.shared.canCheck)
-                }
-            } else {
-                SettingsRow("Updates", "Development builds don't update themselves") { EmptyView() }
+                .labelsHidden().pickerStyle(.menu).fixedSize()
+                .disabled(!checksAutomatically)
+            }
+            SettingsRow("Updates", Updates.shared.available ? "Installed only if signed with Seam's update key, and only when you say" : "Development builds don't update themselves") {
+                Button("Check Now") { Updates.shared.checkNow() }
+                    .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    .disabled(!Updates.shared.canCheck)
             }
         }
     }
