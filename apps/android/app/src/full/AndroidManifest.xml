@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Automatic clipboard (phone → Mac): sideloaded builds only, both granted once from the Mac over adb -->
+<!-- Automatic clipboard (phone → Mac), sideloaded builds only: READ_LOGS and the overlay granted once from
+     the Mac over adb, or the accessibility switch the user turns on in Android's settings -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- In-app updates from GitHub Releases (the Play build is updated by Play) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <application>
+        <!-- Only the system can bind it, and only once the user turns it on in Accessibility settings -->
+        <service
+            android:name="com.avetero.seam.feature.clipboard.CopyWatcher"
+            android:exported="true"
+            android:label="@string/copy_watcher_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/copy_watcher" />
+        </service>
+    </application>
 </manifest>
