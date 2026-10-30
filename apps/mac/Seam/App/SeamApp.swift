@@ -11,7 +11,7 @@ struct SeamApp: App {
         MenuBarExtra {
             PopoverView(controller: appDelegate.controller)
         } label: {
-            Image(nsImage: SeamMark.image(connected: appDelegate.controller.connected && appDelegate.controller.phone != nil))
+            Image(nsImage: SeamMark.image(connected: appDelegate.controller.connected && appDelegate.controller.phone != nil, update: Updates.shared.found != nil))
         }
         .menuBarExtraStyle(.window)
 

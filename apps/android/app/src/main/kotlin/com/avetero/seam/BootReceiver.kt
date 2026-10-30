@@ -11,18 +11,20 @@ import android.content.Intent
 import com.avetero.seam.feature.clipboard.AutoClipboard
 
 /**
- * After the phone restarts: Seam starts again by itself, and, if automatic clipboard was set up,
+ * After the phone restarts or Seam updates: Seam starts again by itself; after a restart, if automatic clipboard was set up,
  * asks once to be opened. Android asks again after every restart whether Seam may read the system
  * log, and only while Seam is in front, so the notification opens it (docs: android-limits.md,
  * spike results).
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val boot = intent.action == Intent.ACTION_BOOT_COMPLETED
+        // An update stops Seam: start again right away, as after a restart
+        if (!boot && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val app = context.applicationContext as SeamApplication
         if (!app.session.paired) return
         ConnectionService.start(context)
-        if (AutoClipboard.available(context)) remind(context)
+        if (boot && AutoClipboard.available(context)) remind(context)
     }
 
     companion object {

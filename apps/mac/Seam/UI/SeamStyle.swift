@@ -20,14 +20,15 @@ extension Color {
 }
 
 /// The menu bar mark: the Mac and phone panels with three stitches. Filled when connected,
-/// outlined when not. A template image, so macOS tints it like any other menu bar item.
+/// outlined when not. A template image, so macOS tints it like any other menu bar item, except teal
+/// when an update is waiting.
 enum SeamMark {
-    static func image(connected: Bool) -> NSImage {
+    static func image(connected: Bool, update: Bool = false) -> NSImage {
         // Panels fill 15 of the 18 pt (16.5 with the outline), like the system's own menu bar glyphs
         let img = NSImage(size: NSSize(width: 20, height: 18), flipped: true) { _ in
             let left = NSBezierPath(roundedRect: NSRect(x: 1.25, y: 1.5, width: 7.5, height: 15), xRadius: 2.2, yRadius: 2.2)
             let right = NSBezierPath(roundedRect: NSRect(x: 11.25, y: 1.5, width: 7.5, height: 15), xRadius: 2.2, yRadius: 2.2)
-            NSColor.black.set()
+            (update ? NSColor(SeamStyle.teal) : NSColor.black).set()
             if connected {
                 left.fill()
                 right.fill()
@@ -53,8 +54,8 @@ enum SeamMark {
             }
             return true
         }
-        img.isTemplate = true
-        img.accessibilityDescription = connected ? "Seam, connected" : "Seam, not connected"
+        img.isTemplate = !update
+        img.accessibilityDescription = (connected ? "Seam, connected" : "Seam, not connected") + (update ? ", update available" : "")
         return img
     }
 }
