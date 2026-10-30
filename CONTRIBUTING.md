@@ -140,6 +140,16 @@ A feature is one Protobuf message in `protocol/seam/v1/` (taking the next free b
 
 One release per version, tagged `vX.Y.Z`, with both apps attached. The apps share a protocol version and ship together; the relay isn't released, it deploys from `main`.
 
+Which number goes up:
+
+| Release | When | Example |
+|---|---|---|
+| `patch` (0.2.0 → 0.2.1) | Fixes and small improvements to what's already there. No new feature, no protocol change | A crash fix, a clearer setting, update checks that run more often |
+| `minor` (0.2.1 → 0.3.0) | Something new a user would notice: a feature, a new protocol message or capability. Older apps keep working with it | Phone notifications on the Mac, file transfer |
+| `major` (0.3.0 → 1.0.0) | A change older apps can't work with (they must both update, or pair again), or 1.0 itself once Seam is stable | A new protocol version, new pairing |
+
+If a release has both, the bigger one wins: a fix plus a new feature is `minor`.
+
 1. **Once:** the maintainer runs `scripts/make-release-keys.sh` on their own Mac. It sets up a `release` environment (only `v*` tags, needs the maintainer's approval) and a ruleset so only admins can create, move or delete `v*` tags. It makes the Android signing key and Seam's Mac certificate (self-signed, not Apple's) in an encrypted disk image, stores them as `release` environment secrets, and writes their public fingerprints to `release/`. Commit those two files. Then `scripts/make-update-key.sh` makes the Mac update key (Ed25519, for Sparkle) in the same disk image, stores it as a `release` secret, and writes its public half into `apps/mac/Config/Release-Info.plist`; commit that too.
 2. On an up-to-date `main`, run `scripts/release.sh patch` (or `minor`, `major`, or `X.Y.Z`). It raises `versionName` and `versionCode` in `apps/android/app/build.gradle.kts`, `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `apps/mac/project.yml`, and the README status lines; opens the release PR; waits for its checks; merges it; and tags the merge commit `vX.Y.Z`.
 3. By hand instead: make those edits in a PR, and after it merges, `git tag -a vX.Y.Z origin/main -m "Seam X.Y.Z" && git push origin vX.Y.Z`.
