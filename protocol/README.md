@@ -50,6 +50,37 @@ sequenceDiagram
     D->>R: send Envelope / PutBundles / GetBundle / OpenPairing
 ```
 
+## The direct connection (same Wi‑Fi)
+
+When both devices allow **Same Wi‑Fi**, the phone also connects straight to the Mac. Nothing on the network can read, change, replay or inject anything, and only the paired devices can connect.
+
+```mermaid
+sequenceDiagram
+    participant P as Phone
+    participant M as Mac
+    Note over M: Bonjour _seam._tcp, service name "Seam", no TXT data
+    P->>M: TCP connect, Noise NN handshake (core LanChannel)
+    M->>P: Mac signs the handshake hash with its pinned relay key
+    P->>M: Phone checks it, then signs too
+    P->>M: ClientFrame{send Envelope | delivered msg_id}
+    M->>P: ServerFrame{deliver Envelope}
+```
+
+- **All of the cryptography is in the core** (`LanChannel` in `core/seam-core/src/lan.rs`): `Noise_NN_25519_ChaChaPoly_BLAKE2s`, then each side signs `"seam-lan-v1 responder|initiator" || handshake hash` with the Ed25519 relay key pinned at pairing. The Mac proves itself first, so a fake Mac learns nothing about the phone. The apps only move bytes: write `start()` on connect, feed every read to `receive()`, write back `send`, and close the socket on any error.
+- **Frames inside are the relay's own:** only `ClientFrame.send` and `ClientFrame.delivered` from the phone, and `ServerFrame.deliver` and `ServerFrame.delivered` from the Mac. Anything else is ignored. There's no `Challenge`/`Login`: the channel is already authenticated.
+- **Limits:** the first bytes must arrive within 2 seconds and authentication must finish within 10, or the socket is closed. The Mac holds at most 16 unauthenticated connections (4 per address, or per IPv6 /64 outside link-local); when full, it drops a random one, silent ones first. It keeps one authenticated connection per phone (a new one replaces the old). The phone only connects to private or link-local addresses, tries at most 8 services at once, and skips one for 10 minutes only after a valid proof from a different key; anything else is retried after 30 seconds. Frames are at most 1.2 MB, like the relay's.
+- **What this can't stop:** someone on your Wi‑Fi can always slow or block the direct path (flooding the Mac, fake adverts, or simply jamming the radio). These limits keep that costly and bounded, and the relay still works if it's allowed. Nothing they do lets them read, change or inject a message, or make a device use a path it switched off.
+- **Delivery, both ways:** each side keeps every envelope it sends directly until the other's `Delivered` (`ClientFrame.delivered` from the phone, `ServerFrame.delivered` from the Mac, sent once the envelope is handled and saved). If the connection drops first, it's sent again on whatever path is allowed next, and duplicates are dropped by id. The Mac's outbox survives a restart.
+- The inner envelopes are the same Signal Protocol messages as everywhere else, so the post-quantum protection is unchanged. The outer Noise layer is classical (X25519), and it protects only what the envelope already exposes.
+
+## Which paths may be used
+
+Each device has a switch per path (`Transport` in `control.proto`; decision 0006). Every time a path to the peer comes up, and whenever the switches change, each device sends a sealed `Hello` with its `allowed_transports`. It applies a `Hello` only if its `seq` is higher than the last one applied (a counter, not a clock, so a delayed old `Hello` can't switch a path back on), remembers the peer's latest list, and treats a peer it has never heard from as allowing everything (older versions send no `Hello`). A device opens and listens on every path its **own** switches allow, but only sends messages over a path allowed at **both** ends. The exceptions are `Hello` and the farewell `Unpair` (and the relay's own acks), which may go over any path the sender allows, so a change of switches can always reach the peer: otherwise two devices that each remember the other's old choice could never reach each other again. A `Hello` carries only the switches, sealed like any message. It never quietly falls back: a message with no allowed path waits in the outbox, and the app says why.
+
+## The relay link
+
+The Mac can use its own relay instead of Seam's. A **relay link** is `seam-relay://<host>[:port][/path]#<owner key>`, meaning `wss://<host>…` plus the private relay's owner key (base64url, sent as `Login.owner_key` when the Mac creates its group; see server/README.md, "Running your own relay"). The key never goes in the pairing QR code: the phone joins with the one-time token.
+
 ## The pairing QR code
 
 The Mac shows this; the phone scans it. Binary values are base64url without padding.

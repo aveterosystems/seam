@@ -36,6 +36,9 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
 
   /// internet, through a Seam relay (ours or self-hosted)
   case relay // = 2
+
+  /// direct Bluetooth LE (decision 0006; not built yet)
+  case bluetooth // = 3
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -47,6 +50,7 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
     case 0: self = .unspecified
     case 1: self = .lan
     case 2: self = .relay
+    case 3: self = .bluetooth
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -56,6 +60,7 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
     case .unspecified: return 0
     case .lan: return 1
     case .relay: return 2
+    case .bluetooth: return 3
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -65,6 +70,7 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
     .unspecified,
     .lan,
     .relay,
+    .bluetooth,
   ]
 
 }
@@ -155,9 +161,15 @@ public nonisolated struct Seam_V1_Hello: Sendable {
   /// "clipboard.v1", "files.v1", "notifications.reply", "messages.sms", ...
   public var capabilities: [String] = []
 
-  /// The user's connection policy on this device. The peer never sends over a transport missing
-  /// here (the stricter device wins; see docs/decisions/0004-user-chosen-transport.md).
+  /// The connection switches on this device. The peer never sends over a transport missing
+  /// here (only paths allowed at both ends are used; decision 0006). Sent whenever a path to the
+  /// peer comes up and whenever the switches change.
   public var allowedTransports: [Seam_V1_Transport] = []
+
+  /// Counts up by one with every Hello this device sends to this peer (persisted; restarts at 1
+  /// with a new pairing). The receiver applies a Hello only if seq is higher than the last one it
+  /// applied, so a delayed or replayed old Hello can't switch a path back on. Never clock-based.
+  public var seq: UInt64 = 0
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -237,7 +249,7 @@ public nonisolated struct Seam_V1_PairAccept: Sendable {
 fileprivate nonisolated let _protobuf_package = "seam.v1"
 
 nonisolated extension Seam_V1_Transport: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0TRANSPORT_UNSPECIFIED\0\u{1}TRANSPORT_LAN\0\u{1}TRANSPORT_RELAY\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0TRANSPORT_UNSPECIFIED\0\u{1}TRANSPORT_LAN\0\u{1}TRANSPORT_RELAY\0\u{1}TRANSPORT_BLUETOOTH\0")
 }
 
 nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -377,7 +389,7 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Hello"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}app_version\0\u{1}platform\0\u{1}capabilities\0\u{3}allowed_transports\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}app_version\0\u{1}platform\0\u{1}capabilities\0\u{3}allowed_transports\0\u{1}seq\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -389,6 +401,7 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 2: try { try decoder.decodeSingularStringField(value: &self.platform) }()
       case 3: try { try decoder.decodeRepeatedStringField(value: &self.capabilities) }()
       case 4: try { try decoder.decodeRepeatedEnumField(value: &self.allowedTransports) }()
+      case 5: try { try decoder.decodeSingularUInt64Field(value: &self.seq) }()
       default: break
       }
     }
@@ -407,6 +420,9 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if !self.allowedTransports.isEmpty {
       try visitor.visitPackedEnumField(value: self.allowedTransports, fieldNumber: 4)
     }
+    if self.seq != 0 {
+      try visitor.visitSingularUInt64Field(value: self.seq, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -415,6 +431,7 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if lhs.platform != rhs.platform {return false}
     if lhs.capabilities != rhs.capabilities {return false}
     if lhs.allowedTransports != rhs.allowedTransports {return false}
+    if lhs.seq != rhs.seq {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

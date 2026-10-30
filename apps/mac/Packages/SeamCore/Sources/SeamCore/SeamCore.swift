@@ -900,6 +900,205 @@ public func FfiConverterTypeFileSealer_lower(_ value: FileSealer) -> UInt64 {
 
 
 /**
+ * One direct connection to a paired device (same Wi-Fi): Noise handshake, then both sides
+ * prove they hold the keys pinned at pairing. Feed it every byte read from the socket and write
+ * back what it returns. Any error means close the socket; the channel can't be reused.
+ */
+public protocol LanChannelProtocol: AnyObject, Sendable {
+    
+    func peerId()  -> String?
+    
+    func receive(bytes: Data) throws  -> LanOutput
+    
+    /**
+     * One frame, sealed for the wire. Fails until authenticated.
+     */
+    func send(frame: Data) throws  -> Data
+    
+    /**
+     * The first bytes to write (initiator only; empty afterwards and on the responder).
+     */
+    func start()  -> Data
+    
+}
+/**
+ * One direct connection to a paired device (same Wi-Fi): Noise handshake, then both sides
+ * prove they hold the keys pinned at pairing. Feed it every byte read from the socket and write
+ * back what it returns. Any error means close the socket; the channel can't be reused.
+ */
+open class LanChannel: LanChannelProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_lanchannel(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_lanchannel(handle, $0) }
+    }
+
+    
+    /**
+     * The phone's side, connecting to the paired Mac. Write `start()` as soon as the socket connects.
+     */
+public static func initiator(device: SeamDevice, peerId: String)throws  -> LanChannel  {
+    return try  FfiConverterTypeLanChannel_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_lanchannel_initiator(
+        FfiConverterTypeSeamDevice_lower(device),
+        FfiConverterString.lower(peerId),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The Mac's side, for one incoming connection. Fails while no phone is paired.
+     */
+public static func responder(device: SeamDevice)throws  -> LanChannel  {
+    return try  FfiConverterTypeLanChannel_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_lanchannel_responder(
+        FfiConverterTypeSeamDevice_lower(device),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+open func peerId() -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_lanchannel_peer_id(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+open func receive(bytes: Data)throws  -> LanOutput  {
+    return try  FfiConverterTypeLanOutput_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_lanchannel_receive(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(bytes),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * One frame, sealed for the wire. Fails until authenticated.
+     */
+open func send(frame: Data)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_lanchannel_send(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(frame),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The first bytes to write (initiator only; empty afterwards and on the responder).
+     */
+open func start() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_lanchannel_start(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLanChannel: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = LanChannel
+
+    public static func lift(_ handle: UInt64) throws -> LanChannel {
+        return LanChannel(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: LanChannel) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LanChannel {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: LanChannel, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLanChannel_lift(_ handle: UInt64) throws -> LanChannel {
+    return try FfiConverterTypeLanChannel.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLanChannel_lower(_ value: LanChannel) -> UInt64 {
+    return FfiConverterTypeLanChannel.lower(value)
+}
+
+
+
+
+
+
+/**
  * This device: identity, peers and sessions. Safe to share across threads.
  */
 public protocol SeamDeviceProtocol: AnyObject, Sendable {
@@ -1332,6 +1531,79 @@ public func FfiConverterTypeSeamDevice_lower(_ value: SeamDevice) -> UInt64 {
 }
 
 
+
+
+/**
+ * What one `LanChannel.receive` produced: write `send` to the socket, handle `frames`.
+ */
+public struct LanOutput: Equatable, Hashable {
+    public var send: Data
+    /**
+     * seam.v1 ClientFrame (Mac side) or ServerFrame (phone side) bytes, from the authenticated peer.
+     */
+    public var frames: [Data]
+    /**
+     * Set once, on the call that finished authentication: the paired peer's id.
+     */
+    public var authenticated: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(send: Data, 
+        /**
+         * seam.v1 ClientFrame (Mac side) or ServerFrame (phone side) bytes, from the authenticated peer.
+         */frames: [Data], 
+        /**
+         * Set once, on the call that finished authentication: the paired peer's id.
+         */authenticated: String?) {
+        self.send = send
+        self.frames = frames
+        self.authenticated = authenticated
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension LanOutput: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLanOutput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LanOutput {
+        return
+            try LanOutput(
+                send: FfiConverterData.read(from: &buf), 
+                frames: FfiConverterSequenceData.read(from: &buf), 
+                authenticated: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LanOutput, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.send, into: &buf)
+        FfiConverterSequenceData.write(value.frames, into: &buf)
+        FfiConverterOptionString.write(value.authenticated, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLanOutput_lift(_ buf: RustBuffer) throws -> LanOutput {
+    return try FfiConverterTypeLanOutput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLanOutput_lower(_ value: LanOutput) -> RustBuffer {
+    return FfiConverterTypeLanOutput.lower(value)
+}
 
 
 /**
@@ -1784,6 +2056,30 @@ public func FfiConverterTypeSeamError_lower(_ value: SeamError) -> RustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
+    typealias SwiftType = String?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceData: FfiConverterRustBuffer {
     typealias SwiftType = [Data]
 
@@ -1874,6 +2170,18 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_filesealer_seal_next() != 34290) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_method_lanchannel_peer_id() != 59835) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_lanchannel_receive() != 47429) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_lanchannel_send() != 28463) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_lanchannel_start() != 42649) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() != 62568) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1935,6 +2243,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_constructor_filesealer_new() != 36088) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_lanchannel_initiator() != 27183) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_lanchannel_responder() != 26492) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_constructor_seamdevice_generate() != 39377) {

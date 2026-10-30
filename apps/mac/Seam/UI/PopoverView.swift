@@ -19,7 +19,7 @@ struct PopoverView: View {
                 .padding(14)
             } else if let phone = controller.phone {
                 header(phone)
-                Stitch(connected: controller.connected).padding(.horizontal, 14)
+                Stitch(line: controller.link.line).padding(.horizontal, 14)
                 modules
                 if !controller.recentFromPhone.isEmpty {
                     Divider()
@@ -61,11 +61,7 @@ struct PopoverView: View {
                 .foregroundStyle(SeamStyle.tealInk)
             VStack(alignment: .leading, spacing: 2) {
                 Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 14, weight: .semibold))
-                HStack(spacing: 6) {
-                    Circle().fill(controller.connected ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
-                    Text(controller.connected ? "Connected · Through Seam relay" : "Offline · will send when your phone is back")
-                }
-                .font(.caption).foregroundStyle(.secondary)
+                LinkStatus(look: controller.link).font(.caption)
             }
             Spacer(minLength: 0)
             if let s = controller.status { battery(s) }

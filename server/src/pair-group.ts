@@ -2,7 +2,8 @@
 // One Durable Object per pairing group. A thin adapter: Cloudflare's hibernating WebSockets and
 // storage on one side, the testable protocol logic in group.ts on the other.
 
-import { Group, type Socket, type SocketState, type Storage, unhex } from "./group.js";
+import { Group, ownerKey, type Socket, type SocketState, type Storage, unhex } from "./group.js";
+import type { Env } from "./index.js";
 
 // Close codes that only describe a closure and can't be sent in a close frame
 const RESERVED_CLOSE = new Set([1005, 1006, 1015]);
@@ -10,7 +11,10 @@ const RESERVED_CLOSE = new Set([1005, 1006, 1015]);
 export class PairGroup {
   private readonly group: Group;
 
-  constructor(private readonly ctx: DurableObjectState) {
+  constructor(
+    private readonly ctx: DurableObjectState,
+    env: Env,
+  ) {
     const storage: Storage = {
       get: (key) => ctx.storage.get(key),
       put: (key, value) => ctx.storage.put(key, value),
@@ -23,7 +27,7 @@ export class PairGroup {
       const current = await ctx.storage.getAlarm();
       if (current === null || current > at) await ctx.storage.setAlarm(at);
     };
-    this.group = new Group(storage, () => ctx.getWebSockets().map(adapt), Date.now, scheduleAlarm);
+    this.group = new Group(storage, () => ctx.getWebSockets().map(adapt), Date.now, scheduleAlarm, ownerKey(env.OWNER_KEY));
   }
 
   /** Called by the Worker with an already validated ?group= (hex). */

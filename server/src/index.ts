@@ -2,7 +2,7 @@
 // Seam relay entry point. Routes /v1/connect to the pairing group's Durable Object; it must never
 // log request IPs or message contents (docs/security/threat-model.md).
 
-import { hex } from "./group.js";
+import { base64url, hex } from "./group.js";
 
 export { PairGroup } from "./pair-group.js";
 
@@ -15,7 +15,13 @@ export interface Env {
   PAIR_GROUP: DurableObjectNamespace;
   /** Absent in tests and local runs without the binding: no limit is applied. */
   CONNECT_LIMITER?: RateLimiter;
+  /**
+   * Makes this a private relay: only a device that presents this key can create a group (pair a
+   * new Mac). base64url, at least 32 random bytes; set with `wrangler secret put OWNER_KEY`.
+   */
+  OWNER_KEY?: string;
 }
+
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -45,6 +51,6 @@ export default {
 /** base64url (no padding) of exactly 16 bytes, or null. */
 export function decodeGroup(value: string | null): Uint8Array | null {
   if (!value || !/^[A-Za-z0-9_-]{22}$/.test(value)) return null;
-  const bin = atob(value.replace(/-/g, "+").replace(/_/g, "/") + "==");
-  return bin.length === 16 ? Uint8Array.from(bin, (c) => c.charCodeAt(0)) : null;
+  const bytes = base64url(value);
+  return bytes?.length === 16 ? bytes : null;
 }

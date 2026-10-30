@@ -174,6 +174,16 @@ public nonisolated struct Seam_V1_ServerFrame: Sendable {
     set {frame = .peerJoined(newValue)}
   }
 
+  /// Direct connection only (never sent by a relay): the Mac has handled, and saved, the
+  /// phone's envelope with this msg_id. Until then the phone keeps it and resends it.
+  public var delivered: Seam_V1_Delivered {
+    get {
+      if case .delivered(let v)? = frame {return v}
+      return Seam_V1_Delivered()
+    }
+    set {frame = .delivered(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Frame: Equatable, Sendable {
@@ -183,6 +193,9 @@ public nonisolated struct Seam_V1_ServerFrame: Sendable {
     case bundle(Seam_V1_BundleResult)
     case error(Seam_V1_RelayError)
     case peerJoined(Seam_V1_PeerJoined)
+    /// Direct connection only (never sent by a relay): the Mac has handled, and saved, the
+    /// phone's envelope with this msg_id. Until then the phone keeps it and resends it.
+    case delivered(Seam_V1_Delivered)
 
   }
 
@@ -221,6 +234,10 @@ public nonisolated struct Seam_V1_Login: Sendable {
 
   /// set only by the first device; a plain login never creates a group
   public var createGroup: Bool = false
+
+  /// A private relay's owner key (its operator sets one): without it, create_group is refused
+  /// ("owner_key"). Joining and plain logins never need it. Ignored by relays without one.
+  public var ownerKey: Data = Data()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -355,7 +372,7 @@ public nonisolated struct Seam_V1_RelayError: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage"
+  /// "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage", "owner_key"
   public var code: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -538,7 +555,7 @@ nonisolated extension Seam_V1_ClientFrame: SwiftProtobuf.Message, SwiftProtobuf.
 
 nonisolated extension Seam_V1_ServerFrame: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ServerFrame"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}challenge\0\u{3}login_result\0\u{1}deliver\0\u{1}bundle\0\u{1}error\0\u{3}peer_joined\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}challenge\0\u{3}login_result\0\u{1}deliver\0\u{1}bundle\0\u{1}error\0\u{3}peer_joined\0\u{1}delivered\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -624,6 +641,19 @@ nonisolated extension Seam_V1_ServerFrame: SwiftProtobuf.Message, SwiftProtobuf.
           self.frame = .peerJoined(v)
         }
       }()
+      case 7: try {
+        var v: Seam_V1_Delivered?
+        var hadOneofValue = false
+        if let current = self.frame {
+          hadOneofValue = true
+          if case .delivered(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.frame = .delivered(v)
+        }
+      }()
       default: break
       }
     }
@@ -658,6 +688,10 @@ nonisolated extension Seam_V1_ServerFrame: SwiftProtobuf.Message, SwiftProtobuf.
     case .peerJoined?: try {
       guard case .peerJoined(let v)? = self.frame else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    }()
+    case .delivered?: try {
+      guard case .delivered(let v)? = self.frame else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
     }()
     case nil: break
     }
@@ -703,7 +737,7 @@ nonisolated extension Seam_V1_Challenge: SwiftProtobuf.Message, SwiftProtobuf._M
 
 nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Login"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}group_id\0\u{3}device_key\0\u{1}signature\0\u{3}join_token\0\u{3}create_group\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}group_id\0\u{3}device_key\0\u{1}signature\0\u{3}join_token\0\u{3}create_group\0\u{3}owner_key\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -716,6 +750,7 @@ nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 3: try { try decoder.decodeSingularBytesField(value: &self.signature) }()
       case 4: try { try decoder.decodeSingularBytesField(value: &self.joinToken) }()
       case 5: try { try decoder.decodeSingularBoolField(value: &self.createGroup) }()
+      case 6: try { try decoder.decodeSingularBytesField(value: &self.ownerKey) }()
       default: break
       }
     }
@@ -737,6 +772,9 @@ nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if self.createGroup != false {
       try visitor.visitSingularBoolField(value: self.createGroup, fieldNumber: 5)
     }
+    if !self.ownerKey.isEmpty {
+      try visitor.visitSingularBytesField(value: self.ownerKey, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -746,6 +784,7 @@ nonisolated extension Seam_V1_Login: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if lhs.signature != rhs.signature {return false}
     if lhs.joinToken != rhs.joinToken {return false}
     if lhs.createGroup != rhs.createGroup {return false}
+    if lhs.ownerKey != rhs.ownerKey {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

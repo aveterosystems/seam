@@ -80,6 +80,25 @@ The workflow runs the typecheck and tests before it deploys, and never runs on a
 
 **Changing the address later doesn't move existing pairings.** Each pairing stores the relay it was made on, on both devices, so they keep using the old address until they pair again. Keep the old address working until everyone has, or pick the long-lived address before the first public release.
 
+## Running your own relay
+
+Anyone can run a Seam relay on their own free Cloudflare account and point their Mac at it. Nothing about the encryption changes; you just rely on your own server instead of ours.
+
+1. Fork or clone this repo. In `wrangler.toml`, delete the `routes` line (or put your own domain in it) and set `workers_dev = true`.
+2. Deploy as above (`npx wrangler login`, then `npx wrangler deploy`).
+3. **Make it private**, so only you can pair a Mac with it:
+
+   ```bash
+   key=$(openssl rand 32 | base64 | tr '+/' '-_' | tr -d '=')
+   echo "$key" | npx wrangler secret put OWNER_KEY
+   echo "seam-relay://seam-relay.<account>.workers.dev#$key"   # your relay link
+   ```
+
+   Without the owner key, the relay refuses to create a group (`owner_key`). Phones never need it: they join through the Mac's pairing code, and paired devices log in as usual. Keep the link secret, the way you would a password.
+4. On the Mac: **Settings › Connection › Relay › Use my own relay**, paste the link, then pair your phone again.
+
+A relay without `OWNER_KEY` is open: any Mac that knows its address can create a group on it.
+
 ## Testing
 
 ```bash

@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/relay.proto.
  */
 export const file_seam_v1_relay: GenFile = /*@__PURE__*/
-  fileDesc("ChNzZWFtL3YxL3JlbGF5LnByb3RvEgdzZWFtLnYxIucCCgtDbGllbnRGcmFtZRIfCgVsb2dpbhgBIAEoCzIOLnNlYW0udjEuTG9naW5IABIhCgRzZW5kGAIgASgLMhEuc2VhbS52MS5FbnZlbG9wZUgAEicKCWRlbGl2ZXJlZBgDIAEoCzISLnNlYW0udjEuRGVsaXZlcmVkSAASKgoLcHV0X2J1bmRsZXMYBCABKAsyEy5zZWFtLnYxLlB1dEJ1bmRsZXNIABIoCgpnZXRfYnVuZGxlGAUgASgLMhIuc2VhbS52MS5HZXRCdW5kbGVIABIsCgxvcGVuX3BhaXJpbmcYBiABKAsyFC5zZWFtLnYxLk9wZW5QYWlyaW5nSAASLgoNcmVtb3ZlX21lbWJlchgHIAEoCzIVLnNlYW0udjEuUmVtb3ZlTWVtYmVySAASLgoNY2xvc2VfcGFpcmluZxgIIAEoCzIVLnNlYW0udjEuQ2xvc2VQYWlyaW5nSABCBwoFZnJhbWUijgIKC1NlcnZlckZyYW1lEicKCWNoYWxsZW5nZRgBIAEoCzISLnNlYW0udjEuQ2hhbGxlbmdlSAASLAoMbG9naW5fcmVzdWx0GAIgASgLMhQuc2VhbS52MS5Mb2dpblJlc3VsdEgAEiQKB2RlbGl2ZXIYAyABKAsyES5zZWFtLnYxLkVudmVsb3BlSAASJwoGYnVuZGxlGAQgASgLMhUuc2VhbS52MS5CdW5kbGVSZXN1bHRIABIkCgVlcnJvchgFIAEoCzITLnNlYW0udjEuUmVsYXlFcnJvckgAEioKC3BlZXJfam9pbmVkGAYgASgLMhMuc2VhbS52MS5QZWVySm9pbmVkSABCBwoFZnJhbWUiGgoJQ2hhbGxlbmdlEg0KBW5vbmNlGAEgASgMImoKBUxvZ2luEhAKCGdyb3VwX2lkGAEgASgMEhIKCmRldmljZV9rZXkYAiABKAwSEQoJc2lnbmF0dXJlGAMgASgMEhIKCmpvaW5fdG9rZW4YBCABKAwSFAoMY3JlYXRlX2dyb3VwGAUgASgIIioKC0xvZ2luUmVzdWx0EgoKAm9rGAEgASgIEg8KB21lbWJlcnMYAiADKAwiGwoJRGVsaXZlcmVkEg4KBm1zZ19pZBgBIAEoDCIdCgpQdXRCdW5kbGVzEg8KB2J1bmRsZXMYASADKAwiHwoJR2V0QnVuZGxlEhIKCmRldmljZV9rZXkYASABKAwiMgoMQnVuZGxlUmVzdWx0EhIKCmRldmljZV9rZXkYASABKAwSDgoGYnVuZGxlGAIgASgMIjAKC09wZW5QYWlyaW5nEhIKCnRva2VuX2hhc2gYASABKAwSDQoFdHRsX3MYAiABKA0iIgoMUmVtb3ZlTWVtYmVyEhIKCmRldmljZV9rZXkYASABKAwiDgoMQ2xvc2VQYWlyaW5nIiAKClBlZXJKb2luZWQSEgoKZGV2aWNlX2tleRgBIAEoDCIaCgpSZWxheUVycm9yEgwKBGNvZGUYASABKAlCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM", [file_seam_v1_envelope]);
+  fileDesc("ChNzZWFtL3YxL3JlbGF5LnByb3RvEgdzZWFtLnYxIucCCgtDbGllbnRGcmFtZRIfCgVsb2dpbhgBIAEoCzIOLnNlYW0udjEuTG9naW5IABIhCgRzZW5kGAIgASgLMhEuc2VhbS52MS5FbnZlbG9wZUgAEicKCWRlbGl2ZXJlZBgDIAEoCzISLnNlYW0udjEuRGVsaXZlcmVkSAASKgoLcHV0X2J1bmRsZXMYBCABKAsyEy5zZWFtLnYxLlB1dEJ1bmRsZXNIABIoCgpnZXRfYnVuZGxlGAUgASgLMhIuc2VhbS52MS5HZXRCdW5kbGVIABIsCgxvcGVuX3BhaXJpbmcYBiABKAsyFC5zZWFtLnYxLk9wZW5QYWlyaW5nSAASLgoNcmVtb3ZlX21lbWJlchgHIAEoCzIVLnNlYW0udjEuUmVtb3ZlTWVtYmVySAASLgoNY2xvc2VfcGFpcmluZxgIIAEoCzIVLnNlYW0udjEuQ2xvc2VQYWlyaW5nSABCBwoFZnJhbWUitwIKC1NlcnZlckZyYW1lEicKCWNoYWxsZW5nZRgBIAEoCzISLnNlYW0udjEuQ2hhbGxlbmdlSAASLAoMbG9naW5fcmVzdWx0GAIgASgLMhQuc2VhbS52MS5Mb2dpblJlc3VsdEgAEiQKB2RlbGl2ZXIYAyABKAsyES5zZWFtLnYxLkVudmVsb3BlSAASJwoGYnVuZGxlGAQgASgLMhUuc2VhbS52MS5CdW5kbGVSZXN1bHRIABIkCgVlcnJvchgFIAEoCzITLnNlYW0udjEuUmVsYXlFcnJvckgAEioKC3BlZXJfam9pbmVkGAYgASgLMhMuc2VhbS52MS5QZWVySm9pbmVkSAASJwoJZGVsaXZlcmVkGAcgASgLMhIuc2VhbS52MS5EZWxpdmVyZWRIAEIHCgVmcmFtZSIaCglDaGFsbGVuZ2USDQoFbm9uY2UYASABKAwifQoFTG9naW4SEAoIZ3JvdXBfaWQYASABKAwSEgoKZGV2aWNlX2tleRgCIAEoDBIRCglzaWduYXR1cmUYAyABKAwSEgoKam9pbl90b2tlbhgEIAEoDBIUCgxjcmVhdGVfZ3JvdXAYBSABKAgSEQoJb3duZXJfa2V5GAYgASgMIioKC0xvZ2luUmVzdWx0EgoKAm9rGAEgASgIEg8KB21lbWJlcnMYAiADKAwiGwoJRGVsaXZlcmVkEg4KBm1zZ19pZBgBIAEoDCIdCgpQdXRCdW5kbGVzEg8KB2J1bmRsZXMYASADKAwiHwoJR2V0QnVuZGxlEhIKCmRldmljZV9rZXkYASABKAwiMgoMQnVuZGxlUmVzdWx0EhIKCmRldmljZV9rZXkYASABKAwSDgoGYnVuZGxlGAIgASgMIjAKC09wZW5QYWlyaW5nEhIKCnRva2VuX2hhc2gYASABKAwSDQoFdHRsX3MYAiABKA0iIgoMUmVtb3ZlTWVtYmVyEhIKCmRldmljZV9rZXkYASABKAwiDgoMQ2xvc2VQYWlyaW5nIiAKClBlZXJKb2luZWQSEgoKZGV2aWNlX2tleRgBIAEoDCIaCgpSZWxheUVycm9yEgwKBGNvZGUYASABKAlCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM", [file_seam_v1_envelope]);
 
 /**
  * @generated from message seam.v1.ClientFrame
@@ -128,6 +128,15 @@ export type ServerFrame = Message<"seam.v1.ServerFrame"> & {
      */
     value: PeerJoined;
     case: "peerJoined";
+  } | {
+    /**
+     * Direct connection only (never sent by a relay): the Mac has handled, and saved, the
+     * phone's envelope with this msg_id. Until then the phone keeps it and resends it.
+     *
+     * @generated from field: seam.v1.Delivered delivered = 7;
+     */
+    value: Delivered;
+    case: "delivered";
   } | { case: undefined; value?: undefined };
 };
 
@@ -195,6 +204,14 @@ export type Login = Message<"seam.v1.Login"> & {
    * @generated from field: bool create_group = 5;
    */
   createGroup: boolean;
+
+  /**
+   * A private relay's owner key (its operator sets one): without it, create_group is refused
+   * ("owner_key"). Joining and plain logins never need it. Ignored by relays without one.
+   *
+   * @generated from field: bytes owner_key = 6;
+   */
+  ownerKey: Uint8Array;
 };
 
 /**
@@ -393,7 +410,7 @@ export const PeerJoinedSchema: GenMessage<PeerJoined> = /*@__PURE__*/
  */
 export type RelayError = Message<"seam.v1.RelayError"> & {
   /**
-   * "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage"
+   * "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage", "owner_key"
    *
    * @generated from field: string code = 1;
    */

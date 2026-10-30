@@ -7,6 +7,7 @@ import {
   BUNDLE_RATE, Group, INACTIVE_MS, LOGIN_CONTEXT, LOGIN_DEADLINE_MS, MAX_BUNDLE_BYTES, MAX_BUNDLES, MAX_FRAME, MAX_MEMBERS,
   MAX_PRELOGIN, MAX_QUEUE_COUNT, type Socket, type SocketState, type Storage,
 } from "../src/group.js";
+import { ownerKey } from "../src/group.js";
 import worker, { decodeGroup } from "../src/index.js";
 
 class MemStorage implements Storage {
@@ -175,6 +176,43 @@ describe("login", () => {
     const u = await connect();
     await group.message(u, new Uint8Array([0xff, 0xff, 0xff]).buffer);
     expect(u.closed).toBe("bad_frame");
+  });
+});
+
+describe("private relay (owner key)", () => {
+  const key = new Uint8Array(32).fill(5);
+  const b64 = btoa(String.fromCharCode(...key)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const privateGroup = () => { group = new Group(storage, () => sockets, () => now, async () => {}, ownerKey(b64)); };
+  async function create(d: Device, presented?: Uint8Array) {
+    const s = await connect();
+    await group.message(s, frame({ case: "login", value: { ...(await signLogin(s, d)), createGroup: true, ownerKey: presented ?? new Uint8Array() } }));
+    return s;
+  }
+
+  it("creates a group only for a device with the owner key", async () => {
+    privateGroup();
+    expect((await create(await device())).last()).toEqual({ case: "error", value: expect.objectContaining({ code: "owner_key" }) });
+    expect((await create(await device(), new Uint8Array(32).fill(6))).last()).toMatchObject({ case: "error" });
+    expect((await create(await device(), key)).last()).toMatchObject({ case: "loginResult", value: { ok: true } });
+  });
+
+  it("still lets a phone join by pairing and members log in without the key", async () => {
+    privateGroup();
+    const mac = await device();
+    const macSock = await create(mac, key);
+    const token = crypto.getRandomValues(new Uint8Array(32));
+    await openPairing(macSock, token);
+    expect((await login(await device(), token)).last()).toMatchObject({ case: "loginResult", value: { ok: true } });
+    expect((await login(mac)).of("loginResult")[0]).toMatchObject({ ok: true });
+  });
+
+  it("treats a malformed or short configured key as refusing every new group", async () => {
+    expect(ownerKey(undefined)).toBeNull();
+    expect(ownerKey("")).toBeNull();
+    for (const bad of ["not base64!", "c2hvcnQ"]) {
+      group = new Group(storage, () => sockets, () => now, async () => {}, ownerKey(bad));
+      expect((await create(await device())).last()).toMatchObject({ case: "error", value: { code: "owner_key" } });
+    }
   });
 });
 

@@ -6,10 +6,19 @@ import SeamCore
 import SeamProtocol
 import SeamSession
 
-/// The app's one live object: owns the device, the relay connection and what the UI shows.
+/// The app's one live object: owns the device, the connections to the phone and what the UI shows.
 @MainActor @Observable
 final class SeamController: RelayHandler {
-    private(set) var connected = false
+    /// Logged in to the relay (pairing and the relay path need it).
+    private(set) var relayUp = false
+    /// The phone is authenticated on the same‑Wi‑Fi link.
+    private(set) var lanUp = false
+    /// The connection switches (Settings › Connection; decision 0006). At least one stays on.
+    private(set) var wifiOn = UserDefaults.standard.object(forKey: "transport.wifi") as? Bool ?? true
+    private(set) var relayOn = UserDefaults.standard.object(forKey: "transport.relay") as? Bool ?? true
+    /// The phone's switches from its last Hello; nil until it sends one (older phones never do).
+    /// Kept sealed in the app data; this is its copy for the UI.
+    private(set) var peerAllowed: Set<Seam_V1_Transport>?
     private(set) var phone: PeerInfo?
     private(set) var status: Seam_V1_Status?
     private(set) var startupError: String?
@@ -32,6 +41,16 @@ final class SeamController: RelayHandler {
     @ObservationIgnored private var store: Store?
     @ObservationIgnored private var relay: RelayClient?
     @ObservationIgnored private var relayTask: Task<Void, Never>?
+    @ObservationIgnored private var lan: LanServer?
+    @ObservationIgnored private var lanTask: Task<Void, Never>?
+    /// Sealed envelopes not yet delivered (waiting for a path, or sent directly and not yet acked),
+    /// saved before any is handed to a path.
+    @ObservationIgnored private var outbox = Outbox()
+    /// Handed to the relay and not yet answered, so a flush meanwhile doesn't send them twice.
+    @ObservationIgnored private var inFlight: Set<Data> = []
+    /// Hellos in the outbox: the only envelopes allowed `Paths.helloRoute`. Memory only: after a
+    /// restart a waiting Hello takes the normal route, and a fresh one goes when a path comes up.
+    @ObservationIgnored private var hellos: Set<Data> = []
     @ObservationIgnored private var openTokenHash: Data?
     @ObservationIgnored private var expiryTask: Task<Void, Never>?
     @ObservationIgnored private var clipRules = ClipRules()
@@ -48,6 +67,21 @@ final class SeamController: RelayHandler {
 
     /// For the pairing screens: the host the phone will be told to trust with its traffic.
     var relayHost: String { store?.relayURL.host() ?? "" }
+
+    var usesOwnRelay: Bool { store?.usesOwnRelay ?? false }
+
+    /// Paths allowed at both ends.
+    private var allowed: Set<Seam_V1_Transport> {
+        Paths.allowed(mine: Paths.mine(wifi: wifiOn, relay: relayOn), peer: peerAllowed)
+    }
+
+    /// How the link looks everywhere it's shown: the stitch, the icon and the words.
+    var link: LinkLook {
+        LinkLook.of(route: Paths.route(allowed: allowed, lanUp: lanUp, relayUp: relayUp), allowed: allowed, ownRelay: usesOwnRelay)
+    }
+
+    /// The phone can be reached now, on a path both ends allow.
+    var connected: Bool { link.connected }
 
     func start() {
         guard store == nil else { return }
@@ -76,12 +110,18 @@ final class SeamController: RelayHandler {
     }
 
     private func begin(_ store: Store) {
-        relayTask?.cancel()
         self.store = store
         phone = store.device.peers().first { $0.confirmed }
-        let relay = RelayClient(device: store.device, groupID: store.appData.groupID, relayURL: store.relayURL, handler: self)
-        self.relay = relay
-        relayTask = Task { await relay.run() }
+        peerAllowed = store.appData.peerAllowed
+        if phone != nil {
+            outbox = store.outboxFile.load(now: Date())
+            outbox.requeueSent() // sent directly before a restart and never acked: goes again
+        } else {
+            outbox = Outbox()
+            store.outboxFile.delete() // a reset, or the phone went while Seam was closed
+        }
+        restartRelay()
+        updateLan()
         watchClipboard()
         notifications.start { [weak self] action in
             guard let self else { return }
@@ -103,21 +143,31 @@ final class SeamController: RelayHandler {
         // right after, so a crash can't reuse them
         let farewell = (try? store.device.seal(peerId: phone.id, payload: unpair.serializedData(), ttlS: 0))
             .flatMap { try? Seam_V1_Envelope(serializedBytes: $0) }
-            .map(Frames.send)
         let key = removableRelayKey(phone.id)
+        let (viaLan, viaRelay) = farewellPaths
         // Only once forgetting it is saved: otherwise a restart would reload the phone with the
         // ratchet from before the farewell was sealed, and could reuse its key (SR-7-04)
         guard forgetPhone(phone.id) else { return }
+        if let farewell, viaLan { _ = lan?.send(.with { $0.deliver = farewell }, to: phone.id) }
+        updateLan() // closes the link gracefully: the farewell is written first
         Task {
-            if let farewell { try? await relay?.send(farewell) } // first, so a connected phone gets it before it's removed
+            if let farewell, viaRelay { try? await relay?.send(Frames.send(farewell)) } // first, so a connected phone gets it before it's removed
             if let key { try? await relay?.send(Frames.removeMember(key)) }
         }
+    }
+
+    /// Where the Unpair goes: every up path this Mac's own switches allow, both if both are up (the
+    /// relay keeps it for a phone that's away), whatever the phone's last list said; never a path
+    /// this Mac switched off.
+    private var farewellPaths: (lan: Bool, relay: Bool) {
+        (wifiOn && lanUp, relayOn && relayUp)
     }
 
     /// The phone is gone (unpaired here, or it unpaired us): its keys, status and anything held for it.
     /// False if that couldn't be saved.
     @discardableResult
     private func forgetPhone(_ peerId: String) -> Bool {
+        self.store?.update { $0.forgetPeer() } // saved with the removal below
         guard let store else { return false }
         store.device.removePeer(peerId: peerId)
         let saved: Bool
@@ -128,12 +178,18 @@ final class SeamController: RelayHandler {
             saveFailed()
             saved = false
         }
+        if warning == Self.phoneLeft { warning = nil } // done what it asked
         if phone?.id == peerId {
             phone = nil
             status = nil
             recentFromPhone = []
         }
         pendingClip.clear()
+        outbox.clear()
+        inFlight = []
+        hellos = []
+        store.outboxFile.delete()
+        peerAllowed = nil
         notifications.removeAll()
         notificationSettings = nil
         appIcons = [:]
@@ -222,16 +278,247 @@ final class SeamController: RelayHandler {
     /// Sealed, saved, then sent: never sends what a failed save would forget (SR-2-11).
     private func sendToPhone(_ payload: Seam_V1_Payload, ttl: UInt32) {
         guard let store, let phone else { return }
-        let frame: Seam_V1_ClientFrame
+        let envelope: Seam_V1_Envelope
         do {
             let sealed = try store.device.seal(peerId: phone.id, payload: try payload.serializedData(), ttlS: ttl)
             do { try store.save() } catch { return saveFailed() }
-            frame = Frames.send(try Seam_V1_Envelope(serializedBytes: sealed))
+            envelope = try Seam_V1_Envelope(serializedBytes: sealed)
         } catch {
             log.error("couldn't seal a message for the phone")
             return
         }
-        Task { try? await relay?.send(frame) }
+        deliver(envelope)
+    }
+
+    /// Saved to the outbox first, then onto the best path both ends allow; otherwise it waits
+    /// there. Never a disallowed path, and never handed to a path before it's on disk.
+    private func deliver(_ envelope: Seam_V1_Envelope) {
+        guard phone != nil else { return }
+        outbox.add(envelope)
+        guard saveOutbox() else { return } // stays in memory; the next flush tries again
+        attempt(envelope)
+    }
+
+    private func attempt(_ envelope: Seam_V1_Envelope) {
+        guard let phone, !inFlight.contains(envelope.msgID) else { return }
+        let route = hellos.contains(envelope.msgID)
+            ? Paths.helloRoute(mine: Paths.mine(wifi: wifiOn, relay: relayOn), lanUp: lanUp, relayUp: relayUp)
+            : Paths.route(allowed: allowed, lanUp: lanUp, relayUp: relayUp)
+        switch route {
+        case .lan?:
+            guard lan?.send(.with { $0.deliver = envelope }, to: phone.id) == true else { return }
+            outbox.markSent(envelope.msgID) // until the phone's Delivered; resent if the link drops first
+            saveOutbox()
+        case .relay?:
+            inFlight.insert(envelope.msgID)
+            Task { [weak self, relay] in
+                let ok = (try? await relay?.send(Frames.send(envelope))) != nil
+                guard let self else { return }
+                self.inFlight.remove(envelope.msgID)
+                if ok { // the relay holds it now
+                    self.outbox.remove(envelope.msgID)
+                    self.hellos.remove(envelope.msgID)
+                    self.saveOutbox()
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    /// Everything waiting, now that a path may have opened.
+    private func flush() {
+        _ = outbox.dropExpired(now: Date())
+        guard saveOutbox() else { return } // nothing goes out that isn't on disk (an earlier save may have failed)
+        outbox.waiting.forEach(attempt)
+    }
+
+    @discardableResult
+    private func saveOutbox() -> Bool {
+        guard let store else { return false }
+        do {
+            try store.outboxFile.save(outbox)
+            return true
+        } catch {
+            saveFailed()
+            return false
+        }
+    }
+
+    /// A path to the phone came up: what waited, then this Mac's switches, then a held copy.
+    private func pathCameUp() {
+        guard phone != nil else { return }
+        flush()
+        sendHello()
+        if let clip = pendingClip.take(syncOn: clipboardSync) { sendToPhone(clip, ttl: Self.clipboardTTL) }
+    }
+
+    // MARK: Connection
+
+    func setWifi(_ on: Bool) {
+        guard on || relayOn else { return } // one always stays on
+        wifiOn = on
+        UserDefaults.standard.set(on, forKey: "transport.wifi")
+        updateLan()
+        switchesChanged()
+    }
+
+    func setRelay(_ on: Bool) {
+        guard on || wifiOn else { return }
+        relayOn = on
+        UserDefaults.standard.set(on, forKey: "transport.relay")
+        if !on { cancelPairing() } // pairing goes through the relay for now
+        restartRelay()
+        switchesChanged()
+    }
+
+    /// Moves to another relay (nil: Seam's). The group lives on one relay, so the phone is
+    /// unpaired (told so first) and pairs again; this Mac leaves its old group.
+    func useRelay(_ link: RelayLink?) {
+        guard let store else { return }
+        cancelPairing()
+        var farewell: [Seam_V1_ClientFrame] = []
+        if let phone {
+            let unpair = Seam_V1_Payload.with { $0.control = .with { $0.unpair = .init() } }
+            let env = (try? store.device.seal(peerId: phone.id, payload: unpair.serializedData(), ttlS: 0))
+                .flatMap { try? Seam_V1_Envelope(serializedBytes: $0) }
+            let (viaLan, viaRelay) = farewellPaths
+            if let env, viaRelay { farewell.append(Frames.send(env)) } // sent on the old relay before it closes
+            if let key = removableRelayKey(phone.id) { farewell.append(Frames.removeMember(key)) }
+            guard forgetPhone(phone.id) else { return } // saved before the farewell leaves (SR-7-04)
+            if let env, viaLan { _ = lan?.send(.with { $0.deliver = env }, to: phone.id) }
+            updateLan() // closes the link gracefully: the farewell is written first
+        }
+        farewell.append(Frames.removeMember(store.device.relayKey())) // and this Mac leaves the old group
+        do {
+            self.store = try store.movingRelay(to: link)
+        } catch {
+            return saveFailed()
+        }
+        restartRelay(farewell: relayOn ? farewell : [])
+    }
+
+    private func switchesChanged() {
+        sendHello()
+        flush()
+    }
+
+    /// Sealed, then its seq is recorded in the app data, then one save, then sent: a Hello never
+    /// leaves with a seq a restart could hand out again.
+    private func sendHello() {
+        guard var store, let phone else { return }
+        var data = store.appData
+        let hello = Seam_V1_Hello.with {
+            $0.appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+            $0.platform = "macos"
+            $0.seq = data.nextHelloSeq()
+            $0.allowedTransports = Paths.mine(wifi: wifiOn, relay: relayOn).sorted { $0.rawValue < $1.rawValue }
+        }
+        let envelope: Seam_V1_Envelope
+        do {
+            let payload = Seam_V1_Payload.with { $0.control = .with { $0.hello = hello } }
+            let sealed = try store.device.seal(peerId: phone.id, payload: try payload.serializedData(), ttlS: Self.settingsTTL)
+            store.update { $0 = data }
+            self.store = store
+            do { try store.save() } catch { return saveFailed() }
+            envelope = try Seam_V1_Envelope(serializedBytes: sealed)
+        } catch {
+            log.error("couldn't seal a Hello for the phone")
+            return
+        }
+        hellos.insert(envelope.msgID) // may take any path this Mac allows (protocol/README.md)
+        deliver(envelope)
+    }
+
+    /// Only a Hello with a higher seq counts: the relay can hold an old one and release it later,
+    /// and it would switch a path back on. Applied before the save that follows opening it.
+    private func applyHello(_ hello: Seam_V1_Hello) {
+        var applied = false
+        store?.update { applied = $0.applyHello(seq: hello.seq, allowed: hello.allowedTransports) }
+        if applied { peerAllowed = store?.appData.peerAllowed }
+    }
+
+    /// (Re)starts the relay connection for the current store, if the switch allows: the old
+    /// connection sends `farewell` and finishes first, so its events never land after the new one's.
+    private func restartRelay(farewell: [Seam_V1_ClientFrame] = []) {
+        let old = relay
+        let oldTask = relayTask
+        relay = nil
+        relayUp = false
+        var next: RelayClient?
+        if relayOn, let store {
+            next = RelayClient(
+                device: store.device, groupID: store.appData.groupID, relayURL: store.relayURL,
+                ownerKey: store.appData.ownerKey, handler: self
+            )
+        }
+        relay = next
+        relayTask = Task {
+            for frame in farewell { try? await old?.send(frame) }
+            oldTask?.cancel()
+            await oldTask?.value
+            guard !Task.isCancelled, let next else { return }
+            await next.run()
+        }
+    }
+
+    /// The same‑Wi‑Fi listener runs while the switch is on and a phone is paired.
+    private func updateLan() {
+        let wanted = wifiOn && phone != nil && store != nil
+        if wanted, lan == nil, let store {
+            let server = LanServer(device: store.device)
+            lan = server
+            lanTask = Task { [weak self] in
+                do {
+                    _ = try await server.start()
+                } catch {
+                    self?.log.error("same Wi‑Fi listener didn't start")
+                    if self?.lan === server { self?.lan = nil }
+                    return
+                }
+                for await event in server.events { await self?.lanEvent(event) }
+            }
+        } else if !wanted, let server = lan {
+            lanTask?.cancel()
+            lan = nil
+            server.stop()
+            lanClosed()
+        }
+    }
+
+    private func lanEvent(_ event: LanEvent) async {
+        switch event {
+        case .authenticated(let peerId):
+            guard peerId == phone?.id else { return lan?.close(peerId: peerId) ?? () } // a peer that's no longer the phone
+            lanUp = true
+            // A new link can replace the old one without a close event: what the old one never
+            // got acked goes again on this one
+            if !outbox.sent.isEmpty { outbox.requeueSent(); saveOutbox() }
+            pathCameUp()
+        case .closed(let peerId):
+            if peerId == phone?.id { lanClosed() }
+        case .envelope(let peerId, let envelope):
+            guard peerId == phone?.id else { return }
+            // Acked on the same link once handled and saved (duplicates too); after a failed save
+            // it isn't, so the phone sends it again after this Mac restarts
+            if await relayReceived(envelope) {
+                _ = lan?.send(.with { $0.delivered = .with { $0.msgID = envelope.msgID } }, to: peerId)
+            }
+        case .delivered(let peerId, let msgID):
+            guard peerId == phone?.id else { return }
+            outbox.remove(msgID)
+            hellos.remove(msgID)
+            saveOutbox()
+        }
+    }
+
+    /// Anything sent directly but not acked goes again, on whatever path is allowed now.
+    private func lanClosed() {
+        lanUp = false
+        guard !outbox.sent.isEmpty else { return }
+        outbox.requeueSent()
+        saveOutbox()
+        flush()
     }
 
     // MARK: Notifications
@@ -302,7 +589,7 @@ final class SeamController: RelayHandler {
     // MARK: Pairing
 
     func startPairing() {
-        guard let store, !flow.isConfirming else { return }
+        guard let store, relayOn, !flow.isConfirming else { return } // pairing goes through the relay for now
         let offer = store.device.startPairing()
         openTokenHash = offer.tokenHash
         store.needsBundles = true
@@ -311,6 +598,12 @@ final class SeamController: RelayHandler {
             identityKey: store.device.identityKey(), relayKey: store.device.relayKey(), name: Host.current().localizedName ?? "Mac"
         )
         flow.start(qr: qr.url, now: Date())
+        #if DEBUG
+        // Device tests: hand the code to an emulator, which has no camera to scan with
+        if let path = ProcessInfo.processInfo.environment["SEAM_PAIRING_CODE_FILE"] {
+            FileManager.default.createFile(atPath: path, contents: Data(qr.url.utf8), attributes: [.posixPermissions: 0o600])
+        }
+        #endif
         expiryTask?.cancel()
         expiryTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(PairingDeadline.lifetime))
@@ -344,6 +637,8 @@ final class SeamController: RelayHandler {
             try device.confirmPairing(peerId: request.peerId)
             let accept = Seam_V1_Payload.with { $0.control = .with { $0.pairAccept = .init() } }
             let sealed = try device.seal(peerId: request.peerId, payload: try accept.serializedData(), ttlS: 0)
+            self.store?.update { $0.forgetPeer() } // a new pairing starts the Hello counts again, on both devices
+            peerAllowed = nil
             try store.save() // never tell the phone it's paired unless this Mac will remember it
             frame = Frames.send(try Seam_V1_Envelope(serializedBytes: sealed))
         } catch {
@@ -375,6 +670,8 @@ final class SeamController: RelayHandler {
         phone = peer
         status = nil
         flow.finish(name: request.deviceName)
+        updateLan()
+        sendHello()
         Task { await uploadBundlesIfNeeded() }
     }
 
@@ -417,17 +714,15 @@ final class SeamController: RelayHandler {
     // MARK: RelayHandler
 
     func relayConnected(members: [Data]) async {
-        connected = true
+        relayUp = true
         if warning == Self.loginRefused { warning = nil }
         await announcePairing()
         await uploadBundlesIfNeeded()
-        if let clip = pendingClip.take(syncOn: clipboardSync) {
-            sendToPhone(clip, ttl: Self.clipboardTTL)
-        }
+        pathCameUp()
     }
 
     func relayDisconnected() async {
-        connected = false
+        relayUp = false
     }
 
     func relayReceived(_ envelope: Seam_V1_Envelope) async -> Bool {
@@ -448,11 +743,15 @@ final class SeamController: RelayHandler {
             log.error("dropped an envelope that failed its checks")
             return true // dropped for good: the relay can delete it
         }
+        let payload = try? Seam_V1_Payload(serializedBytes: message.payload)
+        if case .control(let c)? = payload?.body, case .hello(let h)? = c.body, isConfirmedPhone(message.peerId) {
+            applyHello(h) // its seq is saved by the save just below, with the ratchet
+        }
         let saved = (try? store.save()) != nil
         // Handled even if the save failed: the ratchet has moved, so a redelivery in this run opens
         // as a duplicate and would be lost (SR-2-59). Not acked, so after a restart the saved state
         // opens it again.
-        if let payload = try? Seam_V1_Payload(serializedBytes: message.payload) { handle(payload, from: message.peerId) }
+        if let payload { handle(payload, from: message.peerId) }
         if !saved {
             saveFailed()
             return false
@@ -466,7 +765,13 @@ final class SeamController: RelayHandler {
     func relayError(_ code: String) async {
         log.error("relay error \(code, privacy: .public)")
         if code == "bad_login" { warning = Self.loginRefused }
+        // The phone left the group (it forgot this Mac and the farewell got lost). Not forgotten
+        // here on the relay's word alone: a malicious relay could send this. Only while paired, so
+        // this Mac's own removeMember of a phone already gone doesn't trigger it.
+        if code == "not_member", phone != nil { warning = Self.phoneLeft }
     }
+
+    private static let phoneLeft = "Your phone may have unpaired from this Mac. Unpair here and pair again."
 
     // MARK: Private
 
@@ -484,9 +789,13 @@ final class SeamController: RelayHandler {
         }
     }
 
+    private func isConfirmedPhone(_ peerId: String) -> Bool {
+        peerId == phone?.id && store?.device.peers().contains(where: { $0.id == peerId && $0.confirmed }) == true
+    }
+
     private func handle(_ payload: Seam_V1_Payload, from peerId: String) {
         // Features only from the paired, confirmed phone
-        guard peerId == phone?.id, store?.device.peers().contains(where: { $0.id == peerId && $0.confirmed }) == true else { return }
+        guard isConfirmedPhone(peerId) else { return }
         switch payload.body {
         case .status(var s):
             s.batteryPct = min(s.batteryPct, 100)
@@ -500,10 +809,12 @@ final class SeamController: RelayHandler {
         case .notificationAction(let a):
             if a.dismissed { notifications.dismiss(key: a.key) }
         case .control(let c):
+            if case .hello = c.body { flush() } // applied before the save; a path may have opened
             if case .unpair = c.body {
                 // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)
                 let key = removableRelayKey(peerId)
                 if forgetPhone(peerId), let key { Task { try? await relay?.send(Frames.removeMember(key)) } }
+                updateLan()
             }
         default: break
         }

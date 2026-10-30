@@ -37,6 +37,9 @@ message ServerFrame {
     BundleResult bundle = 4;
     RelayError error = 5;
     PeerJoined peer_joined = 6;
+    // Direct connection only (never sent by a relay): the Mac has handled, and saved, the
+    // phone's envelope with this msg_id. Until then the phone keeps it and resends it.
+    Delivered delivered = 7;
   }
 }
 
@@ -50,6 +53,9 @@ message Login {
   bytes signature = 3; // Ed25519 over "seam-relay-login-v1" || nonce || group_id
   bytes join_token = 4; // only when joining through pairing: the QR's one-time token
   bool create_group = 5; // set only by the first device; a plain login never creates a group
+  // A private relay's owner key (its operator sets one): without it, create_group is refused
+  // ("owner_key"). Joining and plain logins never need it. Ignored by relays without one.
+  bytes owner_key = 6;
 }
 
 message LoginResult {
@@ -97,5 +103,5 @@ message PeerJoined {
 }
 
 message RelayError {
-  string code = 1; // "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage"
+  string code = 1; // "bad_login", "not_member", "bad_token", "bad_frame", "queue_full", "too_large", "group_full", "slot_open", "rate_limited", "storage", "owner_key"
 }

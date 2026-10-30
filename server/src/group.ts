@@ -73,6 +73,32 @@ const MAX_TTL_S = 86_400;
 const MAX_PAIRING_TTL_S = 300;
 const POLICY = 1008; // WebSocket close: policy violation
 
+/** The owner key's bytes; a set but malformed or short key refuses every new group rather than none. */
+export function ownerKey(value: string | undefined): Uint8Array | null {
+  if (!value) return null;
+  const bytes = /^[A-Za-z0-9_-]+$/.test(value) ? base64url(value) : null;
+  return bytes && bytes.length >= 32 ? bytes : new Uint8Array(0);
+}
+
+export function base64url(value: string): Uint8Array | null {
+  try {
+    const bin = atob(value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4));
+    return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
+
+/** Compares two secrets without leaking where they differ (hashed first, so lengths don't leak either). */
+export async function sameSecret(a: Uint8Array, b: Uint8Array): Promise<boolean> {
+  const digest = async (v: Uint8Array) => new Uint8Array(await crypto.subtle.digest("SHA-256", v));
+  const x = await digest(a);
+  const y = await digest(b);
+  let diff = 0;
+  x.forEach((v, i) => { diff |= v ^ y[i]!; });
+  return diff === 0;
+}
+
 export const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 export const unhex = (s: string) => new Uint8Array(s.match(/../g)?.map((h) => parseInt(h, 16)) ?? []);
 
@@ -84,6 +110,8 @@ export class Group {
     private readonly now: () => number = Date.now,
     /** Asks for alarm() to run no later than `at` (ms). */
     private readonly scheduleAlarm: (at: number) => Promise<void> = async () => {},
+    /** A private relay's owner key (raw bytes): new groups need it. Null: anyone may create one. */
+    private readonly ownerKey: Uint8Array | null = null,
   ) {}
 
   /** A new connection: refuse it if too many are waiting to log in, else send a fresh challenge. */
@@ -167,6 +195,10 @@ export class Group {
       }
       await this.storage.delete("pairing"); // single use
     } else if (members.length === 0 && login.createGroup) {
+      // An empty configured key (malformed secret) refuses every new group
+      if (this.ownerKey && (this.ownerKey.length === 0 || !(await sameSecret(login.ownerKey, this.ownerKey)))) {
+        return this.fail(socket, "owner_key", true);
+      }
       members.push(device); // the first device creates the group, and only when it asks to
     } else if (!members.includes(device)) {
       return this.fail(socket, "bad_login", true);

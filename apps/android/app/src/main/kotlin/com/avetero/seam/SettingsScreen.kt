@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.avetero.seam.feature.clipboard.CopyWatcher
 import com.avetero.seam.feature.notifications.NotificationsFeature
+import com.avetero.seam.session.ConnectionSettings
 
 /** Phone → Mac clipboard: automatic (full build, granted), possible after setup (full), or one tap (Play). */
 enum class ClipboardStatus { Automatic, NeedsSetup, Manual }
@@ -69,6 +70,9 @@ fun SettingsScreen(
     updater: Updater? = null,
     notifications: NotificationsFeature? = null,
     onOpenNotifications: () -> Unit = {},
+    connection: ConnectionSettings = ConnectionSettings(),
+    look: LinkLook = LinkLook.Reconnecting,
+    onSwitches: (wifi: Boolean, relay: Boolean) -> Unit = { _, _ -> },
 ) {
     var explainClipboard by remember { mutableStateOf(false) }
     var confirmForget by remember { mutableStateOf(false) }
@@ -92,6 +96,19 @@ fun SettingsScreen(
                 if (clipboard != ClipboardStatus.Manual) Switch(checked = on, onCheckedChange = { explainClipboard = true })
             }
             Item("Mac → phone", "Always automatic. A Mac copy waits up to 10 minutes for this phone")
+        }
+        Section("Connection") {
+            Item("Status", look.sentence)
+            // The last one on can't be turned off: Seam would have no way to reach the Mac
+            SwitchItem(
+                "Same Wi‑Fi", "Straight to your Mac on this network. Nothing leaves it",
+                checked = connection.wifi, onChange = { onSwitches(it, connection.relay) }, enabled = !connection.wifi || connection.relay,
+            )
+            SwitchItem(
+                "Relay", "Through Seam's relay over the internet, so it works anywhere. Also needed to pair",
+                checked = connection.relay, onChange = { onSwitches(connection.wifi, it) }, enabled = !connection.relay || connection.wifi,
+            )
+            Item("Encryption", "End-to-end on every path: neither the relay nor your network can read anything")
         }
         Section("Privacy & security") {
             Item(

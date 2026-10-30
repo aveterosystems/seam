@@ -155,3 +155,15 @@ struct RelayClientTests {
         #expect(await socket.sent.count == 1) // the login went out; nothing after it
     }
 }
+
+@Suite struct OnceTests {
+    @Test func onlyTheFirstCallCountsEvenAcrossThreads() async {
+        let once = Once()
+        let wins = await withTaskGroup(of: Bool.self) { group in
+            for _ in 0..<64 { group.addTask { once.run {} } }
+            return await group.reduce(0) { $0 + ($1 ? 1 : 0) }
+        }
+        #expect(wins == 1)
+        #expect(!once.run {})
+    }
+}

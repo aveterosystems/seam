@@ -100,6 +100,17 @@ struct PairingView: View {
     }
 
     @ViewBuilder private var right: some View {
+        if !controller.relayOn {
+            outcome("Pairing goes through the relay for now. Turn it on to show a code; you can turn it off again once you've paired.", button: "Turn On Relay") {
+                controller.setRelay(true)
+                controller.startPairing()
+            }
+        } else {
+            pairing
+        }
+    }
+
+    @ViewBuilder private var pairing: some View {
         switch controller.flow.state {
         case .idle:
             outcome("Show a code to scan with Seam on your phone.", button: "Show code") { controller.startPairing() }
@@ -118,7 +129,7 @@ struct PairingView: View {
                 Circle().fill(SeamStyle.warn).frame(width: 8, height: 8)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let left = Int(deadline.remaining(at: context.date))
-                    Text(controller.connected
+                    Text(controller.relayUp
                         ? "Waiting for your phone… code expires in \(left / 60):\(String(format: "%02d", left % 60))"
                         : "Connecting to \(controller.relayHost)…")
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)

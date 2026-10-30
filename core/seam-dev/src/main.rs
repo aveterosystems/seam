@@ -65,6 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         join_token: vec![],
         // The Mac creates its group on first login; the relay never creates one by accident
         create_group: true,
+        owner_key: Vec::new(),
     };
     send(&mut ws, client_frame::Frame::Login(login))?;
     match recv(&mut ws)? {
