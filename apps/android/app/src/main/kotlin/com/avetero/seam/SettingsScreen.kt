@@ -44,12 +44,14 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.avetero.seam.feature.clipboard.CopyWatcher
 import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.session.ConnectionSettings
 
@@ -75,6 +77,8 @@ fun SettingsScreen(
     var explainClipboard by remember { mutableStateOf(false) }
     var confirmForget by remember { mutableStateOf(false) }
     val uri = LocalUriHandler.current
+    val context = LocalContext.current
+    val viaAccessibility = clipboard == ClipboardStatus.Automatic && CopyWatcher.enabled(context)
     SubScreen("Settings", onBack) {
         Section("On your Mac") {
             if (notifications != null) NotificationsItem(notifications, onOpenNotifications)
@@ -82,8 +86,8 @@ fun SettingsScreen(
             Item(
                 title = "Automatic clipboard",
                 subtitle = when (clipboard) {
-                    ClipboardStatus.Automatic -> "On · set up from your Mac"
-                    ClipboardStatus.NeedsSetup -> "Off · set up from your Mac"
+                    ClipboardStatus.Automatic -> if (viaAccessibility) "On · through Accessibility" else "On · set up from your Mac"
+                    ClipboardStatus.NeedsSetup -> "Off · Send clipboard sends copies yourself"
                     ClipboardStatus.Manual -> "One tap: Send clipboard, or share to Send to Mac"
                 },
                 highlighted = on,
@@ -157,13 +161,32 @@ fun SettingsScreen(
             text = {
                 Text(
                     when (clipboard) {
-                        ClipboardStatus.Automatic -> "What you copy here goes to your Mac by itself. To turn it off, choose Clipboard Sync off in Seam on your Mac."
-                        ClipboardStatus.NeedsSetup -> "Android only lets your Mac turn this on. Connect this phone to your Mac, then in Seam on the Mac choose Settings › Clipboard › Turn On."
+                        ClipboardStatus.Automatic -> if (viaAccessibility) {
+                            "What you copy here goes to your Mac by itself. To turn it off, turn off Seam in Android's Accessibility settings."
+                        } else {
+                            "What you copy here goes to your Mac by itself. To turn it off, choose Clipboard Sync off in Seam on your Mac."
+                        }
+                        ClipboardStatus.NeedsSetup -> "Optional. Turn on Seam in Android's Accessibility settings, and what you copy goes to your Mac by itself. " +
+                            "Android warns that accessibility apps can see your screen: Seam only notices when you copy something, and skips anything apps mark as sensitive.\n\n" +
+                            "If Android says Restricted setting: App info › ⋮ › Allow restricted settings, then try again.\n\n" +
+                            "Without it, tap Send clipboard on the home screen, or share text to Send to Mac."
                         ClipboardStatus.Manual -> "The Play Store build can't send copies by itself. Tap Send clipboard on the home screen, or share text to Send to Mac."
                     },
                 )
             },
-            confirmButton = { TextButton(onClick = { explainClipboard = false }) { Text("OK") } },
+            confirmButton = {
+                if (clipboard == ClipboardStatus.Manual || (clipboard == ClipboardStatus.Automatic && !viaAccessibility)) {
+                    TextButton(onClick = { explainClipboard = false }) { Text("OK") }
+                } else {
+                    TextButton(onClick = {
+                        explainClipboard = false
+                        openCopyWatcherSettings(context)
+                    }) { Text("Open Accessibility") }
+                }
+            },
+            dismissButton = if (clipboard == ClipboardStatus.NeedsSetup || viaAccessibility) {
+                { TextButton(onClick = { explainClipboard = false }) { Text(if (viaAccessibility) "OK" else "Not now") } }
+            } else null,
         )
     }
     if (confirmForget && macName != null) {

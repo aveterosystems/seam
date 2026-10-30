@@ -27,8 +27,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
-/** A newer release on GitHub, and where its APK and checksums are. */
-data class Release(val version: String, val apkUrl: String, val apkName: String, val sumsUrl: String)
+/** A newer release on GitHub, where its APK and checksums are, and what changed in it. */
+data class Release(val version: String, val apkUrl: String, val apkName: String, val sumsUrl: String, val changes: String = "")
 
 /** The parts of the updater that don't need Android: the release feed, versions, checksums. */
 object UpdateFeed {
@@ -38,6 +38,8 @@ object UpdateFeed {
     /** Largest release JSON or SHA256SUMS Seam reads, and largest APK it downloads (SR-17-06). */
     const val MAX_TEXT = 1L shl 20
     const val MAX_APK = 150L shl 20
+    /** Longest "what's changed" text the Update card shows. */
+    const val MAX_CHANGES = 2000
 
     /** GitHub's "latest release" JSON, if it's a newer, published version with both files. */
     fun newer(json: String, current: String): Release? = runCatching {
@@ -52,8 +54,14 @@ object UpdateFeed {
             .firstOrNull { it.getString("name") == name }?.getString("browser_download_url")
             ?.takeIf { it == "$DOWNLOADS$tag/$name" }
         val apk = "Seam-$version-android.apk"
-        Release(version, url(apk) ?: return null, apk, url("SHA256SUMS") ?: return null)
+        Release(version, url(apk) ?: return null, apk, url("SHA256SUMS") ?: return null, changes(r.optString("body")))
     }.getOrNull()
+
+    /** The "## What's changed" section of a release's notes (from CHANGELOG.md), as plain lines. */
+    fun changes(body: String): String = body.replace("\r\n", "\n")
+        .substringAfter("## What's changed\n", "").substringBefore("\n## ")
+        .lines().map { it.trim().replace(Regex("^[-*] "), "• ").replace("**", "").replace("`", "") }
+        .filter { it.isNotEmpty() }.joinToString("\n").take(MAX_CHANGES)
 
     /** True if tag `vX.Y.Z` is above [current] `X.Y.Z`. */
     fun isNewer(tag: String, current: String): Boolean {
@@ -280,12 +288,13 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
         val edit = prefs.edit()
         if (release == null) edit.remove("offer")
         else edit.putString("offer", listOf(release.version, release.apkUrl, release.apkName, release.sumsUrl).joinToString("\n"))
+            .putString("offerChanges", release.changes)
         edit.apply()
     }
 
     /** The stored offer, if it's still newer than this build (it isn't, once updated). */
     private fun storedOffer(): Release? = prefs.getString("offer", null)?.split("\n")?.takeIf { it.size == 4 }
-        ?.let { (v, url, name, sums) -> Release(v, url, name, sums) }
+        ?.let { (v, url, name, sums) -> Release(v, url, name, sums, prefs.getString("offerChanges", null).orEmpty()) }
         ?.takeIf { UpdateFeed.isNewer("v${it.version}", BuildConfig.VERSION_NAME) }
 
     private fun notifyOffer(release: Release) {

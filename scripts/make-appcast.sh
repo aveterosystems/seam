@@ -22,6 +22,9 @@ public="$({ printf '302e020100300506032b657004220420' | xxd -r -p; base64 -d < "
   | "$openssl" pkey -inform DER -pubout -outform DER | tail -c 32 | base64)"
 [ "$public" = "$EXPECTED_PUBLIC_KEY" ] || { echo "The update key's public half ($public) isn't the app's SUPublicEDKey ($EXPECTED_PUBLIC_KEY)" >&2; exit 1; }
 name="$(basename "$zip")"
+# What changed, from CHANGELOG.md: Sparkle shows it as Markdown in its update window
+changes="$("$(dirname "$0")/changes.sh" "$version")"
+[[ "$changes" != *"]]>"* ]] || { echo "CHANGELOG.md's $version section can't contain ]]>" >&2; exit 1; }
 # sparkle:edSignature="..." length="..."
 attrs="$("$SIGN_UPDATE" --ed-key-file "$SPARKLE_KEY_FILE" "$zip")"
 [[ "$attrs" =~ ^sparkle:edSignature=\"[A-Za-z0-9+/=]+\"\ length=\"[0-9]+\"$ ]] || { echo "Unexpected sign_update output" >&2; exit 1; }
@@ -37,6 +40,7 @@ cat > "$out" <<XML
       <sparkle:version>$build</sparkle:version>
       <sparkle:shortVersionString>$version</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description sparkle:format="markdown"><![CDATA[$changes]]></description>
       <sparkle:fullReleaseNotesLink>$repo/releases/tag/v$version</sparkle:fullReleaseNotesLink>
       <enclosure url="$repo/releases/download/v$version/$name" type="application/octet-stream" $attrs/>
     </item>

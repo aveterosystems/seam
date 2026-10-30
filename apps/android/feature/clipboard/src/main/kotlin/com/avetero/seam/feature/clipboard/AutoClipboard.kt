@@ -21,8 +21,9 @@ import kotlin.concurrent.thread
  * every copy makes Android log that it refused our clipboard listener; on that line Seam takes focus
  * for one frame (a 1 px overlay, or an invisible activity) so the read is allowed.
  *
- * Needs READ_LOGS and "draw over other apps", which only `full` builds declare and which the Mac
- * grants once over adb. Without both, [start] does nothing.
+ * Two ways to notice a copy, both `full` builds only: READ_LOGS plus "draw over other apps", which the
+ * Mac grants once over adb; or Seam's accessibility switch ([CopyWatcher]), which the user turns on in
+ * Android's settings. With neither, nothing is noticed.
  */
 object AutoClipboard {
     private val main = Handler(Looper.getMainLooper())
@@ -38,18 +39,28 @@ object AutoClipboard {
     // Never fires in the background, but registering it is what makes ClipboardService log a refusal on every copy
     private val listener = ClipboardManager.OnPrimaryClipChangedListener {}
 
-    fun available(context: Context): Boolean =
+    fun available(context: Context): Boolean = viaLogs(context) || CopyWatcher.enabled(context)
+
+    /** The adb route: granted from the Mac. */
+    fun viaLogs(context: Context): Boolean =
         context.checkSelfPermission(Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED &&
             Settings.canDrawOverlays(context)
 
     fun start(context: Context, feature: ClipboardFeature) {
         val app = context.applicationContext
-        if (running || !available(app)) return
+        if (running) return
         running = true
         this.feature = feature
         val mine = ++generation
+        // Accessibility on: no log watching, so no log-access prompt after every restart
+        if (!viaLogs(app) || CopyWatcher.enabled(app)) return
         app.getSystemService(ClipboardManager::class.java).addPrimaryClipChangedListener(listener)
         watcher = thread(name = "seam-clipwatch", isDaemon = true) { watch(app, mine) }
+    }
+
+    /** [CopyWatcher] saw a copy: read once the app has had a moment to fill the clipboard. */
+    internal fun copySeen(context: Context) {
+        main.postDelayed({ grab(context.applicationContext) }, 150)
     }
 
     fun stop(context: Context) {
@@ -88,19 +99,24 @@ object AutoClipboard {
         val now = SystemClock.elapsedRealtime()
         if (pendingSince != 0L && now - pendingSince < 1500) return // one grab at a time
         pendingSince = now
-        val wm = app.getSystemService(WindowManager::class.java)
-        val view = object : View(app) {
+        // Accessibility on: its own overlay type, which needs no "draw over other apps" permission
+        val service = CopyWatcher.instance
+        val host: Context = service ?: app
+        val type = if (service != null) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY else WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        val wm = host.getSystemService(WindowManager::class.java)
+        val view = object : View(host) {
             override fun onWindowFocusChanged(hasFocus: Boolean) {
                 if (hasFocus) deliver(app)
             }
         }
         val lp = WindowManager.LayoutParams(
-            1, 1, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            1, 1, type,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL, PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.START }
         val added = runCatching { wm.addView(view, lp) }.isSuccess
         // No focus yet: the invisible activity, while the overlay is still up (Android 15 only lets
-        // overlay apps start activities from the background while one is visible)
+        // overlay apps start activities from the background while one is visible; a running
+        // accessibility service may start them anyway)
         main.postDelayed({
             if (pendingSince != 0L) {
                 runCatching {
@@ -116,6 +132,6 @@ object AutoClipboard {
         if (!running || pendingSince == 0L) return
         pendingSince = 0L
         val f = feature ?: return
-        f.copied(f.readClip())
+        f.copied(f.readClip(fresh = true))
     }
 }

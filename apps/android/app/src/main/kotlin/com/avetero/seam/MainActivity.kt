@@ -78,9 +78,11 @@ class MainActivity : ComponentActivity() {
                     cameraAllowed = it
                     cameraAsked = true
                 }
-                // Back from Android's settings with the camera allowed
+                var resumed by remember { mutableStateOf(0) }
+                // Back from Android's settings with the camera allowed, or Seam's accessibility switch turned on
                 LifecycleResumeEffect(Unit) {
                     cameraAllowed = granted()
+                    resumed++
                     onPauseOrDispose {}
                 }
                 // Board A03 follows a pairing that finished on this screen with a new Mac; a failed
@@ -96,11 +98,11 @@ class MainActivity : ComponentActivity() {
                     scanning = false // the pairing screen closes when pairing ends, either way
                     setup = isNewPairing(pairingFrom, session.macCode(), state)
                 }
-                val clipboardStatus = when {
+                val clipboardStatus = resumed.let { when {
                     AutoClipboard.available(this@MainActivity) -> ClipboardStatus.Automatic
                     BuildConfig.FLAVOR == "full" -> ClipboardStatus.NeedsSetup
                     else -> ClipboardStatus.Manual
-                }
+                } }
                 val macName = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Idle)?.macName
                     ?: (state as? SessionState.Connecting)?.macName
                 // Screenshots, recordings and casting go blank while a Mac copy or a safety code shows (SR-11-04)

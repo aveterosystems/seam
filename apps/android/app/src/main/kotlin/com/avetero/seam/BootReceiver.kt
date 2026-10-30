@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.avetero.seam.feature.clipboard.AutoClipboard
+import com.avetero.seam.feature.clipboard.CopyWatcher
 
 /**
  * After the phone restarts or Seam updates: Seam starts again by itself; after a restart, if automatic clipboard was set up,
@@ -24,7 +25,8 @@ class BootReceiver : BroadcastReceiver() {
         val app = context.applicationContext as SeamApplication
         if (!app.session.paired) return
         ConnectionService.start(context)
-        if (boot && AutoClipboard.available(context)) remind(context)
+        // Only the adb route needs the log prompt; accessibility keeps working after a restart
+        if (boot && AutoClipboard.viaLogs(context) && !CopyWatcher.enabled(context)) remind(context)
     }
 
     companion object {

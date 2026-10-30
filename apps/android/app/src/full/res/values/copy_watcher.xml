@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="copy_watcher_label">Seam automatic clipboard</string>
+    <string name="copy_watcher_description">Sends what you copy on this phone to your Mac, end-to-end encrypted. Seam only notices when you copy something, then reads the clipboard once. It doesn\'t read your screen, and skips anything apps mark as sensitive, like passwords. You can also send copies yourself with Send clipboard instead.</string>
+</resources>

@@ -48,9 +48,13 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
      * The clipboard's text, unless an app marked it sensitive (a password manager, a one-time code).
      * Plain text only: a URI clip (a copied file) is never opened (SR-4-07).
      */
-    fun readClip(): String? = runCatching {
+    fun readClip(): String? = readClip(fresh = false)
+
+    /** [readClip], and with [fresh] only a clip copied in the last [FRESH_MS], so a false alarm never resends an old one. */
+    fun readClip(fresh: Boolean): String? = runCatching {
         val clip = clipboard.primaryClip ?: return null
         if (clip.itemCount == 0) return null
+        if (fresh && System.currentTimeMillis() - clip.description.timestamp !in 0..FRESH_MS) return null
         if (clip.description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE) == true) return null
         clip.getItemAt(0).text?.toString()
     }.getOrNull()
@@ -87,6 +91,9 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         session.send(Payload.newBuilder().setClipboard(Clipboard.newBuilder().setText(text).setCopiedAt(System.currentTimeMillis())).build())
     }
 }
+
+/** How recent an automatically noticed copy must be. */
+const val FRESH_MS = 5_000L
 
 /** A clip that arrived from the Mac, and when (unix ms). */
 data class FromMac(val text: String, val at: Long) {

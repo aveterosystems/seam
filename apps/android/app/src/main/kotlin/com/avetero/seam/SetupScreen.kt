@@ -2,6 +2,7 @@
 package com.avetero.seam
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.avetero.seam.feature.clipboard.CopyWatcher
 import com.avetero.seam.feature.notifications.NotificationsFeature
 
 /** Board A03: right after pairing, the permissions that make Seam work, each skippable. */
@@ -70,11 +72,17 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
                 title = "Automatic clipboard",
                 subtitle = when (clipboard) {
                     ClipboardStatus.Automatic -> "On"
-                    ClipboardStatus.NeedsSetup -> "Turn on from your Mac: Seam › Settings › Clipboard"
+                    ClipboardStatus.NeedsSetup -> "Optional: what you copy goes to your Mac by itself. Turn on Seam in Accessibility. If Android says Restricted setting: App info › ⋮ › Allow restricted settings"
                     ClipboardStatus.Manual -> "Not in this build. Tap Send clipboard, or share to Send to Mac"
                 },
                 lead = painterResource(R.drawable.ic_clipboard),
-            ) { if (clipboard == ClipboardStatus.Automatic) Done() }
+            ) {
+                when (clipboard) {
+                    ClipboardStatus.Automatic -> Done()
+                    ClipboardStatus.NeedsSetup -> FilledTonalButton(onClick = { openCopyWatcherSettings(context) }) { Text("Allow") }
+                    ClipboardStatus.Manual -> {}
+                }
+            }
         }
         Text(
             "Mac copies reach this phone without any of these.",
@@ -87,6 +95,11 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
             Button(onClick = onDone) { Text("Done") }
         }
     }
+}
+
+/** Android's Accessibility settings, where the user turns on Seam ([CopyWatcher]). */
+internal fun openCopyWatcherSettings(context: Context) {
+    runCatching { context.startActivity(CopyWatcher.settingsIntent(context)) }
 }
 
 /** Board A03 / A06 "Notifications on your Mac": opens Android's access screen, re-checked on return. */
