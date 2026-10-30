@@ -405,12 +405,15 @@ const val ARM_MS = 500L
 @Composable
 private fun UpdateCard(release: Release, status: String?, onUpdate: (Release) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Seam ${release.version} is available", fontSize = 16.sp)
-                Text(status?.takeUnless { it.endsWith("is available") } ?: "Checked and installed only if signed by Seam", fontSize = 14.sp)
+        Column(Modifier.padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Seam ${release.version} is available", fontSize = 16.sp)
+                    Text(status?.takeUnless { it.endsWith("is available") } ?: "Checked and installed only if signed by Seam", fontSize = 14.sp)
+                }
+                Button(onClick = { onUpdate(release) }) { Text("Update") }
             }
-            Button(onClick = { onUpdate(release) }) { Text("Update") }
+            if (release.changes.isNotEmpty()) Text(release.changes, fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
         }
     }
 }

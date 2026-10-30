@@ -209,6 +209,10 @@ jobs:
           sed -e "s/{VERSION}/$VERSION/g" \
               -e "s/{ANDROID_CERT}/$(tr -d '[:space:]' < release/android-certificate.sha256)/" \
               -e "s/{MAC_CERT}/$(tr -d '[:space:]' < release/mac-certificate.sha256)/" \
-              release/notes.md > "$RUNNER_TEMP/notes.md"
+              release/notes.md > "$RUNNER_TEMP/template.md"
+          # The Android app reads "## What's changed" from this release's notes to show on its Update card
+          scripts/changes.sh "$VERSION" > "$RUNNER_TEMP/changes.md"
+          awk -v f="$RUNNER_TEMP/changes.md" '$0 == "{CHANGES}" { while ((getline l < f) > 0) print l; next } 1' \
+            "$RUNNER_TEMP/template.md" > "$RUNNER_TEMP/notes.md"
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "Seam $VERSION" --notes-file "$RUNNER_TEMP/notes.md"

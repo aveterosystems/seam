@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # One command for a release:  scripts/release.sh patch|minor|major|X.Y.Z
 # From a clean, up-to-date main: bumps both apps' versions and build numbers and the README status
-# lines, opens the release PR, waits for its checks, squash-merges it, and pushes the vX.Y.Z tag on
-# the merge commit. The tag starts the release workflow, which still needs the `release`
+# lines, drafts CHANGELOG.md's section from the PR titles and opens it in $EDITOR, opens the release
+# PR, waits for its checks, squash-merges it, and pushes the vX.Y.Z tag on the merge commit. The tag starts the release workflow, which still needs the `release`
 # environment's approval and leaves a draft release for you to publish.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -38,6 +38,16 @@ read -r -p "Go ahead? [y/N] " ok
 git switch -q -c "release-$version"
 sed -i '' -e "s/versionName = \"$current\"/versionName = \"$version\"/" -e "s/versionCode = $code\$/versionCode = $((code + 1))/" "$gradle"
 sed -i '' -e "s/MARKETING_VERSION: \"$current\"/MARKETING_VERSION: \"$version\"/" -e "s/CURRENT_PROJECT_VERSION: \"$build\"/CURRENT_PROJECT_VERSION: \"$((build + 1))\"/" "$yml"
+# What changed: drafted from the PR titles since the last release, then edited by you
+if ! scripts/changes.sh "$version" >/dev/null 2>&1; then
+  previous="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
+  draft="$(git log --format='- %s' ${previous:+"$previous"..}HEAD | grep -v '^- Release [0-9]' | sed 's/ (#[0-9]*)$//' || true)"
+  head="## $version" body="$draft" awk '!done && /^## / { print ENVIRON["head"] "\n\n" ENVIRON["body"] "\n"; done = 1 } 1' CHANGELOG.md > CHANGELOG.md.new
+  mv CHANGELOG.md.new CHANGELOG.md
+fi
+echo "Opening CHANGELOG.md: write what changed in $version for people using Seam, then save and close."
+"${VISUAL:-${EDITOR:-vi}}" CHANGELOG.md
+scripts/changes.sh "$version" >/dev/null
 # Only the status lines; "In 0.2.0" in feature tables stays as history
 sed -i '' "s/Status: $current\./Status: $version./; s/\*\*Status:\*\* $current\./**Status:** $version./" README.md apps/android/README.md apps/mac/README.md
 MAIN_REF=HEAD scripts/check-release.sh "v$version" >/dev/null

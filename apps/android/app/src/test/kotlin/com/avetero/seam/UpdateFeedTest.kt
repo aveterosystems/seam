@@ -20,6 +20,15 @@ class UpdateFeedTest {
         assertTrue(r.apkUrl.endsWith("/v0.1.1/Seam-0.1.1-android.apk"))
     }
 
+    @Test fun readsWhatChanged() {
+        val body = "Seam 0.3.0 for Android and Mac.\r\n\r\n## What's changed\r\n\r\n- Faster **pairing**\r\n- Fixed `copy`\r\n\r\n## Android\r\nDownload it."
+        assertEquals("• Faster pairing\n• Fixed copy", UpdateFeed.changes(body))
+        assertEquals("", UpdateFeed.changes("No section here"))
+        val json = release("v0.3.0").replaceFirst("{", "{\"body\":${org.json.JSONObject.quote(body)},")
+        assertEquals("• Faster pairing\n• Fixed copy", UpdateFeed.newer(json, "0.2.1")!!.changes)
+        assertEquals("", UpdateFeed.newer(release("v0.3.0"), "0.2.1")!!.changes)
+    }
+
     @Test fun ignoresTheSameOrOlderVersion() {
         assertNull(UpdateFeed.newer(release("v0.1.0"), "0.1.0"))
         assertNull(UpdateFeed.newer(release("v0.0.9"), "0.1.0"))

@@ -1,5 +1,9 @@
 Seam {VERSION} for Android and Mac. Install both, then open Seam on the Mac and scan its code with the phone.
 
+## What's changed
+
+{CHANGES}
+
 ## Android
 
 Download `Seam-{VERSION}-android.apk` on the phone and open it. Android asks once to allow installs from your browser or file app. Needs Android 12 or later.
