@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use seam_core::{Device, SignalProtocolError, bundle, file, lan};
+use seam_core::{Device, SignalProtocolError, bundle, file, lan, links};
 
 uniffi::setup_scaffolding!();
 
@@ -100,6 +100,85 @@ pub struct PairingRequest {
     pub safety_code: String,
 }
 
+/// A way to reach the paired device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, uniffi::Enum)]
+pub enum PeerPath {
+    /// Same Wi-Fi, direct.
+    Lan,
+    /// Through the relay.
+    Relay,
+}
+
+impl From<links::Path> for PeerPath {
+    fn from(p: links::Path) -> Self {
+        match p {
+            links::Path::Lan => Self::Lan,
+            links::Path::Relay => Self::Relay,
+        }
+    }
+}
+
+impl From<PeerPath> for links::Path {
+    fn from(p: PeerPath) -> Self {
+        match p {
+            PeerPath::Lan => Self::Lan,
+            PeerPath::Relay => Self::Relay,
+        }
+    }
+}
+
+/// The app's saved data for its pairing (seam_core::links::AppData).
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct AppData {
+    /// 16 bytes.
+    pub group_id: Vec<u8>,
+    pub relay_url: String,
+    /// A private relay's owner key (decision 0007); None on Seam's relay.
+    pub owner_key: Option<Vec<u8>>,
+    pub hello_seq_sent: u64,
+    pub hello_seq_applied: u64,
+    /// The peer's paths from its last Hello. None: everything (never heard, or an older version).
+    pub peer_allowed: Option<Vec<PeerPath>>,
+}
+
+impl From<links::AppData> for AppData {
+    fn from(d: links::AppData) -> Self {
+        Self {
+            group_id: d.group_id,
+            relay_url: d.relay_url,
+            owner_key: d.owner_key,
+            hello_seq_sent: d.hello_seq_sent,
+            hello_seq_applied: d.hello_seq_applied,
+            peer_allowed: d
+                .peer_allowed
+                .map(|l| l.into_iter().map(Into::into).collect()),
+        }
+    }
+}
+
+impl From<AppData> for links::AppData {
+    fn from(d: AppData) -> Self {
+        Self {
+            group_id: d.group_id,
+            relay_url: d.relay_url,
+            owner_key: d.owner_key.filter(|k| !k.is_empty()),
+            hello_seq_sent: d.hello_seq_sent,
+            hello_seq_applied: d.hello_seq_applied,
+            peer_allowed: d
+                .peer_allowed
+                .map(|l| l.into_iter().map(Into::into).collect()),
+        }
+    }
+}
+
+/// A Hello's ordering and switches, for `seam.v1.Hello`.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct HelloOut {
+    pub seq: u64,
+    /// seam.v1.Transport numbers.
+    pub allowed_transports: Vec<i32>,
+}
+
 /// This device: identity, peers and sessions. Safe to share across threads.
 #[derive(uniffi::Object)]
 pub struct SeamDevice {
@@ -183,13 +262,66 @@ impl SeamDevice {
         Ok(self.lock().safety_code(&peer_id)?)
     }
 
-    /// The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
-    pub fn app_data(&self) -> Vec<u8> {
-        self.lock().app_data().to_vec()
+    /// The app's relay group and Hello state, sealed inside `export_state` with the keys. None
+    /// before any was set. Read from whatever format an earlier version saved.
+    pub fn app_data(&self) -> Option<AppData> {
+        self.lock().app_data().map(Into::into)
     }
 
-    pub fn set_app_data(&self, data: Vec<u8>) {
-        self.lock().set_app_data(&data);
+    pub fn set_app_data(&self, data: AppData) {
+        self.lock().set_app_data(&data.into());
+    }
+
+    /// Paths switched on at both ends (decision 0006): this device's switches and the peer's
+    /// last applied Hello.
+    pub fn allowed_paths(&self, wifi: bool, relay: bool) -> Vec<PeerPath> {
+        let mine = links::mine(wifi, relay);
+        let paths = self
+            .lock()
+            .app_data()
+            .map_or(mine, |d| d.allowed(wifi, relay));
+        paths.into_iter().map(Into::into).collect()
+    }
+
+    /// The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
+    /// any up path this device's switches allow, so a switch change always reaches the peer.
+    pub fn route(
+        &self,
+        wifi: bool,
+        relay: bool,
+        lan_up: bool,
+        relay_up: bool,
+        hello: bool,
+    ) -> Option<PeerPath> {
+        let data = self.lock().app_data();
+        let path = match data {
+            Some(d) => d.route(wifi, relay, lan_up, relay_up, hello),
+            None => links::route(&links::mine(wifi, relay), lan_up, relay_up),
+        };
+        path.map(Into::into)
+    }
+
+    /// The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
+    /// Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
+    pub fn next_hello(&self, wifi: bool, relay: bool) -> Option<HelloOut> {
+        let (seq, allowed_transports) = self.lock().edit_app_data(|d| d.next_hello(wifi, relay))?;
+        Some(HelloOut {
+            seq,
+            allowed_transports,
+        })
+    }
+
+    /// Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
+    /// save `export_state` then.
+    pub fn apply_hello(&self, seq: u64, allowed_transports: Vec<i32>) -> bool {
+        self.lock()
+            .edit_app_data(|d| d.apply_hello(seq, &allowed_transports))
+            .unwrap_or(false)
+    }
+
+    /// The peer was forgotten or replaced: Hello state starts again (the relay group stays).
+    pub fn forget_hello(&self) {
+        self.lock().edit_app_data(links::AppData::forget_peer);
     }
 
     /// Seal a seam.v1.Payload for a paired peer. Returns the Envelope to send. `ttl_s` 0 = 24 h.
@@ -483,6 +615,66 @@ mod tests {
             .unwrap();
         assert_eq!(opened.payload, status);
         assert_eq!(opened.peer_id, phone.id());
+    }
+
+    /// The connection rules as both apps call them: one device's Hello reaches the other's rules.
+    #[test]
+    fn hello_and_routing_through_the_exported_api() {
+        let key = vec![7u8; 32];
+        let (mac, phone) = (
+            SeamDevice::generate().unwrap(),
+            SeamDevice::generate().unwrap(),
+        );
+        assert_eq!(mac.next_hello(true, true), None, "no app data yet");
+        assert_eq!(mac.allowed_paths(true, false), vec![PeerPath::Lan]);
+        for d in [&mac, &phone] {
+            d.set_app_data(AppData {
+                group_id: vec![1; 16],
+                relay_url: "wss://relay.avetero.com".into(),
+                owner_key: None,
+                hello_seq_sent: 0,
+                hello_seq_applied: 0,
+                peer_allowed: None,
+            });
+        }
+        // The phone allows only Same Wi-Fi
+        let hello = phone.next_hello(true, false).unwrap();
+        assert_eq!(
+            hello,
+            HelloOut {
+                seq: 1,
+                allowed_transports: vec![1]
+            }
+        );
+        assert!(mac.apply_hello(hello.seq, hello.allowed_transports.clone()));
+        assert!(
+            !mac.apply_hello(hello.seq, vec![2]),
+            "a replay changes nothing"
+        );
+        assert_eq!(mac.allowed_paths(true, true), vec![PeerPath::Lan]);
+        assert_eq!(
+            mac.route(true, true, false, true, false),
+            None,
+            "waits for Same Wi-Fi"
+        );
+        assert_eq!(
+            mac.route(true, true, false, true, true),
+            Some(PeerPath::Relay),
+            "a Hello still goes"
+        );
+
+        let mac = SeamDevice::restore(mac.export_state(key.clone()).unwrap(), key).unwrap();
+        assert_eq!(
+            mac.app_data().unwrap().peer_allowed,
+            Some(vec![PeerPath::Lan]),
+            "kept across a restart"
+        );
+        mac.forget_hello();
+        assert_eq!(
+            mac.allowed_paths(true, true),
+            vec![PeerPath::Lan, PeerPath::Relay]
+        );
+        assert_eq!(mac.app_data().unwrap().group_id, vec![1; 16]);
     }
 
     #[test]

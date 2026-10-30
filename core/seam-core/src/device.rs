@@ -22,6 +22,7 @@ use libsignal_protocol::{
 use rand::{Rng, RngCore};
 use sha2::{Digest, Sha256};
 
+use crate::links::AppData;
 use crate::{Error, Result, padding};
 
 /// An encrypted message ready for the envelope: `kind` says which Signal message type it is.
@@ -56,8 +57,8 @@ pub struct Device {
     /// Phone side: the Mac this device asked to pair with. Only its PairAccept confirms it; a
     /// PairAccept from anyone else (on the Mac, from the phone itself) confirms nothing (SR-2-56).
     pub(crate) awaiting_accept: Option<String>,
-    /// Opaque bytes the app keeps sealed alongside the keys (its group id and relay URL), so
-    /// they can never drift apart from the identity they belong to.
+    /// The app's relay group and Hello state (`links::AppData`, encoded), sealed alongside the
+    /// keys so they can never drift apart from the identity they belong to.
     pub(crate) app_data: Vec<u8>,
 }
 
@@ -166,12 +167,21 @@ impl Device {
         Ok(())
     }
 
-    pub fn app_data(&self) -> &[u8] {
-        &self.app_data
+    /// None before the app saved any, or if what's saved can't be read.
+    pub fn app_data(&self) -> Option<AppData> {
+        AppData::decode(&self.app_data)
     }
 
-    pub fn set_app_data(&mut self, data: &[u8]) {
-        self.app_data = data.to_vec();
+    pub fn set_app_data(&mut self, data: &AppData) {
+        self.app_data = data.encode();
+    }
+
+    /// Changes the saved app data in place; None (and no change) if there isn't any.
+    pub fn edit_app_data<R>(&mut self, edit: impl FnOnce(&mut AppData) -> R) -> Option<R> {
+        let mut data = self.app_data()?;
+        let out = edit(&mut data);
+        self.set_app_data(&data);
+        Some(out)
     }
 
     /// This device's public identity key, as it goes into the pairing QR code.

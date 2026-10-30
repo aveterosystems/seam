@@ -481,6 +481,38 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
+    typealias FfiType = Int32
+    typealias SwiftType = Int32
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int32 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Int32, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
+    typealias FfiType = UInt64
+    typealias SwiftType = UInt64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
     typealias FfiType = Int64
     typealias SwiftType = Int64
@@ -1109,9 +1141,22 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     func acceptPairing(envelope: Data) throws  -> PairingRequest
     
     /**
-     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
+     * last applied Hello.
      */
-    func appData()  -> Data
+    func allowedPaths(wifi: Bool, relay: Bool)  -> [PeerPath]
+    
+    /**
+     * The app's relay group and Hello state, sealed inside `export_state` with the keys. None
+     * before any was set. Read from whatever format an earlier version saved.
+     */
+    func appData()  -> AppData?
+    
+    /**
+     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
+     * save `export_state` then.
+     */
+    func applyHello(seq: UInt64, allowedTransports: [Int32])  -> Bool
     
     /**
      * Mac: close the pairing slot early (window closed, QR expired).
@@ -1129,9 +1174,20 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
      */
     func exportState(storageKey: Data) throws  -> Data
     
+    /**
+     * The peer was forgotten or replaced: Hello state starts again (the relay group stays).
+     */
+    func forgetHello() 
+    
     func id()  -> String
     
     func identityKey()  -> Data
+    
+    /**
+     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
+     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
+     */
+    func nextHello(wifi: Bool, relay: Bool)  -> HelloOut?
     
     /**
      * Open an Envelope from a paired peer.
@@ -1159,6 +1215,12 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     
     func removePeer(peerId: String) 
     
+    /**
+     * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
+     * any up path this device's switches allow, so a switch change always reaches the peer.
+     */
+    func route(wifi: Bool, relay: Bool, lanUp: Bool, relayUp: Bool, hello: Bool)  -> PeerPath?
+    
     func safetyCode(peerId: String) throws  -> String
     
     /**
@@ -1167,7 +1229,7 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
      */
     func seal(peerId: String, payload: Data, ttlS: UInt32) throws  -> Data
     
-    func setAppData(data: Data) 
+    func setAppData(data: AppData) 
     
     /**
      * The answer to the relay's login challenge.
@@ -1274,13 +1336,44 @@ open func acceptPairing(envelope: Data)throws  -> PairingRequest  {
 }
     
     /**
-     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
+     * last applied Hello.
      */
-open func appData() -> Data  {
-    return try!  FfiConverterData.lift(try! rustCall() {
+open func allowedPaths(wifi: Bool, relay: Bool) -> [PeerPath]  {
+    return try!  FfiConverterSequenceTypePeerPath.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(
+            self.uniffiCloneHandle(),
+        FfiConverterBool.lower(wifi),
+        FfiConverterBool.lower(relay),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The app's relay group and Hello state, sealed inside `export_state` with the keys. None
+     * before any was set. Read from whatever format an earlier version saved.
+     */
+open func appData() -> AppData?  {
+    return try!  FfiConverterOptionTypeAppData.lift(try! rustCall() {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_app_data(
             self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
+     * save `export_state` then.
+     */
+open func applyHello(seq: UInt64, allowedTransports: [Int32]) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_apply_hello(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(seq),
+        FfiConverterSequenceInt32.lower(allowedTransports),uniffiCallStatus
     )
 })
 }
@@ -1322,6 +1415,17 @@ open func exportState(storageKey: Data)throws  -> Data  {
 })
 }
     
+    /**
+     * The peer was forgotten or replaced: Hello state starts again (the relay group stays).
+     */
+open func forgetHello()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_forget_hello(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
 open func id() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
         uniffiCallStatus in
@@ -1336,6 +1440,21 @@ open func identityKey() -> Data  {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_identity_key(
             self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
+     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
+     */
+open func nextHello(wifi: Bool, relay: Bool) -> HelloOut?  {
+    return try!  FfiConverterOptionTypeHelloOut.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_next_hello(
+            self.uniffiCloneHandle(),
+        FfiConverterBool.lower(wifi),
+        FfiConverterBool.lower(relay),uniffiCallStatus
     )
 })
 }
@@ -1424,6 +1543,24 @@ open func removePeer(peerId: String)  {try! rustCall() {
 }
 }
     
+    /**
+     * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
+     * any up path this device's switches allow, so a switch change always reaches the peer.
+     */
+open func route(wifi: Bool, relay: Bool, lanUp: Bool, relayUp: Bool, hello: Bool) -> PeerPath?  {
+    return try!  FfiConverterOptionTypePeerPath.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_route(
+            self.uniffiCloneHandle(),
+        FfiConverterBool.lower(wifi),
+        FfiConverterBool.lower(relay),
+        FfiConverterBool.lower(lanUp),
+        FfiConverterBool.lower(relayUp),
+        FfiConverterBool.lower(hello),uniffiCallStatus
+    )
+})
+}
+    
 open func safetyCode(peerId: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
         uniffiCallStatus in
@@ -1450,11 +1587,11 @@ open func seal(peerId: String, payload: Data, ttlS: UInt32)throws  -> Data  {
 })
 }
     
-open func setAppData(data: Data)  {try! rustCall() {
+open func setAppData(data: AppData)  {try! rustCall() {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_set_app_data(
             self.uniffiCloneHandle(),
-        FfiConverterData.lower(data),uniffiCallStatus
+        FfiConverterTypeAppData_lower(data),uniffiCallStatus
     )
 }
 }
@@ -1531,6 +1668,160 @@ public func FfiConverterTypeSeamDevice_lower(_ value: SeamDevice) -> UInt64 {
 }
 
 
+
+
+/**
+ * The app's saved data for its pairing (seam_core::links::AppData).
+ */
+public struct AppData: Equatable, Hashable {
+    /**
+     * 16 bytes.
+     */
+    public var groupId: Data
+    public var relayUrl: String
+    /**
+     * A private relay's owner key (decision 0007); None on Seam's relay.
+     */
+    public var ownerKey: Data?
+    public var helloSeqSent: UInt64
+    public var helloSeqApplied: UInt64
+    /**
+     * The peer's paths from its last Hello. None: everything (never heard, or an older version).
+     */
+    public var peerAllowed: [PeerPath]?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * 16 bytes.
+         */groupId: Data, relayUrl: String, 
+        /**
+         * A private relay's owner key (decision 0007); None on Seam's relay.
+         */ownerKey: Data?, helloSeqSent: UInt64, helloSeqApplied: UInt64, 
+        /**
+         * The peer's paths from its last Hello. None: everything (never heard, or an older version).
+         */peerAllowed: [PeerPath]?) {
+        self.groupId = groupId
+        self.relayUrl = relayUrl
+        self.ownerKey = ownerKey
+        self.helloSeqSent = helloSeqSent
+        self.helloSeqApplied = helloSeqApplied
+        self.peerAllowed = peerAllowed
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension AppData: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAppData: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppData {
+        return
+            try AppData(
+                groupId: FfiConverterData.read(from: &buf), 
+                relayUrl: FfiConverterString.read(from: &buf), 
+                ownerKey: FfiConverterOptionData.read(from: &buf), 
+                helloSeqSent: FfiConverterUInt64.read(from: &buf), 
+                helloSeqApplied: FfiConverterUInt64.read(from: &buf), 
+                peerAllowed: FfiConverterOptionSequenceTypePeerPath.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AppData, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.groupId, into: &buf)
+        FfiConverterString.write(value.relayUrl, into: &buf)
+        FfiConverterOptionData.write(value.ownerKey, into: &buf)
+        FfiConverterUInt64.write(value.helloSeqSent, into: &buf)
+        FfiConverterUInt64.write(value.helloSeqApplied, into: &buf)
+        FfiConverterOptionSequenceTypePeerPath.write(value.peerAllowed, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAppData_lift(_ buf: RustBuffer) throws -> AppData {
+    return try FfiConverterTypeAppData.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAppData_lower(_ value: AppData) -> RustBuffer {
+    return FfiConverterTypeAppData.lower(value)
+}
+
+
+/**
+ * A Hello's ordering and switches, for `seam.v1.Hello`.
+ */
+public struct HelloOut: Equatable, Hashable {
+    public var seq: UInt64
+    /**
+     * seam.v1.Transport numbers.
+     */
+    public var allowedTransports: [Int32]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(seq: UInt64, 
+        /**
+         * seam.v1.Transport numbers.
+         */allowedTransports: [Int32]) {
+        self.seq = seq
+        self.allowedTransports = allowedTransports
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension HelloOut: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeHelloOut: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HelloOut {
+        return
+            try HelloOut(
+                seq: FfiConverterUInt64.read(from: &buf), 
+                allowedTransports: FfiConverterSequenceInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: HelloOut, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.seq, into: &buf)
+        FfiConverterSequenceInt32.write(value.allowedTransports, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHelloOut_lift(_ buf: RustBuffer) throws -> HelloOut {
+    return try FfiConverterTypeHelloOut.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHelloOut_lower(_ value: HelloOut) -> RustBuffer {
+    return FfiConverterTypeHelloOut.lower(value)
+}
 
 
 /**
@@ -1918,6 +2209,81 @@ public func FfiConverterTypePeerInfo_lower(_ value: PeerInfo) -> RustBuffer {
 }
 
 
+/**
+ * A way to reach the paired device.
+ */
+
+public enum PeerPath: Equatable, Hashable {
+    
+    /**
+     * Same Wi-Fi, direct.
+     */
+    case lan
+    /**
+     * Through the relay.
+     */
+    case relay
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension PeerPath: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePeerPath: FfiConverterRustBuffer {
+    typealias SwiftType = PeerPath
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PeerPath {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .lan
+        
+        case 2: return .relay
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PeerPath, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .lan:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .relay:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeerPath_lift(_ buf: RustBuffer) throws -> PeerPath {
+    return try FfiConverterTypePeerPath.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeerPath_lower(_ value: PeerPath) -> RustBuffer {
+    return FfiConverterTypePeerPath.lower(value)
+}
+
+
+
 public 
 enum SeamError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
 
@@ -2080,6 +2446,151 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
+    typealias SwiftType = Data?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterData.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterData.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeAppData: FfiConverterRustBuffer {
+    typealias SwiftType = AppData?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeAppData.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeAppData.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeHelloOut: FfiConverterRustBuffer {
+    typealias SwiftType = HelloOut?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeHelloOut.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeHelloOut.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypePeerPath: FfiConverterRustBuffer {
+    typealias SwiftType = PeerPath?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypePeerPath.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypePeerPath.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionSequenceTypePeerPath: FfiConverterRustBuffer {
+    typealias SwiftType = [PeerPath]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceTypePeerPath.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceTypePeerPath.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceInt32: FfiConverterRustBuffer {
+    typealias SwiftType = [Int32]
+
+    public static func write(_ value: [Int32], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterInt32.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Int32] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [Int32]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterInt32.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceData: FfiConverterRustBuffer {
     typealias SwiftType = [Data]
 
@@ -2122,6 +2633,31 @@ fileprivate struct FfiConverterSequenceTypePeerInfo: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypePeerInfo.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer {
+    typealias SwiftType = [PeerPath]
+
+    public static func write(_ value: [PeerPath], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePeerPath.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PeerPath] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PeerPath]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePeerPath.read(from: &buf))
         }
         return seq
     }
@@ -2185,7 +2721,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() != 62568) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 51916) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() != 63738) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 29712) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_apply_hello() != 62351) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() != 4348) {
@@ -2197,10 +2739,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_export_state() != 4850) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_forget_hello() != 64776) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_method_seamdevice_id() != 27846) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_identity_key() != 47370) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_next_hello() != 61978) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_open() != 5951) {
@@ -2224,13 +2772,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_remove_peer() != 46663) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_route() != 11407) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_method_seamdevice_safety_code() != 38571) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_seal() != 4361) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() != 38592) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() != 24919) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() != 30714) {

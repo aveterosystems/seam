@@ -697,7 +697,11 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing(
     ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths(
+    ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_app_data(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_apply_hello(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing(
     ): Int
@@ -705,9 +709,13 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_export_state(
     ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_forget_hello(
+    ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_id(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_identity_key(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_next_hello(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_open(
     ): Int
@@ -722,6 +730,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_seam_ffi_checksum_method_seamdevice_relay_key(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_remove_peer(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_route(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_safety_code(
     ): Int
@@ -813,17 +823,25 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(`ptr`: Long,`wifi`: Byte,`relay`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_app_data(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_apply_hello(`ptr`: Long,`seq`: Long,`allowedTransports`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
     external fun uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_export_state(`ptr`: Long,`storageKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_forget_hello(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_identity_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_next_hello(`ptr`: Long,`wifi`: Byte,`relay`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_open(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -839,6 +857,8 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_remove_peer(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_seam_ffi_fn_method_seamdevice_route(`ptr`: Long,`wifi`: Byte,`relay`: Byte,`lanUp`: Byte,`relayUp`: Byte,`hello`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_safety_code(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_seal(`ptr`: Long,`peerId`: RustBuffer.ByValue,`payload`: RustBuffer.ByValue,`ttlS`: Int,uniffi_out_err: UniffiRustCallStatus, 
@@ -1003,7 +1023,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() and 0xFFFF) != 62568) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_app_data() and 0xFFFF) != 51916) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() and 0xFFFF) != 63738) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_app_data() and 0xFFFF) != 29712) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_apply_hello() and 0xFFFF) != 62351) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() and 0xFFFF) != 4348) {
@@ -1015,10 +1041,16 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_export_state() and 0xFFFF) != 4850) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_forget_hello() and 0xFFFF) != 64776) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_id() and 0xFFFF) != 27846) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_identity_key() and 0xFFFF) != 47370) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_next_hello() and 0xFFFF) != 61978) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_open() and 0xFFFF) != 5951) {
@@ -1042,13 +1074,16 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_remove_peer() and 0xFFFF) != 46663) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_route() and 0xFFFF) != 11407) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_safety_code() and 0xFFFF) != 38571) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_seal() and 0xFFFF) != 4361) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() and 0xFFFF) != 38592) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() and 0xFFFF) != 24919) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() and 0xFFFF) != 30714) {
@@ -1252,6 +1287,52 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 
     override fun write(value: UInt, buf: ByteBuffer) {
         buf.putInt(value.toInt())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterInt: FfiConverter<Int, Int> {
+    override fun lift(value: Int): Int {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Int {
+        return buf.getInt()
+    }
+
+    override fun lower(value: Int): Int {
+        return value
+    }
+
+    override fun allocationSize(value: Int) = 4UL
+
+    override fun write(value: Int, buf: ByteBuffer) {
+        buf.putInt(value)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterULong: FfiConverter<ULong, Long> {
+    override fun lift(value: Long): ULong {
+        return value.toULong()
+    }
+
+    override fun read(buf: ByteBuffer): ULong {
+        return lift(buf.getLong())
+    }
+
+    override fun lower(value: ULong): Long {
+        return value.toLong()
+    }
+
+    override fun allocationSize(value: ULong) = 8UL
+
+    override fun write(value: ULong, buf: ByteBuffer) {
+        buf.putLong(value.toLong())
     }
 }
 
@@ -2446,9 +2527,22 @@ public interface SeamDeviceInterface {
     fun `acceptPairing`(`envelope`: kotlin.ByteArray): PairingRequest
     
     /**
-     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
+     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
+     * last applied Hello.
      */
-    fun `appData`(): kotlin.ByteArray
+    fun `allowedPaths`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): List<PeerPath>
+    
+    /**
+     * The app's relay group and Hello state, sealed inside `export_state` with the keys. None
+     * before any was set. Read from whatever format an earlier version saved.
+     */
+    fun `appData`(): AppData?
+    
+    /**
+     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
+     * save `export_state` then.
+     */
+    fun `applyHello`(`seq`: kotlin.ULong, `allowedTransports`: List<kotlin.Int>): kotlin.Boolean
     
     /**
      * Mac: close the pairing slot early (window closed, QR expired).
@@ -2466,9 +2560,20 @@ public interface SeamDeviceInterface {
      */
     fun `exportState`(`storageKey`: kotlin.ByteArray): kotlin.ByteArray
     
+    /**
+     * The peer was forgotten or replaced: Hello state starts again (the relay group stays).
+     */
+    fun `forgetHello`()
+    
     fun `id`(): kotlin.String
     
     fun `identityKey`(): kotlin.ByteArray
+    
+    /**
+     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
+     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
+     */
+    fun `nextHello`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): HelloOut?
     
     /**
      * Open an Envelope from a paired peer.
@@ -2496,6 +2601,12 @@ public interface SeamDeviceInterface {
     
     fun `removePeer`(`peerId`: kotlin.String)
     
+    /**
+     * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
+     * any up path this device's switches allow, so a switch change always reaches the peer.
+     */
+    fun `route`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean, `lanUp`: kotlin.Boolean, `relayUp`: kotlin.Boolean, `hello`: kotlin.Boolean): PeerPath?
+    
     fun `safetyCode`(`peerId`: kotlin.String): kotlin.String
     
     /**
@@ -2504,7 +2615,7 @@ public interface SeamDeviceInterface {
      */
     fun `seal`(`peerId`: kotlin.String, `payload`: kotlin.ByteArray, `ttlS`: kotlin.UInt): kotlin.ByteArray
     
-    fun `setAppData`(`data`: kotlin.ByteArray)
+    fun `setAppData`(`data`: AppData)
     
     /**
      * The answer to the relay's login challenge.
@@ -2643,14 +2754,53 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
 
     
     /**
-     * The app's own settings (group id, relay URL), sealed inside `export_state` with the keys.
-     */override fun `appData`(): kotlin.ByteArray {
-            return FfiConverterByteArray.lift(
+     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
+     * last applied Hello.
+     */override fun `allowedPaths`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): List<PeerPath> {
+            return FfiConverterSequenceTypePeerPath.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(
+        it,
+        
+        FfiConverterBoolean.lower(`wifi`),
+        FfiConverterBoolean.lower(`relay`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The app's relay group and Hello state, sealed inside `export_state` with the keys. None
+     * before any was set. Read from whatever format an earlier version saved.
+     */override fun `appData`(): AppData? {
+            return FfiConverterOptionalTypeAppData.lift(
     callWithHandle {
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_app_data(
         it,
         _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
+     * save `export_state` then.
+     */override fun `applyHello`(`seq`: kotlin.ULong, `allowedTransports`: List<kotlin.Int>): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_apply_hello(
+        it,
+        
+        FfiConverterULong.lower(`seq`),
+        FfiConverterSequenceInt.lower(`allowedTransports`),_status)
 }
     }
     )
@@ -2708,6 +2858,21 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     }
     
 
+    
+    /**
+     * The peer was forgotten or replaced: Hello state starts again (the relay group stays).
+     */override fun `forgetHello`()
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_forget_hello(
+        it,
+        _status)
+}
+    }
+    
+    
+
     override fun `id`(): kotlin.String {
             return FfiConverterString.lift(
     callWithHandle {
@@ -2728,6 +2893,25 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_identity_key(
         it,
         _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
+     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
+     */override fun `nextHello`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): HelloOut? {
+            return FfiConverterOptionalTypeHelloOut.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_next_hello(
+        it,
+        
+        FfiConverterBoolean.lower(`wifi`),
+        FfiConverterBoolean.lower(`relay`),_status)
 }
     }
     )
@@ -2850,6 +3034,28 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     
 
     
+    /**
+     * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
+     * any up path this device's switches allow, so a switch change always reaches the peer.
+     */override fun `route`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean, `lanUp`: kotlin.Boolean, `relayUp`: kotlin.Boolean, `hello`: kotlin.Boolean): PeerPath? {
+            return FfiConverterOptionalTypePeerPath.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_route(
+        it,
+        
+        FfiConverterBoolean.lower(`wifi`),
+        FfiConverterBoolean.lower(`relay`),
+        FfiConverterBoolean.lower(`lanUp`),
+        FfiConverterBoolean.lower(`relayUp`),
+        FfiConverterBoolean.lower(`hello`),_status)
+}
+    }
+    )
+    }
+    
+
+    
     @Throws(SeamException::class)override fun `safetyCode`(`peerId`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     callWithHandle {
@@ -2885,14 +3091,14 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     }
     
 
-    override fun `setAppData`(`data`: kotlin.ByteArray)
+    override fun `setAppData`(`data`: AppData)
         = 
     callWithHandle {
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_set_app_data(
         it,
         
-        FfiConverterByteArray.lower(`data`),_status)
+        FfiConverterTypeAppData.lower(`data`),_status)
 }
     }
     
@@ -2997,6 +3203,120 @@ public object FfiConverterTypeSeamDevice: FfiConverter<SeamDevice, Long> {
 
     override fun write(value: SeamDevice, buf: ByteBuffer) {
         buf.putLong(lower(value))
+    }
+}
+
+
+
+/**
+ * The app's saved data for its pairing (seam_core::links::AppData).
+ */
+data class AppData (
+    /**
+     * 16 bytes.
+     */
+    var `groupId`: kotlin.ByteArray
+    , 
+    var `relayUrl`: kotlin.String
+    , 
+    /**
+     * A private relay's owner key (decision 0007); None on Seam's relay.
+     */
+    var `ownerKey`: kotlin.ByteArray?
+    , 
+    var `helloSeqSent`: kotlin.ULong
+    , 
+    var `helloSeqApplied`: kotlin.ULong
+    , 
+    /**
+     * The peer's paths from its last Hello. None: everything (never heard, or an older version).
+     */
+    var `peerAllowed`: List<PeerPath>?
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeAppData: FfiConverterRustBuffer<AppData> {
+    override fun read(buf: ByteBuffer): AppData {
+        return AppData(
+            FfiConverterByteArray.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterOptionalByteArray.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterOptionalSequenceTypePeerPath.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: AppData) = (
+            FfiConverterByteArray.allocationSize(value.`groupId`) +
+            FfiConverterString.allocationSize(value.`relayUrl`) +
+            FfiConverterOptionalByteArray.allocationSize(value.`ownerKey`) +
+            FfiConverterULong.allocationSize(value.`helloSeqSent`) +
+            FfiConverterULong.allocationSize(value.`helloSeqApplied`) +
+            FfiConverterOptionalSequenceTypePeerPath.allocationSize(value.`peerAllowed`)
+    )
+
+    override fun write(value: AppData, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`groupId`, buf)
+            FfiConverterString.write(value.`relayUrl`, buf)
+            FfiConverterOptionalByteArray.write(value.`ownerKey`, buf)
+            FfiConverterULong.write(value.`helloSeqSent`, buf)
+            FfiConverterULong.write(value.`helloSeqApplied`, buf)
+            FfiConverterOptionalSequenceTypePeerPath.write(value.`peerAllowed`, buf)
+    }
+}
+
+
+
+/**
+ * A Hello's ordering and switches, for `seam.v1.Hello`.
+ */
+data class HelloOut (
+    var `seq`: kotlin.ULong
+    , 
+    /**
+     * seam.v1.Transport numbers.
+     */
+    var `allowedTransports`: List<kotlin.Int>
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeHelloOut: FfiConverterRustBuffer<HelloOut> {
+    override fun read(buf: ByteBuffer): HelloOut {
+        return HelloOut(
+            FfiConverterULong.read(buf),
+            FfiConverterSequenceInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: HelloOut) = (
+            FfiConverterULong.allocationSize(value.`seq`) +
+            FfiConverterSequenceInt.allocationSize(value.`allowedTransports`)
+    )
+
+    override fun write(value: HelloOut, buf: ByteBuffer) {
+            FfiConverterULong.write(value.`seq`, buf)
+            FfiConverterSequenceInt.write(value.`allowedTransports`, buf)
     }
 }
 
@@ -3289,6 +3609,49 @@ public object FfiConverterTypePeerInfo: FfiConverterRustBuffer<PeerInfo> {
 
 
 
+/**
+ * A way to reach the paired device.
+ */
+
+enum class PeerPath {
+    
+    /**
+     * Same Wi-Fi, direct.
+     */
+    LAN,
+    /**
+     * Through the relay.
+     */
+    RELAY;
+
+    
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePeerPath: FfiConverterRustBuffer<PeerPath> {
+    override fun read(buf: ByteBuffer) = try {
+        PeerPath.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: PeerPath) = 4UL
+
+    override fun write(value: PeerPath, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
 
 
 sealed class SeamException: kotlin.Exception() {
@@ -3504,6 +3867,194 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeAppData: FfiConverterRustBuffer<AppData?> {
+    override fun read(buf: ByteBuffer): AppData? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeAppData.read(buf)
+    }
+
+    override fun allocationSize(value: AppData?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeAppData.allocationSize(value)
+        }
+    }
+
+    override fun write(value: AppData?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeAppData.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeHelloOut: FfiConverterRustBuffer<HelloOut?> {
+    override fun read(buf: ByteBuffer): HelloOut? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeHelloOut.read(buf)
+    }
+
+    override fun allocationSize(value: HelloOut?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeHelloOut.allocationSize(value)
+        }
+    }
+
+    override fun write(value: HelloOut?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeHelloOut.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypePeerPath: FfiConverterRustBuffer<PeerPath?> {
+    override fun read(buf: ByteBuffer): PeerPath? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypePeerPath.read(buf)
+    }
+
+    override fun allocationSize(value: PeerPath?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypePeerPath.allocationSize(value)
+        }
+    }
+
+    override fun write(value: PeerPath?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypePeerPath.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalSequenceTypePeerPath: FfiConverterRustBuffer<List<PeerPath>?> {
+    override fun read(buf: ByteBuffer): List<PeerPath>? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterSequenceTypePeerPath.read(buf)
+    }
+
+    override fun allocationSize(value: List<PeerPath>?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterSequenceTypePeerPath.allocationSize(value)
+        }
+    }
+
+    override fun write(value: List<PeerPath>?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterSequenceTypePeerPath.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceInt: FfiConverterRustBuffer<List<kotlin.Int>> {
+    override fun read(buf: ByteBuffer): List<kotlin.Int> {
+        val len = buf.getInt()
+        return List<kotlin.Int>(len) {
+            FfiConverterInt.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<kotlin.Int>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterInt.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<kotlin.Int>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterInt.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceByteArray: FfiConverterRustBuffer<List<kotlin.ByteArray>> {
     override fun read(buf: ByteBuffer): List<kotlin.ByteArray> {
         val len = buf.getInt()
@@ -3550,6 +4101,34 @@ public object FfiConverterSequenceTypePeerInfo: FfiConverterRustBuffer<List<Peer
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypePeerInfo.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<PeerPath>> {
+    override fun read(buf: ByteBuffer): List<PeerPath> {
+        val len = buf.getInt()
+        return List<PeerPath>(len) {
+            FfiConverterTypePeerPath.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<PeerPath>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypePeerPath.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<PeerPath>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypePeerPath.write(it, buf)
         }
     }
 }
