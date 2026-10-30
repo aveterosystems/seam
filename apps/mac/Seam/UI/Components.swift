@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamSession
 import SwiftUI
 
 // Seam's shared building blocks (board M01 and M03). Screens compose these; a new control extends
@@ -109,5 +110,23 @@ struct AppIcon: View {
             if let image { Image(nsImage: image).resizable() } else { Image(systemName: "app.dashed").resizable().foregroundStyle(.tertiary) }
         }
         .frame(width: size, height: size)
+    }
+}
+
+/// The status line beside the stitch: a dot, then "Connected" with the path's icon, or the reason
+/// when not connected. Everything comes from the `LinkLook`; the tooltip and VoiceOver get the words.
+struct LinkStatus: View {
+    let look: LinkLook
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(look.connected ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
+            Text(look.connected ? "Connected" : look.label)
+            if let symbol = look.symbol { Image(systemName: symbol) }
+        }
+        .foregroundStyle(.secondary)
+        .help(look.sentence)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(look.sentence)
     }
 }

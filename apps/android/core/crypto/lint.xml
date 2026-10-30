@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<lint>
+    <!-- UniFFI's generated bindings use java.lang.ref.Cleaner (API 33) only after checking it
+         exists at runtime, and fall back to JNA's cleaner below that. Only this file is exempt. -->
+    <issue id="NewApi">
+        <ignore path="src/main/kotlin/com/avetero/seam/crypto/seam_ffi.kt" />
+    </issue>
+</lint>

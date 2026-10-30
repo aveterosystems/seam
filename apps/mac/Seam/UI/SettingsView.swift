@@ -14,7 +14,7 @@ struct SettingsView: View {
     @State private var checksAutomatically = Updates.shared.checksAutomatically
     @State private var checkInterval = Updates.shared.checkInterval
 
-    enum Pane: Hashable { case general, phone, notifications, clipboard, privacy, about }
+    enum Pane: Hashable { case general, phone, connection, notifications, clipboard, privacy, about }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -54,6 +54,7 @@ struct SettingsView: View {
             Spacer().frame(height: 30) // room for the traffic lights
             nav(.general, "General", "gearshape")
             nav(.phone, controller.phone?.name ?? "Phone", "iphone")
+            nav(.connection, "Connection", "network")
             section("Features")
             nav(.notifications, "Notifications", "bell.badge")
             nav(.clipboard, "Clipboard", "doc.on.clipboard")
@@ -96,6 +97,7 @@ struct SettingsView: View {
         switch pane {
         case .general: "General"
         case .phone: controller.phone?.name ?? "Phone"
+        case .connection: "Connection"
         case .notifications: "Notifications"
         case .clipboard: "Clipboard"
         case .privacy: "Privacy & Security"
@@ -107,6 +109,7 @@ struct SettingsView: View {
         switch pane {
         case .general: general
         case .phone: phone
+        case .connection: connection
         case .notifications: notifications
         case .clipboard: clipboard
         case .privacy: privacy
@@ -127,11 +130,7 @@ struct SettingsView: View {
         if let p = controller.phone {
             SettingsGroup {
                 SettingsRow("Status", nil) {
-                    HStack(spacing: 6) {
-                        Circle().fill(controller.connected ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
-                        Text(controller.connected ? "Connected · Through Seam relay" : "Offline · will send when your phone is back")
-                            .foregroundStyle(.secondary)
-                    }
+                    LinkStatus(look: controller.link)
                 }
                 if let s = controller.status {
                     SettingsRow("Battery", nil) { Text("\(s.batteryPct)%\(s.charging ? " · charging" : "")").foregroundStyle(.secondary) }
@@ -153,6 +152,47 @@ struct SettingsView: View {
             SettingsGroup {
                 SettingsRow("No phone is paired with this Mac", "Scan a code with Seam on your Android phone") {
                     Button("Pair your phone") { PairingWindow.show(controller) }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+                }
+            }
+        }
+    }
+
+    /// Which paths may reach the phone (decision 0006), and which relay (decision 0007).
+    @ViewBuilder private var connection: some View {
+        if controller.phone != nil {
+            SettingsGroup {
+                SettingsRow("Status", nil) {
+                    LinkStatus(look: controller.link)
+                }
+            }
+        }
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsGroup {
+                SettingsRow("Same Wi‑Fi", "Straight to your phone when it's on the same network. Nothing leaves your network.") {
+                    Toggle("", isOn: Binding(get: { controller.wifiOn }, set: { controller.setWifi($0) }))
+                        .labelsHidden().disabled(controller.wifiOn && !controller.relayOn)
+                }
+                SettingsRow("Relay", "Reaches your phone anywhere, through a relay that only ever sees sealed messages") {
+                    Toggle("", isOn: Binding(get: { controller.relayOn }, set: { controller.setRelay($0) }))
+                        .labelsHidden().disabled(controller.relayOn && !controller.wifiOn)
+                }
+            }
+            Text("One always stays on. Seam only uses a connection that's on here and on your phone, and the encryption is the same on every one.")
+                .font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Relay").font(.headline)
+            SettingsGroup {
+                SettingsRow(controller.usesOwnRelay ? "Your own relay" : "Seam's relay", "Carries sealed messages only. It can't read them.") {
+                    Text(controller.relayHost).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+                }
+                SettingsRow("Use my own relay", "Paste the relay link from your own Seam relay. Your phone pairs again afterwards.") {
+                    Button("Change…") { RelayPrompt.run(controller) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                }
+                if controller.usesOwnRelay {
+                    SettingsRow("Go back to Seam's relay", "Your phone pairs again afterwards") {
+                        Button("Use Seam's Relay…") { RelayPrompt.reset(controller) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    }
                 }
             }
         }

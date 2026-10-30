@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use seam_core::{Device, SignalProtocolError, bundle, file};
+use seam_core::{Device, SignalProtocolError, bundle, file, lan};
 
 uniffi::setup_scaffolding!();
 
@@ -40,7 +40,8 @@ impl From<seam_core::Error> for SeamError {
         use seam_core::Error as E;
         match e {
             E::NotPaired => Self::NotPaired,
-            E::Signal(SignalProtocolError::UntrustedIdentity(_)) => Self::UntrustedIdentity,
+            // A LAN proof from a key that isn't the paired one: the same "not who we paired" signal
+            E::Signal(SignalProtocolError::UntrustedIdentity(_)) | E::WrongPeer => Self::UntrustedIdentity,
             E::Duplicate => Self::Duplicate,
             E::NotConfirmed => Self::NotConfirmed,
             E::BadPairing(reason) => Self::PairingFailed {
@@ -343,6 +344,72 @@ impl FileReceiver {
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .finish()?)
+    }
+}
+
+/// What one `LanChannel.receive` produced: write `send` to the socket, handle `frames`.
+#[derive(uniffi::Record)]
+pub struct LanOutput {
+    pub send: Vec<u8>,
+    /// seam.v1 ClientFrame (Mac side) or ServerFrame (phone side) bytes, from the authenticated peer.
+    pub frames: Vec<Vec<u8>>,
+    /// Set once, on the call that finished authentication: the paired peer's id.
+    pub authenticated: Option<String>,
+}
+
+/// One direct connection to a paired device (same Wi-Fi): Noise handshake, then both sides
+/// prove they hold the keys pinned at pairing. Feed it every byte read from the socket and write
+/// back what it returns. Any error means close the socket; the channel can't be reused.
+#[derive(uniffi::Object)]
+pub struct LanChannel {
+    inner: Mutex<lan::LanChannel>,
+}
+
+#[uniffi::export]
+impl LanChannel {
+    /// The phone's side, connecting to the paired Mac. Write `start()` as soon as the socket connects.
+    #[uniffi::constructor]
+    pub fn initiator(device: &SeamDevice, peer_id: String) -> Result<Arc<Self>> {
+        Ok(Arc::new(Self {
+            inner: Mutex::new(lan::LanChannel::initiator(&device.lock(), &peer_id)?),
+        }))
+    }
+
+    /// The Mac's side, for one incoming connection. Fails while no phone is paired.
+    #[uniffi::constructor]
+    pub fn responder(device: &SeamDevice) -> Result<Arc<Self>> {
+        Ok(Arc::new(Self {
+            inner: Mutex::new(lan::LanChannel::responder(&device.lock())?),
+        }))
+    }
+
+    /// The first bytes to write (initiator only; empty afterwards and on the responder).
+    pub fn start(&self) -> Vec<u8> {
+        self.lock().start()
+    }
+
+    pub fn receive(&self, bytes: Vec<u8>) -> Result<LanOutput> {
+        let o = self.lock().receive(&bytes)?;
+        Ok(LanOutput {
+            send: o.send,
+            frames: o.frames,
+            authenticated: o.authenticated,
+        })
+    }
+
+    /// One frame, sealed for the wire. Fails until authenticated.
+    pub fn send(&self, frame: Vec<u8>) -> Result<Vec<u8>> {
+        Ok(self.lock().send(&frame)?)
+    }
+
+    pub fn peer_id(&self) -> Option<String> {
+        self.lock().peer_id().map(str::to_owned)
+    }
+}
+
+impl LanChannel {
+    fn lock(&self) -> MutexGuard<'_, lan::LanChannel> {
+        self.inner.lock().unwrap_or_else(|p| p.into_inner())
     }
 }
 

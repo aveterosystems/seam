@@ -24,11 +24,12 @@ import kotlin.math.sin
 
 /**
  * Board A01's hero: the Expressive "cookie" (a circle with 9 soft scallops) in primaryContainer,
- * with the Mac and this phone joined by stitches. The stitches follow the stitch rules: dashed
- * while connected through the relay, broken when not.
+ * with the Mac and this phone joined by stitches, drawn from a [LinkLook.Line]
+ * (design-system.md, "The stitch"): solid teal on the same Wi‑Fi, dashed teal through the relay,
+ * dotted grey when only nearby, broken grey when not connected.
  */
 @Composable
-fun Hero(macName: String, linked: Boolean, size: Dp = 300.dp) {
+fun Hero(macName: String, line: LinkLook.Line, size: Dp = 300.dp) {
     val pc = MaterialTheme.colorScheme.primaryContainer
     val onPc = MaterialTheme.colorScheme.onPrimaryContainer
     val primary = MaterialTheme.colorScheme.primary
@@ -44,9 +45,15 @@ fun Hero(macName: String, linked: Boolean, size: Dp = 300.dp) {
             drawLine(onPc, p(0f, 100f), p(118f, 100f), 6 * k, StrokeCap.Round)
             drawRoundRect(onPc, p(150f, 10f), Size(44 * k, 90 * k), CornerRadius(10 * k))
             drawLine(pc, p(166f, 90f), p(178f, 90f), 4 * k, StrokeCap.Round)
-            val stitch = if (linked) null else PathEffect.dashPathEffect(floatArrayOf(6 * k, 10 * k))
+            val grey = onPc.copy(alpha = 0.35f)
+            val (color, dash) = when (line) {
+                LinkLook.Line.Solid -> primary to null
+                LinkLook.Line.Dashed -> primary to floatArrayOf(5 * k, 7 * k)
+                LinkLook.Line.Dotted -> grey to floatArrayOf(0.1f * k, 6 * k)
+                LinkLook.Line.Broken -> grey to floatArrayOf(6 * k, 10 * k)
+            }
             for (y in listOf(40f, 54f, 68f)) {
-                drawLine(if (linked) primary else onPc.copy(alpha = 0.35f), p(120f, y), p(142f, y), 5 * k, StrokeCap.Round, stitch)
+                drawLine(color, p(120f, y), p(142f, y), 5 * k, StrokeCap.Round, dash?.let { PathEffect.dashPathEffect(it) })
             }
         }
     }

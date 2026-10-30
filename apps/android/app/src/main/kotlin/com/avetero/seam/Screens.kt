@@ -74,6 +74,8 @@ fun SeamScreen(
     onUpdate: (Release) -> Unit = {},
     askUpdates: Boolean = false,
     onAnswerUpdates: (Boolean) -> Unit = {},
+    /** How the link to the Mac looks: the hero's stitches and the status line. */
+    look: LinkLook = LinkLook.Reconnecting,
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         // One call site, so the sheet slides up once and then changes in place (confirm, then the code)
@@ -96,16 +98,11 @@ fun SeamScreen(
                 sheet = sheet,
             )
         }
-        val home = when (state) {
-            is SessionState.Connected -> Link.Connected
-            is SessionState.Idle -> Link.Idle
-            is SessionState.Connecting -> Link.Connecting
-            else -> null
-        }
-        if (home != null && toConfirm == null) {
+        val home = state is SessionState.Connected || state is SessionState.Idle || state is SessionState.Connecting
+        if (home && toConfirm == null) {
             val name = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Idle)?.macName
                 ?: (state as SessionState.Connecting).macName
-            return@Surface Home(name, home, scanError, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, update, updateStatus, onUpdate, askUpdates, onAnswerUpdates)
+            return@Surface Home(name, look, scanError, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, update, updateStatus, onUpdate, askUpdates, onAnswerUpdates)
         }
         Column(
             Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 48.dp),
@@ -126,14 +123,33 @@ fun SeamScreen(
     }
 }
 
-/** How the link to the Mac stands right now. */
-enum class Link { Connected, Idle, Connecting }
+
+/**
+ * The status line under the Mac's name: a dot, then "Connected" with the path's icon, or what's
+ * happening when not connected. Everything comes from the [LinkLook]; TalkBack reads the words.
+ */
+@Composable
+private fun LinkStatus(look: LinkLook) {
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        Modifier.semantics(mergeDescendants = true) { contentDescription = look.sentence },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(8.dp).background(if (look.connected) okColor else MaterialTheme.colorScheme.outline, CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Text(if (look.connected) "Connected" else look.label, fontSize = 15.sp, color = color)
+        look.icon?.let {
+            Spacer(Modifier.width(6.dp))
+            Icon(painterResource(it), contentDescription = null, modifier = Modifier.size(16.dp), tint = color)
+        }
+    }
+}
 
 /** Board A01: calm and nearly empty. Only what's built: the Clipboard action, and what came from the Mac. */
 @Composable
 private fun Home(
     macName: String,
-    link: Link,
+    look: LinkLook,
     notice: String?,
     onSendClipboard: () -> Unit,
     fromMac: FromMac?,
@@ -159,22 +175,11 @@ private fun Home(
             Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Hero(macName, linked = link != Link.Connecting)
+            Hero(macName, look.line)
             Spacer(Modifier.height(4.dp))
             Text(macName, fontSize = 36.sp, lineHeight = 44.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).background(if (link == Link.Connecting) MaterialTheme.colorScheme.outline else okColor, CircleShape))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    when (link) {
-                        Link.Connected -> "Connected · Through Seam relay"
-                        Link.Idle -> "Paired · connects when there's something to sync"
-                        Link.Connecting -> "Reconnecting…"
-                    },
-                    fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            LinkStatus(look)
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
@@ -237,7 +242,7 @@ internal fun ago(ms: Long): String = when {
 
 @Composable
 private fun Intro(title: String, body: String, action: String, error: String?, onAction: () -> Unit) {
-    Hero("your Mac", linked = false, size = 220.dp)
+    Hero("your Mac", LinkLook.Line.Broken, size = 220.dp)
     Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
     Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     Spacer(Modifier.height(8.dp))

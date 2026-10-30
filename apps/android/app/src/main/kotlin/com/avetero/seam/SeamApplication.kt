@@ -9,7 +9,10 @@ import com.avetero.seam.feature.clipboard.ClipboardFeature
 import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.launch
+import com.avetero.seam.session.FilePendingStore
 import com.avetero.seam.session.KeystoreStateStore
+import com.avetero.seam.session.NsdLan
+import com.avetero.seam.session.PrefsSettingsStore
 import com.avetero.seam.session.OkHttpRelayConnector
 import com.avetero.seam.session.Session
 import java.io.File
@@ -42,6 +45,10 @@ class SeamApplication : Application() {
             // One thread for all session state: no locks, no races. Nothing that escapes a handler
             // may crash the process; the session shows it instead.
             trace = if (BuildConfig.DEBUG) { line -> android.util.Log.d("SeamSession", line) } else null,
+            lan = NsdLan(this),
+            settingsStore = PrefsSettingsStore(this),
+            pendingStore = FilePendingStore(File(noBackupFilesDir, "seam")),
+            appVersion = BuildConfig.VERSION_NAME,
             scope = CoroutineScope(
                 SupervisorJob() + Dispatchers.Default.limitedParallelism(1) +
                     CoroutineExceptionHandler { _, _ -> if (::session.isInitialized) session.internalError() },

@@ -24,7 +24,7 @@ flowchart TB
 | `Seam/Pairing/` | The pairing window (board M02) and QR rendering |
 | `Seam/Notifications/` | `PhoneNotifications`: the phone's notifications as banners, and what you do to them sent back |
 | `Seam/UI/` | The popover, Settings, and `Components.swift`: the shared pieces (module button, settings group and row) every screen is built from |
-| `Packages/SeamSession/` | `RelayClient` (login by signed challenge, acks, reconnect with backoff), frame builders, the pairing QR format, and their tests |
+| `Packages/SeamSession/` | `RelayClient` (login by signed challenge, acks, reconnect with backoff), `LanServer` (the same‑Wi‑Fi link: Bonjour `_seam._tcp`, crypto in the core's `LanChannel`), `Paths`/`Outbox` (which path a message may take; decision 0006), `RelayLink` (your own relay; decision 0007), frame builders, the pairing QR format, and their tests |
 | `Packages/SeamCore/` | Swift bindings to the Rust core (`Sources/SeamCore/SeamCore.swift`, generated), the C header and module map (`FFI/include/`), and the tests |
 | `Packages/SeamProtocol/` | The generated message types (`Sources/SeamProtocol/Generated/`) and the golden-vector tests |
 

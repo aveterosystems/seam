@@ -15,6 +15,8 @@ import okio.ByteString.Companion.toByteString
 interface RelayLink {
     fun send(frame: ByteArray): Boolean
     fun close()
+    /** Closes at once, dropping anything still queued: for a peer that never proved who it is. */
+    fun abort() = close()
 }
 
 interface RelayListener {

@@ -299,6 +299,46 @@ RustBuffer uniffi_seam_ffi_fn_method_filesealer_key(uint64_t ptr, RustCallStatus
 RustBuffer uniffi_seam_ffi_fn_method_filesealer_seal_next(uint64_t ptr, RustBuffer data, int8_t last, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_LANCHANNEL
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_LANCHANNEL
+uint64_t uniffi_seam_ffi_fn_clone_lanchannel(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_LANCHANNEL
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_LANCHANNEL
+void uniffi_seam_ffi_fn_free_lanchannel(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_INITIATOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_INITIATOR
+uint64_t uniffi_seam_ffi_fn_constructor_lanchannel_initiator(uint64_t device, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_RESPONDER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_RESPONDER
+uint64_t uniffi_seam_ffi_fn_constructor_lanchannel_responder(uint64_t device, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_PEER_ID
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_PEER_ID
+RustBuffer uniffi_seam_ffi_fn_method_lanchannel_peer_id(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_RECEIVE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_RECEIVE
+RustBuffer uniffi_seam_ffi_fn_method_lanchannel_receive(uint64_t ptr, RustBuffer bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_SEND
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_SEND
+RustBuffer uniffi_seam_ffi_fn_method_lanchannel_send(uint64_t ptr, RustBuffer frame, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_START
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_START
+RustBuffer uniffi_seam_ffi_fn_method_lanchannel_start(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_SEAMDEVICE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_SEAMDEVICE
 uint64_t uniffi_seam_ffi_fn_clone_seamdevice(uint64_t handle, RustCallStatus *_Nonnull out_status
@@ -717,6 +757,30 @@ uint16_t uniffi_seam_ffi_checksum_method_filesealer_seal_next(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_PEER_ID
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_PEER_ID
+uint16_t uniffi_seam_ffi_checksum_method_lanchannel_peer_id(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_RECEIVE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_RECEIVE
+uint16_t uniffi_seam_ffi_checksum_method_lanchannel_receive(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_SEND
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_SEND
+uint16_t uniffi_seam_ffi_checksum_method_lanchannel_send(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_START
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_START
+uint16_t uniffi_seam_ffi_checksum_method_lanchannel_start(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ACCEPT_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ACCEPT_PAIRING
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing(void
@@ -840,6 +904,18 @@ uint16_t uniffi_seam_ffi_checksum_constructor_filereceiver_new(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_FILESEALER_NEW
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_FILESEALER_NEW
 uint16_t uniffi_seam_ffi_checksum_constructor_filesealer_new(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_INITIATOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_INITIATOR
+uint16_t uniffi_seam_ffi_checksum_constructor_lanchannel_initiator(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_RESPONDER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_RESPONDER
+uint16_t uniffi_seam_ffi_checksum_constructor_lanchannel_responder(void
     
 );
 #endif

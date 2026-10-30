@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamSession
 import SwiftUI
 
 /// Seam's own colours (docs/design/design-system.md). Controls follow the system; teal is for the
@@ -60,21 +61,25 @@ enum SeamMark {
     }
 }
 
-/// The stitch under the phone's name: dashed teal through the relay, broken grey when offline.
-/// The text beside it always says the same thing (it's never the only signal).
+/// The stitch under the phone's name, drawn from a `LinkLook.Line` (design-system.md, "The stitch"):
+/// solid teal on the same Wi‑Fi, dashed teal through a relay, dotted grey when only nearby, broken
+/// grey when offline. The text beside it always says the same thing (it's never the only signal).
 struct Stitch: View {
-    let connected: Bool
+    let line: LinkLook.Line
 
     var body: some View {
-        // Board M01: a 3 pt bar, dashes of 10 with gaps of 7 (relay); broken and grey when offline
+        // Board M01: a 3 pt bar; relay dashes of 10 with gaps of 7
         Canvas { ctx, size in
             var path = Path()
             path.move(to: CGPoint(x: 0, y: size.height / 2))
             path.addLine(to: CGPoint(x: size.width, y: size.height / 2))
-            let style = connected
-                ? StrokeStyle(lineWidth: 3, lineCap: .butt, dash: [10, 7])
-                : StrokeStyle(lineWidth: 3, lineCap: .butt, dash: [10, 7, 2, 18])
-            ctx.stroke(path, with: .color(connected ? SeamStyle.teal : .secondary.opacity(0.4)), style: style)
+            let (dash, color): ([CGFloat], Color) = switch line {
+            case .solid: ([], SeamStyle.teal)
+            case .dashed: ([10, 7], SeamStyle.teal)
+            case .dotted: ([2, 6], .secondary.opacity(0.4))
+            case .broken: ([10, 7, 2, 18], .secondary.opacity(0.4))
+            }
+            ctx.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: 3, lineCap: .butt, dash: dash))
         }
         .frame(height: 3)
         .accessibilityHidden(true)

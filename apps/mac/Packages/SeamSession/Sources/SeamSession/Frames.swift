@@ -17,7 +17,8 @@ public enum Frames {
     }
 
     /// `createGroup` lets the first device create its group; the relay ignores it for existing members.
-    public static func login(device: SeamDevice, nonce: Data, groupID: Data, joinToken: Data? = nil, createGroup: Bool = false) -> Seam_V1_ClientFrame {
+    /// `ownerKey`: a private relay's, sent only with `createGroup` (it's needed only to create).
+    public static func login(device: SeamDevice, nonce: Data, groupID: Data, joinToken: Data? = nil, createGroup: Bool = false, ownerKey: Data? = nil) -> Seam_V1_ClientFrame {
         .with {
             $0.login = .with {
                 $0.groupID = groupID
@@ -25,6 +26,7 @@ public enum Frames {
                 $0.signature = device.signRelayLogin(nonce: nonce, groupId: groupID)
                 if let joinToken { $0.joinToken = joinToken }
                 $0.createGroup = createGroup
+                if createGroup, let ownerKey { $0.ownerKey = ownerKey }
             }
         }
     }

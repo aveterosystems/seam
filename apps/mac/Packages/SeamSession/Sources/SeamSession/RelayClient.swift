@@ -35,6 +35,7 @@ public actor RelayClient {
     private let device: SeamDevice
     private let groupID: Data
     private let relayURL: URL
+    private let ownerKey: Data?
     private let connect: @Sendable (URL) -> any RelaySocket
     private let loginTimeout: Duration
     private weak var handler: (any RelayHandler)?
@@ -45,13 +46,14 @@ public actor RelayClient {
     public private(set) var isLoggedIn = false
 
     public init(
-        device: SeamDevice, groupID: Data, relayURL: URL, handler: any RelayHandler,
+        device: SeamDevice, groupID: Data, relayURL: URL, ownerKey: Data? = nil, handler: any RelayHandler,
         loginTimeout: Duration = RelayClient.loginTimeout,
         connect: @escaping @Sendable (URL) -> any RelaySocket = { URLSessionSocket(url: $0) }
     ) {
         self.device = device
         self.groupID = groupID
         self.relayURL = relayURL
+        self.ownerKey = ownerKey
         self.handler = handler
         self.loginTimeout = loginTimeout
         self.connect = connect
@@ -91,7 +93,7 @@ public actor RelayClient {
         }
         guard c.nonce.count == 32 else { throw RelayClientError.badChallenge }
         // createGroup: the Mac is always the group's first device; the relay ignores it afterwards
-        try await ws.send(try Frames.login(device: device, nonce: c.nonce, groupID: groupID, createGroup: true).serializedData())
+        try await ws.send(try Frames.login(device: device, nonce: c.nonce, groupID: groupID, createGroup: true, ownerKey: ownerKey).serializedData())
 
         switch try await frame(from: ws, within: loginTimeout).frame {
         case .loginResult(let r) where r.ok:
@@ -119,7 +121,7 @@ public actor RelayClient {
                 await handler?.relayBundle(deviceKey: b.deviceKey, bundle: b.bundle)
             case .error(let e):
                 await handler?.relayError(e.code)
-            case .challenge, .loginResult, nil:
+            case .challenge, .loginResult, .delivered, nil: // delivered is only ever sent on the direct link
                 throw RelayClientError.unexpectedFrame
             }
         }
@@ -197,7 +199,10 @@ public final class URLSessionSocket: RelaySocket, @unchecked Sendable {
         await withTaskGroup(of: Bool.self) { group in
             group.addTask {
                 await withCheckedContinuation { done in
-                    task.sendPing { error in done.resume(returning: error == nil) }
+                    // URLSession can call this more than once (again when the task is cancelled, e.g. on
+                    // a network change); resuming twice is fatal, so only the first call counts
+                    let once = Once()
+                    task.sendPing { error in once.run { done.resume(returning: error == nil) } }
                 }
             }
             group.addTask {

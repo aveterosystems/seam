@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/control.proto.
  */
 export const file_seam_v1_control: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5InQKBUhlbGxvEhMKC2FwcF92ZXJzaW9uGAEgASgJEhAKCHBsYXRmb3JtGAIgASgJEhQKDGNhcGFiaWxpdGllcxgDIAMoCRIuChJhbGxvd2VkX3RyYW5zcG9ydHMYBCADKA4yEi5zZWFtLnYxLlRyYW5zcG9ydCIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiWwoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCRIRCglyZWxheV9rZXkYBCABKAwiDAoKUGFpckFjY2VwdCpOCglUcmFuc3BvcnQSGQoVVFJBTlNQT1JUX1VOU1BFQ0lGSUVEEAASEQoNVFJBTlNQT1JUX0xBThABEhMKD1RSQU5TUE9SVF9SRUxBWRACQiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z");
+  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5IoEBCgVIZWxsbxITCgthcHBfdmVyc2lvbhgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxjYXBhYmlsaXRpZXMYAyADKAkSLgoSYWxsb3dlZF90cmFuc3BvcnRzGAQgAygOMhIuc2VhbS52MS5UcmFuc3BvcnQSCwoDc2VxGAUgASgEIhUKA0FjaxIOCgZtc2dfaWQYASABKAwiFwoEUGluZxIPCgdzZW50X2F0GAEgASgDIggKBlVucGFpciJbCgtQYWlyUmVxdWVzdBIVCg1wYWlyaW5nX3Rva2VuGAEgASgMEhMKC2RldmljZV9uYW1lGAIgASgJEg0KBW1vZGVsGAMgASgJEhEKCXJlbGF5X2tleRgEIAEoDCIMCgpQYWlyQWNjZXB0KmcKCVRyYW5zcG9ydBIZChVUUkFOU1BPUlRfVU5TUEVDSUZJRUQQABIRCg1UUkFOU1BPUlRfTEFOEAESEwoPVFJBTlNQT1JUX1JFTEFZEAISFwoTVFJBTlNQT1JUX0JMVUVUT09USBADQiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z");
 
 /**
  * @generated from message seam.v1.Control
@@ -96,12 +96,22 @@ export type Hello = Message<"seam.v1.Hello"> & {
   capabilities: string[];
 
   /**
-   * The user's connection policy on this device. The peer never sends over a transport missing
-   * here (the stricter device wins; see docs/decisions/0004-user-chosen-transport.md).
+   * The connection switches on this device. The peer never sends over a transport missing
+   * here (only paths allowed at both ends are used; decision 0006). Sent whenever a path to the
+   * peer comes up and whenever the switches change.
    *
    * @generated from field: repeated seam.v1.Transport allowed_transports = 4;
    */
   allowedTransports: Transport[];
+
+  /**
+   * Counts up by one with every Hello this device sends to this peer (persisted; restarts at 1
+   * with a new pairing). The receiver applies a Hello only if seq is higher than the last one it
+   * applied, so a delayed or replayed old Hello can't switch a path back on. Never clock-based.
+   *
+   * @generated from field: uint64 seq = 5;
+   */
+  seq: bigint;
 };
 
 /**
@@ -237,6 +247,13 @@ export enum Transport {
    * @generated from enum value: TRANSPORT_RELAY = 2;
    */
   RELAY = 2,
+
+  /**
+   * direct Bluetooth LE (decision 0006; not built yet)
+   *
+   * @generated from enum value: TRANSPORT_BLUETOOTH = 3;
+   */
+  BLUETOOTH = 3,
 }
 
 /**

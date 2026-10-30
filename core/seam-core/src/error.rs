@@ -37,4 +37,6 @@ pub enum Error {
     BadPairing(&'static str),
     #[error("saved state can't be opened (wrong key or damaged)")]
     BadState,
+    #[error("the other end proved a key that isn't the paired one")]
+    WrongPeer,
 }

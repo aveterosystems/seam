@@ -7,6 +7,7 @@
 //! - [`pairing`]: both sides of QR pairing and the 6-digit safety code.
 //! - [`state`]: saving and restoring a device, sealed under the app's storage key.
 //! - [`relay`]: the Ed25519 key a device logs in to the relay with.
+//! - [`lan`]: the encrypted, mutually authenticated direct link (same Wi-Fi).
 //! - [`padding`], [`bundle`], [`file`]: size buckets, prekey bundle bytes, file chunks.
 
 pub mod bundle;
@@ -14,6 +15,7 @@ mod device;
 pub mod envelope;
 mod error;
 pub mod file;
+pub mod lan;
 pub mod padding;
 pub mod pairing;
 pub mod proto;
