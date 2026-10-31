@@ -120,7 +120,7 @@ struct SettingsView: View {
     @ViewBuilder private var general: some View {
         SettingsGroup {
             SettingsRow("Seam lives in the menu bar", "Click the stitched icon for your phone, its battery and the clipboard") { EmptyView() }
-            SettingsRow("Quit Seam", "Copies already sent wait on the relay for up to 10 minutes; a copy not yet sent is lost") {
+            SettingsRow("Quit Seam", "Copies not yet delivered wait on this Mac for up to 10 minutes, and go once Seam is open again") {
                 Button("Quit") { NSApplication.shared.terminate(nil) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
             }
         }
@@ -157,7 +157,7 @@ struct SettingsView: View {
         }
     }
 
-    /// Which paths may reach the phone (decision 0006), and which relay (decision 0007).
+    /// Which paths may reach the phone (decision 0006).
     @ViewBuilder private var connection: some View {
         if controller.phone != nil {
             SettingsGroup {
@@ -170,36 +170,18 @@ struct SettingsView: View {
             SettingsGroup {
                 SettingsRow("Same Wi‑Fi", "Straight to your phone when it's on the same network. Nothing leaves your network.") {
                     Toggle("", isOn: Binding(get: { controller.wifiOn }, set: { controller.setWifi($0) }))
-                        .labelsHidden().disabled(controller.wifiOn && !controller.relayOn)
+                        .labelsHidden().disabled(controller.wifiOn && !controller.torOn)
                 }
-                SettingsRow("Relay", "Reaches your phone anywhere, through a relay that only ever sees sealed messages") {
-                    Toggle("", isOn: Binding(get: { controller.relayOn }, set: { controller.setRelay($0) }))
-                        .labelsHidden().disabled(controller.relayOn && !controller.wifiOn)
+                SettingsRow("Internet (Tor)", "Reaches your phone anywhere through Tor, which hides where you are. Only sealed messages travel") {
+                    Toggle("", isOn: Binding(get: { controller.torOn }, set: { controller.setTor($0) }))
+                        .labelsHidden().disabled(controller.torOn && !controller.wifiOn)
                 }
             }
             Text("One always stays on. Seam only uses a connection that's on here and on your phone, and the encryption is the same on every one.")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
         }
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Relay").font(.headline)
-            SettingsGroup {
-                SettingsRow(controller.usesOwnRelay ? "Your own relay" : "Seam's relay", "Carries sealed messages only. It can't read them.") {
-                    Text(controller.relayHost).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
-                }
-                SettingsRow("Use my own relay", "Paste the relay link from your own Seam relay. Your phone pairs again afterwards.") {
-                    Button("Change…") { RelayPrompt.run(controller) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
-                }
-                if controller.usesOwnRelay {
-                    SettingsRow("Go back to Seam's relay", "Your phone pairs again afterwards") {
-                        Button("Use Seam's Relay…") { RelayPrompt.reset(controller) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
-                    }
-                }
-            }
-        }
     }
 
-    /// Board M03's Notifications pane. The phone owns these settings and filters before sending;
-    /// this edits them on the phone, so they work only while the phone has sent them.
     @ViewBuilder private var notifications: some View {
         if controller.phone == nil {
             SettingsGroup { SettingsRow("No phone is paired with this Mac", "Pair your phone to see its notifications here") { EmptyView() } }
@@ -330,8 +312,8 @@ struct SettingsView: View {
             SettingsRow("End-to-end encrypted", "Signal Protocol with post-quantum keys. Only your Mac and phone can read what passes between them.") {
                 Image(systemName: "checkmark.shield.fill").foregroundStyle(SeamStyle.teal)
             }
-            SettingsRow("Relay", "Carries sealed messages only. It can't read them.") {
-                Text(controller.relayHost).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+            SettingsRow("Away from home, through Tor", "End-to-end on every path: neither Tor nor your network can read anything. Tor also hides where you are") {
+                EmptyView()
             }
             if let code = controller.phoneCode() {
                 SettingsRow("Verification code", "Matches the code on your phone if nobody came between them") {
@@ -354,6 +336,10 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             SettingsRow("Source code", nil) { Link("github.com/aveterosystems/seam", destination: URL(string: "https://github.com/aveterosystems/seam")!) }
+            // The Tor Project's trademark guidelines ask for this (docs/tor/09-sources.md)
+            SettingsRow("Tor", "Seam uses Tor through Arti. It is produced independently from the Tor® anonymity software and carries no guarantee from The Tor Project about quality, suitability or anything else. It isn't endorsed by The Tor Project.") {
+                Link("torproject.org", destination: URL(string: "https://www.torproject.org")!)
+            }
         }
         SettingsGroup {
             // Development builds show and save these too, so they can be tried; only checking is off

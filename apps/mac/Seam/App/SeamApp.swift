@@ -81,45 +81,6 @@ enum UnpairPrompt {
     }
 }
 
-/// Settings › Connection › Relay: a relay link to use instead of Seam's relay (decision 0007).
-@MainActor
-enum RelayPrompt {
-    static func run(_ controller: SeamController) {
-        let alert = NSAlert()
-        alert.messageText = "Use your own relay"
-        alert.informativeText = "Paste the relay link from your Seam relay (it starts seam-relay://). It contains your relay's key, so keep it private. "
-            + (controller.phone.map { "\($0.name.isEmpty ? "Your phone" : $0.name) is unpaired, and pairs again through the new relay." } ?? "")
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 340, height: 24))
-        field.placeholderString = "seam-relay://relay.example.com#…"
-        alert.accessoryView = field
-        alert.addButton(withTitle: "Cancel")
-        alert.addButton(withTitle: "Use This Relay")
-        if controller.phone != nil { alert.buttons[1].hasDestructiveAction = true }
-        alert.window.initialFirstResponder = field
-        NSApp.activate()
-        guard alert.runModal() == .alertSecondButtonReturn else { return }
-        guard let link = RelayLink.parse(field.stringValue, allowInsecure: Store.allowInsecureRelay) else {
-            let error = NSAlert()
-            error.messageText = "That isn't a relay link"
-            error.informativeText = "It should look like seam-relay://relay.example.com#key, from your relay's setup. Nothing was changed."
-            error.runModal()
-            return
-        }
-        controller.useRelay(link)
-    }
-
-    static func reset(_ controller: SeamController) {
-        let alert = NSAlert()
-        alert.messageText = "Go back to Seam's relay?"
-        alert.informativeText = controller.phone == nil ? "New pairings go through Seam's relay." : "Your phone is unpaired, and pairs again through Seam's relay."
-        alert.addButton(withTitle: "Cancel")
-        alert.addButton(withTitle: "Use Seam's Relay")
-        NSApp.activate()
-        guard alert.runModal() == .alertSecondButtonReturn else { return }
-        controller.useRelay(nil)
-    }
-}
-
 /// ⌘, opens Seam's Settings window.
 private struct SettingsCommand: View {
     @Environment(\.openWindow) private var openWindow

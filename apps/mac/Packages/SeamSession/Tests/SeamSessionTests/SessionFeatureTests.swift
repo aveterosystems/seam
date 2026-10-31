@@ -13,13 +13,13 @@ struct SessionFeatureTests {
     private func clip(_ text: String) -> Seam_V1_Payload { .with { $0.clipboard = .with { $0.text = text } } }
 
     private var clips: (Rig) throws -> [String] {
-        { rig in try rig.onRelay().compactMap { if case .clipboard(let c)? = $0.body { c.text } else { nil } } }
+        { rig in try rig.onTor().compactMap { if case .clipboard(let c)? = $0.body { c.text } else { nil } } }
     }
 
     @Test func aClipFromThePhoneIsPastedHereAndNotSentBack() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
-        #expect(await rig.session.relayReceived(try rig.fromPhone(clip("from the phone"))))
+        await rig.torUp()
+        #expect(await rig.session.received(try rig.fromPhone(clip("from the phone"))))
         #expect(rig.pasteboard.text == "from the phone")
         #expect(await rig.session.state.recentFromPhone.map(\.text) == ["from the phone"])
         await rig.timers.advance(1)
@@ -28,7 +28,7 @@ struct SessionFeatureTests {
 
     @Test func aCopyHereGoesToThePhoneOnlyWithSyncOn() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
+        await rig.torUp()
         rig.pasteboard.copy("one")
         await rig.timers.advance(1)
         #expect(try clips(rig) == ["one"])
@@ -42,7 +42,7 @@ struct SessionFeatureTests {
 
     @Test func sr_29_05_turningSyncOffMidReadStopsThatCopy() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
+        await rig.torUp()
         let session = rig.session
         rig.pasteboard.whileReading = { await session.setClipboardSync(false) }
         rig.pasteboard.copy("private")
@@ -52,7 +52,7 @@ struct SessionFeatureTests {
 
     @Test func aPasswordManagersCopyIsNeverSent() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
+        await rig.torUp()
         rig.pasteboard.copy("hunter2", types: ["public.utf8-plain-text", "org.nspasteboard.ConcealedType"])
         await rig.timers.advance(1)
         #expect(try clips(rig).isEmpty)
@@ -64,13 +64,13 @@ struct SessionFeatureTests {
         await rig.timers.advance(1)
         rig.pasteboard.copy("latest")
         await rig.timers.advance(1)
-        await rig.relayUp()
+        await rig.torUp()
         #expect(try clips(rig) == ["latest"])
     }
 
     @Test func copyingAPhoneClipAgainDoesntSendItBack() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
+        await rig.torUp()
         await rig.session.copyAgain("again")
         await rig.timers.advance(1)
         #expect(rig.pasteboard.text == "again")
@@ -83,36 +83,36 @@ struct SessionFeatureTests {
         let settings = Seam_V1_NotificationSettings.with {
             $0.apps = [.with { $0.appID = "chat"; $0.iconPng = png }]
         }
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notificationSettings = settings }))
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notification = .with { $0.key = "k"; $0.appID = "chat" } }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationSettings = settings }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notification = .with { $0.key = "k"; $0.appID = "chat" } }))
         #expect(rig.centre.shown.map(\.notification.key) == ["k"])
         #expect(rig.centre.shown.first?.icon == png)
         #expect(await rig.session.state.appIcons["chat"] == png)
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notificationAction = .with { $0.key = "k"; $0.dismissed = true } }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationAction = .with { $0.key = "k"; $0.dismissed = true } }))
         #expect(rig.centre.dismissed == ["k"], "dismissed on the phone, dismissed here")
     }
 
     @Test func iconsAreAskedForFortyAtATimeAndOnlyOnce() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
+        await rig.torUp()
         let settings = Seam_V1_NotificationSettings.with { s in s.apps = (0..<45).map { i in .with { $0.appID = "app\(i)" } } }
         let asked = { () throws -> [[String]] in
-            try rig.onRelay().compactMap { if case .notificationSettingsChange(let c)? = $0.body { c.needIcons } else { nil } }
+            try rig.onTor().compactMap { if case .notificationSettingsChange(let c)? = $0.body { c.needIcons } else { nil } }
         }
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notificationSettings = settings }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationSettings = settings }))
         #expect(try asked().map(\.count) == [40])
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notificationSettings = settings }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationSettings = settings }))
         #expect(try asked().map(\.count) == [40, 5])
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notificationSettings = settings }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationSettings = settings }))
         #expect(try asked().map(\.count) == [40, 5], "not asked again")
     }
 
     @Test func dismissingHereDismissesOnThePhoneOnlyWithDismissBothOn() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
+        await rig.torUp()
         let dismissed = Seam_V1_NotificationAction.with { $0.key = "k"; $0.dismissed = true }
-        let actions = { () throws -> Int in try rig.onRelay().filter { if case .notificationAction? = $0.body { true } else { false } }.count }
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notificationSettings = .with { $0.dismissBoth = false } }))
+        let actions = { () throws -> Int in try rig.onTor().filter { if case .notificationAction? = $0.body { true } else { false } }.count }
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationSettings = .with { $0.dismissBoth = false } }))
         await rig.session.notificationAction(dismissed)
         #expect(try actions() == 0)
         await rig.session.changeNotificationSettings(.with { $0.dismissBoth = true })
@@ -123,55 +123,57 @@ struct SessionFeatureTests {
 
     @Test func theBatteryNeverShowsMoreThanAHundred() async throws {
         let rig = try await Rig()
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 250 } }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 250 } }))
         #expect(await rig.session.state.status?.batteryPct == 100)
     }
 
     @Test func whenThePhoneUnpairsEveryFeaturesDataGoes() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 50 } }))
-        _ = await rig.session.relayReceived(try rig.fromPhone(clip("a clip")))
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notificationSettings = .with { $0.enabled = true } }))
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.notification = .with { $0.key = "k" } }))
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.control = .with { $0.unpair = .init() } }))
+        await rig.torUp()
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 50 } }))
+        _ = await rig.session.received(try rig.fromPhone(clip("a clip")))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationSettings = .with { $0.enabled = true } }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notification = .with { $0.key = "k" } }))
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.control = .with { $0.unpair = .init() } }))
         let state = await rig.session.state
         #expect(state.phone == nil)
         #expect(state.status == nil && state.recentFromPhone.isEmpty && state.notificationSettings == nil)
         #expect(rig.centre.shown.isEmpty)
         #expect(rig.mac.peers().isEmpty)
-        #expect(rig.relay.frames.last?.removeMember.deviceKey == rig.phone.relayKey(), "and it's out of the relay group")
+        #expect(state.torServices.isEmpty && rig.mac.appData() == nil, "its onion service goes too")
+        #expect(rig.tor.closed == [rig.phoneID])
     }
 
     @Test func sr_7_04_anUnpairThatCantBeSavedSendsNoGoodbye() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
+        await rig.torUp()
         await rig.lanUp()
-        let (relayBefore, lanBefore) = (rig.relay.frames.count, rig.lan.frames.count)
+        let (torBefore, lanBefore) = (rig.tor.frames.count, rig.lan.frames.count)
         rig.saved.failing = true
         #expect(await rig.session.unpairPhone() == false)
-        #expect(rig.relay.frames.count == relayBefore, "nothing on the relay, not even the removal")
+        #expect(rig.tor.frames.count == torBefore)
         #expect(rig.lan.frames.count == lanBefore)
     }
 
     @Test func sr_29_06_unpairingWithNoPhoneHasNothingToForget() async throws {
         let rig = try await Rig(paired: false)
-        await rig.relayUp()
-        #expect(await rig.session.unpairPhone(), "a relay move goes ahead")
-        #expect(rig.relay.frames.allSatisfy { $0.send.ciphertext.isEmpty }, "and nothing is sent")
+        await rig.torUp()
+        #expect(await rig.session.unpairPhone())
+        #expect(rig.tor.frames.isEmpty, "and nothing is sent")
     }
 
     @Test func unpairingTellsThePhoneOnceOnThePathThatsUp() async throws {
         let rig = try await Rig()
-        await rig.relayUp()
-        _ = await rig.session.relayReceived(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 50 } }))
-        let before = rig.relay.frames.count
+        await rig.torUp()
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 50 } }))
+        let before = rig.tor.frames.count
         #expect(await rig.session.unpairPhone())
-        let after = Array(rig.relay.frames.dropFirst(before))
-        #expect(after.count == 2)
-        let goodbye = try Seam_V1_Payload(serializedBytes: try rig.phone.open(envelope: after[0].send.serializedData()).payload)
+        let after = Array(rig.tor.frames.dropFirst(before))
+        #expect(after.count == 1)
+        let goodbye = try Seam_V1_Payload(serializedBytes: try rig.phone.open(envelope: after[0].deliver.serializedData()).payload)
         #expect(goodbye.control.unpair == .init())
-        #expect(after[1].removeMember.deviceKey == rig.phone.relayKey())
+        #expect(rig.tor.closed == [rig.phoneID], "then the link closes")
+        #expect(await rig.session.state.torServices.isEmpty, "and the service goes")
         #expect(rig.lan.frames.isEmpty)
         #expect(await rig.session.state.status == nil && rig.mac.peers().isEmpty)
     }

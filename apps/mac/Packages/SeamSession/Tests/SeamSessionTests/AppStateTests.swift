@@ -5,26 +5,6 @@ import Testing
 
 @testable import SeamSession
 
-struct RelayPolicyTests {
-    @Test func releaseOnlyTalksTLS() {
-        #expect(RelayPolicy.acceptable("wss://relay.example.com", allowInsecure: false) != nil)
-        #expect(RelayPolicy.acceptable("ws://localhost:8787", allowInsecure: false) == nil)
-        #expect(RelayPolicy.resolve(["ws://localhost:8787"], allowInsecure: false) == RelayPolicy.productionURL)
-    }
-
-    @Test func debugAllowsALocalRelay() {
-        #expect(RelayPolicy.resolve([nil], allowInsecure: true) == RelayPolicy.developmentURL)
-        #expect(RelayPolicy.resolve(["ws://192.168.1.4:8787"], allowInsecure: true).host == "192.168.1.4")
-    }
-
-    @Test func oddValuesFallBackInsteadOfCrashing() {
-        for bad in ["", "not a url", "https://relay.example.com", "wss://", "wss://u:p@r.example", "wss://r.example?x=1", "wss://r.example#f", String(repeating: "a", count: 5000)] {
-            #expect(RelayPolicy.acceptable(bad, allowInsecure: true) == nil, "\(bad.prefix(40))")
-        }
-        #expect(RelayPolicy.resolve(["garbage", "wss://good.example"], allowInsecure: false).host == "good.example")
-    }
-}
-
 struct PairingFlowTests {
     private let start = Date(timeIntervalSince1970: 1_000_000)
     private let request = PairingRequest(peerId: "p", deviceName: "Pixel", model: "Pixel 10", safetyCode: "12345")
@@ -77,15 +57,3 @@ struct PairingFlowTests {
     }
 }
 
-struct NewGroupRelayTests {
-    /// SR-2-60: anything in UserDefaults can't move a Release build's group to another relay.
-    @Test func releaseIgnoresTheOverride() {
-        #expect(RelayPolicy.forNewGroup(override: "wss://other.example", allowInsecure: false) == RelayPolicy.productionURL)
-        #expect(RelayPolicy.forNewGroup(override: nil, allowInsecure: false) == RelayPolicy.productionURL)
-    }
-
-    @Test func debugTakesIt() {
-        #expect(RelayPolicy.forNewGroup(override: "ws://192.168.1.4:8787", allowInsecure: true).host == "192.168.1.4")
-        #expect(RelayPolicy.forNewGroup(override: "garbage", allowInsecure: true) == RelayPolicy.developmentURL)
-    }
-}

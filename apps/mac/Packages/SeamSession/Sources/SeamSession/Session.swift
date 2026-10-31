@@ -7,8 +7,8 @@ import SeamProtocol
 /// Everything between this Mac and its phone, the Mac counterpart of Android's Session: delivery
 /// (sealed, saved, then sent on a path the core's connection rules allow; resent if a path drops
 /// before the phone acknowledged it), what arrives (to the features), forgetting the phone, and
-/// pairing. Same Wi‑Fi and the relay reach it through `LanSender` and `RelaySender`; the app
-/// starts and stops those, and shows `state`.
+/// pairing. Same Wi‑Fi and Tor each reach it through a `LanSender` (the same channel over either
+/// carrier); `Paths` starts and stops those, and the app shows `state`.
 public actor Session {
     /// What the app shows.
     public struct State: Sendable {
@@ -17,7 +17,6 @@ public actor Session {
         public var route: PeerPath?
         /// Paths switched on at both ends.
         public var allowed: [PeerPath]
-        public var relayUp: Bool
         /// Messages not yet delivered.
         public var waiting: Int
         public var status: Seam_V1_Status?
@@ -29,12 +28,14 @@ public actor Session {
         public var warning: String?
         /// Paused on the phone until then (`.distantFuture`: until it resumes); nil: not paused.
         public var pausedUntil: Date?
+        /// The onion services this Mac should host now: the paired phone's, and a pairing's new one.
+        public var torServices: [TorServiceSpec]
+        /// A phone is paired or pairing, so the links should be open.
+        public var wantsLinks: Bool
     }
 
     static let settingsTTL: UInt32 = 600
-    static let phoneLeft = "Your phone may have unpaired from this Mac. Unpair here and pair again."
-    static let loginRefused = "The relay didn't accept this Mac's login. Seam keeps retrying."
-    static let saveFailedWarning = "Seam couldn't save to disk. Check there's free space; messages wait on the relay until it can."
+    static let saveFailedWarning = "Seam couldn't save to disk. Check there's free space; messages wait until it can."
 
     let device: SeamDevice
     let storage: SessionStorage
@@ -44,23 +45,21 @@ public actor Session {
     let log = Logger(subsystem: "com.avetero.seam", category: "session")
 
     var wifi: Bool
-    var relayOn: Bool
-    var lan: (any LanSender)?
-    var relay: (any RelaySender)?
-    var lanUp = false
-    var relayUp = false
+    var torOn: Bool
+    /// The running carriers: Same Wi‑Fi's listener and the Tor service's streams.
+    var links: [PeerPath: any LanSender] = [:]
+    /// Paths with the phone authenticated on them now.
+    var up: Set<PeerPath> = []
 
     /// The switches as the core's path list: the one place they're translated (the core picks the order).
-    var enabledPaths: [PeerPath] { (wifi ? [.lan] : []) + (relayOn ? [.relay] : []) }
+    var enabledPaths: [PeerPath] { (wifi ? [.lan] : []) + (torOn ? [.tor] : []) }
     /// The links connected now, as the core's path list.
-    var upPaths: [PeerPath] { (lanUp ? [.lan] : []) + (relayUp ? [.relay] : []) }
+    var upPaths: [PeerPath] { [PeerPath.lan, .tor].filter { up.contains($0) } }
     var phone: PeerInfo?
     var warning: String?
-    /// Sealed envelopes not yet delivered (waiting for a path, or sent directly and not yet acked),
-    /// saved before any is handed to a path.
+    /// Sealed envelopes not yet delivered (waiting for a path, or sent and not yet acked), saved
+    /// before any is handed to a path.
     var outbox = Outbox()
-    /// Handed to the relay and not yet answered, so a flush meanwhile doesn't send them twice.
-    var inFlight: Set<Data> = []
     /// Hellos in the outbox: the only envelopes allowed the Hello route. Memory only: after a
     /// restart a waiting Hello takes the normal route, and a fresh one goes when a path comes up.
     var hellos: Set<Data> = []
@@ -80,8 +79,13 @@ public actor Session {
     var paused: Bool { pausedUntil.map { $0 > timers.now() } ?? false }
 
     var flow = PairingFlow()
-    var openTokenHash: Data?
     var expiry: TimerToken?
+    /// The new onion service a pairing shows in its code, until confirmed or abandoned.
+    var pairingService: TorServiceSpec?
+    /// The link the pairing phone is on (the first to authenticate wins).
+    var pairingPath: PeerPath?
+    /// The PairAccept on its way, until the phone acks it, with the app data from before it.
+    var pendingAccept: PendingAccept?
 
     /// Every change to `state`, newest only.
     public nonisolated let updates: AsyncStream<State>
@@ -89,14 +93,14 @@ public actor Session {
 
     public init(
         device: SeamDevice, storage: SessionStorage, pasteboard: any Pasteboard, notifications: any NotificationCentre,
-        wifi: Bool, relay: Bool, clipboardSync: Bool, appVersion: String, timers: any Timers = SystemTimers()
+        wifi: Bool, tor: Bool, clipboardSync: Bool, appVersion: String, timers: any Timers = SystemTimers()
     ) {
         self.device = device
         self.storage = storage
         self.timers = timers
         self.appVersion = appVersion
         self.wifi = wifi
-        relayOn = relay
+        torOn = tor
         clipboard = ClipboardFeature(pasteboard: pasteboard, syncOn: clipboardSync)
         self.notifications = NotificationsFeature(centre: notifications)
         phone = device.peers().first { $0.confirmed }
@@ -107,11 +111,22 @@ public actor Session {
     public var state: State {
         State(
             phone: phone, route: device.route(enabled: enabledPaths, up: upPaths, hello: false),
-            allowed: device.allowedPaths(enabled: enabledPaths), relayUp: relayUp,
+            allowed: device.allowedPaths(enabled: enabledPaths),
             waiting: outbox.waiting.count + outbox.sent.count, status: status.status, recentFromPhone: clipboard.recent,
             notificationSettings: notifications.settings, appIcons: notifications.icons, pairing: flow.state, warning: warning,
-            pausedUntil: paused ? pausedUntil : nil
+            pausedUntil: paused ? pausedUntil : nil, torServices: torServices, wantsLinks: phone != nil || pairingOpen
         )
+    }
+
+    /// The paired phone's service (from app data), then a pairing's: only while Tor is on.
+    var torServices: [TorServiceSpec] {
+        guard torOn else { return [] }
+        var out: [TorServiceSpec] = []
+        if phone != nil, let data = device.appData(), data.peerDiscovery.count == 32 {
+            out.append(TorServiceSpec(secret: data.torSecret, clients: [data.peerDiscovery]))
+        }
+        if let pairingService, !out.contains(pairingService) { out.append(pairingService) }
+        return out
     }
 
     /// Loads what waited from before a restart and starts watching the pasteboard.
@@ -140,87 +155,62 @@ public actor Session {
 
     /// The connection switches changed (at least one stays on): the phone is told, and what
     /// waited goes if it now can.
-    public func setSwitches(wifi: Bool, relay: Bool) async {
+    public func setSwitches(wifi: Bool, tor: Bool) async {
         self.wifi = wifi
-        relayOn = relay
-        if !relay { await cancelPairing() } // pairing goes through the relay for now
+        torOn = tor
         await sendHello()
         await flush()
         publish()
     }
 
-    /// The Same Wi‑Fi server started (or nil: stopped).
-    public func setLan(_ lan: (any LanSender)?) async {
-        self.lan = lan
-        if lan == nil { await lanClosed() }
+    /// A carrier started (or nil: stopped).
+    public func setLink(_ link: (any LanSender)?, for path: PeerPath) async {
+        links[path] = link
+        if link == nil {
+            if pairingPath == path { pairingPath = nil }
+            await pathClosed(path)
+        }
         publish()
     }
 
-    public func lanEvent(_ event: LanEvent) async {
+    public func linkEvent(_ event: LanEvent, on path: PeerPath) async {
+        defer { publish() }
         switch event {
+        case .authenticated(let peerId) where peerId == LanServer.pairingPeer:
+            pairingLinked(on: path)
         case .authenticated(let peerId):
-            guard peerId == phone?.id else { return lan?.close(peerId: peerId) ?? () } // a peer that's no longer the phone
-            lanUp = true
+            guard peerId == phone?.id else { return links[path]?.close(peerId: peerId) ?? () } // no longer the phone
+            up.insert(path)
             // A new link can replace the old one without a close event: what the old one never
-            // got acked goes again on this one
+            // got acked goes again
             if !outbox.sent.isEmpty {
                 outbox.requeueSent()
                 saveOutbox()
             }
             await pathCameUp()
+        case .closed(let peerId) where peerId == LanServer.pairingPeer:
+            await pairingUnlinked(on: path)
         case .closed(let peerId):
-            if peerId == phone?.id { await lanClosed() }
+            if peerId == phone?.id { await pathClosed(path) }
+        case .envelope(let peerId, let envelope) where peerId == LanServer.pairingPeer:
+            pairingEnvelope(envelope, on: path)
         case .envelope(let peerId, let envelope):
             guard peerId == phone?.id else { return }
             // Acked on the same link once handled and saved (duplicates too); after a failed save
             // it isn't, so the phone sends it again after this Mac restarts
             if await received(envelope) {
-                _ = lan?.send(.with { $0.delivered = .with { $0.msgID = envelope.msgID } }, to: peerId)
+                _ = links[path]?.send(.with { $0.delivered = .with { $0.msgID = envelope.msgID } }, to: peerId)
             }
+        case .delivered(let peerId, let msgID) where peerId == LanServer.pairingPeer:
+            await pairingAcked(msgID, on: path)
         case .delivered(let peerId, let msgID):
             guard peerId == phone?.id else { return }
             outbox.remove(msgID)
             hellos.remove(msgID)
             saveOutbox()
+        case .bundleRequest(let peerId):
+            if peerId == LanServer.pairingPeer { sendBundle(on: path) }
         }
-        publish()
-    }
-
-    /// A new relay connection (or nil: none); it's up once `relayConnected`.
-    public func setRelay(_ relay: (any RelaySender)?) {
-        self.relay = relay
-        relayUp = false
-        publish()
-    }
-
-    public func relayConnected() async {
-        relayUp = true
-        if warning == Self.loginRefused { warning = nil }
-        await announcePairing()
-        await uploadBundlesIfNeeded()
-        await pathCameUp()
-        publish()
-    }
-
-    public func relayDisconnected() {
-        relayUp = false
-        publish()
-    }
-
-    /// True once it's dealt with (handled, a duplicate, or dropped for good), so it may be acked.
-    public func relayReceived(_ envelope: Seam_V1_Envelope) async -> Bool {
-        defer { publish() }
-        return await received(envelope)
-    }
-
-    public func relayError(_ code: String) {
-        log.error("relay error \(code, privacy: .public)")
-        if code == "bad_login" { warning = Self.loginRefused }
-        // The phone left the group (it forgot this Mac and the farewell got lost). Not forgotten
-        // here on the relay's word alone: a malicious relay could send this. Only while paired, so
-        // this Mac's own removeMember of a phone already gone doesn't trigger it.
-        if code == "not_member", phone != nil { warning = Self.phoneLeft }
-        publish()
     }
 
     // MARK: Features
@@ -244,63 +234,6 @@ public actor Session {
     /// What the user did to a phone notification's banner here.
     public func notificationAction(_ action: Seam_V1_NotificationAction) async {
         await send(notifications.action(action).map { [$0] } ?? [])
-    }
-
-    // MARK: Forgetting the phone
-
-    /// "Unpair <phone>": tells the phone (sealed), takes it out of the relay group, and forgets it
-    /// here. A phone that's offline finds out when the relay refuses it, and is told to pair
-    /// again. False if forgetting it couldn't be saved (then nothing is sent).
-    @discardableResult
-    public func unpairPhone() async -> Bool {
-        guard let phone else { return true } // nothing to forget (SR-29-06: the caller's copy may lag)
-        let unpair = Seam_V1_Payload.with { $0.control = .with { $0.unpair = .init() } }
-        // Not saved before sending, unlike other messages (SR-2-11): the phone's keys are deleted
-        // right after, so a crash can't reuse them
-        let goodbye = (try? device.seal(peerId: phone.id, payload: unpair.serializedData(), ttlS: 0))
-            .flatMap { try? Seam_V1_Envelope(serializedBytes: $0) }
-        let key = removableRelayKey(phone.id)
-        // Every up path this Mac's own switches allow, both if both are up (the relay keeps it for
-        // a phone that's away), whatever the phone's last list said; never a path switched off
-        let (viaLan, viaRelay) = (wifi && lanUp, relayOn && relayUp)
-        // Only once forgetting it is saved: otherwise a restart would reload the phone with the
-        // ratchet from before the goodbye was sealed, and could reuse its key (SR-7-04)
-        guard await forget(phone.id) else { return false }
-        if let goodbye, viaLan { _ = lan?.send(.with { $0.deliver = goodbye }, to: phone.id) }
-        if let goodbye, viaRelay { try? await relay?.send(Frames.send(goodbye)) } // before it's removed
-        if let key { try? await relay?.send(Frames.removeMember(key)) }
-        publish()
-        return true
-    }
-
-    /// This Mac leaves its relay group (it's moving to another relay).
-    public func leaveRelayGroup() async {
-        try? await relay?.send(Frames.removeMember(device.relayKey()))
-    }
-
-    /// The phone is gone (unpaired here, or it unpaired us): its keys, Hello state, every
-    /// feature's data and anything held for it. False if that couldn't be saved.
-    @discardableResult
-    func forget(_ peerId: String) async -> Bool {
-        device.forgetHello()
-        device.removePeer(peerId: peerId)
-        let saved: Bool
-        do {
-            try storage.saveState()
-            saved = true
-        } catch {
-            saveFailed()
-            saved = false
-        }
-        if warning == Self.phoneLeft { warning = nil } // done what it asked
-        if phone?.id == peerId { phone = nil }
-        setPause(until: nil) // nobody left to resume it
-        outbox.clear()
-        inFlight = []
-        hellos = []
-        storage.outbox.delete()
-        for feature in features { await feature.reset() }
-        return saved
     }
 
     // MARK: Private

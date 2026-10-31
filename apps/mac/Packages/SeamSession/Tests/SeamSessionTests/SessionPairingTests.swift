@@ -6,121 +6,169 @@ import Testing
 
 @testable import SeamSession
 
-/// Pairing around the core (spec 05): the code's life, the relay slot, PairAccept's retries and
-/// what's undone when it fails.
+/// Pairing over the direct channel (docs/tor/13-implementation-contract.md): the code's life, the
+/// exchange on a pairing link, the new onion service, and what's undone when it fails.
 struct SessionPairingTests {
+    private let pairing = LanServer.pairingPeer
+
+    private enum Failure: Error { case noCode, noBundle, noRequest, noAccept }
+
     private func showCode(_ rig: Rig) async throws -> PairingQR {
-        await rig.relayUp()
-        await rig.session.startPairing(relayURL: "wss://relay.example.com", name: "Mac")
+        await rig.session.startPairing(name: "Mac")
         guard case .waiting(let qr, _) = await rig.session.state.pairing else { throw Failure.noCode }
         return try PairingQR.parse(qr)
     }
 
-    /// The phone scans the code; the Mac shows the safety code.
-    private func scan(_ rig: Rig, _ qr: PairingQR) async throws {
-        let start = try rig.phone.pairWith(
+    private func link(_ rig: Rig, _ path: PeerPath) -> FakeLan { path == .lan ? rig.lan : rig.tor }
+
+    /// The phone's half, up to the safety code: it reaches the Mac on `path`, gets the bundle and
+    /// sends its request.
+    private func scan(_ rig: Rig, _ qr: PairingQR, on path: PeerPath = .tor, phone: SeamDevice? = nil) async throws {
+        let link = link(rig, path)
+        await rig.session.setLink(link, for: path)
+        await rig.session.linkEvent(.authenticated(peerId: pairing), on: path)
+        await rig.session.linkEvent(.bundleRequest(peerId: pairing), on: path)
+        guard case .bundle(let b)? = link.frames.last?.frame else { throw Failure.noBundle }
+        #expect(b.deviceKey == qr.relayKey)
+        let start = try (phone ?? rig.phone).pairWith(
             identityKey: qr.identityKey, relayKey: qr.relayKey, name: qr.name,
-            bundle: try rig.mac.prekeyBundles(count: 1)[0], token: qr.token, myName: "Pixel", myModel: "Test"
+            bundle: b.bundle, token: qr.token, myName: "Pixel", myModel: "Test"
         )
-        #expect(await rig.session.relayReceived(try Seam_V1_Envelope(serializedBytes: start.envelope)))
+        let request = try Seam_V1_Envelope(serializedBytes: start.envelope)
+        await rig.session.linkEvent(.envelope(peerId: pairing, request), on: path)
         guard case .confirm = await rig.session.state.pairing else { throw Failure.noRequest }
+        #expect(link.frames.last?.delivered.msgID == request.msgID, "the request is acked on the pairing link")
     }
 
-    private enum Failure: Error { case noCode, noRequest }
-
-    private func pairingFrames(_ rig: Rig) -> [Seam_V1_ClientFrame.OneOf_Frame] {
-        rig.relay.frames.compactMap(\.frame).filter {
-            switch $0 {
-            case .openPairing, .closePairing, .removeMember: true
-            default: false
-            }
-        }
-    }
-
-    @Test func theCodeOpensASlotForFiveMinutesThenItCloses() async throws {
-        let rig = try await Rig(paired: false)
-        _ = try await showCode(rig)
-        #expect(pairingFrames(rig).first?.openPairingTTL == 300)
-        await rig.timers.advance(299)
-        #expect(pairingFrames(rig).count == 1)
-        await rig.timers.advance(1)
-        #expect(await rig.session.state.pairing == .expired)
-        #expect(pairingFrames(rig).count == 2 && pairingFrames(rig).last?.isClosePairing == true)
-    }
-
-    @Test func aReconnectReannouncesOnlyWhatsLeft() async throws {
-        let rig = try await Rig(paired: false)
-        _ = try await showCode(rig)
-        await rig.timers.advance(120)
-        await rig.session.relayDisconnected()
-        await rig.session.relayConnected()
-        #expect(pairingFrames(rig).map(\.openPairingTTL) == [300, 180])
-    }
-
-    @Test func cancellingClosesTheSlotAtOnce() async throws {
-        let rig = try await Rig(paired: false)
-        _ = try await showCode(rig)
-        await rig.session.cancelPairing()
-        #expect(await rig.session.state.pairing == .idle)
-        #expect(pairingFrames(rig).last?.isClosePairing == true)
-    }
-
-    @Test func pairingFinishesWhenTheRelayTakesPairAccept() async throws {
-        let rig = try await Rig(paired: false)
-        try await scan(rig, try await showCode(rig))
+    /// The user clicks Pair; returns the PairAccept the phone got.
+    private func confirm(_ rig: Rig, on path: PeerPath = .tor, phone: SeamDevice? = nil) async throws -> Seam_V1_Envelope {
         await rig.session.confirmPairing()
+        guard case .deliver(let accept)? = link(rig, path).frames.last?.frame else { throw Failure.noAccept }
+        let opened = try (phone ?? rig.phone).open(envelope: accept.serializedData())
+        #expect(try Seam_V1_Payload(serializedBytes: opened.payload).control.pairAccept == .init())
+        return accept
+    }
+
+    @Test(arguments: [PeerPath.lan, .tor])
+    func pairsOverEitherCarrier(path: PeerPath) async throws {
+        let rig = try await Rig(paired: false)
+        let qr = try await showCode(rig)
+        try await scan(rig, qr, on: path)
+        let accept = try await confirm(rig, on: path)
+        #expect(await rig.session.state.pairing == .confirming(try #require(rig.mac.peers().first.map {
+            PairingRequest(peerId: $0.id, deviceName: "Pixel", model: "Test", safetyCode: try rig.mac.safetyCode(peerId: $0.id))
+        })))
+        await rig.session.linkEvent(.delivered(peerId: pairing, msgID: accept.msgID), on: path)
         #expect(await rig.session.state.pairing == .paired(name: "Pixel"))
         #expect(await rig.session.state.phone?.id == rig.phoneID)
-        let sent = try rig.onRelay()
-        #expect(sent.first?.control.pairAccept == .init())
-        #expect(sent.dropFirst().first?.control.hello.seq == 1, "then a Hello, counting from 1 again")
+        #expect(link(rig, path).closed.contains(pairing), "both close the pairing link")
+        // The code's service is now the pairing's: only that phone can find it
+        let data = try #require(rig.mac.appData())
+        #expect(torOnionAddress(serviceSecret: data.torSecret) == qr.onionAddress)
+        #expect(data.peerDiscovery == torDiscoveryPublic(discoverySecret: qr.discoverySecret))
     }
 
-    @Test func pairAcceptIsRetriedThenThePairingIsUndone() async throws {
+    @Test func theCodeIsVersion2AndNamesANewServiceEachTime() async throws {
         let rig = try await Rig(paired: false)
-        try await scan(rig, try await showCode(rig))
-        rig.relay.failing = true
-        await rig.session.confirmPairing()
-        #expect(rig.relay.attempts > 0)
-        guard case .confirming = await rig.session.state.pairing else { throw Failure.noRequest }
-        await rig.timers.advance(30)
-        guard case .confirming = await rig.session.state.pairing else { throw Failure.noRequest } // still trying
-        await rig.timers.advance(60)
-        guard case .failed = await rig.session.state.pairing else { throw Failure.noRequest }
-        #expect(rig.mac.peers().isEmpty)
-        #expect(await rig.session.state.phone == nil)
-        rig.relay.failing = false
-        #expect(rig.relay.attempts >= Session.acceptAttempts + 2, "PairAccept tried \(Session.acceptAttempts) times, then removeMember and closePairing")
+        let first = try await showCode(rig)
+        let second = try await showCode(rig)
+        #expect(first.onionAddress.hasSuffix(".onion") && first.onionAddress != second.onionAddress)
+        #expect(first.discoverySecret != second.discoverySecret && first.token != second.token)
+        #expect(first.identityKey == rig.mac.identityKey() && first.relayKey == rig.mac.relayKey())
+        #expect(await rig.session.state.torServices.count == 1, "the earlier code's service went")
     }
 
-    @Test func rejectingTakesTheRequesterOutOfTheRelayGroup() async throws {
+    @Test func theCodeLastsFiveMinutesThenItsServiceStops() async throws {
+        let rig = try await Rig(paired: false)
+        _ = try await showCode(rig)
+        #expect(await rig.session.state.torServices.count == 1)
+        #expect(await rig.session.state.wantsLinks, "Same Wi‑Fi listens while a code shows")
+        await rig.timers.advance(299)
+        #expect(await rig.session.state.torServices.count == 1)
+        await rig.timers.advance(1)
+        #expect(await rig.session.state.pairing == .expired)
+        #expect(await rig.session.state.torServices.isEmpty)
+        #expect(await !rig.session.state.wantsLinks)
+    }
+
+    @Test func cancellingStopsTheNewServiceAndClosesThePairingLink() async throws {
         let rig = try await Rig(paired: false)
         try await scan(rig, try await showCode(rig))
         await rig.session.cancelPairing()
-        #expect(rig.mac.peers().isEmpty)
-        let frames = pairingFrames(rig)
-        #expect(frames.contains { if case .removeMember(let m) = $0 { m.deviceKey == rig.phone.relayKey() } else { false } })
-        #expect(frames.last?.isClosePairing == true || frames.dropLast().last?.isClosePairing == true)
-    }
-
-    @Test func noCodeWithTheRelaySwitchedOff() async throws {
-        let rig = try await Rig(paired: false, relay: false)
-        await rig.session.startPairing(relayURL: "wss://relay.example.com", name: "Mac")
         #expect(await rig.session.state.pairing == .idle)
+        #expect(rig.mac.peers().isEmpty, "the requester is forgotten")
+        #expect(await rig.session.state.torServices.isEmpty)
+        #expect(rig.tor.closed.contains(pairing))
     }
-    @Test func aRelayKeyAnotherPairedDeviceSharesIsKept() {
-        let shared = Data(repeating: 7, count: 32)
-        let phone = PeerInfo(id: "phone", name: "Phone", relayKey: shared, confirmed: true)
-        let claimant = PeerInfo(id: "claimant", name: "Not the phone", relayKey: shared, confirmed: false)
-        #expect(Session.removableRelayKey("claimant", among: [phone, claimant]) == nil, "rejecting it keeps the phone in the group")
-        #expect(Session.removableRelayKey("phone", among: [phone]) == shared)
-        let unconfirmed = PeerInfo(id: "phone", name: "Phone", relayKey: shared, confirmed: false)
-        #expect(Session.removableRelayKey("claimant", among: [unconfirmed, claimant]) == shared, "only a paired device counts")
-        #expect(Session.removableRelayKey("nobody", among: [phone]) == nil)
-    }
-}
 
-extension Seam_V1_ClientFrame.OneOf_Frame {
-    var openPairingTTL: UInt32? { if case .openPairing(let o) = self { o.ttlS } else { nil } }
-    var isClosePairing: Bool { if case .closePairing = self { true } else { false } }
+    @Test func confirmingSwapsTheOldServiceForTheNewOne() async throws {
+        let rig = try await Rig() // paired, hosting its service
+        let old = TorServiceSpec(secret: Rig.macData.torSecret, clients: [Rig.macData.peerDiscovery])
+        #expect(await rig.session.state.torServices == [old])
+        let qr = try await showCode(rig)
+        #expect(await rig.session.state.torServices.count == 2, "the old one stays while the code shows")
+        let newPhone = try SeamDevice.generate()
+        try await scan(rig, qr, phone: newPhone)
+        let accept = try await confirm(rig, phone: newPhone)
+        let services = await rig.session.state.torServices
+        #expect(services.count == 1 && services != [old], "saved, so the old one stops")
+        #expect(torOnionAddress(serviceSecret: try #require(services.first).secret) == qr.onionAddress)
+        await rig.session.linkEvent(.delivered(peerId: pairing, msgID: accept.msgID), on: .tor)
+        #expect(await rig.session.state.phone?.id == newPhone.id())
+        #expect(await rig.session.state.torServices == services)
+    }
+
+    @Test func aPairAcceptNeverAckedIsUndoneAndTheOldDataPutBack() async throws {
+        let rig = try await Rig()
+        let qr = try await showCode(rig)
+        let newPhone = try SeamDevice.generate()
+        try await scan(rig, qr, phone: newPhone)
+        _ = try await confirm(rig, phone: newPhone)
+        await rig.timers.advance(Session.acceptDeadline)
+        guard case .failed = await rig.session.state.pairing else { throw Failure.noRequest }
+        #expect(rig.mac.peers().map(\.id) == [rig.phoneID], "only the phone from before")
+        #expect(rig.mac.appData() == Rig.macData)
+        #expect(await rig.session.state.phone?.id == rig.phoneID)
+    }
+
+    @Test func aPairingLinkThatDropsBeforeTheAckUndoesThePairing() async throws {
+        let rig = try await Rig(paired: false)
+        try await scan(rig, try await showCode(rig))
+        _ = try await confirm(rig)
+        await rig.session.linkEvent(.closed(peerId: pairing), on: .tor)
+        guard case .failed = await rig.session.state.pairing else { throw Failure.noRequest }
+        #expect(rig.mac.peers().isEmpty)
+        #expect(rig.mac.appData() == nil)
+        #expect(await rig.session.state.torServices.isEmpty)
+    }
+
+    @Test func aPhoneThatLeftWhileTheCodesWereComparedIsNotPaired() async throws {
+        let rig = try await Rig(paired: false)
+        try await scan(rig, try await showCode(rig))
+        await rig.session.linkEvent(.closed(peerId: pairing), on: .tor)
+        await rig.session.confirmPairing()
+        guard case .failed = await rig.session.state.pairing else { throw Failure.noRequest }
+        #expect(rig.mac.peers().isEmpty)
+    }
+
+    @Test func noPairingLinkWithoutACodeAndOnlyOneWhileShowing() async throws {
+        let rig = try await Rig(paired: false)
+        await rig.session.setLink(rig.tor, for: .tor)
+        await rig.session.setLink(rig.lan, for: .lan)
+        await rig.session.linkEvent(.authenticated(peerId: pairing), on: .tor)
+        #expect(rig.tor.closed == [pairing], "no code showing")
+        _ = try await showCode(rig)
+        await rig.session.linkEvent(.authenticated(peerId: pairing), on: .tor)
+        await rig.session.linkEvent(.authenticated(peerId: pairing), on: .lan)
+        #expect(rig.lan.closed == [pairing], "the first carrier to authenticate wins")
+        await rig.session.linkEvent(.bundleRequest(peerId: pairing), on: .lan)
+        #expect(rig.lan.frames.isEmpty, "nothing on the losing link")
+    }
+
+    @Test func noServiceWithTorSwitchedOffButSameWifiStillPairs() async throws {
+        let rig = try await Rig(paired: false, tor: false)
+        let qr = try await showCode(rig)
+        #expect(await rig.session.state.torServices.isEmpty)
+        try await scan(rig, qr, on: .lan)
+    }
 }

@@ -3,7 +3,7 @@ import Foundation
 import SeamCore
 import SeamProtocol
 
-/// Delivery to the phone and what arrives from it.
+/// Delivery to the phone, what arrives from it, and forgetting it.
 extension Session {
     // MARK: Delivery
 
@@ -23,44 +23,28 @@ extension Session {
         // Saved to the outbox first, then onto the best path; otherwise it waits there
         outbox.add(envelope)
         guard saveOutbox() else { return } // stays in memory; the next flush tries again
-        _ = await attempt(envelope)
+        attempt(envelope)
     }
 
     func send(_ outgoing: [Outgoing]) async {
         for out in outgoing { await sendToPhone(out.payload, ttl: out.ttl) }
     }
 
-    /// Never a disallowed path, and never a path before it's on disk. False if a relay send
-    /// failed, so a flush stops there and nothing later overtakes it.
-    private func attempt(_ envelope: Seam_V1_Envelope) async -> Bool {
-        guard let phone, !inFlight.contains(envelope.msgID) else { return true }
+    /// Never a disallowed path, and never a path before it's on disk. Kept in the outbox until the
+    /// phone's Delivered; resent if the link drops first.
+    private func attempt(_ envelope: Seam_V1_Envelope) {
         let hello = hellos.contains(envelope.msgID)
-        switch device.route(enabled: enabledPaths, up: upPaths, hello: hello) {
-        case .lan?:
-            guard lan?.send(.with { $0.deliver = envelope }, to: phone.id) == true else { return true }
-            outbox.markSent(envelope.msgID) // until the phone's Delivered; resent if the link drops first
-            saveOutbox()
-        case .relay?:
-            guard let relay else { return true }
-            inFlight.insert(envelope.msgID)
-            let ok = (try? await relay.send(Frames.send(envelope))) != nil
-            inFlight.remove(envelope.msgID)
-            guard ok else { return false } // waits for the next flush
-            guard self.phone?.id == phone.id else { return true }
-            outbox.remove(envelope.msgID) // the relay holds it now
-            hellos.remove(envelope.msgID)
-            saveOutbox()
-        case nil:
-            break
-        }
-        return true
+        guard let phone, let path = device.route(enabled: enabledPaths, up: upPaths, hello: hello),
+              links[path]?.send(.with { $0.deliver = envelope }, to: phone.id) == true else { return }
+        outbox.markSent(envelope.msgID)
+        saveOutbox()
     }
 
     /// Everything waiting, oldest first, now that a path may have opened.
     func flush() async {
         _ = outbox.dropExpired(now: timers.now())
         guard saveOutbox() else { return } // nothing goes out that isn't on disk (an earlier save may have failed)
-        for envelope in outbox.waiting { guard await attempt(envelope) else { return } }
+        for envelope in outbox.waiting { attempt(envelope) }
     }
 
     @discardableResult
@@ -74,9 +58,9 @@ extension Session {
         }
     }
 
-    /// Anything sent directly but not acked goes again, on whatever path is allowed now.
-    func lanClosed() async {
-        lanUp = false
+    /// Anything sent but not acked goes again, on whatever path is allowed now.
+    func pathClosed(_ path: PeerPath) async {
+        guard up.remove(path) != nil else { return }
         guard !outbox.sent.isEmpty else { return }
         outbox.requeueSent()
         saveOutbox()
@@ -111,9 +95,6 @@ extension Session {
         let message: OpenedMessage
         do {
             message = try device.open(envelope: bytes)
-        } catch SeamError.NotPaired {
-            if case .waiting = flow.state { acceptPairing(bytes) }
-            return true
         } catch SeamError.Duplicate {
             return true // already handled before a reconnect
         } catch SeamError.UntrustedIdentity {
@@ -122,11 +103,11 @@ extension Session {
             return true
         } catch {
             log.error("dropped an envelope that failed its checks")
-            return true // dropped for good: the relay can delete it
+            return true // dropped for good: the phone can stop resending it
         }
         let payload = try? Seam_V1_Payload(serializedBytes: message.payload)
-        // Only a newer Hello counts (the core checks): the relay can hold an old one and release
-        // it later. Applied before the save just below, with the ratchet
+        // Only a newer Hello counts (the core checks): a resent old one must not undo a newer one.
+        // Applied before the save just below, with the ratchet
         if case .control(let c)? = payload?.body, case .hello(let h)? = c.body, isConfirmedPhone(message.peerId),
            device.applyHello(seq: h.seq, allowedTransports: h.allowedTransports.map { Int32($0.rawValue) }) {
             // The phone's pause rides on the same counter, so a late or replayed Hello can't
@@ -154,9 +135,8 @@ extension Session {
         }
         if case .hello = c.body { await flush() } // a path may have opened
         if case .unpair = c.body {
-            // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)
-            let key = removableRelayKey(peerId)
-            if await forget(peerId), let key { try? await relay?.send(Frames.removeMember(key)) }
+            await forget(peerId)
+            for link in links.values { link.close(peerId: peerId) }
         }
     }
 
@@ -171,5 +151,57 @@ extension Session {
 
     func isConfirmedPhone(_ peerId: String) -> Bool {
         peerId == phone?.id && device.peers().contains { $0.id == peerId && $0.confirmed }
+    }
+
+    // MARK: Forgetting the phone
+
+    /// "Unpair <phone>": tells the phone (sealed) on every link it's on, then forgets it here, its
+    /// onion service with it. A phone that's away finds its Mac's address gone, and pairs again.
+    /// False if forgetting it couldn't be saved (then nothing is sent).
+    @discardableResult
+    public func unpairPhone() async -> Bool {
+        guard let phone else { return true } // nothing to forget (SR-29-06: the caller's copy may lag)
+        let unpair = Seam_V1_Payload.with { $0.control = .with { $0.unpair = .init() } }
+        // Not saved before sending, unlike other messages (SR-2-11): the phone's keys are deleted
+        // right after, so a crash can't reuse them
+        let goodbye = (try? device.seal(peerId: phone.id, payload: unpair.serializedData(), ttlS: 0))
+            .flatMap { try? Seam_V1_Envelope(serializedBytes: $0) }
+        // Every up path this Mac's own switches allow, whatever the phone's last list said; never a
+        // path switched off
+        let via = upPaths.filter { enabledPaths.contains($0) }
+        // Only once forgetting it is saved: otherwise a restart would reload the phone with the
+        // ratchet from before the goodbye was sealed, and could reuse its key (SR-7-04)
+        guard await forget(phone.id) else { return false }
+        for path in via {
+            if let goodbye { _ = links[path]?.send(.with { $0.deliver = goodbye }, to: phone.id) }
+            links[path]?.close(peerId: phone.id) // gracefully: the goodbye is written first
+        }
+        publish()
+        return true
+    }
+
+    /// The phone is gone (unpaired here, or it unpaired us): its keys, Hello state, every
+    /// feature's data and anything held for it. False if that couldn't be saved.
+    @discardableResult
+    func forget(_ peerId: String) async -> Bool {
+        device.forgetHello()
+        device.removePeer(peerId: peerId)
+        device.clearAppData() // its onion service goes: a forgotten phone only knows a dead address
+        let saved: Bool
+        do {
+            try storage.saveState()
+            saved = true
+        } catch {
+            saveFailed()
+            saved = false
+        }
+        if phone?.id == peerId { phone = nil }
+        up = []
+        setPause(until: nil) // nobody left to resume it
+        outbox.clear()
+        hellos = []
+        storage.outbox.delete()
+        for feature in features { await feature.reset() }
+        return saved
     }
 }

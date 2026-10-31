@@ -147,7 +147,7 @@ struct LanServerTests {
         let env = Seam_V1_Envelope.with { $0.msgID = Data([1, 2]) }
         try p.send(.with { $0.send = env })
         try p.send(.with { $0.delivered = .with { $0.msgID = Data([9]) } })
-        try p.send(.with { $0.getBundle = .init() }) // relay-only: ignored
+        try p.send(.with { $0.getBundle = .init() }) // pairing channels only: ignored
         let events = await collect(server, 3)
         #expect(events == [
             .authenticated(peerId: phone.id()), .envelope(peerId: phone.id(), env), .delivered(peerId: phone.id(), msgID: Data([9])),

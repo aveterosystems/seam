@@ -72,7 +72,7 @@ struct ClipRulesTests {
 struct ClipQueueTests {
     private let t0 = Date(timeIntervalSince1970: 1_000_000)
 
-    @Test func sendsTheLatestWhenTheRelayIsBack() {
+    @Test func sendsTheLatestWhenThePhoneIsBack() {
         var q = ClipQueue<String>()
         q.hold("old", at: t0)
         q.hold("new", at: t0 + 1)
