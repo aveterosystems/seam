@@ -68,6 +68,10 @@ class Session(
     private val _route = MutableStateFlow<Transport?>(null)
     val route: StateFlow<Transport?> = _route
 
+    /** What the CPU must do for the idle check to run on time (rule 8); the app's service carries it out. */
+    private val _cpu = MutableStateFlow<CpuPlan>(CpuPlan.None)
+    val cpu: StateFlow<CpuPlan> = _cpu
+
     /** A one-off message for the user, e.g. why a new pairing failed while the old one carries on. */
     private val _notice = MutableStateFlow<String?>(null)
     val notice: StateFlow<String?> = _notice
@@ -90,7 +94,11 @@ class Session(
     }
 
     // Decision 0005: the connection is held only while it's cheap or needed
-    private val wake = Wakefulness(scope, now) { reconsider(connect = false) }
+    private val wake = Wakefulness(scope, now, onChanged = { updateCpu() }) { reconsider(connect = false) }
+
+    init {
+        scope.launch { _state.collect { updateCpu() } }
+    }
 
     private val pairing = Pairing(device, myName, myModel, now, persist = { persist() }, send = { sendEnvelope(it) }, fail = { fail(it) })
 
@@ -188,6 +196,25 @@ class Session(
             wake.keepWatching()
         } else if (relay.active || direct?.active == true) {
             sleep(m)
+        }
+    }
+
+    /**
+     * The CPU woke for a [CpuPlan.WakeAt]: look again now. Timers that were due while it slept
+     * haven't run, so this re-arms the idle check from the clock and updates [cpu].
+     */
+    fun checkIdle() = scope.launch {
+        reconsider(connect = false)
+        updateCpu()
+    }
+
+    private fun updateCpu() {
+        val at = wake.idleCheckAt()
+        val open = _state.value.let { it is SessionState.Connected || it is SessionState.Connecting }
+        _cpu.value = when {
+            at == null || !open -> CpuPlan.None
+            at - now() <= Wakefulness.CPU_WAKE_BEFORE_MS -> CpuPlan.Hold(maxOf(at, now()) + Wakefulness.CPU_HOLD_MS - Wakefulness.CPU_WAKE_BEFORE_MS)
+            else -> CpuPlan.WakeAt(at - Wakefulness.CPU_WAKE_BEFORE_MS)
         }
     }
 
@@ -450,8 +477,8 @@ class Session(
      */
     private fun route(hello: Boolean = false): Path? {
         if (pairing.active) return null
-        val s = switches.settings.value
-        return when (device.route(s.wifi, s.relay, direct?.up == true, relay.up, hello)) {
+        val up = listOfNotNull(PeerPath.LAN.takeIf { direct?.up == true }, PeerPath.RELAY.takeIf { relay.up })
+        return when (device.route(switches.enabled(), up, hello)) {
             PeerPath.LAN -> direct
             PeerPath.RELAY -> relay
             null -> null

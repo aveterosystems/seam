@@ -19,7 +19,7 @@ flowchart TB
 | Folder | What |
 |---|---|
 | `project.yml` | XcodeGen spec for the app target. The `.xcodeproj` is generated from it and never committed. |
-| `Seam/App/` | Entry point and menu (`SeamApp.swift`), and `SeamController`: starts the session, the Same Wi‑Fi server and the relay client, and mirrors the session's state for the screens |
+| `Seam/App/` | Entry point and menu (`SeamApp.swift`), and `SeamController`: starts the session and its `Paths` (SeamSession: runs the Same Wi‑Fi listener and the relay client the switches allow, in a tested order), and mirrors the session's state for the screens |
 | `Seam/Storage/` | `Keychain` (the 32-byte storage key) and `Store` (the sealed state file, group id, relay URL) |
 | `Seam/Pairing/` | The pairing window (board M02) and QR rendering |
 | `Seam/Notifications/` | `PhoneNotifications`: the phone's notifications as banners, and what you do to them sent back |

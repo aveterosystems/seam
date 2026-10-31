@@ -131,7 +131,10 @@ fn app_data_is_sealed_with_the_keys() {
 #[test]
 fn app_data_edits_save_only_when_there_is_some() {
     let (mut mac, ..) = linked();
-    assert_eq!(mac.edit_app_data(|d| d.next_hello(true, true)), None);
+    assert_eq!(
+        mac.edit_app_data(|d| d.next_hello(&[crate::links::Path::Lan, crate::links::Path::Relay])),
+        None
+    );
     mac.set_app_data(&crate::links::AppData::new(
         vec![5; 16],
         "wss://r".into(),
@@ -139,7 +142,7 @@ fn app_data_edits_save_only_when_there_is_some() {
     ))
     .unwrap();
     assert_eq!(
-        mac.edit_app_data(|d| d.next_hello(true, false)),
+        mac.edit_app_data(|d| d.next_hello(&[crate::links::Path::Lan])),
         Some((1, vec![1]))
     );
     assert_eq!(mac.app_data().unwrap().hello_seq_sent, 1);

@@ -35,7 +35,7 @@ extension Session {
     private func attempt(_ envelope: Seam_V1_Envelope) async -> Bool {
         guard let phone, !inFlight.contains(envelope.msgID) else { return true }
         let hello = hellos.contains(envelope.msgID)
-        switch device.route(wifi: wifi, relay: relayOn, lanUp: lanUp, relayUp: relayUp, hello: hello) {
+        switch device.route(enabled: enabledPaths, up: upPaths, hello: hello) {
         case .lan?:
             guard lan?.send(.with { $0.deliver = envelope }, to: phone.id) == true else { return true }
             outbox.markSent(envelope.msgID) // until the phone's Delivered; resent if the link drops first
@@ -94,7 +94,7 @@ extension Session {
     /// Its seq is counted in the core's app data and saved with the seal, before it leaves: a
     /// Hello never goes with a seq a restart could hand out again.
     func sendHello() async {
-        guard phone != nil, let next = device.nextHello(wifi: wifi, relay: relayOn) else { return }
+        guard phone != nil, let next = device.nextHello(enabled: enabledPaths) else { return }
         let hello = Seam_V1_Hello.with {
             $0.appVersion = appVersion
             $0.platform = "macos"

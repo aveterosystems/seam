@@ -825,7 +825,7 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(`ptr`: Long,`wifi`: Byte,`relay`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(`ptr`: Long,`enabled`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_app_data(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -845,7 +845,7 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_identity_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_method_seamdevice_next_hello(`ptr`: Long,`wifi`: Byte,`relay`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_method_seamdevice_next_hello(`ptr`: Long,`enabled`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_open(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -861,7 +861,7 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_remove_peer(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_seam_ffi_fn_method_seamdevice_route(`ptr`: Long,`wifi`: Byte,`relay`: Byte,`lanUp`: Byte,`relayUp`: Byte,`hello`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_seam_ffi_fn_method_seamdevice_route(`ptr`: Long,`enabled`: RustBuffer.ByValue,`up`: RustBuffer.ByValue,`hello`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_safety_code(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1027,7 +1027,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() and 0xFFFF) != 62568) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() and 0xFFFF) != 63738) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() and 0xFFFF) != 6953) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_app_data() and 0xFFFF) != 29712) {
@@ -1057,7 +1057,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_identity_key() and 0xFFFF) != 47370) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_next_hello() and 0xFFFF) != 61978) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_next_hello() and 0xFFFF) != 17158) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_open() and 0xFFFF) != 5951) {
@@ -1081,7 +1081,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_remove_peer() and 0xFFFF) != 46663) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_route() and 0xFFFF) != 11407) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_route() and 0xFFFF) != 18284) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_safety_code() and 0xFFFF) != 38571) {
@@ -2534,10 +2534,10 @@ public interface SeamDeviceInterface {
     fun `acceptPairing`(`envelope`: kotlin.ByteArray): PairingRequest
     
     /**
-     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
-     * last applied Hello.
+     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * switches (`enabled`, any order) and the peer's last applied Hello.
      */
-    fun `allowedPaths`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): List<PeerPath>
+    fun `allowedPaths`(`enabled`: List<PeerPath>): List<PeerPath>
     
     /**
      * The app's relay group and Hello state, sealed inside `export_state` with the keys. None
@@ -2585,7 +2585,7 @@ public interface SeamDeviceInterface {
      * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
      * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
      */
-    fun `nextHello`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): HelloOut?
+    fun `nextHello`(`enabled`: List<PeerPath>): HelloOut?
     
     /**
      * Open an Envelope from a paired peer.
@@ -2616,8 +2616,11 @@ public interface SeamDeviceInterface {
     /**
      * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
      * any up path this device's switches allow, so a switch change always reaches the peer.
+     *
+     * `enabled`: this device's switches; `up`: the paths connected now. Any order: the core
+     * decides preference.
      */
-    fun `route`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean, `lanUp`: kotlin.Boolean, `relayUp`: kotlin.Boolean, `hello`: kotlin.Boolean): PeerPath?
+    fun `route`(`enabled`: List<PeerPath>, `up`: List<PeerPath>, `hello`: kotlin.Boolean): PeerPath?
     
     fun `safetyCode`(`peerId`: kotlin.String): kotlin.String
     
@@ -2770,17 +2773,16 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
 
     
     /**
-     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
-     * last applied Hello.
-     */override fun `allowedPaths`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): List<PeerPath> {
+     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * switches (`enabled`, any order) and the peer's last applied Hello.
+     */override fun `allowedPaths`(`enabled`: List<PeerPath>): List<PeerPath> {
             return FfiConverterSequenceTypePeerPath.lift(
     callWithHandle {
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(
         it,
         
-        FfiConverterBoolean.lower(`wifi`),
-        FfiConverterBoolean.lower(`relay`),_status)
+        FfiConverterSequenceTypePeerPath.lower(`enabled`),_status)
 }
     }
     )
@@ -2934,15 +2936,14 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     /**
      * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
      * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
-     */override fun `nextHello`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean): HelloOut? {
+     */override fun `nextHello`(`enabled`: List<PeerPath>): HelloOut? {
             return FfiConverterOptionalTypeHelloOut.lift(
     callWithHandle {
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_next_hello(
         it,
         
-        FfiConverterBoolean.lower(`wifi`),
-        FfiConverterBoolean.lower(`relay`),_status)
+        FfiConverterSequenceTypePeerPath.lower(`enabled`),_status)
 }
     }
     )
@@ -3068,17 +3069,18 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     /**
      * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
      * any up path this device's switches allow, so a switch change always reaches the peer.
-     */override fun `route`(`wifi`: kotlin.Boolean, `relay`: kotlin.Boolean, `lanUp`: kotlin.Boolean, `relayUp`: kotlin.Boolean, `hello`: kotlin.Boolean): PeerPath? {
+     *
+     * `enabled`: this device's switches; `up`: the paths connected now. Any order: the core
+     * decides preference.
+     */override fun `route`(`enabled`: List<PeerPath>, `up`: List<PeerPath>, `hello`: kotlin.Boolean): PeerPath? {
             return FfiConverterOptionalTypePeerPath.lift(
     callWithHandle {
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_route(
         it,
         
-        FfiConverterBoolean.lower(`wifi`),
-        FfiConverterBoolean.lower(`relay`),
-        FfiConverterBoolean.lower(`lanUp`),
-        FfiConverterBoolean.lower(`relayUp`),
+        FfiConverterSequenceTypePeerPath.lower(`enabled`),
+        FfiConverterSequenceTypePeerPath.lower(`up`),
         FfiConverterBoolean.lower(`hello`),_status)
 }
     }

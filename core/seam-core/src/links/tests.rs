@@ -11,6 +11,14 @@ fn data() -> AppData {
     AppData::new(vec![7; 16], "wss://relay.avetero.com".into(), None)
 }
 
+/// The switches as a list: Same Wi-Fi and the relay on or off.
+fn on(lan: bool, relay: bool) -> Vec<Path> {
+    [(Lan, lan), (Relay, relay)]
+        .into_iter()
+        .filter_map(|(p, on)| on.then_some(p))
+        .collect()
+}
+
 fn heard(list: &[i32]) -> AppData {
     let mut d = data();
     assert!(d.apply_hello(1, list));
@@ -42,7 +50,7 @@ fn allowed_paths_table() {
             Some(list) => heard(list),
         };
         assert_eq!(
-            d.allowed(*wifi, *relay),
+            d.allowed(&on(*wifi, *relay)),
             *want,
             "wifi {wifi} relay {relay} peer {peer:?}"
         );
@@ -52,16 +60,25 @@ fn allowed_paths_table() {
 #[test]
 fn route_prefers_same_wifi_then_relay_else_waits() {
     let both = heard(&[LAN, RELAY]);
-    assert_eq!(both.route(true, true, true, true, false), Some(Lan));
-    assert_eq!(both.route(true, true, false, true, false), Some(Relay));
-    assert_eq!(both.route(true, true, false, false, false), None);
+    assert_eq!(
+        both.route(&on(true, true), &on(true, true), false),
+        Some(Lan)
+    );
+    assert_eq!(
+        both.route(&on(true, true), &on(false, true), false),
+        Some(Relay)
+    );
+    assert_eq!(both.route(&on(true, true), &on(false, false), false), None);
     let lan_only = heard(&[LAN]);
     assert_eq!(
-        lan_only.route(true, true, false, true, false),
+        lan_only.route(&on(true, true), &on(false, true), false),
         None,
         "waits instead of using the relay"
     );
-    assert_eq!(heard(&[RELAY]).route(true, true, true, false, false), None);
+    assert_eq!(
+        heard(&[RELAY]).route(&on(true, true), &on(true, false), false),
+        None
+    );
 }
 
 #[test]
@@ -69,26 +86,46 @@ fn a_hello_takes_any_path_my_switches_allow() {
     // The phone last said Same Wi-Fi only, the Mac now allows only the relay: the Hello still goes
     let d = heard(&[LAN]);
     assert_eq!(
-        d.route(false, true, false, true, false),
+        d.route(&on(false, true), &on(false, true), false),
         None,
         "a payload waits"
     );
     assert_eq!(
-        d.route(false, true, false, true, true),
+        d.route(&on(false, true), &on(false, true), true),
         Some(Relay),
         "a Hello still goes"
     );
     assert_eq!(
-        d.route(false, true, true, false, true),
+        d.route(&on(false, true), &on(true, false), true),
         None,
         "but never on a path I switched off"
     );
-    assert_eq!(d.route(true, true, true, true, true), Some(Lan));
+    assert_eq!(d.route(&on(true, true), &on(true, true), true), Some(Lan));
     assert_eq!(
-        d.route(true, true, false, false, true),
+        d.route(&on(true, true), &on(false, false), true),
         None,
         "waits in the outbox"
     );
+}
+
+#[test]
+fn preference_is_the_cores_whatever_order_callers_use() {
+    let both = heard(&[LAN, RELAY]);
+    assert_eq!(
+        both.allowed(&[Relay, Lan, Relay]),
+        vec![Lan, Relay],
+        "ordered, each once"
+    );
+    assert_eq!(both.route(&[Relay, Lan], &[Relay, Lan], false), Some(Lan));
+    assert_eq!(both.route(&[Relay, Lan], &[Relay], false), Some(Relay));
+    assert_eq!(
+        both.route(&[], &[Lan, Relay], false),
+        None,
+        "nothing switched on"
+    );
+    assert_eq!(both.route(&[Lan, Relay], &[], false), None, "nothing up");
+    let mut d = data();
+    assert_eq!(d.next_hello(&[Relay, Lan, Lan]), (1, vec![LAN, RELAY]));
 }
 
 #[test]
@@ -110,15 +147,15 @@ fn hellos_apply_only_when_newer() {
 #[test]
 fn next_hello_counts_up_and_lists_my_switches() {
     let mut d = data();
-    assert_eq!(d.next_hello(true, false), (1, vec![LAN]));
-    assert_eq!(d.next_hello(true, true), (2, vec![LAN, RELAY]));
-    assert_eq!(d.next_hello(false, true), (3, vec![RELAY]));
+    assert_eq!(d.next_hello(&on(true, false)), (1, vec![LAN]));
+    assert_eq!(d.next_hello(&on(true, true)), (2, vec![LAN, RELAY]));
+    assert_eq!(d.next_hello(&on(false, true)), (3, vec![RELAY]));
 }
 
 #[test]
 fn forgetting_the_peer_starts_hello_state_again() {
     let mut d = heard(&[LAN]);
-    d.next_hello(true, true);
+    d.next_hello(&on(true, true));
     d.forget_peer();
     assert_eq!(
         (
@@ -139,7 +176,7 @@ fn round_trip() {
         Some(vec![9; 32]),
     );
     assert_eq!(AppData::decode(&d.encode()), Some(d.clone()));
-    d.next_hello(true, true);
+    d.next_hello(&on(true, true));
     assert!(d.apply_hello(3, &[RELAY]));
     assert_eq!(AppData::decode(&d.encode()), Some(d.clone()));
     let empty = heard(&[FUTURE]);
@@ -248,7 +285,7 @@ fn reads_the_macs_earlier_formats() {
     );
     // The Mac kept an older phone's empty Hello as an empty list, and read it as everything
     let old_phone = AppData::decode(&mac_bytes(3, &[], Some((1, 2, Some(&[]))))).unwrap();
-    assert_eq!(old_phone.allowed(true, true), vec![Lan, Relay]);
+    assert_eq!(old_phone.allowed(&on(true, true)), vec![Lan, Relay]);
     assert_eq!(
         AppData::decode(&mac_bytes(2, &[], None)),
         None,
@@ -280,7 +317,7 @@ fn reads_androids_earlier_formats() {
     assert_eq!(never.peer_allowed, None);
     // Android stored a Mac's old empty Hello as "allows nothing"; it meant "older Mac, everything"
     let old_mac = AppData::decode(&android_bytes(Some((1, 2, Some(&[]))))).unwrap();
-    assert_eq!(old_mac.allowed(true, true), vec![Lan, Relay]);
+    assert_eq!(old_mac.allowed(&on(true, true)), vec![Lan, Relay]);
 }
 
 #[test]

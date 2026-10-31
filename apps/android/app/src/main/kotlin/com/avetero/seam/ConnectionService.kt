@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,6 +15,7 @@ import android.content.pm.ServiceInfo
 import android.os.BatteryManager
 import android.os.PowerManager
 import com.avetero.seam.feature.clipboard.AutoClipboard
+import com.avetero.seam.session.CpuPlan
 import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,19 +39,17 @@ class ConnectionService : Service() {
         val session = app.session
         AutoClipboard.start(this, app.clipboard) // full builds, once the Mac has granted log access
         // Decision 0005: the session connects on screen on and stays connected while charging
-        screenOn = getSystemService(PowerManager::class.java).isInteractive
-        charging = getSystemService(BatteryManager::class.java).isCharging
-        session.setScreenOn(screenOn)
-        session.setCharging(charging)
+        session.setScreenOn(getSystemService(PowerManager::class.java).isInteractive)
+        session.setCharging(getSystemService(BatteryManager::class.java).isCharging)
         registerReceiver(power, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
         })
+        scope.launch { session.cpu.collect(::followCpu) }
         scope.launch {
             session.state.collect { state ->
-                updateWake(state)
                 when (state) {
                     is SessionState.Connected -> nm.notify(1, notification("Connected to ${state.macName}"))
                     is SessionState.Connecting -> nm.notify(1, notification("Reconnecting to ${state.macName}…"))
@@ -61,21 +61,44 @@ class ConnectionService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // The alarm from a CpuPlan.WakeAt: the CPU is awake now, so let the session look again
+        if (intent?.action == ACTION_CHECK_IDLE) {
+            // The alarm keeps the CPU up only while it's delivered: hold it until the session's
+            // own plan takes over (SR-31-02), which replaces or releases this
+            idleWake.acquire(ALARM_HANDOFF_MS)
+            (application as SeamApplication).session.checkIdle()
+        }
+        return START_STICKY
+    }
     override fun onBind(intent: Intent?) = null
 
-    private var screenOn = true
-    private var charging = false
-
     /**
-     * With the screen off Android suspends the CPU within seconds, and the session's one-minute idle
-     * check would then wait for an unrelated wake-up, leaving the connection open. So while a
-     * connection is open with the screen off on battery, stay awake just long enough for that check,
-     * and let go the moment the session goes Idle (SR-8-02).
+     * With the screen off Android suspends the CPU within seconds, and the session's idle check
+     * would then wait for an unrelated wake-up, leaving the connection open (rule 8, SR-8-02). The
+     * session says what the CPU must do; this only carries it out. A check due within a minute
+     * holds the CPU awake until it has run. One further off lets the CPU sleep and sets an alarm
+     * to wake it a minute before: a five-minute reply window never holds the CPU for five minutes.
      */
-    private fun updateWake(state: SessionState) {
-        val needed = !screenOn && !charging && (state is SessionState.Connected || state is SessionState.Connecting)
-        if (needed) idleWake.acquire(IDLE_CHECK_MS) else if (idleWake.isHeld) idleWake.release()
+    private fun followCpu(plan: CpuPlan) {
+        val alarms = getSystemService(AlarmManager::class.java)
+        alarms.cancel(idleCheckAlarm)
+        when (plan) {
+            CpuPlan.None -> if (idleWake.isHeld) idleWake.release()
+            // The session never asks for more than a minute and a bit; at least a second so it runs
+            is CpuPlan.Hold -> idleWake.acquire((plan.until - System.currentTimeMillis()).coerceAtLeast(1_000))
+            is CpuPlan.WakeAt -> {
+                if (idleWake.isHeld) idleWake.release()
+                // Inexact but allowed in Doze; no exact-alarm permission needed. Deep Doze can defer it by
+                // minutes, by which time Doze has cut the network anyway (SR-31-04). Session time is wall-clock time
+                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, plan.at, idleCheckAlarm)
+            }
+        }
+    }
+
+    private val idleCheckAlarm by lazy {
+        val intent = Intent(this, ConnectionService::class.java).setAction(ACTION_CHECK_IDLE)
+        PendingIntent.getService(this, 1, intent, PendingIntent.FLAG_IMMUTABLE)
     }
 
     private val idleWake by lazy {
@@ -93,17 +116,13 @@ class ConnectionService : Service() {
                 Intent.ACTION_POWER_CONNECTED -> session.setCharging(true)
                 Intent.ACTION_POWER_DISCONNECTED -> session.setCharging(false)
             }
-            when (intent.action) {
-                Intent.ACTION_SCREEN_ON, Intent.ACTION_SCREEN_OFF -> screenOn = intent.action == Intent.ACTION_SCREEN_ON
-                else -> charging = intent.action == Intent.ACTION_POWER_CONNECTED
-            }
-            updateWake(session.state.value)
         }
     }
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(power) }
         if (idleWake.isHeld) idleWake.release()
+        getSystemService(AlarmManager::class.java).cancel(idleCheckAlarm)
         AutoClipboard.stop(this)
         scope.cancel()
         super.onDestroy()
@@ -122,8 +141,9 @@ class ConnectionService : Service() {
 
     companion object {
         private const val CHANNEL = "connection"
-        /** The session's one-minute idle window (Wakefulness.IDLE_MS) plus a little margin. */
-        private const val IDLE_CHECK_MS = 65_000L
+        private const val ACTION_CHECK_IDLE = "com.avetero.seam.CHECK_IDLE"
+        /** Long enough for the session to look again and publish its plan. */
+        private const val ALARM_HANDOFF_MS = 10_000L
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ConnectionService::class.java))
     }

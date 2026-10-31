@@ -367,7 +367,7 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(uint64_t ptr, Rus
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ALLOWED_PATHS
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ALLOWED_PATHS
-RustBuffer uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(uint64_t ptr, int8_t wifi, int8_t relay, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(uint64_t ptr, RustBuffer enabled, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APP_DATA
@@ -417,7 +417,7 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_identity_key(uint64_t ptr, RustC
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
-RustBuffer uniffi_seam_ffi_fn_method_seamdevice_next_hello(uint64_t ptr, int8_t wifi, int8_t relay, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_next_hello(uint64_t ptr, RustBuffer enabled, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_OPEN
@@ -457,7 +457,7 @@ void uniffi_seam_ffi_fn_method_seamdevice_remove_peer(uint64_t ptr, RustBuffer p
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ROUTE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ROUTE
-RustBuffer uniffi_seam_ffi_fn_method_seamdevice_route(uint64_t ptr, int8_t wifi, int8_t relay, int8_t lan_up, int8_t relay_up, int8_t hello, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_route(uint64_t ptr, RustBuffer enabled, RustBuffer up, int8_t hello, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_SAFETY_CODE

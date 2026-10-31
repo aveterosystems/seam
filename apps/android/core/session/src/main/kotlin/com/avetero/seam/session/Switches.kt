@@ -56,7 +56,7 @@ internal class Switches(
     /** The switches: user preferences, saved apart from the keys. */
     fun save(wifi: Boolean, relay: Boolean) {
         // From the current value, not one taken before a Hello was queued: that moved the counter on
-        val s = _settings.value.copy(wifi = wifi, relay = relay)
+        val s = _settings.value.copy(wifi = wifi, relay = relay).let { it.copy(allowed = allowedFor(it)) }
         _settings.value = s
         runCatching { store.save(s) } // only preferences: the switches still apply this run
     }
@@ -66,7 +66,7 @@ internal class Switches(
      * seals it and persists both in one write before anything is sent. Null if there's no Mac to tell.
      */
     fun nextHello(wifi: Boolean = this.wifi, relay: Boolean = this.relay): Payload? {
-        val next = device.nextHello(wifi, relay) ?: return null
+        val next = device.nextHello(enabled(wifi, relay)) ?: return null
         syncPeer()
         val hello = Hello.newBuilder().setAppVersion(appVersion).setPlatform("android").setSeq(next.seq.toLong())
             .addAllAllowedTransportsValue(next.allowedTransports)
@@ -86,12 +86,21 @@ internal class Switches(
      */
     fun syncPeer() {
         val d = device.appData()
-        _settings.value = _settings.value.copy(
+        val s = _settings.value
+        _settings.value = s.copy(
             macAllows = d?.peerAllowed?.map { it.toTransport() }?.toSet(),
             macHelloSeq = d?.helloSeqApplied?.toLong() ?: 0,
             helloSeq = d?.helloSeqSent?.toLong() ?: 0,
+            allowed = allowedFor(s),
         )
     }
+
+    /** The core's answer, so the phone never re-derives "on at both ends" itself. */
+    private fun allowedFor(s: ConnectionSettings) = device.allowedPaths(enabled(s.wifi, s.relay)).toSet()
+
+    /** The switches as the core's path list: the one place they're translated. */
+    fun enabled(wifi: Boolean = this.wifi, relay: Boolean = this.relay): List<PeerPath> =
+        listOfNotNull(PeerPath.LAN.takeIf { wifi }, PeerPath.RELAY.takeIf { relay })
 }
 
 private fun Transport.toPath() = when (this) {

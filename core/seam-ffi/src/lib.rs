@@ -118,6 +118,10 @@ impl From<links::Path> for PeerPath {
     }
 }
 
+fn paths(list: Vec<PeerPath>) -> Vec<links::Path> {
+    list.into_iter().map(Into::into).collect()
+}
+
 impl From<PeerPath> for links::Path {
     fn from(p: PeerPath) -> Self {
         match p {
@@ -279,39 +283,41 @@ impl SeamDevice {
         self.lock().clear_app_data();
     }
 
-    /// Paths switched on at both ends (decision 0006): this device's switches and the peer's
-    /// last applied Hello.
-    pub fn allowed_paths(&self, wifi: bool, relay: bool) -> Vec<PeerPath> {
-        let mine = links::mine(wifi, relay);
-        let paths = self
+    /// Paths switched on at both ends (decision 0006), in order of preference: this device's
+    /// switches (`enabled`, any order) and the peer's last applied Hello.
+    pub fn allowed_paths(&self, enabled: Vec<PeerPath>) -> Vec<PeerPath> {
+        let enabled = paths(enabled);
+        let allowed = self
             .lock()
             .app_data()
-            .map_or(mine, |d| d.allowed(wifi, relay));
-        paths.into_iter().map(Into::into).collect()
+            .map_or_else(|| links::mine(&enabled), |d| d.allowed(&enabled));
+        allowed.into_iter().map(Into::into).collect()
     }
 
     /// The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
     /// any up path this device's switches allow, so a switch change always reaches the peer.
+    ///
+    /// `enabled`: this device's switches; `up`: the paths connected now. Any order: the core
+    /// decides preference.
     pub fn route(
         &self,
-        wifi: bool,
-        relay: bool,
-        lan_up: bool,
-        relay_up: bool,
+        enabled: Vec<PeerPath>,
+        up: Vec<PeerPath>,
         hello: bool,
     ) -> Option<PeerPath> {
-        let data = self.lock().app_data();
-        let path = match data {
-            Some(d) => d.route(wifi, relay, lan_up, relay_up, hello),
-            None => links::route(&links::mine(wifi, relay), lan_up, relay_up),
+        let (enabled, up) = (paths(enabled), paths(up));
+        let path = match self.lock().app_data() {
+            Some(d) => d.route(&enabled, &up, hello),
+            None => links::route(&links::mine(&enabled), &up),
         };
         path.map(Into::into)
     }
 
     /// The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
     /// Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
-    pub fn next_hello(&self, wifi: bool, relay: bool) -> Option<HelloOut> {
-        let (seq, allowed_transports) = self.lock().edit_app_data(|d| d.next_hello(wifi, relay))?;
+    pub fn next_hello(&self, enabled: Vec<PeerPath>) -> Option<HelloOut> {
+        let enabled = paths(enabled);
+        let (seq, allowed_transports) = self.lock().edit_app_data(|d| d.next_hello(&enabled))?;
         Some(HelloOut {
             seq,
             allowed_transports,
@@ -632,8 +638,12 @@ mod tests {
             SeamDevice::generate().unwrap(),
             SeamDevice::generate().unwrap(),
         );
-        assert_eq!(mac.next_hello(true, true), None, "no app data yet");
-        assert_eq!(mac.allowed_paths(true, false), vec![PeerPath::Lan]);
+        assert_eq!(
+            mac.next_hello(vec![PeerPath::Lan, PeerPath::Relay]),
+            None,
+            "no app data yet"
+        );
+        assert_eq!(mac.allowed_paths(vec![PeerPath::Lan]), vec![PeerPath::Lan]);
         for d in [&mac, &phone] {
             d.set_app_data(AppData {
                 group_id: vec![1; 16],
@@ -646,7 +656,7 @@ mod tests {
             .unwrap();
         }
         // The phone allows only Same Wi-Fi
-        let hello = phone.next_hello(true, false).unwrap();
+        let hello = phone.next_hello(vec![PeerPath::Lan]).unwrap();
         assert_eq!(
             hello,
             HelloOut {
@@ -659,14 +669,25 @@ mod tests {
             !mac.apply_hello(hello.seq, vec![2]),
             "a replay changes nothing"
         );
-        assert_eq!(mac.allowed_paths(true, true), vec![PeerPath::Lan]);
         assert_eq!(
-            mac.route(true, true, false, true, false),
+            mac.allowed_paths(vec![PeerPath::Lan, PeerPath::Relay]),
+            vec![PeerPath::Lan]
+        );
+        assert_eq!(
+            mac.route(
+                vec![PeerPath::Lan, PeerPath::Relay],
+                vec![PeerPath::Relay],
+                false
+            ),
             None,
             "waits for Same Wi-Fi"
         );
         assert_eq!(
-            mac.route(true, true, false, true, true),
+            mac.route(
+                vec![PeerPath::Lan, PeerPath::Relay],
+                vec![PeerPath::Relay],
+                true
+            ),
             Some(PeerPath::Relay),
             "a Hello still goes"
         );
@@ -679,7 +700,7 @@ mod tests {
         );
         mac.forget_hello();
         assert_eq!(
-            mac.allowed_paths(true, true),
+            mac.allowed_paths(vec![PeerPath::Lan, PeerPath::Relay]),
             vec![PeerPath::Lan, PeerPath::Relay]
         );
         assert_eq!(mac.app_data().unwrap().group_id, vec![1; 16]);
