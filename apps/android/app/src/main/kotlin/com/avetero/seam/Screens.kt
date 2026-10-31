@@ -31,8 +31,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.animateContentSize
@@ -222,6 +224,9 @@ private fun PauseAction(paused: Boolean, onPause: (PauseFor) -> Unit, onResume: 
     Box {
         RoundAction("Pause", R.drawable.ic_pause, primary = false, description = "Pause Seam", onClick = { choosing = true })
         DropdownMenu(expanded = choosing, onDismissRequest = { choosing = false }) {
+            // The menu has its own window: refuse taps that pass through another app's overlay (SR-32-03)
+            val view = LocalView.current
+            SideEffect { view.filterTouchesWhenObscured = true; view.rootView.filterTouchesWhenObscured = true }
             PauseFor.entries.forEach { choice ->
                 DropdownMenuItem(text = { Text(choice.label) }, onClick = { choosing = false; onPause(choice) })
             }

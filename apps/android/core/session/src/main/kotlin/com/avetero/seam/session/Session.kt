@@ -10,7 +10,6 @@ import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Delivered
 import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.Hello
-import com.avetero.seam.protocol.v1.Pause
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.RemoveMember
 import com.avetero.seam.protocol.v1.Unpair
@@ -187,15 +186,15 @@ class Session(
 
     /**
      * Pauses Seam until [untilMs] (unix ms; Long.MAX_VALUE: until [resume]). Only the phone pauses.
-     * The Mac is told, with whatever was already waiting, in one connection; then this phone makes
-     * no connections and captures nothing until the pause ends. A time already past does nothing.
+     * The Mac is told in a Hello, with whatever was already waiting, in one connection; then this
+     * phone makes no connections and captures nothing until the pause ends. A past time does nothing.
      */
     fun pause(untilMs: Long) = scope.launch {
         if (mac == null || pairing.active || untilMs <= now()) return@launch
         switches.savePause(untilMs)
-        outbox.add(pauseNotice(untilMs))
+        queueHello()
         reconsider()
-        if (canSend()) flush()
+        if (canSend() || canSendHello()) flush()
     }
 
     /** Ends a pause now and tells the Mac. One that already ended by itself needs no message. */
@@ -203,13 +202,10 @@ class Session(
         val wasPaused = paused()
         switches.savePause(0)
         if (!wasPaused || mac == null) return@launch
-        outbox.add(pauseNotice(0))
+        queueHello()
         reconsider()
-        if (canSend()) flush()
+        if (canSend() || canSendHello()) flush()
     }
-
-    private fun pauseNotice(untilMs: Long) =
-        Payload.newBuilder().setControl(Control.newBuilder().setPause(Pause.newBuilder().setUntilMs(untilMs))).build()
 
     /**
      * Close the connection if nothing wants it any more; with [connect], also open it if something
@@ -272,6 +268,7 @@ class Session(
         if (storageBlocked) return@launch // pairing would replace the state we couldn't open
         if (!switches.relay) return@launch run { _notice.value = RELAY_NEEDED_TO_PAIR } // pairing over Wi‑Fi comes later
         closeLan() // a direct link to the current Mac would only get in the way
+        switches.savePause(0) // a new pairing starts unpaused (SR-32-02); a kept Mac hears it in its next Hello
         outbox.clearUnsent() // what the current Mac never acked is kept: it still gets it if this pairing fails
         pairing.start(qr)
         _notice.value = null
@@ -314,6 +311,7 @@ class Session(
         outbox.clearAll()
         device.peers().forEach { device.removePeer(it.id) }
         device.clearAppData()
+        switches.savePause(0) // a pause belongs to this pairing; a new Mac never inherits it (SR-32-02)
         features.forEach { runCatching { it.reset() } } // a feature bug never blocks forgetting
         switches.syncPeer()
         val saved = runCatching { persist() }.isSuccess

@@ -35,6 +35,9 @@ final class FakeRelayRunner: RelayRunner, @unchecked Sendable {
 final class FakeLanRunner: LanRunner, @unchecked Sendable {
     let log: EventLog
     let fails: Bool
+    /** Holds `start()` until released, like a listener still binding its port. */
+    var gate: CheckedContinuation<Void, Never>?
+    var slow = false
     let events: AsyncStream<LanEvent>
     private let continuation: AsyncStream<LanEvent>.Continuation
 
@@ -46,6 +49,7 @@ final class FakeLanRunner: LanRunner, @unchecked Sendable {
 
     func start() async throws -> UInt16 {
         log.add("lan starts")
+        if slow { await withCheckedContinuation { gate = $0 } }
         if fails { throw CancellationError() }
         return 1
     }
@@ -170,5 +174,30 @@ final class FakeLanRunner: LanRunner, @unchecked Sendable {
         #expect(log.all.contains("lan stops"))
         #expect(!log.all.contains("relay 2 runs"))
         #expect(log.all.filter { $0 == "lan starts" }.count == 1)
+    }
+
+    @Test func sr_31_03_aListenerClosedWhileStartingIsNeverHandedOver() async throws {
+        let rig = try await Rig()
+        var made: [FakeLanRunner] = []
+        let p = Paths(
+            session: rig.session, wifi: true, relay: false,
+            makeRelay: { _ in nil },
+            makeLan: { [log] in
+                let lan = FakeLanRunner(log)
+                lan.slow = made.isEmpty // only the first one is slow to start
+                made.append(lan)
+                return lan
+            }
+        )
+        p.start(phonePaired: true)
+        await settle(p)
+        p.setRelay(true) // so Wi-Fi may go off
+        p.setWifi(false) // closed while the first is still starting
+        p.setWifi(true) // a new one starts and is handed over
+        await settle(p)
+        made[0].gate?.resume() // the first finally finishes starting
+        await settle(p)
+        #expect(log.all.filter { $0 == "lan stops" }.count == 2, "the stale one is stopped, not handed over")
+        #expect(await rig.session.lan as AnyObject? === made[1], "the session keeps the newer listener")
     }
 }

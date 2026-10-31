@@ -31,6 +31,11 @@ class SeamTile : TileService() {
     }
 
     override fun onClick() {
+        // Never from the lock screen: whoever holds a locked phone can't pause or resume it (SR-32-04)
+        if (isLocked) unlockAndRun(::toggle) else toggle()
+    }
+
+    private fun toggle() {
         val session = (application as SeamApplication).session
         if (!session.paired) return
         if (session.settings.value.pausedUntil > System.currentTimeMillis()) session.resume()

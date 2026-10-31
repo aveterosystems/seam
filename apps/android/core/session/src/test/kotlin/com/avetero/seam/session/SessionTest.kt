@@ -661,14 +661,15 @@ class SessionTest {
 
     // Pause: only the phone pauses and resumes. Paused, it tells the Mac once, then makes no
     // connections at all (no relay, no Wi‑Fi search) and captures nothing, until it ends or resumes.
-    private fun pausesSent() = relay.macReceived.filter { it.hasControl() && it.control.hasPause() }.map { it.control.pause.untilMs }
+    /** The pause each Hello told the Mac, in order (the pause rides on the Hello, SR-32-01). */
+    private fun pausesSent() = relay.hellos.map { it.control.hello.pausedUntilMs }
 
     @Test fun pausingTellsTheMacThenGoesSilent() = runTest {
         val s = paired()
         val until = testScheduler.currentTime + 3_600_000
         s.pause(until)
         advanceUntilIdle()
-        assertEquals("the Mac is told when it ends", listOf(until), pausesSent())
+        assertEquals("the Mac is told when it ends", until, pausesSent().last())
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
         assertEquals(until, s.settings.value.pausedUntil)
         val logins = relay.logins.size
@@ -690,7 +691,7 @@ class SessionTest {
         s.pause(Long.MAX_VALUE)
         advanceUntilIdle()
         assertEquals(logins + 1, relay.logins.size)
-        assertEquals(listOf(Long.MAX_VALUE), pausesSent())
+        assertEquals(Long.MAX_VALUE, pausesSent().last())
         assertEquals("and closes again straight away", SessionState.Idle("MacBook Pro"), s.state.value)
     }
 
@@ -703,7 +704,7 @@ class SessionTest {
         s.setScreenOn(true)
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertEquals("the Mac ends it at the same time: nothing more to say", 1, pausesSent().size)
+        assertTrue("the Mac ends it at the same time by the clock", pausesSent().none { it > testScheduler.currentTime && it != Long.MAX_VALUE })
         s.send(clip("after the pause"))
         advanceUntilIdle()
         assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "after the pause" })
@@ -715,7 +716,7 @@ class SessionTest {
         advanceUntilIdle()
         s.resume()
         advanceUntilIdle()
-        assertEquals(listOf(Long.MAX_VALUE, 0L), pausesSent())
+        assertEquals(listOf(Long.MAX_VALUE, 0L), pausesSent().dropWhile { it == 0L }.take(2))
         assertEquals(0L, s.settings.value.pausedUntil)
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
         s.send(clip("after resume"))
@@ -744,7 +745,7 @@ class SessionTest {
         advanceUntilIdle()
         s.pause(Long.MAX_VALUE)
         advanceUntilIdle()
-        assertTrue(lan.macReceived.any { it.hasControl() && it.control.hasPause() })
+        assertTrue(lan.hellos.any { it.control.hello.pausedUntilMs == Long.MAX_VALUE })
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
         val (opened, logins) = lan.opened to relay.logins.size
         s.setScreenOn(false)
@@ -768,11 +769,20 @@ class SessionTest {
         assertEquals("but not for ever", SessionState.Idle("MacBook Pro"), s.state.value)
     }
 
+    @Test fun sr_32_02_forgettingTheMacEndsThePause() = runTest {
+        val s = paired()
+        s.pause(Long.MAX_VALUE)
+        advanceUntilIdle()
+        s.forgetMac()
+        advanceUntilIdle()
+        assertEquals("a new Mac never inherits a pause", 0L, s.settings.value.pausedUntil)
+    }
+
     @Test fun aPauseInThePastIsIgnored() = runTest {
         val s = paired()
         s.pause(testScheduler.currentTime - 1)
         advanceUntilIdle()
-        assertTrue(pausesSent().isEmpty())
+        assertTrue(pausesSent().all { it == 0L })
         assertEquals(0L, s.settings.value.pausedUntil)
     }
 

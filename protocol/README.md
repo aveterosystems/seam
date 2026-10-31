@@ -26,7 +26,7 @@ flowchart TB
 |---|---|
 | `seam/v1/envelope.proto` | `Envelope` |
 | `seam/v1/payload.proto` | `Inner`, `Payload` (the `oneof` of every feature) |
-| `seam/v1/control.proto` | `Hello` (capabilities and allowed transports), `Ack`, `Ping`, `Unpair`, `PairRequest`, `PairAccept`, `Pause` (the phone paused or resumed: until when, or 0) |
+| `seam/v1/control.proto` | `Hello` (capabilities, allowed transports and the phone's pause), `Ack`, `Ping`, `Unpair`, `PairRequest`, `PairAccept` |
 | `seam/v1/clipboard.proto` | `Clipboard` |
 | `seam/v1/files.proto` | `FileOffer`, `FileAnswer`, `FileChunkRef`, `FileDone` |
 | `seam/v1/notifications.proto` | `Notification`, `NotificationButton`, `NotificationAction`, and the phone-owned settings: `NotificationSettings`, `NotificationApp`, `NotificationMode`, `NotificationSettingsChange` |

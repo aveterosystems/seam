@@ -77,6 +77,7 @@ internal class Switches(
         syncPeer()
         val hello = Hello.newBuilder().setAppVersion(appVersion).setPlatform("android").setSeq(next.seq.toLong())
             .addAllAllowedTransportsValue(next.allowedTransports)
+            .setPausedUntilMs(_settings.value.pausedUntil) // the Mac learns the pause in order (SR-32-01)
         return Payload.newBuilder().setControl(Control.newBuilder().setHello(hello)).build()
     }
 

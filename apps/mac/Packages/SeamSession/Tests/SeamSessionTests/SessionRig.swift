@@ -263,11 +263,12 @@ final class Rig: @unchecked Sendable {
     }
 
     /// The phone's Hello, as its switches say.
-    func phoneHello(wifi: Bool, relay: Bool) throws -> Seam_V1_Envelope {
+    func phoneHello(wifi: Bool, relay: Bool, pausedUntilMs: Int64 = 0) throws -> Seam_V1_Envelope {
         let next = try #require(phone.nextHello(enabled: (wifi ? [.lan] : []) + (relay ? [.relay] : [])))
         return try fromPhone(.with {
             $0.control = .with {
                 $0.hello = .with {
+                    $0.pausedUntilMs = pausedUntilMs
                     $0.seq = next.seq
                     $0.allowedTransports = next.allowedTransports.map { Seam_V1_Transport(rawValue: Int($0))! }
                 }

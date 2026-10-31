@@ -89,26 +89,34 @@ class ConnectionService : Service() {
     private val settingsAction by lazy {
         val open = Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_SETTINGS, true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        Notification.Action.Builder(null, "Settings", PendingIntent.getActivity(this, 2, open, PendingIntent.FLAG_IMMUTABLE)).build()
+        Notification.Action.Builder(null, "Settings", PendingIntent.getActivity(this, 2, open, PendingIntent.FLAG_IMMUTABLE))
+            .setAuthenticationRequired(true).build()
     }
 
     /** Done by the service itself: no screen needed. */
     private fun action(title: String, intentAction: String): Notification.Action {
         val intent = PendingIntent.getService(this, intentAction.hashCode(), Intent(this, ConnectionService::class.java).setAction(intentAction), PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Action.Builder(null, title, intent).build()
+        // Unlock first: a locked phone's holder can't pause, resume or send its clipboard (SR-32-04)
+        return Notification.Action.Builder(null, title, intent).setAuthenticationRequired(true).build()
     }
 
     /** Needs a screen: reading the clipboard, or showing the pause choices. */
     private fun screenAction(title: String, intentAction: String): Notification.Action {
         val intent = PendingIntent.getActivity(this, intentAction.hashCode(), NotificationActionActivity.intent(this, intentAction), PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Action.Builder(null, title, intent).build()
+        // Unlock first: a locked phone's holder can't pause, resume or send its clipboard (SR-32-04)
+        return Notification.Action.Builder(null, title, intent).setAuthenticationRequired(true).build()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // The alarm from a CpuPlan.WakeAt: the CPU is awake now, so let the session look again
         val session = (application as SeamApplication).session
         when (intent?.action) {
-            ACTION_CHECK_IDLE -> session.checkIdle()
+            ACTION_CHECK_IDLE -> {
+                // The alarm keeps the CPU up only while it's delivered: hold it until the session's
+                // own plan takes over (SR-31-02), which replaces or releases this
+                idleWake.acquire(ALARM_HANDOFF_MS)
+                session.checkIdle()
+            }
             // From the notification: only the phone pauses and resumes
             ACTION_RESUME -> session.resume()
         }
@@ -132,7 +140,8 @@ class ConnectionService : Service() {
             is CpuPlan.Hold -> idleWake.acquire((plan.until - System.currentTimeMillis()).coerceAtLeast(1_000))
             is CpuPlan.WakeAt -> {
                 if (idleWake.isHeld) idleWake.release()
-                // Inexact but allowed in Doze; no exact-alarm permission needed. Session time is wall-clock time
+                // Inexact but allowed in Doze; no exact-alarm permission needed. Deep Doze can defer it by
+                // minutes, by which time Doze has cut the network anyway (SR-31-04). Session time is wall-clock time
                 alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, plan.at, idleCheckAlarm)
             }
         }
@@ -186,6 +195,8 @@ class ConnectionService : Service() {
         private const val CHANNEL = "connection"
         private const val ACTION_CHECK_IDLE = "com.avetero.seam.CHECK_IDLE"
         private const val ACTION_RESUME = "com.avetero.seam.RESUME"
+        /** Long enough for the session to look again and publish its plan. */
+        private const val ALARM_HANDOFF_MS = 10_000L
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ConnectionService::class.java))
     }
