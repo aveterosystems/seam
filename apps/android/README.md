@@ -14,7 +14,7 @@ Built to the design boards: Home (A01), pairing with Seam's own camera view (A02
 flowchart TB
     app[":app<br/>screens · service · flavours"] --> features[":feature:pairing · :feature:clipboard · :feature:notifications · :feature:status"]
     app --> session
-    features --> session[":core:session<br/>relay link · pairing · delivery"]
+    features --> session[":core:session<br/>relay and Same Wi‑Fi paths · pairing · delivery"]
     session --> crypto[":core:crypto<br/>Kotlin bindings + Rust core .so"]
     session --> protocol[":core:protocol<br/>generated messages"]
     crypto --> rust["core/seam-ffi (Rust)<br/>built per ABI with cargo-ndk"]
@@ -25,7 +25,7 @@ flowchart TB
 | Module | What |
 |---|---|
 | `app` | The application: the screens, `ConnectionService`, the share sheet, the after-restart reminder, and the `play` / `full` flavours |
-| `core/session` | The phone's link to its Mac: relay login, pairing, delivery and acks, and when to connect (decision 0005) |
+| `core/session` | The phone's link to its Mac: `Session` (pairing, delivery and acks, the features, and when to connect, decision 0005) over two paths, `RelayPath` (relay login, backoff) and `LanPath` (Same Wi‑Fi discovery and handshake). Which path to use comes from the core (decision 0006) |
 | `feature/pairing` | The camera view: CameraX frames decoded on the phone by ZXing (no network code, no Google services) |
 | `feature/clipboard` | Clipboard both ways, the share and copy rules, and automatic phone → Mac in the `full` build |
 | `feature/notifications` | The notification listener, the per-app settings (every app starts off; the phone filters before anything is sent), and reply, buttons and dismiss from the Mac |
