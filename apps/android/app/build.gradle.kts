@@ -8,8 +8,8 @@ android {
     namespace = "com.avetero.seam"
     defaultConfig {
         applicationId = "com.avetero.seam"
-        versionCode = 6
-        versionName = "0.2.2"
+        versionCode = 7
+        versionName = "0.2.3"
         // The updater installs only APKs signed by this certificate (release/android-certificate.sha256)
         val pin = rootProject.file("../../release/android-certificate.sha256").readText().trim()
         require(Regex("[0-9a-f]{64}").matches(pin)) { "release/android-certificate.sha256 must be one SHA-256" }

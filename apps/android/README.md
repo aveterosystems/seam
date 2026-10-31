@@ -2,7 +2,7 @@
 
 A native Android app in Kotlin and Jetpack Compose (Material 3), for Android 12 (API 31) and later. It mirrors notifications and texts to your Mac, syncs the clipboard, and sends and receives files.
 
-> **Status:** 0.2.2. Pairs with a Mac by scanning its QR code, syncs the clipboard both ways, sends the battery level, mirrors the notifications of the apps you choose (with reply and dismiss from the Mac), and connects only when there's something to move (decision 0005). Tested on a Galaxy S25 Ultra running Android 17. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
+> **Status:** 0.2.3. Pairs with a Mac by scanning its QR code, syncs the clipboard both ways, sends the battery level, mirrors the notifications of the apps you choose (with reply and dismiss from the Mac), and connects only when there's something to move (decision 0005). Tested on a Galaxy S25 Ultra running Android 17. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
 
 ## Screens
 
