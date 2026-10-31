@@ -5,10 +5,11 @@ on:
     paths: ["core/**", ".github/workflows/core.yml", "!**/*.md"]
   pull_request:
 
-# A newer push to the same branch or PR cancels this run; it's been superseded
+# A newer push to the same PR cancels this run; it's been superseded. Runs on main finish, so
+# each one saves the build cache that PRs start from
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Which parts changed. Skipped jobs count as passed, so required checks never block an unrelated PR.
@@ -37,8 +38,10 @@ jobs:
       # libsignal's post-quantum ratchet (spqr) compiles .proto files at build time
       - uses: arduino/setup-protoc@v3
         with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
+      # Saved from main only: PRs read main's cache instead of each saving their own, which filled
+      # the repo's 10 GB and pushed main's out
       - uses: Swatinem/rust-cache@v2
-        with: { workspaces: core }
+        with: { workspaces: core, save-if: "${{ github.ref == 'refs/heads/main' }}" }
       # rustup reads core/rust-toolchain.toml and installs the pinned toolchain
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings

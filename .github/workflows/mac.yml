@@ -5,10 +5,11 @@ on:
     paths: ["apps/mac/**", "core/**", "protocol/**", "scripts/**", ".github/workflows/mac.yml", "!**/*.md"]
   pull_request:
 
-# A newer push to the same branch or PR cancels this run; it's been superseded
+# A newer push to the same PR cancels this run; it's been superseded. Runs on main finish, so
+# each one saves the build cache that PRs start from
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Must match the SwiftProtobuf version in apps/mac/Packages/SeamProtocol/Package.swift
@@ -40,14 +41,24 @@ jobs:
       # libsignal's post-quantum ratchet (spqr) compiles .proto files at build time
       - uses: arduino/setup-protoc@v3
         with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
+      # Saved from main only: PRs read main's cache instead of each saving their own, which filled
+      # the repo's 10 GB and pushed main's out
       - uses: Swatinem/rust-cache@v2
-        with: { workspaces: core }
+        with: { workspaces: core, save-if: "${{ github.ref == 'refs/heads/main' }}" }
 
+      - uses: actions/cache@v4
+        id: protoc-gen-swift
+        with:
+          path: ~/protoc-gen-swift
+          key: protoc-gen-swift-${{ env.SWIFT_PROTOBUF }}-${{ runner.os }}-${{ runner.arch }}
       - name: protoc-gen-swift ${{ env.SWIFT_PROTOBUF }}, built from source so codegen is reproducible
+        if: steps.protoc-gen-swift.outputs.cache-hit != 'true'
         run: |
           git clone -q --depth 1 --branch "$SWIFT_PROTOBUF" https://github.com/apple/swift-protobuf "$RUNNER_TEMP/swift-protobuf"
           swift build -c release --package-path "$RUNNER_TEMP/swift-protobuf" --product protoc-gen-swift
-          echo "$RUNNER_TEMP/swift-protobuf/.build/release" >> "$GITHUB_PATH"
+          mkdir -p ~/protoc-gen-swift
+          cp "$RUNNER_TEMP/swift-protobuf/.build/release/protoc-gen-swift" ~/protoc-gen-swift/
+      - run: echo "$HOME/protoc-gen-swift" >> "$GITHUB_PATH"
 
       - name: Generated code matches its sources (UniFFI bindings, Swift protocol)
         run: |
@@ -55,8 +66,9 @@ jobs:
           scripts/gen-protocol.sh
           git diff --exit-code -- apps/
 
+      # Debug, so it reuses the build gen-bindings.sh just made; release.yml makes the release build
       - name: Rust core → SeamCoreFFI.xcframework
-        run: scripts/build-mac-core.sh
+        run: PROFILE=debug scripts/build-mac-core.sh
 
       - name: Swift tests (core bindings, protocol golden vector, relay session)
         run: |
