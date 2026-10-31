@@ -1090,7 +1090,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_seal() and 0xFFFF) != 4361) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() and 0xFFFF) != 24919) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() and 0xFFFF) != 24994) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() and 0xFFFF) != 30714) {
@@ -2627,6 +2627,10 @@ public interface SeamDeviceInterface {
      */
     fun `seal`(`peerId`: kotlin.String, `payload`: kotlin.ByteArray, `ttlS`: kotlin.UInt): kotlin.ByteArray
     
+    /**
+     * Fails (and changes nothing) for app data that wouldn't read back: a group id that isn't
+     * 16 bytes, or a relay URL or owner key over 65,535 bytes.
+     */
     fun `setAppData`(`data`: AppData)
     
     /**
@@ -3118,10 +3122,15 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     }
     
 
-    override fun `setAppData`(`data`: AppData)
+    
+    /**
+     * Fails (and changes nothing) for app data that wouldn't read back: a group id that isn't
+     * 16 bytes, or a relay URL or owner key over 65,535 bytes.
+     */
+    @Throws(SeamException::class)override fun `setAppData`(`data`: AppData)
         = 
     callWithHandle {
-    uniffiRustCall() { _status ->
+    uniffiRustCallWithError(SeamException) { _status ->
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_set_app_data(
         it,
         

@@ -1234,7 +1234,11 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
      */
     func seal(peerId: String, payload: Data, ttlS: UInt32) throws  -> Data
     
-    func setAppData(data: AppData) 
+    /**
+     * Fails (and changes nothing) for app data that wouldn't read back: a group id that isn't
+     * 16 bytes, or a relay URL or owner key over 65,535 bytes.
+     */
+    func setAppData(data: AppData) throws 
     
     /**
      * The answer to the relay's login challenge.
@@ -1603,7 +1607,11 @@ open func seal(peerId: String, payload: Data, ttlS: UInt32)throws  -> Data  {
 })
 }
     
-open func setAppData(data: AppData)  {try! rustCall() {
+    /**
+     * Fails (and changes nothing) for app data that wouldn't read back: a group id that isn't
+     * 16 bytes, or a relay URL or owner key over 65,535 bytes.
+     */
+open func setAppData(data: AppData)throws   {try rustCallWithError(FfiConverterTypeSeamError_lift) {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_set_app_data(
             self.uniffiCloneHandle(),
@@ -2800,7 +2808,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_seal() != 4361) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() != 24919) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_set_app_data() != 24994) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login() != 30714) {

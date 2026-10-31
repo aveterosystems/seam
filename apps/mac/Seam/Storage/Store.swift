@@ -46,12 +46,12 @@ struct Store: Sendable {
         let url = link?.url ?? RelayPolicy.forNewGroup(override: Self.defaults.string(forKey: "relayURL"), allowInsecure: Self.allowInsecureRelay)
         let appData = Self.appData(relayURL: url.absoluteString, ownerKey: link?.ownerKey)
         let previous = device.appData()
-        device.setAppData(data: appData)
+        try device.setAppData(data: appData)
         let store = Store(device: device, appData: appData, key: key, file: file)
         do {
             try store.save()
         } catch {
-            if let previous { device.setAppData(data: previous) } // stay on the old relay rather than half-move
+            if let previous { try? device.setAppData(data: previous) } // stay on the old relay rather than half-move
             throw error
         }
         store.needsBundles = true
@@ -89,7 +89,7 @@ struct Store: Sendable {
             relayURL: RelayPolicy.forNewGroup(override: defaults.string(forKey: "relayURL"), allowInsecure: allowInsecureRelay).absoluteString
         )
         appData.groupId = old
-        device.setAppData(data: appData)
+        try device.setAppData(data: appData)
         let store = Store(device: device, appData: appData, key: key, file: file)
         try store.save()
         defaults.removeObject(forKey: "groupID")
@@ -130,7 +130,7 @@ struct Store: Sendable {
     private static func migrateHelloState(_ data: inout AppData, device: SeamDevice, key: Data, file: StateFile) throws {
         guard LegacyHelloState.present(in: defaults) else { return }
         if LegacyHelloState.migrate(&data, from: defaults) {
-            device.setAppData(data: data)
+            try device.setAppData(data: data)
             try Store(device: device, appData: data, key: key, file: file).save()
         }
         LegacyHelloState.remove(from: defaults)
@@ -142,7 +142,7 @@ struct Store: Sendable {
         let appData = Self.appData(
             relayURL: RelayPolicy.forNewGroup(override: defaults.string(forKey: "relayURL"), allowInsecure: allowInsecureRelay).absoluteString
         )
-        device.setAppData(data: appData)
+        try device.setAppData(data: appData)
         let store = Store(device: device, appData: appData, key: key, file: file)
         try store.save()
         store.needsBundles = true

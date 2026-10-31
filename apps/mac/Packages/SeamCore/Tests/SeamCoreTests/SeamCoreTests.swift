@@ -77,7 +77,7 @@ struct SeamCoreTests {
             groupId: Data(repeating: 1, count: 16), relayUrl: "wss://relay.example.com", ownerKey: Data([9]),
             helloSeqSent: 2, helloSeqApplied: 3, peerAllowed: [.lan]
         )
-        mac.setAppData(data: data)
+        try mac.setAppData(data: data)
         let restored = try SeamDevice.restore(state: try mac.exportState(storageKey: key), storageKey: key)
         #expect(restored.appData() == data)
     }

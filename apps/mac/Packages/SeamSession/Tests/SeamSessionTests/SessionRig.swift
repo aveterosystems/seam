@@ -94,8 +94,14 @@ final class MemoryPasteboard: Pasteboard, @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
     private var item: PasteboardItem?
+    private var _whileReading: (@Sendable () async -> Void)?
 
     var text: String? { lock.withLock { item?.text } }
+    /// Runs while the next read is in progress, once: something the user does mid-read.
+    var whileReading: (@Sendable () async -> Void)? {
+        get { lock.withLock { _whileReading } }
+        set { lock.withLock { _whileReading = newValue } }
+    }
 
     /// Someone copied something on this Mac.
     func copy(_ text: String, types: [String] = ["public.utf8-plain-text"]) {
@@ -108,7 +114,10 @@ final class MemoryPasteboard: Pasteboard, @unchecked Sendable {
     func changeCount() async -> Int { lock.withLock { count } }
 
     func firstItem(ifStill change: Int) async -> PasteboardItem? {
-        lock.withLock { count == change ? item : nil }
+        if let during = lock.withLock({ () -> (@Sendable () async -> Void)? in defer { _whileReading = nil }; return _whileReading }) {
+            await during()
+        }
+        return lock.withLock { count == change ? item : nil }
     }
 
     func write(_ text: String) async -> Int {
@@ -189,7 +198,7 @@ final class Rig: @unchecked Sendable {
             (mac, phone) = (try SeamDevice.generate(), try SeamDevice.generate())
         }
         for device in [mac, phone] {
-            device.setAppData(data: AppData(
+            try device.setAppData(data: AppData(
                 groupId: Data(repeating: 1, count: 16), relayUrl: "wss://relay.example.com", ownerKey: nil,
                 helloSeqSent: 0, helloSeqApplied: 0, peerAllowed: nil
             ))

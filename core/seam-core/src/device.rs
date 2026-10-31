@@ -172,8 +172,10 @@ impl Device {
         AppData::decode(&self.app_data)
     }
 
-    pub fn set_app_data(&mut self, data: &AppData) {
-        self.app_data = data.encode();
+    /// Refuses (and changes nothing) for app data that wouldn't read back.
+    pub fn set_app_data(&mut self, data: &AppData) -> Result<()> {
+        self.app_data = data.checked()?.encode();
+        Ok(())
     }
 
     /// Back to no app data: unpaired, with no relay group.
@@ -185,7 +187,8 @@ impl Device {
     pub fn edit_app_data<R>(&mut self, edit: impl FnOnce(&mut AppData) -> R) -> Option<R> {
         let mut data = self.app_data()?;
         let out = edit(&mut data);
-        self.set_app_data(&data);
+        // What decoded and was edited by links' own methods always reads back
+        self.app_data = data.encode();
         Some(out)
     }
 

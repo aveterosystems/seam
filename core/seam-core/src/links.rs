@@ -145,6 +145,29 @@ impl AppData {
         self.peer_allowed = None;
     }
 
+    /// This app data, ready to save: Err for anything that wouldn't read back (a group id that
+    /// isn't 16 bytes, a URL or owner key too long to store whole), with the peer's list sorted
+    /// and without repeats (SR-29-01..03).
+    pub fn checked(&self) -> crate::Result<Self> {
+        let too_long = |n: usize| n > u16::MAX as usize;
+        if self.group_id.len() != GROUP_LEN {
+            return Err(crate::Error::Malformed("app data: group id isn't 16 bytes"));
+        }
+        if too_long(self.relay_url.len())
+            || self.owner_key.as_ref().is_some_and(|k| too_long(k.len()))
+        {
+            return Err(crate::Error::Malformed(
+                "app data: relay URL or owner key too long",
+            ));
+        }
+        let mut out = self.clone();
+        out.owner_key = out.owner_key.filter(|k| !k.is_empty());
+        out.peer_allowed = out
+            .peer_allowed
+            .map(|l| known(l.into_iter().map(Path::transport)));
+        Ok(out)
+    }
+
     pub fn encode(&self) -> Vec<u8> {
         let group = &self.group_id[..self.group_id.len().min(255)];
         let url = &self.relay_url.as_bytes()[..self.relay_url.len().min(u16::MAX as usize)];

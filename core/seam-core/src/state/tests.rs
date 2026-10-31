@@ -123,7 +123,7 @@ fn app_data_is_sealed_with_the_keys() {
     assert_eq!(mac.app_data(), None, "nothing saved yet");
     let mut data = crate::links::AppData::new(vec![5; 16], "wss://relay.example.com".into(), None);
     data.apply_hello(3, &[1]);
-    mac.set_app_data(&data);
+    mac.set_app_data(&data).unwrap();
     let back = Device::restore(&mac.export_state(&KEY).unwrap(), &KEY).unwrap();
     assert_eq!(back.app_data(), Some(data));
 }
@@ -136,7 +136,8 @@ fn app_data_edits_save_only_when_there_is_some() {
         vec![5; 16],
         "wss://r".into(),
         None,
-    ));
+    ))
+    .unwrap();
     assert_eq!(
         mac.edit_app_data(|d| d.next_hello(true, false)),
         Some((1, vec![1]))
@@ -145,4 +146,14 @@ fn app_data_edits_save_only_when_there_is_some() {
     mac.clear_app_data();
     let back = Device::restore(&mac.export_state(&KEY).unwrap(), &KEY).unwrap();
     assert_eq!(back.app_data(), None, "cleared stays cleared");
+}
+
+#[test]
+fn app_data_that_cant_be_read_back_is_refused_and_nothing_changes() {
+    let (mut mac, ..) = linked();
+    let good = crate::links::AppData::new(vec![5; 16], "wss://r".into(), None);
+    mac.set_app_data(&good).unwrap();
+    let bad = crate::links::AppData::new(vec![5; 3], "wss://r".into(), None);
+    assert!(mac.set_app_data(&bad).is_err());
+    assert_eq!(mac.app_data(), Some(good));
 }

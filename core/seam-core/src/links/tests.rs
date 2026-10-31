@@ -294,3 +294,23 @@ fn writes_one_format_whichever_it_read() {
         assert_eq!(AppData::decode(&d.encode()), Some(d));
     }
 }
+
+// SR-29-01..03: only app data that reads back can be saved
+#[test]
+fn only_app_data_that_reads_back_is_accepted() {
+    let short = AppData::new(vec![1; 15], "wss://r".into(), None);
+    assert!(short.checked().is_err(), "group id must be 16 bytes");
+    let long_url = AppData::new(vec![1; 16], "é".repeat(40_000), None);
+    assert!(long_url.checked().is_err(), "never cut a URL mid-character");
+    let long_key = AppData::new(vec![1; 16], "wss://r".into(), Some(vec![1; 70_000]));
+    assert!(long_key.checked().is_err());
+    let mut repeated = data();
+    repeated.peer_allowed = Some(vec![Relay, Lan, Relay, Lan]);
+    let ok = repeated.checked().unwrap();
+    assert_eq!(
+        ok.peer_allowed,
+        Some(vec![Lan, Relay]),
+        "sorted, no repeats"
+    );
+    assert_eq!(AppData::decode(&ok.encode()), Some(ok));
+}

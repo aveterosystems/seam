@@ -268,8 +268,10 @@ impl SeamDevice {
         self.lock().app_data().map(Into::into)
     }
 
-    pub fn set_app_data(&self, data: AppData) {
-        self.lock().set_app_data(&data.into());
+    /// Fails (and changes nothing) for app data that wouldn't read back: a group id that isn't
+    /// 16 bytes, or a relay URL or owner key over 65,535 bytes.
+    pub fn set_app_data(&self, data: AppData) -> Result<()> {
+        Ok(self.lock().set_app_data(&data.into())?)
     }
 
     /// Unpaired: drops the relay group and Hello state.
@@ -640,7 +642,8 @@ mod tests {
                 hello_seq_sent: 0,
                 hello_seq_applied: 0,
                 peer_allowed: None,
-            });
+            })
+            .unwrap();
         }
         // The phone allows only Same Wi-Fi
         let hello = phone.next_hello(true, false).unwrap();
@@ -679,6 +682,15 @@ mod tests {
             mac.allowed_paths(true, true),
             vec![PeerPath::Lan, PeerPath::Relay]
         );
+        assert_eq!(mac.app_data().unwrap().group_id, vec![1; 16]);
+
+        // SR-29-01: app data that wouldn't read back is refused, and nothing changes
+        let mut bad = mac.app_data().unwrap();
+        bad.group_id = vec![1; 3];
+        assert!(matches!(
+            mac.set_app_data(bad),
+            Err(SeamError::Invalid { .. })
+        ));
         assert_eq!(mac.app_data().unwrap().group_id, vec![1; 16]);
     }
 
