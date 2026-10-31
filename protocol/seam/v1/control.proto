@@ -31,6 +31,11 @@ message Hello {
   // with a new pairing). The receiver applies a Hello only if seq is higher than the last one it
   // applied, so a delayed or replayed old Hello can't switch a path back on. Never clock-based.
   uint64 seq = 5;
+  // The phone's pause (only the phone pauses; the Mac sends 0). Unix ms when it ends, INT64 max
+  // until the phone resumes, 0 not paused. In the Hello so it's ordered by seq and sent on every
+  // connection: a late or replayed message can't re-pause a resumed Mac. While paused nothing is
+  // captured or sent either way, the phone makes no connections, and the Mac keeps listening.
+  int64 paused_until_ms = 6;
 }
 
 enum Transport {

@@ -127,8 +127,11 @@ extension Session {
         let payload = try? Seam_V1_Payload(serializedBytes: message.payload)
         // Only a newer Hello counts (the core checks): the relay can hold an old one and release
         // it later. Applied before the save just below, with the ratchet
-        if case .control(let c)? = payload?.body, case .hello(let h)? = c.body, isConfirmedPhone(message.peerId) {
-            _ = device.applyHello(seq: h.seq, allowedTransports: h.allowedTransports.map { Int32($0.rawValue) })
+        if case .control(let c)? = payload?.body, case .hello(let h)? = c.body, isConfirmedPhone(message.peerId),
+           device.applyHello(seq: h.seq, allowedTransports: h.allowedTransports.map { Int32($0.rawValue) }) {
+            // The phone's pause rides on the same counter, so a late or replayed Hello can't
+            // re-pause a resumed Mac, and every new connection brings the current state (SR-32-01)
+            setPause(until: Self.pauseEnd(h.pausedUntilMs))
         }
         let saved = (try? storage.saveState()) != nil
         // Handled even if the save failed: the ratchet has moved, so a redelivery in this run opens
@@ -154,6 +157,15 @@ extension Session {
             // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)
             let key = removableRelayKey(peerId)
             if await forget(peerId), let key { try? await relay?.send(Frames.removeMember(key)) }
+        }
+    }
+
+    /// A Hello's `paused_until_ms`: 0 (or an older phone that doesn't send it) is not paused.
+    static func pauseEnd(_ ms: Int64) -> Date? {
+        switch ms {
+        case ...0: nil
+        case .max: .distantFuture
+        default: Date(timeIntervalSince1970: TimeInterval(ms) / 1000)
         }
     }
 

@@ -171,6 +171,12 @@ public nonisolated struct Seam_V1_Hello: Sendable {
   /// applied, so a delayed or replayed old Hello can't switch a path back on. Never clock-based.
   public var seq: UInt64 = 0
 
+  /// The phone's pause (only the phone pauses; the Mac sends 0). Unix ms when it ends, INT64 max
+  /// until the phone resumes, 0 not paused. In the Hello so it's ordered by seq and sent on every
+  /// connection: a late or replayed message can't re-pause a resumed Mac. While paused nothing is
+  /// captured or sent either way, the phone makes no connections, and the Mac keeps listening.
+  public var pausedUntilMs: Int64 = 0
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -389,7 +395,7 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Hello"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}app_version\0\u{1}platform\0\u{1}capabilities\0\u{3}allowed_transports\0\u{1}seq\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}app_version\0\u{1}platform\0\u{1}capabilities\0\u{3}allowed_transports\0\u{1}seq\0\u{3}paused_until_ms\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -402,6 +408,7 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 3: try { try decoder.decodeRepeatedStringField(value: &self.capabilities) }()
       case 4: try { try decoder.decodeRepeatedEnumField(value: &self.allowedTransports) }()
       case 5: try { try decoder.decodeSingularUInt64Field(value: &self.seq) }()
+      case 6: try { try decoder.decodeSingularInt64Field(value: &self.pausedUntilMs) }()
       default: break
       }
     }
@@ -423,6 +430,9 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if self.seq != 0 {
       try visitor.visitSingularUInt64Field(value: self.seq, fieldNumber: 5)
     }
+    if self.pausedUntilMs != 0 {
+      try visitor.visitSingularInt64Field(value: self.pausedUntilMs, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -432,6 +442,7 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if lhs.capabilities != rhs.capabilities {return false}
     if lhs.allowedTransports != rhs.allowedTransports {return false}
     if lhs.seq != rhs.seq {return false}
+    if lhs.pausedUntilMs != rhs.pausedUntilMs {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -18,6 +18,8 @@ data class ConnectionSettings(
     val macHelloSeq: Long = 0,
     /** The counter of the last Hello this phone sent. */
     val helloSeq: Long = 0,
+    /** Paused until then (unix ms; Long.MAX_VALUE: until resumed); 0: not paused. Only the phone pauses. */
+    val pausedUntil: Long = 0,
     /** Paths on at both ends, as the core decides from the switches and the Mac's Hello (decision 0006). Never saved. */
     val allowed: Set<PeerPath> = setOf(PeerPath.LAN, PeerPath.RELAY),
 )
@@ -31,7 +33,7 @@ interface SettingsStore {
 class MemorySettingsStore(private var settings: ConnectionSettings = ConnectionSettings()) : SettingsStore {
     override fun load() = settings
     override fun save(settings: ConnectionSettings) {
-        this.settings = ConnectionSettings(settings.wifi, settings.relay)
+        this.settings = ConnectionSettings(settings.wifi, settings.relay, pausedUntil = settings.pausedUntil)
     }
 }
 
@@ -47,14 +49,16 @@ class PrefsSettingsStore(context: Context) : SettingsStore {
         // Both off can only be a damaged file: fall back to the defaults rather than never connecting
         val macSeq = prefs.getLong("macHelloSeq", 0)
         val mySeq = prefs.getLong("helloSeq", 0)
-        return if (!wifi && !relay) ConnectionSettings(macAllows = mac, macHelloSeq = macSeq, helloSeq = mySeq)
-        else ConnectionSettings(wifi, relay, mac, macSeq, mySeq)
+        val paused = prefs.getLong("pausedUntil", 0)
+        return if (!wifi && !relay) ConnectionSettings(macAllows = mac, macHelloSeq = macSeq, helloSeq = mySeq, pausedUntil = paused)
+        else ConnectionSettings(wifi, relay, mac, macSeq, mySeq, paused)
     }
 
     override fun save(settings: ConnectionSettings) {
         prefs.edit()
             .putBoolean("wifi", settings.wifi)
             .putBoolean("relay", settings.relay)
+            .putLong("pausedUntil", settings.pausedUntil)
             // The Mac-facing state now lives in the sealed app data (Session); these keys are only ever read, to migrate
             .remove("macAllows").remove("macHelloSeq").remove("helloSeq")
             .apply()

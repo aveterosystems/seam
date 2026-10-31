@@ -57,14 +57,20 @@ public struct SessionStorage: Sendable {
     /// Whether the relay should get fresh prekey bundles (a new group, or one used by pairing).
     public var needsBundles: @Sendable () -> Bool
     public var setNeedsBundles: @Sendable (Bool) -> Void
+    /// The phone's pause, kept across a restart (a preference, not a secret): nil when not paused.
+    public var pausedUntil: @Sendable () -> Date?
+    public var setPausedUntil: @Sendable (Date?) -> Void
 
     public init(
         saveState: @escaping @Sendable () throws -> Void, outbox: OutboxFile,
-        needsBundles: @escaping @Sendable () -> Bool, setNeedsBundles: @escaping @Sendable (Bool) -> Void
+        needsBundles: @escaping @Sendable () -> Bool, setNeedsBundles: @escaping @Sendable (Bool) -> Void,
+        pausedUntil: @escaping @Sendable () -> Date? = { nil }, setPausedUntil: @escaping @Sendable (Date?) -> Void = { _ in }
     ) {
         self.saveState = saveState
         self.outbox = outbox
         self.needsBundles = needsBundles
         self.setNeedsBundles = setNeedsBundles
+        self.pausedUntil = pausedUntil
+        self.setPausedUntil = setPausedUntil
     }
 }

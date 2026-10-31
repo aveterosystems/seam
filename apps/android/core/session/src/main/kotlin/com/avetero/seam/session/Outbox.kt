@@ -76,6 +76,9 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
     fun wantsConnection(): Boolean =
         queue.any { it.payload.bodyCase !in LAZY && !expired(it) } || resend.any { !expired(it) }
 
+    /** Sent over the direct link and not yet confirmed by the Mac. */
+    fun awaitingAck(): Boolean = lanUnacked.isNotEmpty()
+
     /** Queued payloads that would connect, expired or not: for the trace only. */
     fun urgentCount(): Int = queue.count { it.payload.bodyCase !in LAZY }
 

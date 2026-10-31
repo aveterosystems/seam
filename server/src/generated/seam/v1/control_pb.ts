@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/control.proto.
  */
 export const file_seam_v1_control: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5IoEBCgVIZWxsbxITCgthcHBfdmVyc2lvbhgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxjYXBhYmlsaXRpZXMYAyADKAkSLgoSYWxsb3dlZF90cmFuc3BvcnRzGAQgAygOMhIuc2VhbS52MS5UcmFuc3BvcnQSCwoDc2VxGAUgASgEIhUKA0FjaxIOCgZtc2dfaWQYASABKAwiFwoEUGluZxIPCgdzZW50X2F0GAEgASgDIggKBlVucGFpciJbCgtQYWlyUmVxdWVzdBIVCg1wYWlyaW5nX3Rva2VuGAEgASgMEhMKC2RldmljZV9uYW1lGAIgASgJEg0KBW1vZGVsGAMgASgJEhEKCXJlbGF5X2tleRgEIAEoDCIMCgpQYWlyQWNjZXB0KmcKCVRyYW5zcG9ydBIZChVUUkFOU1BPUlRfVU5TUEVDSUZJRUQQABIRCg1UUkFOU1BPUlRfTEFOEAESEwoPVFJBTlNQT1JUX1JFTEFZEAISFwoTVFJBTlNQT1JUX0JMVUVUT09USBADQiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z");
+  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5IpoBCgVIZWxsbxITCgthcHBfdmVyc2lvbhgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxjYXBhYmlsaXRpZXMYAyADKAkSLgoSYWxsb3dlZF90cmFuc3BvcnRzGAQgAygOMhIuc2VhbS52MS5UcmFuc3BvcnQSCwoDc2VxGAUgASgEEhcKD3BhdXNlZF91bnRpbF9tcxgGIAEoAyIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiWwoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCRIRCglyZWxheV9rZXkYBCABKAwiDAoKUGFpckFjY2VwdCpnCglUcmFuc3BvcnQSGQoVVFJBTlNQT1JUX1VOU1BFQ0lGSUVEEAASEQoNVFJBTlNQT1JUX0xBThABEhMKD1RSQU5TUE9SVF9SRUxBWRACEhcKE1RSQU5TUE9SVF9CTFVFVE9PVEgQA0IgChxjb20uYXZldGVyby5zZWFtLnByb3RvY29sLnYxUAFiBnByb3RvMw");
 
 /**
  * @generated from message seam.v1.Control
@@ -112,6 +112,16 @@ export type Hello = Message<"seam.v1.Hello"> & {
    * @generated from field: uint64 seq = 5;
    */
   seq: bigint;
+
+  /**
+   * The phone's pause (only the phone pauses; the Mac sends 0). Unix ms when it ends, INT64 max
+   * until the phone resumes, 0 not paused. In the Hello so it's ordered by seq and sent on every
+   * connection: a late or replayed message can't re-pause a resumed Mac. While paused nothing is
+   * captured or sent either way, the phone makes no connections, and the Mac keeps listening.
+   *
+   * @generated from field: int64 paused_until_ms = 6;
+   */
+  pausedUntilMs: bigint;
 };
 
 /**

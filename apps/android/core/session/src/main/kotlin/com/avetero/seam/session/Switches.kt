@@ -49,7 +49,7 @@ internal class Switches(
             // The old keys go only once the move is saved; until then the next start tries again
             if (runCatching { persist() }.isSuccess) runCatching { store.save(prefs) }
         }
-        _settings.value = ConnectionSettings(prefs.wifi, prefs.relay)
+        _settings.value = ConnectionSettings(prefs.wifi, prefs.relay, pausedUntil = prefs.pausedUntil)
         syncPeer()
     }
 
@@ -61,6 +61,13 @@ internal class Switches(
         runCatching { store.save(s) } // only preferences: the switches still apply this run
     }
 
+    /** Paused until then (0: not paused); a preference like the switches, saved apart from the keys. */
+    fun savePause(until: Long) {
+        val s = _settings.value.copy(pausedUntil = until)
+        _settings.value = s
+        runCatching { store.save(s) }
+    }
+
     /**
      * The next Hello telling the Mac these switches, counted up in the app data now; the session
      * seals it and persists both in one write before anything is sent. Null if there's no Mac to tell.
@@ -70,6 +77,7 @@ internal class Switches(
         syncPeer()
         val hello = Hello.newBuilder().setAppVersion(appVersion).setPlatform("android").setSeq(next.seq.toLong())
             .addAllAllowedTransportsValue(next.allowedTransports)
+            .setPausedUntilMs(_settings.value.pausedUntil) // the Mac learns the pause in order (SR-32-01)
         return Payload.newBuilder().setControl(Control.newBuilder().setHello(hello)).build()
     }
 

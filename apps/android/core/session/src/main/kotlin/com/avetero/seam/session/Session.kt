@@ -174,7 +174,38 @@ class Session(
      * Whether a connection is worth having now: pairing, screen on, charging, something urgent to
      * send, or recent activity. Otherwise it costs radio wake-ups for nothing.
      */
-    private fun wanted(): Boolean = wake.wanted { pairing.active || outbox.wantsConnection() }
+    private fun wanted(): Boolean =
+        // Paused: only what was already waiting (the pause notice with it) may open a connection, and
+        // a direct link stays until the Mac confirms it, within the activity window: cut off
+        // earlier, the notice would be sent again later, costing the connection a pause saves
+        if (paused()) pairing.active || outbox.wantsConnection() || (outbox.awaitingAck() && wake.activeFor() > 0)
+        else wake.wanted { pairing.active || outbox.wantsConnection() }
+
+    /** Paused now: [pause] was called and its time hasn't come. A timed pause ends by itself. */
+    private fun paused(): Boolean = switches.settings.value.pausedUntil > now()
+
+    /**
+     * Pauses Seam until [untilMs] (unix ms; Long.MAX_VALUE: until [resume]). Only the phone pauses.
+     * The Mac is told in a Hello, with whatever was already waiting, in one connection; then this
+     * phone makes no connections and captures nothing until the pause ends. A past time does nothing.
+     */
+    fun pause(untilMs: Long) = scope.launch {
+        if (mac == null || pairing.active || untilMs <= now()) return@launch
+        switches.savePause(untilMs)
+        queueHello()
+        reconsider()
+        if (canSend() || canSendHello()) flush()
+    }
+
+    /** Ends a pause now and tells the Mac. One that already ended by itself needs no message. */
+    fun resume() = scope.launch {
+        val wasPaused = paused()
+        switches.savePause(0)
+        if (!wasPaused || mac == null) return@launch
+        queueHello()
+        reconsider()
+        if (canSend() || canSendHello()) flush()
+    }
 
     /**
      * Close the connection if nothing wants it any more; with [connect], also open it if something
@@ -237,6 +268,7 @@ class Session(
         if (storageBlocked) return@launch // pairing would replace the state we couldn't open
         if (!switches.relay) return@launch run { _notice.value = RELAY_NEEDED_TO_PAIR } // pairing over Wi‑Fi comes later
         closeLan() // a direct link to the current Mac would only get in the way
+        switches.savePause(0) // a new pairing starts unpaused (SR-32-02); a kept Mac hears it in its next Hello
         outbox.clearUnsent() // what the current Mac never acked is kept: it still gets it if this pairing fails
         pairing.start(qr)
         _notice.value = null
@@ -279,6 +311,7 @@ class Session(
         outbox.clearAll()
         device.peers().forEach { device.removePeer(it.id) }
         device.clearAppData()
+        switches.savePause(0) // a pause belongs to this pairing; a new Mac never inherits it (SR-32-02)
         features.forEach { runCatching { it.reset() } } // a feature bug never blocks forgetting
         switches.syncPeer()
         val saved = runCatching { persist() }.isSuccess
@@ -309,6 +342,7 @@ class Session(
     override fun send(payload: Payload) {
         scope.launch {
             if (mac == null || pairing.active) return@launch
+            if (paused() && payload.bodyCase != Payload.BodyCase.CONTROL) return@launch // nothing is captured while paused
             outbox.add(payload)
             if (canSend()) flush() else if (payload.bodyCase !in Outbox.LAZY) reconsider() // a copy connects; a battery update waits
         }
@@ -326,7 +360,10 @@ class Session(
             ServerFrame.FrameCase.BUNDLE -> if (path === relay) pairing.keysArrived(frame.bundle.bundle.toByteArray())?.let { _state.value = it }
             ServerFrame.FrameCase.DELIVER -> deliver(frame.deliver, path)
             // Only the Mac sends it, and only on the direct link. An unknown id: nothing to remove, nothing written
-            ServerFrame.FrameCase.DELIVERED -> if (path === direct) outbox.acked(frame.delivered.msgId)
+            ServerFrame.FrameCase.DELIVERED -> if (path === direct) {
+                outbox.acked(frame.delivered.msgId)
+                if (paused()) reconsider(connect = false) // the last thing the Mac had to confirm
+            }
             else -> Unit
         }
     }
@@ -398,6 +435,11 @@ class Session(
     }
 
     private fun flush() {
+        flushQueued()
+        if (paused()) reconsider(connect = false) // the pause notice is out: close
+    }
+
+    private fun flushQueued() {
         val m = mac ?: return
         // No path both ends allow: only a Hello may go (over our own paths), so the Mac can learn ours
         val shared = canSend()

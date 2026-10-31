@@ -50,6 +50,29 @@ fn payload_round_trips_both_ways() {
 }
 
 #[test]
+fn a_pause_crosses_intact() {
+    // The core decodes and re-encodes every payload, so a field it didn't know would be dropped
+    use crate::proto::v1::{Control, Hello, control};
+    let hello = |paused_until_ms| {
+        Payload {
+            body: Some(payload::Body::Control(Control {
+                body: Some(control::Body::Hello(Hello {
+                    seq: 1,
+                    paused_until_ms,
+                    ..Default::default()
+                })),
+            })),
+        }
+        .encode_to_vec()
+    };
+    let (mut mac, mut phone, _, p) = linked();
+    for until in [0, 1_793_455_000_000, i64::MAX] {
+        let env = mac.seal(&p, &hello(until), 0).unwrap();
+        assert_eq!(phone.open(&env).unwrap().payload, hello(until));
+    }
+}
+
+#[test]
 fn envelope_is_addressed_by_relay_keys_and_carries_no_device_ids() {
     let (mut mac, phone, _, p) = linked();
     let env = Envelope::decode(mac.seal(&p, &status(50), 0).unwrap().as_slice()).unwrap();

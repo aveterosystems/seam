@@ -200,6 +200,21 @@ public struct LinkLook: Equatable, Sendable {
         LinkLook(line: .broken, symbol: nil, label: why, connected: false)
     }
 
+    /// Paused on the phone (only the phone pauses): nothing syncs until it ends or the phone resumes.
+    public static func paused(until: Date, now: Date, calendar: Calendar = .current) -> LinkLook {
+        let label: String
+        if until == .distantFuture {
+            label = "Paused on your phone until you resume it there"
+        } else {
+            let time = until.formatted(date: .omitted, time: .shortened)
+            let day = calendar.isDate(until, inSameDayAs: now) ? ""
+                : calendar.isDate(until, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: now) ?? now) ? "tomorrow "
+                : until.formatted(date: .abbreviated, time: .omitted) + " "
+            label = "Paused on your phone until \(day)\(time)"
+        }
+        return LinkLook(line: .broken, symbol: "pause.circle", label: label, connected: false)
+    }
+
     /// The one place a path becomes a look.
     public static func of(route: Seam_V1_Transport?, allowed: Set<Seam_V1_Transport>, ownRelay: Bool) -> LinkLook {
         switch route {
@@ -209,9 +224,10 @@ public struct LinkLook: Equatable, Sendable {
         }
     }
 
-    /// The same, from the core's connection rules.
-    public static func of(route: PeerPath?, allowed: [PeerPath], ownRelay: Bool) -> LinkLook {
-        of(route: route?.transport, allowed: Set(allowed.map(\.transport)), ownRelay: ownRelay)
+    /// The same, from the core's connection rules. A pause on the phone comes first.
+    public static func of(route: PeerPath?, allowed: [PeerPath], ownRelay: Bool, pausedUntil: Date? = nil, now: Date = Date()) -> LinkLook {
+        if let pausedUntil, pausedUntil > now { return .paused(until: pausedUntil, now: now) }
+        return of(route: route?.transport, allowed: Set(allowed.map(\.transport)), ownRelay: ownRelay)
     }
 
     /// The whole line in words, for VoiceOver and anywhere there's no room for the icon.

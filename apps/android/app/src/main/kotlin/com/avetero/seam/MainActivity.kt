@@ -27,6 +27,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,6 +38,7 @@ import com.avetero.seam.feature.clipboard.AutoClipboard
 import com.avetero.seam.session.PairingQr
 import com.avetero.seam.session.PairingOutcome
 import com.avetero.seam.session.SessionState
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,7 +62,15 @@ class MainActivity : ComponentActivity() {
                 val notice by session.notice.collectAsStateWithLifecycle()
                 val connection by session.settings.collectAsStateWithLifecycle()
                 val route by session.route.collectAsStateWithLifecycle()
-                val look = LinkLook.of(state, route, connection)
+                // Ticks once when a timed pause ends, so the screen comes back without a tap
+                val now by produceState(System.currentTimeMillis(), connection.pausedUntil) {
+                    val until = connection.pausedUntil
+                    if (until > value && until != Long.MAX_VALUE) {
+                        delay(until - value)
+                        value = System.currentTimeMillis()
+                    }
+                }
+                val look = LinkLook.of(state, route, connection, now)
                 var relayToPair by remember { mutableStateOf<PairingQr?>(null) }
                 val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
                 val updateOffer by app.updater.offer.collectAsStateWithLifecycle()
@@ -72,7 +82,8 @@ class MainActivity : ComponentActivity() {
                 var scanned by remember {
                     mutableStateOf(if (BuildConfig.DEBUG) intent?.dataString?.let { PairingQr.parse(it, allowCleartext = true) } else null)
                 }
-                var settings by remember { mutableStateOf(false) }
+                // The notification's Settings button opens straight there
+                var settings by remember { mutableStateOf(intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true) }
                 var notificationSettings by remember { mutableStateOf(false) }
                 var scanning by remember { mutableStateOf(false) }
                 if (state is SessionState.Pairing) scanned = null
@@ -170,6 +181,9 @@ class MainActivity : ComponentActivity() {
                     askUpdates = app.updater.available && !updatesAsked,
                     onAnswerUpdates = { app.updater.answer(it) },
                     look = look,
+                    paused = connection.pausedUntil > now,
+                    onPause = { session.pause(it.until(System.currentTimeMillis())) },
+                    onResume = { session.resume() },
                     onSendClipboard = {
                         // Seam has focus here, so Android allows the read
                         Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()
@@ -226,5 +240,10 @@ class MainActivity : ComponentActivity() {
               }
             }
         }
+    }
+
+    companion object {
+        /** Opens Settings straight away (the notification's Settings button). */
+        const val EXTRA_OPEN_SETTINGS = "com.avetero.seam.OPEN_SETTINGS"
     }
 }
