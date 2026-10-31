@@ -17,7 +17,6 @@ message Control {
   }
 }
 
-
 // Sent on every connect. A feature only sends payloads once the peer lists its capability,
 // which is how the play build (no SMS) and full build coexist and new features stay dark.
 message Hello {
