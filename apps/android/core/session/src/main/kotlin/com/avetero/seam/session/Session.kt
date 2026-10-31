@@ -122,6 +122,8 @@ class Session(
 
     /** While pairing, the path whose pairing channel authenticated first; the other stops trying. */
     private var pairingVia: Path? = null
+    /** The pairing channel after our PairAccept ack: the Mac closes it once the ack is in (or the grace ends). */
+    private var closingPairing: Path? = null
     private var pairingDeadline: Job? = null
     /** Paths that authenticated and haven't gone down since: only their drop can lose an unacked envelope. */
     private val upPaths = mutableSetOf<Path>()
@@ -425,7 +427,15 @@ class Session(
             if (!saved) return fail(SAVE_FAILED)
             pairing.accepted() // only once it's saved: a restart keeps it
             ack(env, via)
-            return paired()
+            // The Mac undoes the pairing unless this ack arrives: let the Mac close the channel once it
+            // has it, rather than closing first and maybe cutting the ack off (a fallback if it doesn't)
+            closingPairing = via
+            pairingDeadline?.cancel()
+            pairingDeadline = scope.launch {
+                delay(PAIRED_GRACE_MS)
+                if (closingPairing === via) paired()
+            }
+            return
         }
         // Handled even if the save failed: the ratchet has moved, so a redelivery in this run would
         // open as a duplicate and be lost (SR-2-59). Not acked then, so after a restart the saved
@@ -471,6 +481,7 @@ class Session(
         val m = mac ?: return
         pairingDeadline?.cancel()
         pairingVia = null
+        closingPairing = null
         closePaths()
         syncTor()
         _state.value = SessionState.Connecting(m.name)
@@ -512,6 +523,7 @@ class Session(
     /** A path went down (or an attempt failed): what it never confirmed goes on the next path. */
     private fun pathClosed(path: Path) {
         val wasUp = upPaths.remove(path)
+        if (path === closingPairing) return paired() // the Mac has our ack and closed the pairing channel
         if (pairing.active) {
             if (path === pairingVia) fail("Lost the connection while pairing. Try again.")
             return
@@ -564,7 +576,7 @@ class Session(
      * or for a [hello] any up path this phone's own switches allow. Null while pairing.
      */
     private fun route(hello: Boolean = false): Path? {
-        if (pairing.active) return null
+        if (pairing.active || closingPairing != null) return null // nothing rides on a pairing channel
         val up = listOfNotNull(PeerPath.LAN.takeIf { direct?.up == true }, PeerPath.TOR.takeIf { onion?.up == true })
         return when (device.route(switches.enabled(), up, hello)) {
             PeerPath.LAN -> direct
@@ -682,6 +694,8 @@ class Session(
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
         const val MAC_NOT_FOUND = "Couldn't reach your Mac. Keep its pairing code open, check both are online, and scan again."
         const val PAIR_AGAIN = "Seam now connects through Tor instead of its relay. Update Seam on your Mac, then pair again."
+        /** After acking the PairAccept: time for the ack to get through before we close ourselves. */
+        const val PAIRED_GRACE_MS = 3_000L
         /** Contract: Tor retries for up to 3 minutes while a fresh address publishes. */
         const val PAIRING_MS = 3 * 60_000L
     }
