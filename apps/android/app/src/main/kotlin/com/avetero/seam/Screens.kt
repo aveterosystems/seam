@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -76,6 +79,10 @@ fun SeamScreen(
     onAnswerUpdates: (Boolean) -> Unit = {},
     /** How the link to the Mac looks: the hero's stitches and the status line. */
     look: LinkLook = LinkLook.Reconnecting,
+    /** Paused on this phone (only the phone pauses): Resume instead of the usual actions. */
+    paused: Boolean = false,
+    onPause: (PauseFor) -> Unit = {},
+    onResume: () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         // One call site, so the sheet slides up once and then changes in place (confirm, then the code)
@@ -102,7 +109,7 @@ fun SeamScreen(
         if (home && toConfirm == null) {
             val name = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Idle)?.macName
                 ?: (state as SessionState.Connecting).macName
-            return@Surface Home(name, look, scanError, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, update, updateStatus, onUpdate, askUpdates, onAnswerUpdates)
+            return@Surface Home(name, look, scanError, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, update, updateStatus, onUpdate, askUpdates, onAnswerUpdates, paused, onPause, onResume)
         }
         Column(
             Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 48.dp),
@@ -161,6 +168,9 @@ private fun Home(
     onUpdate: (Release) -> Unit = {},
     askUpdates: Boolean = false,
     onAnswerUpdates: (Boolean) -> Unit = {},
+    paused: Boolean = false,
+    onPause: (PauseFor) -> Unit = {},
+    onResume: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -191,7 +201,11 @@ private fun Home(
                 Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
             Spacer(Modifier.height(32.dp))
-            RoundAction("Clipboard", R.drawable.ic_clipboard, primary = true, onClick = onSendClipboard)
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                // Paused, a copy wouldn't go anyway: Resume is the one thing to do
+                if (!paused) RoundAction("Clipboard", R.drawable.ic_clipboard, primary = true, description = "Send clipboard to Mac", onClick = onSendClipboard)
+                PauseAction(paused, onPause, onResume)
+            }
             Spacer(Modifier.weight(1f))
             if (askUpdates) AskUpdatesCard(onAnswerUpdates)
             if (update != null) UpdateCard(update, updateStatus, onUpdate)
@@ -200,16 +214,31 @@ private fun Home(
     }
 }
 
+/** Pause (with how long) while running, Resume while paused. Only the phone pauses. */
+@Composable
+private fun PauseAction(paused: Boolean, onPause: (PauseFor) -> Unit, onResume: () -> Unit) {
+    if (paused) return RoundAction("Resume", R.drawable.ic_play, primary = true, description = "Resume Seam", onClick = onResume)
+    var choosing by remember { mutableStateOf(false) }
+    Box {
+        RoundAction("Pause", R.drawable.ic_pause, primary = false, description = "Pause Seam", onClick = { choosing = true })
+        DropdownMenu(expanded = choosing, onDismissRequest = { choosing = false }) {
+            PauseFor.entries.forEach { choice ->
+                DropdownMenuItem(text = { Text(choice.label) }, onClick = { choosing = false; onPause(choice) })
+            }
+        }
+    }
+}
+
 /** A 68 dp round action; the primary one is a 22 dp rounded square (board A01). */
 @Composable
-private fun RoundAction(label: String, icon: Int, primary: Boolean, onClick: () -> Unit) {
+private fun RoundAction(label: String, icon: Int, primary: Boolean, description: String, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(
             onClick = onClick,
             shape = if (primary) RoundedCornerShape(22.dp) else CircleShape,
             color = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = if (primary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(68.dp).semantics { role = Role.Button; contentDescription = "Send clipboard to Mac" },
+            modifier = Modifier.size(68.dp).semantics { role = Role.Button; contentDescription = description },
         ) {
             Box(contentAlignment = Alignment.Center) { Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(26.dp)) }
         }

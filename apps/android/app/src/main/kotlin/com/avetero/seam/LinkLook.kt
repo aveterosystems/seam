@@ -26,8 +26,12 @@ data class LinkLook(val line: Line, val label: String, val connected: Boolean, @
         val WaitingOnWifi = LinkLook(Line.Broken, "Waiting for your Mac on the same Wi‑Fi", false)
         val NoSharedPath = LinkLook(Line.Broken, "Your Mac and this phone share no connection type. Turn on one your Mac allows too", false)
 
+        /** Paused on this phone: nothing syncs, nothing connects, until [until]. */
+        fun paused(until: Long, now: Long) = LinkLook(Line.Broken, pausedLabel(until, now), false)
+
         /** The one place the session's state becomes a look. */
-        fun of(state: SessionState, route: Transport?, c: ConnectionSettings): LinkLook {
+        fun of(state: SessionState, route: Transport?, c: ConnectionSettings, now: Long = System.currentTimeMillis()): LinkLook {
+            if (c.pausedUntil > now) return paused(c.pausedUntil, now)
             val wifi = PeerPath.LAN in c.allowed
             val relay = PeerPath.RELAY in c.allowed
             return when {

@@ -151,6 +151,14 @@ extension Session {
         }
         if case .hello = c.body { await flush() } // a path may have opened
         print("DEBUG control", c.body as Any)
+        if case .pause(let p)? = c.body {
+            print("DEBUG pause", p.untilMs)
+            switch p.untilMs {
+            case 0: setPause(until: nil)
+            case .max: setPause(until: .distantFuture)
+            case let ms: setPause(until: Date(timeIntervalSince1970: TimeInterval(ms) / 1000))
+            }
+        }
         if case .unpair = c.body {
             // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)
             let key = removableRelayKey(peerId)

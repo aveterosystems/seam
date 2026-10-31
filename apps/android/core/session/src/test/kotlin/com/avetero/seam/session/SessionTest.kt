@@ -659,6 +659,123 @@ class SessionTest {
         assertEquals("charging", CpuPlan.None, s.cpu.value)
     }
 
+    // Pause: only the phone pauses and resumes. Paused, it tells the Mac once, then makes no
+    // connections at all (no relay, no Wi‑Fi search) and captures nothing, until it ends or resumes.
+    private fun pausesSent() = relay.macReceived.filter { it.hasControl() && it.control.hasPause() }.map { it.control.pause.untilMs }
+
+    @Test fun pausingTellsTheMacThenGoesSilent() = runTest {
+        val s = paired()
+        val until = testScheduler.currentTime + 3_600_000
+        s.pause(until)
+        advanceUntilIdle()
+        assertEquals("the Mac is told when it ends", listOf(until), pausesSent())
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+        assertEquals(until, s.settings.value.pausedUntil)
+        val logins = relay.logins.size
+        s.setScreenOn(false)
+        s.setScreenOn(true) // picking the phone up doesn't connect while paused
+        s.setCharging(true) // nor does charging
+        s.send(clip("copied while paused"))
+        advanceTimeBy(30 * 60_000L)
+        assertEquals("no connection at all", logins, relay.logins.size)
+        assertTrue("nothing captured", relay.macReceived.none { it.hasClipboard() && it.clipboard.text == "copied while paused" })
+        assertEquals(CpuPlan.None, s.cpu.value)
+    }
+
+    @Test fun pausingWhileIdleConnectsOnceJustToTellTheMac() = runTest {
+        val s = paired()
+        s.setScreenOn(false)
+        advanceUntilIdle()
+        val logins = relay.logins.size
+        s.pause(Long.MAX_VALUE)
+        advanceUntilIdle()
+        assertEquals(logins + 1, relay.logins.size)
+        assertEquals(listOf(Long.MAX_VALUE), pausesSent())
+        assertEquals("and closes again straight away", SessionState.Idle("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun aTimedPauseEndsByItselfWithNoMessage() = runTest {
+        val s = paired()
+        s.pause(testScheduler.currentTime + 60_000)
+        advanceUntilIdle()
+        advanceTimeBy(61_000)
+        s.setScreenOn(false)
+        s.setScreenOn(true)
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        assertEquals("the Mac ends it at the same time: nothing more to say", 1, pausesSent().size)
+        s.send(clip("after the pause"))
+        advanceUntilIdle()
+        assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "after the pause" })
+    }
+
+    @Test fun resumingTellsTheMacAndReconnects() = runTest {
+        val s = paired()
+        s.pause(Long.MAX_VALUE)
+        advanceUntilIdle()
+        s.resume()
+        advanceUntilIdle()
+        assertEquals(listOf(Long.MAX_VALUE, 0L), pausesSent())
+        assertEquals(0L, s.settings.value.pausedUntil)
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        s.send(clip("after resume"))
+        advanceUntilIdle()
+        assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "after resume" })
+    }
+
+    @Test fun aPauseSurvivesARestart() = runTest {
+        val settings = MemorySettingsStore()
+        val s = session(settings = settings).also { it.pair(qr); advanceUntilIdle() }
+        s.pause(Long.MAX_VALUE)
+        advanceUntilIdle()
+        val logins = relay.logins.size
+        val restarted = session(settings = settings)
+        restarted.start()
+        restarted.setScreenOn(true)
+        advanceUntilIdle()
+        assertEquals(Long.MAX_VALUE, restarted.settings.value.pausedUntil)
+        assertEquals("still silent", logins, relay.logins.size)
+    }
+
+    @Test fun onSameWifiThePauseWaitsForTheMacsAckThenNeverReconnects() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = pairedWithLan(lan)
+        lan.announce(home)
+        advanceUntilIdle()
+        s.pause(Long.MAX_VALUE)
+        advanceUntilIdle()
+        assertTrue(lan.macReceived.any { it.hasControl() && it.control.hasPause() })
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+        val (opened, logins) = lan.opened to relay.logins.size
+        s.setScreenOn(false)
+        s.setScreenOn(true)
+        lan.announce(home)
+        advanceTimeBy(10 * 60_000L)
+        assertEquals("acked, so nothing to resend: no link opened again", opened, lan.opened)
+        assertEquals(logins, relay.logins.size)
+    }
+
+    @Test fun thePauseNoticeIsntCutOffBeforeTheMacConfirmsIt() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = pairedWithLan(lan)
+        lan.announce(home)
+        advanceUntilIdle()
+        lan.acks = false // the Mac's confirmation is still on its way
+        s.pause(Long.MAX_VALUE)
+        advanceTimeBy(5_000)
+        assertTrue("still open for the ack", lan.open?.closed == false)
+        advanceTimeBy(2 * 60_000L)
+        assertEquals("but not for ever", SessionState.Idle("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun aPauseInThePastIsIgnored() = runTest {
+        val s = paired()
+        s.pause(testScheduler.currentTime - 1)
+        advanceUntilIdle()
+        assertTrue(pausesSent().isEmpty())
+        assertEquals(0L, s.settings.value.pausedUntil)
+    }
+
     @Test fun d0005_aBatteryChangeWaitsForTheNextConnection() = runTest {
         val s = paired()
         s.setScreenOn(false)

@@ -27,6 +27,8 @@ public actor Session {
         public var pairing: PairingState
         /// Something the user should see in the menu (a refused login, a save that failed).
         public var warning: String?
+        /// Paused on the phone until then (`.distantFuture`: until it resumes); nil: not paused.
+        public var pausedUntil: Date?
     }
 
     static let settingsTTL: UInt32 = 600
@@ -71,6 +73,12 @@ public actor Session {
     var clipTimer: TimerToken?
     var stopped = false
 
+    /// The phone paused Seam until then (only the phone pauses). Nothing is captured or sent
+    /// meanwhile; the paths stay open so the phone can resume from anywhere.
+    var pausedUntil: Date?
+    var pauseTimer: TimerToken?
+    var paused: Bool { pausedUntil.map { $0 > timers.now() } ?? false }
+
     var flow = PairingFlow()
     var openTokenHash: Data?
     var expiry: TimerToken?
@@ -92,6 +100,7 @@ public actor Session {
         clipboard = ClipboardFeature(pasteboard: pasteboard, syncOn: clipboardSync)
         self.notifications = NotificationsFeature(centre: notifications)
         phone = device.peers().first { $0.confirmed }
+        pausedUntil = phone == nil ? nil : storage.pausedUntil()
         (updates, updatesIn) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     }
 
@@ -100,7 +109,8 @@ public actor Session {
             phone: phone, route: device.route(enabled: enabledPaths, up: upPaths, hello: false),
             allowed: device.allowedPaths(enabled: enabledPaths), relayUp: relayUp,
             waiting: outbox.waiting.count + outbox.sent.count, status: status.status, recentFromPhone: clipboard.recent,
-            notificationSettings: notifications.settings, appIcons: notifications.icons, pairing: flow.state, warning: warning
+            notificationSettings: notifications.settings, appIcons: notifications.icons, pairing: flow.state, warning: warning,
+            pausedUntil: paused ? pausedUntil : nil
         )
     }
 
@@ -114,6 +124,7 @@ public actor Session {
         }
         await clipboard.start()
         pollClipboardLater()
+        if let until = pausedUntil { setPause(until: until) } // its end, timed from now
         publish()
     }
 
@@ -283,6 +294,7 @@ public actor Session {
         }
         if warning == Self.phoneLeft { warning = nil } // done what it asked
         if phone?.id == peerId { phone = nil }
+        setPause(until: nil) // nobody left to resume it
         outbox.clear()
         inFlight = []
         hellos = []
@@ -300,7 +312,8 @@ public actor Session {
 
     private func pollClipboard() async {
         let connected = device.route(enabled: enabledPaths, up: upPaths, hello: false) != nil
-        if let out = await clipboard.poll(paired: phone != nil, connected: connected, now: timers.now()) {
+        // Paused: a copy is seen and let go, so it never goes later either
+        if let out = await clipboard.poll(paired: phone != nil && !paused, connected: connected, now: timers.now()) {
             await send([out])
         }
         pollClipboardLater()
@@ -309,6 +322,18 @@ public actor Session {
     func saveFailed() {
         warning = Self.saveFailedWarning
         log.error("saving state failed")
+    }
+
+    /// The phone paused (a time, or `.distantFuture`) or resumed (nil). A timed pause ends here at
+    /// the same time as on the phone, with no message.
+    func setPause(until: Date?) {
+        pauseTimer?.cancel()
+        pausedUntil = until
+        storage.setPausedUntil(until)
+        if let until, until != .distantFuture {
+            pauseTimer = timers.after(max(0, until.timeIntervalSince(timers.now()))) { [weak self] in await self?.publish() }
+        }
+        publish()
     }
 
     func publish() {

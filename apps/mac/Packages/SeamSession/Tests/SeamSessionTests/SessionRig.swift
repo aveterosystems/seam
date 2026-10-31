@@ -157,11 +157,16 @@ final class SavedState: @unchecked Sendable {
     private var _blob: Data?
     private var _failing = false
     private var _needsBundles = false
+    private var _pausedUntil: Date?
 
     var blob: Data? { lock.withLock { _blob } }
     var failing: Bool {
         get { lock.withLock { _failing } }
         set { lock.withLock { _failing = newValue } }
+    }
+    var pausedUntil: Date? {
+        get { lock.withLock { _pausedUntil } }
+        set { lock.withLock { _pausedUntil = newValue } }
     }
     var needsBundles: Bool {
         get { lock.withLock { _needsBundles } }
@@ -217,7 +222,8 @@ final class Rig: @unchecked Sendable {
     ) -> Session {
         let storage = SessionStorage(
             saveState: { try saved.save(device) }, outbox: outbox,
-            needsBundles: { saved.needsBundles }, setNeedsBundles: { saved.needsBundles = $0 }
+            needsBundles: { saved.needsBundles }, setNeedsBundles: { saved.needsBundles = $0 },
+            pausedUntil: { saved.pausedUntil }, setPausedUntil: { saved.pausedUntil = $0 }
         )
         return Session(
             device: device, storage: storage, pasteboard: pasteboard, notifications: centre,

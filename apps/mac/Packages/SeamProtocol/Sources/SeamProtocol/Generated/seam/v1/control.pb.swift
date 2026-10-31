@@ -130,6 +130,14 @@ public nonisolated struct Seam_V1_Control: Sendable {
     set {body = .pairAccept(newValue)}
   }
 
+  public var pause: Seam_V1_Pause {
+    get {
+      if case .pause(let v)? = body {return v}
+      return Seam_V1_Pause()
+    }
+    set {body = .pause(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Body: Equatable, Sendable {
@@ -139,8 +147,26 @@ public nonisolated struct Seam_V1_Control: Sendable {
     case unpair(Seam_V1_Unpair)
     case pairRequest(Seam_V1_PairRequest)
     case pairAccept(Seam_V1_PairAccept)
+    case pause(Seam_V1_Pause)
 
   }
+
+  public init() {}
+}
+
+/// The phone paused or resumed Seam. Only the phone sends it: pausing and resuming happen there.
+/// While paused nothing is captured or sent either way; the phone makes no connections at all
+/// (no Wi-Fi search, no relay), and the Mac keeps listening so the phone can resume from anywhere.
+/// A timed pause ends by itself on both devices at until_ms, with no message needed.
+public nonisolated struct Seam_V1_Pause: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Unix ms when the pause ends. 0: not paused (resumed). INT64 max: until the phone resumes.
+  public var untilMs: Int64 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 }
@@ -254,7 +280,7 @@ nonisolated extension Seam_V1_Transport: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Control"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}hello\0\u{1}ack\0\u{1}ping\0\u{1}unpair\0\u{3}pair_request\0\u{3}pair_accept\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}hello\0\u{1}ack\0\u{1}ping\0\u{1}unpair\0\u{3}pair_request\0\u{3}pair_accept\0\u{1}pause\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -340,6 +366,19 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
           self.body = .pairAccept(v)
         }
       }()
+      case 7: try {
+        var v: Seam_V1_Pause?
+        var hadOneofValue = false
+        if let current = self.body {
+          hadOneofValue = true
+          if case .pause(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.body = .pause(v)
+        }
+      }()
       default: break
       }
     }
@@ -375,6 +414,10 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
       guard case .pairAccept(let v)? = self.body else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
     }()
+    case .pause?: try {
+      guard case .pause(let v)? = self.body else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
     case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
@@ -382,6 +425,36 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
   public static func ==(lhs: Seam_V1_Control, rhs: Seam_V1_Control) -> Bool {
     if lhs.body != rhs.body {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_Pause: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".Pause"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}until_ms\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularInt64Field(value: &self.untilMs) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.untilMs != 0 {
+      try visitor.visitSingularInt64Field(value: self.untilMs, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_Pause, rhs: Seam_V1_Pause) -> Bool {
+    if lhs.untilMs != rhs.untilMs {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

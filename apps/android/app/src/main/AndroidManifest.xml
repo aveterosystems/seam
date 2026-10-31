@@ -29,6 +29,15 @@
             </intent-filter>
         </activity>
 
+        <!-- The notification's Send clipboard and Pause… buttons: only Seam's own notification opens it -->
+        <activity
+            android:name=".NotificationActionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- "Send to Mac" in the share sheet: no screen of its own -->
         <activity
             android:name=".ShareToMacActivity"
@@ -59,5 +68,16 @@
             android:name=".ConnectionService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+        <service
+            android:name=".SeamTile"
+            android:exported="true"
+            android:icon="@drawable/ic_seam_mark"
+            android:label="Seam"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="true" />
+        </service>
     </application>
 </manifest>

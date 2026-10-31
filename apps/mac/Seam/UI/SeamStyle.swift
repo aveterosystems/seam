@@ -24,7 +24,7 @@ extension Color {
 /// outlined when not. A template image, so macOS tints it like any other menu bar item, except teal
 /// when an update is waiting.
 enum SeamMark {
-    static func image(connected: Bool, update: Bool = false) -> NSImage {
+    static func image(connected: Bool, paused: Bool = false, update: Bool = false) -> NSImage {
         // Panels fill 15 of the 18 pt (16.5 with the outline), like the system's own menu bar glyphs
         let img = NSImage(size: NSSize(width: 20, height: 18), flipped: true) { _ in
             let left = NSBezierPath(roundedRect: NSRect(x: 1.25, y: 1.5, width: 7.5, height: 15), xRadius: 2.2, yRadius: 2.2)
@@ -56,7 +56,7 @@ enum SeamMark {
             return true
         }
         img.isTemplate = !update
-        img.accessibilityDescription = (connected ? "Seam, connected" : "Seam, not connected") + (update ? ", update available" : "")
+        img.accessibilityDescription = (paused ? "Seam, paused" : connected ? "Seam, connected" : "Seam, not connected") + (update ? ", update available" : "")
         return img
     }
 }

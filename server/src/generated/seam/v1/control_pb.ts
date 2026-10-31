@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/control.proto.
  */
 export const file_seam_v1_control: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5IoEBCgVIZWxsbxITCgthcHBfdmVyc2lvbhgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxjYXBhYmlsaXRpZXMYAyADKAkSLgoSYWxsb3dlZF90cmFuc3BvcnRzGAQgAygOMhIuc2VhbS52MS5UcmFuc3BvcnQSCwoDc2VxGAUgASgEIhUKA0FjaxIOCgZtc2dfaWQYASABKAwiFwoEUGluZxIPCgdzZW50X2F0GAEgASgDIggKBlVucGFpciJbCgtQYWlyUmVxdWVzdBIVCg1wYWlyaW5nX3Rva2VuGAEgASgMEhMKC2RldmljZV9uYW1lGAIgASgJEg0KBW1vZGVsGAMgASgJEhEKCXJlbGF5X2tleRgEIAEoDCIMCgpQYWlyQWNjZXB0KmcKCVRyYW5zcG9ydBIZChVUUkFOU1BPUlRfVU5TUEVDSUZJRUQQABIRCg1UUkFOU1BPUlRfTEFOEAESEwoPVFJBTlNQT1JUX1JFTEFZEAISFwoTVFJBTlNQT1JUX0JMVUVUT09USBADQiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z");
+  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEijAIKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIABIfCgVwYXVzZRgHIAEoCzIOLnNlYW0udjEuUGF1c2VIAEIGCgRib2R5IhkKBVBhdXNlEhAKCHVudGlsX21zGAEgASgDIoEBCgVIZWxsbxITCgthcHBfdmVyc2lvbhgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxjYXBhYmlsaXRpZXMYAyADKAkSLgoSYWxsb3dlZF90cmFuc3BvcnRzGAQgAygOMhIuc2VhbS52MS5UcmFuc3BvcnQSCwoDc2VxGAUgASgEIhUKA0FjaxIOCgZtc2dfaWQYASABKAwiFwoEUGluZxIPCgdzZW50X2F0GAEgASgDIggKBlVucGFpciJbCgtQYWlyUmVxdWVzdBIVCg1wYWlyaW5nX3Rva2VuGAEgASgMEhMKC2RldmljZV9uYW1lGAIgASgJEg0KBW1vZGVsGAMgASgJEhEKCXJlbGF5X2tleRgEIAEoDCIMCgpQYWlyQWNjZXB0KmcKCVRyYW5zcG9ydBIZChVUUkFOU1BPUlRfVU5TUEVDSUZJRUQQABIRCg1UUkFOU1BPUlRfTEFOEAESEwoPVFJBTlNQT1JUX1JFTEFZEAISFwoTVFJBTlNQT1JUX0JMVUVUT09USBADQiAKHGNvbS5hdmV0ZXJvLnNlYW0ucHJvdG9jb2wudjFQAWIGcHJvdG8z");
 
 /**
  * @generated from message seam.v1.Control
@@ -57,6 +57,12 @@ export type Control = Message<"seam.v1.Control"> & {
      */
     value: PairAccept;
     case: "pairAccept";
+  } | {
+    /**
+     * @generated from field: seam.v1.Pause pause = 7;
+     */
+    value: Pause;
+    case: "pause";
   } | { case: undefined; value?: undefined };
 };
 
@@ -66,6 +72,30 @@ export type Control = Message<"seam.v1.Control"> & {
  */
 export const ControlSchema: GenMessage<Control> = /*@__PURE__*/
   messageDesc(file_seam_v1_control, 0);
+
+/**
+ * The phone paused or resumed Seam. Only the phone sends it: pausing and resuming happen there.
+ * While paused nothing is captured or sent either way; the phone makes no connections at all
+ * (no Wi-Fi search, no relay), and the Mac keeps listening so the phone can resume from anywhere.
+ * A timed pause ends by itself on both devices at until_ms, with no message needed.
+ *
+ * @generated from message seam.v1.Pause
+ */
+export type Pause = Message<"seam.v1.Pause"> & {
+  /**
+   * Unix ms when the pause ends. 0: not paused (resumed). INT64 max: until the phone resumes.
+   *
+   * @generated from field: int64 until_ms = 1;
+   */
+  untilMs: bigint;
+};
+
+/**
+ * Describes the message seam.v1.Pause.
+ * Use `create(PauseSchema)` to create a new message.
+ */
+export const PauseSchema: GenMessage<Pause> = /*@__PURE__*/
+  messageDesc(file_seam_v1_control, 1);
 
 /**
  * Sent on every connect. A feature only sends payloads once the peer lists its capability,
@@ -119,7 +149,7 @@ export type Hello = Message<"seam.v1.Hello"> & {
  * Use `create(HelloSchema)` to create a new message.
  */
 export const HelloSchema: GenMessage<Hello> = /*@__PURE__*/
-  messageDesc(file_seam_v1_control, 1);
+  messageDesc(file_seam_v1_control, 2);
 
 /**
  * Sent once a payload is handled. Every payload except Ack and Ping gets one.
@@ -138,7 +168,7 @@ export type Ack = Message<"seam.v1.Ack"> & {
  * Use `create(AckSchema)` to create a new message.
  */
 export const AckSchema: GenMessage<Ack> = /*@__PURE__*/
-  messageDesc(file_seam_v1_control, 2);
+  messageDesc(file_seam_v1_control, 3);
 
 /**
  * @generated from message seam.v1.Ping
@@ -155,7 +185,7 @@ export type Ping = Message<"seam.v1.Ping"> & {
  * Use `create(PingSchema)` to create a new message.
  */
 export const PingSchema: GenMessage<Ping> = /*@__PURE__*/
-  messageDesc(file_seam_v1_control, 3);
+  messageDesc(file_seam_v1_control, 4);
 
 /**
  * The other device forgot us; delete its keys and stop sending.
@@ -170,7 +200,7 @@ export type Unpair = Message<"seam.v1.Unpair"> & {
  * Use `create(UnpairSchema)` to create a new message.
  */
 export const UnpairSchema: GenMessage<Unpair> = /*@__PURE__*/
-  messageDesc(file_seam_v1_control, 4);
+  messageDesc(file_seam_v1_control, 5);
 
 /**
  * The phone's first message after scanning the QR code, proving it holds the one-time token.
@@ -208,7 +238,7 @@ export type PairRequest = Message<"seam.v1.PairRequest"> & {
  * Use `create(PairRequestSchema)` to create a new message.
  */
 export const PairRequestSchema: GenMessage<PairRequest> = /*@__PURE__*/
-  messageDesc(file_seam_v1_control, 5);
+  messageDesc(file_seam_v1_control, 6);
 
 /**
  * The user confirmed the code on the Mac.
@@ -223,7 +253,7 @@ export type PairAccept = Message<"seam.v1.PairAccept"> & {
  * Use `create(PairAcceptSchema)` to create a new message.
  */
 export const PairAcceptSchema: GenMessage<PairAccept> = /*@__PURE__*/
-  messageDesc(file_seam_v1_control, 6);
+  messageDesc(file_seam_v1_control, 7);
 
 /**
  * @generated from enum seam.v1.Transport

@@ -21,6 +21,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -49,11 +54,28 @@ class ConnectionService : Service() {
         })
         scope.launch { session.cpu.collect(::followCpu) }
         scope.launch {
-            session.state.collect { state ->
+            combine(session.state, session.settings.map { it.pausedUntil }.distinctUntilChanged(), ::Pair).collectLatest { (state, pausedUntil) ->
+                SeamTile.refresh(this@ConnectionService)
+                val now = System.currentTimeMillis()
+                val paused = pausedUntil > now
                 when (state) {
-                    is SessionState.Connected -> nm.notify(1, notification("Connected to ${state.macName}"))
-                    is SessionState.Connecting -> nm.notify(1, notification("Reconnecting to ${state.macName}…"))
-                    is SessionState.Idle -> nm.notify(1, notification("Paired with ${state.macName}"))
+                    is SessionState.Connected, is SessionState.Connecting, is SessionState.Idle -> {
+                        val name = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Connecting)?.macName
+                            ?: (state as SessionState.Idle).macName
+                        val text = when {
+                            paused -> pausedLabel(pausedUntil, now)
+                            state is SessionState.Connected -> "Connected to $name"
+                            state is SessionState.Connecting -> "Reconnecting to $name…"
+                            else -> "Paired with $name"
+                        }
+                        nm.notify(1, notification(text, *if (paused) arrayOf(resumeAction, settingsAction) else running))
+                        // A timed pause ends by itself: show that when it does (display only, so a late tick is fine)
+                        if (paused && pausedUntil != Long.MAX_VALUE) {
+                            delay(pausedUntil - now)
+                            nm.notify(1, notification("Paired with $name", *running))
+                            SeamTile.refresh(this@ConnectionService)
+                        }
+                    }
                     is SessionState.Pairing -> nm.notify(1, notification("Pairing with ${state.macName}…"))
                     SessionState.Unpaired, is SessionState.Failed -> stopSelf()
                 }
@@ -61,9 +83,35 @@ class ConnectionService : Service() {
         }
     }
 
+    // Android shows at most three. Paused, a clipboard send would go nowhere, so it's not offered
+    private val running by lazy { arrayOf(screenAction("Send clipboard", NotificationActionActivity.ACTION_SEND_CLIPBOARD), screenAction("Pause…", NotificationActionActivity.ACTION_PAUSE), settingsAction) }
+    private val resumeAction by lazy { action("Resume", ACTION_RESUME) }
+    private val settingsAction by lazy {
+        val open = Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_SETTINGS, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        Notification.Action.Builder(null, "Settings", PendingIntent.getActivity(this, 2, open, PendingIntent.FLAG_IMMUTABLE)).build()
+    }
+
+    /** Done by the service itself: no screen needed. */
+    private fun action(title: String, intentAction: String): Notification.Action {
+        val intent = PendingIntent.getService(this, intentAction.hashCode(), Intent(this, ConnectionService::class.java).setAction(intentAction), PendingIntent.FLAG_IMMUTABLE)
+        return Notification.Action.Builder(null, title, intent).build()
+    }
+
+    /** Needs a screen: reading the clipboard, or showing the pause choices. */
+    private fun screenAction(title: String, intentAction: String): Notification.Action {
+        val intent = PendingIntent.getActivity(this, intentAction.hashCode(), NotificationActionActivity.intent(this, intentAction), PendingIntent.FLAG_IMMUTABLE)
+        return Notification.Action.Builder(null, title, intent).build()
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // The alarm from a CpuPlan.WakeAt: the CPU is awake now, so let the session look again
-        if (intent?.action == ACTION_CHECK_IDLE) (application as SeamApplication).session.checkIdle()
+        val session = (application as SeamApplication).session
+        when (intent?.action) {
+            ACTION_CHECK_IDLE -> session.checkIdle()
+            // From the notification: only the phone pauses and resumes
+            ACTION_RESUME -> session.resume()
+        }
         return START_STICKY
     }
     override fun onBind(intent: Intent?) = null
@@ -122,7 +170,7 @@ class ConnectionService : Service() {
         super.onDestroy()
     }
 
-    private fun notification(text: String): Notification {
+    private fun notification(text: String, vararg actions: Notification.Action): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_seam_mark)
@@ -130,12 +178,14 @@ class ConnectionService : Service() {
             .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)
+            .apply { actions.forEach(::addAction) }
             .build()
     }
 
     companion object {
         private const val CHANNEL = "connection"
         private const val ACTION_CHECK_IDLE = "com.avetero.seam.CHECK_IDLE"
+        private const val ACTION_RESUME = "com.avetero.seam.RESUME"
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ConnectionService::class.java))
     }

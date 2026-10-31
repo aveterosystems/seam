@@ -49,7 +49,7 @@ internal class Switches(
             // The old keys go only once the move is saved; until then the next start tries again
             if (runCatching { persist() }.isSuccess) runCatching { store.save(prefs) }
         }
-        _settings.value = ConnectionSettings(prefs.wifi, prefs.relay)
+        _settings.value = ConnectionSettings(prefs.wifi, prefs.relay, pausedUntil = prefs.pausedUntil)
         syncPeer()
     }
 
@@ -59,6 +59,13 @@ internal class Switches(
         val s = _settings.value.copy(wifi = wifi, relay = relay).let { it.copy(allowed = allowedFor(it)) }
         _settings.value = s
         runCatching { store.save(s) } // only preferences: the switches still apply this run
+    }
+
+    /** Paused until then (0: not paused); a preference like the switches, saved apart from the keys. */
+    fun savePause(until: Long) {
+        val s = _settings.value.copy(pausedUntil = until)
+        _settings.value = s
+        runCatching { store.save(s) }
     }
 
     /**

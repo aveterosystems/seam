@@ -14,7 +14,17 @@ message Control {
     Unpair unpair = 4;
     PairRequest pair_request = 5;
     PairAccept pair_accept = 6;
+    Pause pause = 7;
   }
+}
+
+// The phone paused or resumed Seam. Only the phone sends it: pausing and resuming happen there.
+// While paused nothing is captured or sent either way; the phone makes no connections at all
+// (no Wi-Fi search, no relay), and the Mac keeps listening so the phone can resume from anywhere.
+// A timed pause ends by itself on both devices at until_ms, with no message needed.
+message Pause {
+  // Unix ms when the pause ends. 0: not paused (resumed). INT64 max: until the phone resumes.
+  int64 until_ms = 1;
 }
 
 // Sent on every connect. A feature only sends payloads once the peer lists its capability,

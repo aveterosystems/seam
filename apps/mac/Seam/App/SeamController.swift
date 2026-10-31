@@ -35,6 +35,8 @@ final class SeamController {
     private(set) var clipboardSync = UserDefaults.standard.object(forKey: "clipboardSync") as? Bool ?? true
     /// How the link looks everywhere it's shown: the stitch, the icon and the words.
     private(set) var link = LinkLook.away
+    /// Paused on the phone (only the phone pauses and resumes); the link says until when.
+    private(set) var paused = false
 
     @ObservationIgnored private var store: Store?
     @ObservationIgnored private var session: Session?
@@ -89,7 +91,13 @@ final class SeamController {
             device: store.device,
             storage: SessionStorage(
                 saveState: { try store.save() }, outbox: store.outboxFile,
-                needsBundles: { store.needsBundles }, setNeedsBundles: { store.needsBundles = $0 }
+                needsBundles: { store.needsBundles }, setNeedsBundles: { store.needsBundles = $0 },
+                // The phone's pause, so a restarted Mac still shows it (a preference, not a secret)
+                pausedUntil: {
+                    let t = UserDefaults.standard.double(forKey: "pausedUntil")
+                    return t > 0 ? Date(timeIntervalSince1970: t) : nil
+                },
+                setPausedUntil: { UserDefaults.standard.set($0?.timeIntervalSince1970 ?? 0, forKey: "pausedUntil") }
             ),
             pasteboard: SystemPasteboard(), notifications: notifications,
             wifi: wifiOn, relay: relayOn, clipboardSync: clipboardSync,
@@ -127,7 +135,8 @@ final class SeamController {
             appIcons[id] = NSImage(data: png)
         }
         relayUp = s.relayUp
-        link = LinkLook.of(route: s.route, allowed: s.allowed, ownRelay: usesOwnRelay)
+        paused = s.pausedUntil != nil
+        link = LinkLook.of(route: s.route, allowed: s.allowed, ownRelay: usesOwnRelay, pausedUntil: s.pausedUntil)
         if case .confirm = s.pairing, pairing != s.pairing { NSApp.activate() } // the safety code needs the user's eyes now
         pairing = s.pairing
         warning = s.warning ?? saveWarning
