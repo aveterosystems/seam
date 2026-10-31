@@ -40,9 +40,13 @@ internal class Pairing(
     val outcome: StateFlow<PairingOutcome?> = _outcome
 
     val active: Boolean get() = qr != null
+    /** The new Mac answered on the pairing channel: it took our code. */
+    var keysHeard = false
+        private set
 
     fun start(qr: PairingQr) {
         this.qr = qr
+        keysHeard = false
         _outcome.value = null
     }
 
@@ -53,6 +57,7 @@ internal class Pairing(
     /** The new Mac's keys arrived: the pairing request goes out. Returns the state to show, or null if it failed. */
     fun keysArrived(bundle: ByteArray): SessionState.Pairing? {
         val p = qr ?: return null
+        keysHeard = true
         if (bundle.isEmpty()) return null.also { fail("Your Mac hasn't finished setting up. Try its pairing code again.") }
         try {
             val start = device.pairWith(p.identityKey, p.relayKey, p.macName, bundle, p.token, myName, myModel)
@@ -60,7 +65,7 @@ internal class Pairing(
             send(start.envelope)
             return SessionState.Pairing(p.macName, device.safetyCode(start.peerId))
         } catch (_: Exception) {
-            fail("That pairing code didn't work. Show a new one on your Mac and scan again.")
+            fail(CODE_REFUSED)
             return null
         }
     }

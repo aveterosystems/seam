@@ -13,6 +13,7 @@ import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.protocol.v1.Transport
 import com.google.protobuf.ByteString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -24,10 +25,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.Timeout
 
 /** The session through a fake Tor and a fake Same Wi‑Fi, each with a real Mac (the Rust core) behind it. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionTest {
+    /** A session left retrying never lets runTest finish: fail that test, not the whole run. */
+    @get:Rule val timeout: Timeout = Timeout.seconds(30)
+
     private val tor = FakeTor()
     private var onions = 0
     private val mac = SeamDevice.generate()
@@ -45,6 +51,9 @@ class SessionTest {
     /** A code whose token the Mac no longer accepts (expired, or replaced by a newer one). */
     private fun expired(q: PairingQr) = PairingQr(q.onionAddress, q.discoverySecret, ByteArray(32) { 1 }, q.identityKey, q.relayKey, q.macName)
 
+    /** Sessions' scopes, for a test to stop one that would otherwise retry forever. */
+    private val scopes = mutableListOf<TestScope>()
+
     private fun TestScope.session(
         trace: ((String) -> Unit)? = null,
         now: () -> Long = { testScheduler.currentTime },
@@ -53,7 +62,7 @@ class SessionTest {
         settings: SettingsStore = MemorySettingsStore(),
     ) = Session(
         store, "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)), now = now, trace = trace, lan = lan, tor = dialer, settingsStore = settings, pendingStore = pending,
+        TestScope(StandardTestDispatcher(testScheduler)).also { scopes += it }, now = now, trace = trace, lan = lan, tor = dialer, settingsStore = settings, pendingStore = pending,
     )
 
     private fun status(pct: Int) = Payload.newBuilder().setStatus(Status.newBuilder().setBatteryPct(pct).setCharging(true)).build()
@@ -83,11 +92,13 @@ class SessionTest {
         tor.services.clear() // the onion address isn't published yet
         val s = session(lan = lan)
         s.pair(qr)
-        advanceUntilIdle()
+        advanceTimeBy(10_000) // not until idle: Tor keeps trying the unpublished address
+        runCurrent()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
         assertEquals(1, lan.pairings)
         assertEquals(0, tor.pairings)
         assertEquals(Transport.TRANSPORT_LAN, s.route.value)
+        scopes.forEach { it.cancel() }
     }
 
     @Test fun pairingTriesBothAndOnlyOneChannelPairs() = runTest {
@@ -752,7 +763,7 @@ class SessionTest {
         s.pair(expired(qrFor(SeamDevice.generate(), "Someone else's Mac")))
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertTrue(s.notice.value!!.startsWith("Couldn't reach your Mac"))
+        assertEquals(CODE_REFUSED, s.notice.value)
         assertEquals("back to the current Mac's address", qr.onionAddress, tor.target?.onionAddress)
         s.send(status(66))
         advanceUntilIdle()
@@ -1174,13 +1185,15 @@ class SessionTest {
         val s = onWifi(lan)
         lan.lose = true
         s.send(status(46))
-        advanceUntilIdle()
+        advanceTimeBy(1_000) // not until idle: a Tor path with a lost envelope never goes idle
+        runCurrent()
         tor.services.remove(qr.onionAddress)
         tor.drop() // Tor was up: its drop resends, once
         advanceTimeBy(5 * 60_000L) // then many failed Tor attempts
         runCurrent()
         assertTrue(tor.dialled.size > 3)
         assertEquals("an attempt that never came up loses nothing, so resends nothing", 2, lan.lost.count { it.msgId == lan.lost.last().msgId })
+        scopes.forEach { it.cancel() } // the Tor path retries for good while a message is owed: runTest would never go idle
     }
 
     @Test fun aFailedNewPairingKeepsWhatTheCurrentMacNeverAcked() = runTest {

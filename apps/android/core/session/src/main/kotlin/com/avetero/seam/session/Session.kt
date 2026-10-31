@@ -525,7 +525,8 @@ class Session(
         val wasUp = upPaths.remove(path)
         if (path === closingPairing) return paired() // the Mac has our ack and closed the pairing channel
         if (pairing.active) {
-            if (path === pairingVia) fail("Lost the connection while pairing. Try again.")
+            // The Mac checks our code last: closing before it answers is a stale or replaced code
+            if (path === pairingVia) fail(if (pairing.keysHeard) "Lost the connection while pairing. Try again." else CODE_REFUSED)
             return
         }
         if (wasUp) outbox.linkDropped()
@@ -701,4 +702,5 @@ class Session(
     }
 }
 
+internal const val CODE_REFUSED = "That pairing code didn't work. Show a new one on your Mac and scan again."
 internal const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
