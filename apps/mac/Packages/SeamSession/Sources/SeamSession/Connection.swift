@@ -9,7 +9,7 @@ import SeamProtocol
 public struct Outbox: Equatable, Sendable {
     /// Per list; the oldest goes first.
     public static let cap = 100
-    /// The relay's own default when an envelope sets no TTL.
+    /// When an envelope sets no TTL.
     static let defaultTTL: TimeInterval = 86_400
 
     public private(set) var waiting: [Seam_V1_Envelope] = []
@@ -33,7 +33,7 @@ public struct Outbox: Equatable, Sendable {
         if sent.count > Self.cap { sent.removeFirst(sent.count - Self.cap) }
     }
 
-    /// Delivered (the phone's ack, or the relay took it).
+    /// Delivered (the phone acked it).
     public mutating func remove(_ msgID: Data) {
         waiting.removeAll { $0.msgID == msgID }
         sent.removeAll { $0.msgID == msgID }
@@ -141,41 +141,6 @@ public struct OutboxFile: Sendable {
     }
 }
 
-/// A relay to use instead of Seam's: `seam-relay://host[:port][/path]#<owner key>`, or a plain
-/// relay address (protocol/README.md, "The relay link"; decision 0007).
-public struct RelayLink: Equatable, Sendable {
-    public let url: URL
-    /// A private relay's owner key (sent only when this Mac creates its group).
-    public let ownerKey: Data?
-
-    public init(url: URL, ownerKey: Data?) {
-        self.url = url
-        self.ownerKey = ownerKey
-    }
-
-    /// Nil for anything that isn't exactly a relay link, a key too short to be secret included.
-    public static func parse(_ text: String, allowInsecure: Bool) -> RelayLink? {
-        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.utf8.count <= 2048 else { return nil }
-        guard text.lowercased().hasPrefix("seam-relay://") else {
-            return RelayPolicy.acceptable(text, allowInsecure: allowInsecure).map { RelayLink(url: $0, ownerKey: nil) }
-        }
-        let rest = text.dropFirst("seam-relay://".count)
-        let parts = rest.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
-        guard let url = RelayPolicy.acceptable("wss://" + parts[0], allowInsecure: false) else { return nil }
-        guard parts.count == 2 else { return RelayLink(url: url, ownerKey: nil) }
-        guard let key = base64URL(String(parts[1])), (32...512).contains(key.count) else { return nil }
-        return RelayLink(url: url, ownerKey: key)
-    }
-
-    static func base64URL(_ s: String) -> Data? {
-        guard !s.isEmpty, s.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }) else { return nil }
-        var b = s.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-        b += String(repeating: "=", count: (4 - b.count % 4) % 4)
-        return Data(base64Encoded: b)
-    }
-}
-
 /// How the link to the phone is shown, everywhere it's shown (docs/design/design-system.md,
 /// "The stitch"). The line, the icon and the words always come from here, together, so no view
 /// decides any of them on its own.
@@ -190,8 +155,11 @@ public struct LinkLook: Equatable, Sendable {
     public let connected: Bool
 
     public static let sameWifi = LinkLook(line: .solid, symbol: "wifi", label: "Same Wi‑Fi", connected: true)
-    public static let seamRelay = LinkLook(line: .dashed, symbol: "cloud", label: "Through Seam relay", connected: true)
-    public static let ownRelay = LinkLook(line: .dashed, symbol: "server.rack", label: "Through your relay", connected: true)
+    /// A neutral globe, not the Tor onion (that needs the Tor Project's permission; docs/tor/11-wording.md).
+    public static let throughTor = LinkLook(line: .dashed, symbol: "globe", label: "Through Tor", connected: true)
+    public static let connectingTor = LinkLook(line: .dotted, symbol: "globe", label: "Connecting through Tor…", connected: false)
+    public static let torBlocked = LinkLook.offline("Tor is blocked on this network")
+    public static let torClock = LinkLook.offline("Tor needs the correct time. Check your clock")
     public static let noSharedPath = LinkLook.offline("Your phone and this Mac have no connection type on in common")
     public static let waitingOnWifi = LinkLook.offline("Waiting for your phone on the same Wi‑Fi")
     public static let away = LinkLook.offline("Offline · will send when your phone is back")
@@ -215,19 +183,28 @@ public struct LinkLook: Equatable, Sendable {
         return LinkLook(line: .broken, symbol: "pause.circle", label: label, connected: false)
     }
 
-    /// The one place a path becomes a look.
-    public static func of(route: Seam_V1_Transport?, allowed: Set<Seam_V1_Transport>, ownRelay: Bool) -> LinkLook {
+    /// The one place a path becomes a look. With no route, Tor's own state says why when Tor is
+    /// the way the phone would come (never a silent wait on a blocked network, decision 0004).
+    public static func of(route: Seam_V1_Transport?, allowed: Set<Seam_V1_Transport>, tor: TorState = .ready) -> LinkLook {
         switch route {
         case .lan?: return .sameWifi
-        case .relay?: return ownRelay ? .ownRelay : .seamRelay
-        default: return allowed.isEmpty ? .noSharedPath : allowed == [.lan] ? .waitingOnWifi : .away
+        case .tor?: return .throughTor
+        default:
+            if allowed.isEmpty { return .noSharedPath }
+            guard allowed.contains(.tor) else { return .waitingOnWifi }
+            switch tor {
+            case .off, .starting: return .connectingTor
+            case .blocked(.filtered): return .torBlocked
+            case .blocked(.clockSkewed): return .torClock
+            default: return .away
+            }
         }
     }
 
     /// The same, from the core's connection rules. A pause on the phone comes first.
-    public static func of(route: PeerPath?, allowed: [PeerPath], ownRelay: Bool, pausedUntil: Date? = nil, now: Date = Date()) -> LinkLook {
+    public static func of(route: PeerPath?, allowed: [PeerPath], tor: TorState = .ready, pausedUntil: Date? = nil, now: Date = Date()) -> LinkLook {
         if let pausedUntil, pausedUntil > now { return .paused(until: pausedUntil, now: now) }
-        return of(route: route?.transport, allowed: Set(allowed.map(\.transport)), ownRelay: ownRelay)
+        return of(route: route?.transport, allowed: Set(allowed.map(\.transport)), tor: tor)
     }
 
     /// The whole line in words, for VoiceOver and anywhere there's no room for the icon.
@@ -239,7 +216,7 @@ extension PeerPath {
     public var transport: Seam_V1_Transport {
         switch self {
         case .lan: .lan
-        case .relay: .relay
+        case .tor: .tor
         }
     }
 }

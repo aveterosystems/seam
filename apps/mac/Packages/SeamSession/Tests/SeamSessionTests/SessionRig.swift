@@ -49,40 +49,27 @@ final class FakeTimers: Timers, @unchecked Sendable {
     }
 }
 
-final class FakeRelay: RelaySender, @unchecked Sendable {
+/// A carrier's streams as the session sees them: Same Wi‑Fi's, or the Tor service's.
+final class FakeLan: LanSender, @unchecked Sendable {
     private let lock = NSLock()
-    private var _frames: [Seam_V1_ClientFrame] = []
+    private var _frames: [Seam_V1_ServerFrame] = []
+    private var _closed: [String] = []
     private var _failing = false
-    private var _attempts = 0
 
-    var frames: [Seam_V1_ClientFrame] { lock.withLock { _frames } }
-    /// Sends tried, taken or not.
-    var attempts: Int { lock.withLock { _attempts } }
+    var frames: [Seam_V1_ServerFrame] { lock.withLock { _frames } }
+    var closed: [String] { lock.withLock { _closed } }
+    /// The stream dropped: sends fail.
     var failing: Bool {
         get { lock.withLock { _failing } }
         set { lock.withLock { _failing = newValue } }
     }
 
-    func send(_ frame: Seam_V1_ClientFrame) async throws {
-        try lock.withLock {
-            _attempts += 1
-            if _failing { throw RelayClientError.notConnected }
-            _frames.append(frame)
-        }
-    }
-}
-
-final class FakeLan: LanSender, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _frames: [Seam_V1_ServerFrame] = []
-    private var _closed: [String] = []
-
-    var frames: [Seam_V1_ServerFrame] { lock.withLock { _frames } }
-    var closed: [String] { lock.withLock { _closed } }
-
     func send(_ frame: Seam_V1_ServerFrame, to peerId: String) -> Bool {
-        lock.withLock { _frames.append(frame) }
-        return true
+        lock.withLock {
+            if _failing { return false }
+            _frames.append(frame)
+            return true
+        }
     }
 
     func close(peerId: String) {
@@ -156,7 +143,6 @@ final class SavedState: @unchecked Sendable {
     private let lock = NSLock()
     private var _blob: Data?
     private var _failing = false
-    private var _needsBundles = false
     private var _pausedUntil: Date?
 
     var blob: Data? { lock.withLock { _blob } }
@@ -167,10 +153,6 @@ final class SavedState: @unchecked Sendable {
     var pausedUntil: Date? {
         get { lock.withLock { _pausedUntil } }
         set { lock.withLock { _pausedUntil = newValue } }
-    }
-    var needsBundles: Bool {
-        get { lock.withLock { _needsBundles } }
-        set { lock.withLock { _needsBundles = newValue } }
     }
 
     func save(_ device: SeamDevice) throws {
@@ -186,7 +168,8 @@ final class Rig: @unchecked Sendable {
     let mac: SeamDevice
     let phone: SeamDevice
     let lan = FakeLan()
-    let relay = FakeRelay()
+    /// The Tor service's streams.
+    let tor = FakeLan()
     let pasteboard = MemoryPasteboard()
     let centre = MemoryNotifications()
     let timers: FakeTimers
@@ -196,38 +179,43 @@ final class Rig: @unchecked Sendable {
     private var opened: [Data: Seam_V1_Payload] = [:]
 
     /// `paired` false: the phone is made but not paired yet (pairing tests pair it).
-    init(paired: Bool = true, wifi: Bool = true, relay: Bool = true, clipboardSync: Bool = true) async throws {
+    init(paired: Bool = true, wifi: Bool = true, tor: Bool = true, clipboardSync: Bool = true) async throws {
         if paired {
             (mac, phone) = try pairedDevices()
+            try mac.setAppData(data: Self.macData)
+            try phone.setAppData(data: AppData(
+                torSecret: Data(repeating: 2, count: 32), onionAddress: torOnionAddress(serviceSecret: Self.macData.torSecret),
+                peerDiscovery: Data(), helloSeqSent: 0, helloSeqApplied: 0, peerAllowed: nil
+            ))
         } else {
             (mac, phone) = (try SeamDevice.generate(), try SeamDevice.generate())
-        }
-        for device in [mac, phone] {
-            try device.setAppData(data: AppData(
-                groupId: Data(repeating: 1, count: 16), relayUrl: "wss://relay.example.com", ownerKey: nil,
-                helloSeqSent: 0, helloSeqApplied: 0, peerAllowed: nil
-            ))
         }
         timers = FakeTimers()
         saved = SavedState()
         outbox = OutboxFile(url: FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID()).bin"))
-        session = Self.session(mac, saved, outbox, pasteboard, centre, timers, wifi: wifi, relay: relay, clipboardSync: clipboardSync)
+        session = Self.session(mac, saved, outbox, pasteboard, centre, timers, wifi: wifi, tor: tor, clipboardSync: clipboardSync)
         try saved.save(mac)
         await session.start()
     }
 
+    /// A paired Mac's app data: its service, findable only by the phone's discovery key.
+    static let macData = AppData(
+        torSecret: Data(repeating: 1, count: 32), onionAddress: "",
+        peerDiscovery: torDiscoveryPublic(discoverySecret: Data(repeating: 2, count: 32)),
+        helloSeqSent: 0, helloSeqApplied: 0, peerAllowed: nil
+    )
+
     private static func session(
         _ device: SeamDevice, _ saved: SavedState, _ outbox: OutboxFile, _ pasteboard: MemoryPasteboard,
-        _ centre: MemoryNotifications, _ timers: FakeTimers, wifi: Bool, relay: Bool, clipboardSync: Bool
+        _ centre: MemoryNotifications, _ timers: FakeTimers, wifi: Bool, tor: Bool, clipboardSync: Bool
     ) -> Session {
         let storage = SessionStorage(
             saveState: { try saved.save(device) }, outbox: outbox,
-            needsBundles: { saved.needsBundles }, setNeedsBundles: { saved.needsBundles = $0 },
             pausedUntil: { saved.pausedUntil }, setPausedUntil: { saved.pausedUntil = $0 }
         )
         return Session(
             device: device, storage: storage, pasteboard: pasteboard, notifications: centre,
-            wifi: wifi, relay: relay, clipboardSync: clipboardSync, appVersion: "test", timers: timers
+            wifi: wifi, tor: tor, clipboardSync: clipboardSync, appVersion: "test", timers: timers
         )
     }
 
@@ -235,21 +223,22 @@ final class Rig: @unchecked Sendable {
     func restart() async throws -> Session {
         await session.stop()
         let restored = try SeamDevice.restore(state: try #require(saved.blob), storageKey: SavedState.key)
-        session = Self.session(restored, saved, outbox, pasteboard, centre, timers, wifi: true, relay: true, clipboardSync: true)
+        session = Self.session(restored, saved, outbox, pasteboard, centre, timers, wifi: true, tor: true, clipboardSync: true)
         await session.start()
         return session
     }
 
     var phoneID: String { phone.id() }
 
-    func relayUp() async {
-        await session.setRelay(relay)
-        await session.relayConnected()
+    /// The phone connected through the Mac's onion service.
+    func torUp() async {
+        await session.setLink(tor, for: .tor)
+        await session.linkEvent(.authenticated(peerId: phoneID), on: .tor)
     }
 
     func lanUp() async {
-        await session.setLan(lan)
-        await session.lanEvent(.authenticated(peerId: phoneID))
+        await session.setLink(lan, for: .lan)
+        await session.linkEvent(.authenticated(peerId: phoneID), on: .lan)
     }
 
     /// Something for the phone that isn't a Hello, told apart by `n`.
@@ -263,8 +252,8 @@ final class Rig: @unchecked Sendable {
     }
 
     /// The phone's Hello, as its switches say.
-    func phoneHello(wifi: Bool, relay: Bool, pausedUntilMs: Int64 = 0) throws -> Seam_V1_Envelope {
-        let next = try #require(phone.nextHello(enabled: (wifi ? [.lan] : []) + (relay ? [.relay] : [])))
+    func phoneHello(wifi: Bool, tor: Bool, pausedUntilMs: Int64 = 0) throws -> Seam_V1_Envelope {
+        let next = try #require(phone.nextHello(enabled: (wifi ? [.lan] : []) + (tor ? [.tor] : [])))
         return try fromPhone(.with {
             $0.control = .with {
                 $0.hello = .with {
@@ -276,9 +265,9 @@ final class Rig: @unchecked Sendable {
         })
     }
 
-    /// What reached the phone over the relay, opened by the phone, in order.
-    func onRelay() throws -> [Seam_V1_Payload] {
-        try relay.frames.compactMap { if case .send(let e)? = $0.frame { e } else { nil } }.map(open)
+    /// What reached the phone through Tor, opened by the phone, in order.
+    func onTor() throws -> [Seam_V1_Payload] {
+        try tor.frames.compactMap { if case .deliver(let e)? = $0.frame { e } else { nil } }.map(open)
     }
 
     func onLan() throws -> [Seam_V1_Payload] {

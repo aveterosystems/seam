@@ -2,21 +2,15 @@
 import Foundation
 import SeamProtocol
 
-/// The Same Wi‑Fi link as the session sees it. Its events (`LanEvent`) go to `Session.lanEvent`.
+/// A direct link (Same Wi‑Fi or Tor) as the session sees it. Its events (`LanEvent`) go to
+/// `Session.linkEvent` with the path they came on.
 public protocol LanSender: Sendable {
     /// False when the phone isn't connected (send it another way).
     func send(_ frame: Seam_V1_ServerFrame, to peerId: String) -> Bool
     func close(peerId: String)
 }
 
-/// The relay as the session sees it. Its callbacks go to `Session.relayConnected` and the rest.
-public protocol RelaySender: Sendable {
-    /// Returns once the relay took the frame; throws when it didn't (not logged in, a dropped socket).
-    func send(_ frame: Seam_V1_ClientFrame) async throws
-}
-
 extension LanServer: LanSender {}
-extension RelayClient: RelaySender {}
 
 /// The clock and timers the session uses, so tests can move time on instead of waiting.
 public protocol Timers: Sendable {
@@ -54,22 +48,16 @@ public struct SessionStorage: Sendable {
     /// forget is ever sent (SR-2-11).
     public var saveState: @Sendable () throws -> Void
     public var outbox: OutboxFile
-    /// Whether the relay should get fresh prekey bundles (a new group, or one used by pairing).
-    public var needsBundles: @Sendable () -> Bool
-    public var setNeedsBundles: @Sendable (Bool) -> Void
     /// The phone's pause, kept across a restart (a preference, not a secret): nil when not paused.
     public var pausedUntil: @Sendable () -> Date?
     public var setPausedUntil: @Sendable (Date?) -> Void
 
     public init(
         saveState: @escaping @Sendable () throws -> Void, outbox: OutboxFile,
-        needsBundles: @escaping @Sendable () -> Bool, setNeedsBundles: @escaping @Sendable (Bool) -> Void,
         pausedUntil: @escaping @Sendable () -> Date? = { nil }, setPausedUntil: @escaping @Sendable (Date?) -> Void = { _ in }
     ) {
         self.saveState = saveState
         self.outbox = outbox
-        self.needsBundles = needsBundles
-        self.setNeedsBundles = setNeedsBundles
         self.pausedUntil = pausedUntil
         self.setPausedUntil = setPausedUntil
     }

@@ -73,13 +73,15 @@ struct SeamCoreTests {
 
     @Test func appDataIsSealedWithTheState() throws {
         let mac = try SeamDevice.generate()
+        let secret = torNewSecret()
         let data = AppData(
-            groupId: Data(repeating: 1, count: 16), relayUrl: "wss://relay.example.com", ownerKey: Data([9]),
-            helloSeqSent: 2, helloSeqApplied: 3, peerAllowed: [.lan]
+            torSecret: secret, onionAddress: "", peerDiscovery: torDiscoveryPublic(discoverySecret: torNewSecret()),
+            helloSeqSent: 2, helloSeqApplied: 3, peerAllowed: [.lan, .tor]
         )
         try mac.setAppData(data: data)
         let restored = try SeamDevice.restore(state: try mac.exportState(storageKey: key), storageKey: key)
         #expect(restored.appData() == data)
+        #expect(torOnionAddress(serviceSecret: secret).hasSuffix(".onion"))
     }
 
     @Test func fileChunksRoundTripInOrderOnly() throws {

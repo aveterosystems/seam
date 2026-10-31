@@ -1,20 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Foundation
 
-/// The pairing QR code, exactly as protocol/README.md defines it:
-/// `seam://pair?v=1&r=<relay>&g=<group>&t=<token>&i=<identity key>&k=<relay key>&n=<name>`
-/// Binary values are base64url without padding; text values are percent-encoded.
+/// The pairing QR code, version 2 (docs/tor/13-implementation-contract.md):
+/// `seam://pair?v=2&o=<onion address>&d=<discovery secret>&t=<token>&i=<identity key>&k=<channel key>&n=<name>`
+/// Binary values are base64url without padding; text values are percent-encoded. Version 1 (a
+/// relay code) is refused: those devices update and pair again.
 public struct PairingQR: Equatable, Sendable {
-    public var relayURL: String
-    public var groupID: Data
+    /// The new onion service this pairing will use.
+    public var onionAddress: String
+    /// The phone's restricted-discovery secret: only it can find that service.
+    public var discoverySecret: Data
     public var token: Data
     public var identityKey: Data
+    /// The Mac's relay key, which pins the channel.
     public var relayKey: Data
     public var name: String
 
-    public init(relayURL: String, groupID: Data, token: Data, identityKey: Data, relayKey: Data, name: String) {
-        self.relayURL = relayURL
-        self.groupID = groupID
+    public init(onionAddress: String, discoverySecret: Data, token: Data, identityKey: Data, relayKey: Data, name: String) {
+        self.onionAddress = onionAddress
+        self.discoverySecret = discoverySecret
         self.token = token
         self.identityKey = identityKey
         self.relayKey = relayKey
@@ -27,7 +31,7 @@ public struct PairingQR: Equatable, Sendable {
 
     public var url: String {
         let items: [(String, String)] = [
-            ("v", "1"), ("r", Self.percentEncode(relayURL)), ("g", groupID.base64URL),
+            ("v", "2"), ("o", Self.percentEncode(onionAddress)), ("d", discoverySecret.base64URL),
             ("t", token.base64URL), ("i", identityKey.base64URL), ("k", relayKey.base64URL),
             ("n", Self.percentEncode(name)),
         ]
@@ -39,7 +43,7 @@ public struct PairingQR: Equatable, Sendable {
             throw ParseError.notSeamPairing
         }
         let q = Dictionary((c.queryItems ?? []).map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
-        guard q["v"] == "1" else { throw ParseError.unsupportedVersion }
+        guard q["v"] == "2" else { throw ParseError.unsupportedVersion }
         // Not named `text`: that would shadow the `text` parameter above
         func field(_ k: String) throws -> String {
             guard let v = q[k], !v.isEmpty else { throw ParseError.missing(k) }
@@ -51,7 +55,7 @@ public struct PairingQR: Equatable, Sendable {
             return d
         }
         return PairingQR(
-            relayURL: try field("r"), groupID: try bytes("g", count: 16), token: try bytes("t", count: 32),
+            onionAddress: try field("o"), discoverySecret: try bytes("d", count: 32), token: try bytes("t", count: 32),
             identityKey: try bytes("i", count: 33), relayKey: try bytes("k", count: 32), name: try field("n")
         )
     }

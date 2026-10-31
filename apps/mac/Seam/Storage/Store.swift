@@ -4,65 +4,22 @@ import SeamCore
 import SeamProtocol
 import SeamSession
 
-/// Where Seam keeps things on this Mac: the sealed core state (keys, peers, and the group id and
-/// relay URL in its appData) in Application Support, sealed with a key from the Keychain.
+/// Where Seam keeps things on this Mac: the sealed core state (keys, peers, and the onion service
+/// secret in its app data) in Application Support, sealed with a key from the Keychain, and Tor's
+/// own state next to it.
 struct Store: Sendable {
     /// Saved data exists but can't be opened (damaged, or its Keychain key is gone). Only a reset,
     /// which the user chooses, gets past this; Seam never overwrites it by itself.
     struct Unreadable: Error {}
 
-    #if DEBUG
-    static let allowInsecureRelay = true
-    #else
-    static let allowInsecureRelay = false
-    #endif
-
     let device: SeamDevice
-    /// The relay part of the core's app data as of opening (it only changes with `movingRelay`);
-    /// the Hello state in it is the core's to keep.
-    let appData: AppData
+    /// A pairing from the relay builds was dropped on opening: the phone has to pair again.
+    let pairAgain: Bool
     private let key: Data
     private let file: StateFile
 
-    private static var defaults: UserDefaults { .standard }
-
-    /// The relay this Mac's group lives on. A Debug build also honours
-    /// `defaults write com.avetero.seam.debug relayURL ws://<this Mac's LAN IP>:8787` (Debug builds only).
-    var relayURL: URL {
-        RelayPolicy.resolve(
-            Self.allowInsecureRelay ? [Self.defaults.string(forKey: "relayURL"), appData.relayUrl] : [appData.relayUrl],
-            allowInsecure: Self.allowInsecureRelay
-        )
-    }
-
-    /// A relay the user chose (Settings › Connection), rather than the build's own.
-    var usesOwnRelay: Bool {
-        appData.relayUrl != RelayPolicy.forNewGroup(override: Self.defaults.string(forKey: "relayURL"), allowInsecure: Self.allowInsecureRelay).absoluteString
-    }
-
-    /// Moves this Mac to another relay (nil: the build's own) with a new group there.
-    /// A custom relay comes only through this explicit choice (decision 0007). Any phone pairs again.
-    func movingRelay(to link: RelayLink?) throws -> Store {
-        let url = link?.url ?? RelayPolicy.forNewGroup(override: Self.defaults.string(forKey: "relayURL"), allowInsecure: Self.allowInsecureRelay)
-        let appData = Self.appData(relayURL: url.absoluteString, ownerKey: link?.ownerKey)
-        let previous = device.appData()
-        try device.setAppData(data: appData)
-        let store = Store(device: device, appData: appData, key: key, file: file)
-        do {
-            try store.save()
-        } catch {
-            if let previous { try? device.setAppData(data: previous) } // stay on the old relay rather than half-move
-            throw error
-        }
-        store.needsBundles = true
-        return store
-    }
-
-    /// True when the relay should get fresh prekey bundles (new group, or one used by pairing).
-    var needsBundles: Bool {
-        get { Self.defaults.bool(forKey: "needsBundles") }
-        nonmutating set { Self.defaults.set(newValue, forKey: "needsBundles") }
-    }
+    /// The app's private folder: Tor keeps its state in `tor/` inside it.
+    var folder: URL { file.url.deletingLastPathComponent() }
 
     /// Restores the saved device, or creates one on first launch. Throws `Unreadable` when saved
     /// data exists but can't be opened, and other errors for anything that may be temporary.
@@ -76,39 +33,31 @@ struct Store: Sendable {
         } catch SeamError.BadState {
             throw Unreadable()
         }
-        if var appData = device.appData() {
-            try migrateHelloState(&appData, device: device, key: key, file: file)
-            return Store(device: device, appData: appData, key: key, file: file)
+        // A phone paired through the relay has app data the core no longer reads (decision 0009):
+        // there's no way to reach it over Tor, so it's forgotten and pairs again. The identity stays
+        guard device.appData() == nil, !device.peers().isEmpty else {
+            return Store(device: device, pairAgain: false, key: key, file: file)
         }
-        // State from before appData: move the group id and relay out of UserDefaults, once. App
-        // data the core can't read (a newer Seam's, or damaged) looks the same, so without that
-        // group id it's unreadable: never replaced by a new group on Seam's relay, which would
-        // silently move a private-relay user to ours
-        guard let old = defaults.data(forKey: "groupID"), old.count == 16 else { throw Unreadable() }
-        var appData = Self.appData(
-            relayURL: RelayPolicy.forNewGroup(override: defaults.string(forKey: "relayURL"), allowInsecure: allowInsecureRelay).absoluteString
-        )
-        appData.groupId = old
-        try device.setAppData(data: appData)
-        let store = Store(device: device, appData: appData, key: key, file: file)
+        for peer in device.peers() { device.removePeer(peerId: peer.id) }
+        device.clearAppData()
+        let store = Store(device: device, pairAgain: true, key: key, file: file)
         try store.save()
-        defaults.removeObject(forKey: "groupID")
+        store.outboxFile.delete() // sealed for the forgotten phone
         return store
     }
 
     /// The user chose to start over: the unreadable files are kept aside, never deleted, and this
-    /// Mac gets a new identity and a new group. Any paired phone has to pair again.
+    /// Mac gets a new identity. Any paired phone has to pair again.
     static func reset() throws -> Store {
         let file = try stateFile()
         try file.moveAside()
         OutboxFile(url: file.url.deletingLastPathComponent().appendingPathComponent("outbox.bin")).delete() // sealed for the old identity
-        defaults.removeObject(forKey: "groupID")
         return try create(at: file)
     }
 
     /// Envelopes for the phone not yet delivered, next to the state file.
     var outboxFile: OutboxFile {
-        OutboxFile(url: file.url.deletingLastPathComponent().appendingPathComponent("outbox.bin"))
+        OutboxFile(url: folder.appendingPathComponent("outbox.bin"))
     }
 
     /// Durable before it returns. Callers must not send anything a failed save would forget (SR-2-11).
@@ -118,34 +67,11 @@ struct Store: Sendable {
 
     // MARK: Private
 
-    /// App data for a new group: 16 random bytes, and no Hello state yet.
-    private static func appData(relayURL: String, ownerKey: Data? = nil) -> AppData {
-        var rng = SystemRandomNumberGenerator()
-        let group = Data((0..<16).map { _ in UInt8.random(in: .min ... .max, using: &rng) })
-        return AppData(groupId: group, relayUrl: relayURL, ownerKey: ownerKey, helloSeqSent: 0, helloSeqApplied: 0, peerAllowed: nil)
-    }
-
-    /// UserDefaults keys builds before 0.3 kept Hello state in.
-    /// Those builds' Hello state moves into the sealed app data once, saved before the old keys go.
-    private static func migrateHelloState(_ data: inout AppData, device: SeamDevice, key: Data, file: StateFile) throws {
-        guard LegacyHelloState.present(in: defaults) else { return }
-        if LegacyHelloState.migrate(&data, from: defaults) {
-            try device.setAppData(data: data)
-            try Store(device: device, appData: data, key: key, file: file).save()
-        }
-        LegacyHelloState.remove(from: defaults)
-    }
-
+    /// A new identity, with no app data until a phone pairs (pairing makes the onion service).
     private static func create(at file: StateFile) throws -> Store {
         guard let key = try Keychain.storageKey(create: true) else { throw Unreadable() }
-        let device = try SeamDevice.generate()
-        let appData = Self.appData(
-            relayURL: RelayPolicy.forNewGroup(override: defaults.string(forKey: "relayURL"), allowInsecure: allowInsecureRelay).absoluteString
-        )
-        try device.setAppData(data: appData)
-        let store = Store(device: device, appData: appData, key: key, file: file)
+        let store = Store(device: try SeamDevice.generate(), pairAgain: false, key: key, file: file)
         try store.save()
-        store.needsBundles = true
         return store
     }
 

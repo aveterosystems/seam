@@ -10,11 +10,11 @@ import SeamSession
 /// the session (SeamSession's `Session`, which owns delivery, features and pairing) reports.
 @MainActor @Observable
 final class SeamController {
-    /// Logged in to the relay (pairing and the relay path need it).
-    private(set) var relayUp = false
     /// The connection switches (Settings › Connection; decision 0006). At least one stays on.
     private(set) var wifiOn = UserDefaults.standard.object(forKey: "transport.wifi") as? Bool ?? true
-    private(set) var relayOn = UserDefaults.standard.object(forKey: "transport.relay") as? Bool ?? true
+    private(set) var torOn = UserDefaults.standard.object(forKey: "transport.tor") as? Bool ?? true
+    /// Tor's own state, for the link's words (connecting, blocked, clock).
+    private(set) var torState: TorState = .off
     private(set) var phone: PeerInfo?
     private(set) var status: Seam_V1_Status?
     private(set) var startupError: String?
@@ -41,18 +41,17 @@ final class SeamController {
     @ObservationIgnored private var store: Store?
     @ObservationIgnored private var session: Session?
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
-    /// Runs the relay connection and the Same Wi‑Fi listener the switches allow (SeamSession `Paths`).
+    /// Runs Same Wi‑Fi's listener and the Mac's onion services as the switches allow (SeamSession `Paths`).
     @ObservationIgnored private var paths: Paths?
+    /// Tor, once per app run: started when first needed and never put to sleep (the phone reaches the Mac).
+    @ObservationIgnored private var tor: SeamTor?
     @ObservationIgnored private let notifications = PhoneNotifications()
     @ObservationIgnored private var iconPNGs: [String: Data] = [:]
-    /// A save here (moving relays) failed; the session reports its own.
-    @ObservationIgnored private var saveWarning: String?
+    /// A pairing from before Tor was dropped on opening: shown until the phone pairs again.
+    @ObservationIgnored private var pairAgainWarning: String?
+    @ObservationIgnored private var lastState: Session.State?
+    @ObservationIgnored private var wakeObserver: NSObjectProtocol?
     private let log = Logger(subsystem: "com.avetero.seam", category: "session")
-
-    /// For the pairing screens: the host the phone will be told to trust with its traffic.
-    var relayHost: String { store?.relayURL.host() ?? "" }
-
-    var usesOwnRelay: Bool { store?.usesOwnRelay ?? false }
 
     /// The phone can be reached now, on a path both ends allow.
     var connected: Bool { link.connected }
@@ -85,13 +84,13 @@ final class SeamController {
 
     private func begin(_ store: Store) {
         self.store = store
+        pairAgainWarning = store.pairAgain ? "Seam now connects through Tor. Pair your phone again." : nil
         paths?.stop()
         if let old = session { Task { await old.stop() } }
         let session = Session(
             device: store.device,
             storage: SessionStorage(
                 saveState: { try store.save() }, outbox: store.outboxFile,
-                needsBundles: { store.needsBundles }, setNeedsBundles: { store.needsBundles = $0 },
                 // The phone's pause, so a restarted Mac still shows it (a preference, not a secret)
                 pausedUntil: {
                     let t = UserDefaults.standard.double(forKey: "pausedUntil")
@@ -100,27 +99,32 @@ final class SeamController {
                 setPausedUntil: { UserDefaults.standard.set($0?.timeIntervalSince1970 ?? 0, forKey: "pausedUntil") }
             ),
             pasteboard: SystemPasteboard(), notifications: notifications,
-            wifi: wifiOn, relay: relayOn, clipboardSync: clipboardSync,
+            wifi: wifiOn, tor: torOn, clipboardSync: clipboardSync,
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         )
         self.session = session
         phone = store.device.peers().first { $0.confirmed }
+        // One Tor for the app's life: its cache isn't tied to the identity, so a reset keeps it
+        let tor = self.tor ?? SeamTor(appDir: store.folder)
+        self.tor = tor
         let paths = Paths(
-            session: session, wifi: wifiOn, relay: relayOn,
-            makeRelay: { [weak self] handler in self?.makeRelay(handler) },
+            session: session, wifi: wifiOn, tor: torOn, torRunner: tor,
             makeLan: { LanServer(device: store.device) },
-            lanFailed: { [log] in log.error("same Wi‑Fi listener didn't start") }
+            makeTorLan: { LanServer.tor(device: store.device) },
+            lanFailed: { [log] in log.error("same Wi‑Fi listener didn't start") },
+            onTorState: { [weak self] state in self?.torChanged(state) }
         )
         self.paths = paths
+        watchWake()
         updatesTask?.cancel()
         updatesTask = Task { [weak self] in
             for await state in session.updates { self?.show(state) }
         }
         notifications.start { action in Task { await session.notificationAction(action) } }
-        let paired = phone != nil
         Task {
             await session.start() // what waited from before, ahead of any path
-            paths.start(phonePaired: paired)
+            let s = await session.state
+            paths.start(linksWanted: s.wantsLinks, services: s.torServices)
         }
     }
 
@@ -134,18 +138,35 @@ final class SeamController {
             iconPNGs[id] = png
             appIcons[id] = NSImage(data: png)
         }
-        relayUp = s.relayUp
         paused = s.pausedUntil != nil
-        link = LinkLook.of(route: s.route, allowed: s.allowed, ownRelay: usesOwnRelay, pausedUntil: s.pausedUntil)
+        lastState = s
+        link = LinkLook.of(route: s.route, allowed: s.allowed, tor: torState, pausedUntil: s.pausedUntil)
         if case .confirm = s.pairing, pairing != s.pairing { NSApp.activate() } // the safety code needs the user's eyes now
         pairing = s.pairing
-        warning = s.warning ?? saveWarning
-        paths?.setPhonePaired(s.phone != nil) // the phone may have come or gone
+        if s.phone != nil { pairAgainWarning = nil }
+        warning = s.warning ?? pairAgainWarning
+        // A phone may have come or gone, or a code shows: the links and services follow
+        paths?.update(linksWanted: s.wantsLinks, services: s.torServices)
+    }
+
+    private func torChanged(_ state: TorState) {
+        torState = state
+        if let s = lastState { link = LinkLook.of(route: s.route, allowed: s.allowed, tor: state, pausedUntil: s.pausedUntil) }
+    }
+
+    /// After sleep the services' descriptors may have lapsed: published again, once per wake.
+    private func watchWake() {
+        guard wakeObserver == nil else { return }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.paths?.republish() }
+        }
     }
 
     // MARK: Phone
 
-    /// "Unpair <phone>": the session tells the phone, takes it out of the relay group and forgets it.
+    /// "Unpair <phone>": the session tells the phone and forgets it, its onion service with it.
     func unpairPhone() {
         guard let session else { return }
         Task { await session.unpairPhone() }
@@ -173,48 +194,17 @@ final class SeamController {
     // MARK: Connection
 
     func setWifi(_ on: Bool) {
-        guard on || relayOn else { return } // one always stays on
+        guard on || torOn else { return } // one always stays on
         wifiOn = on
         UserDefaults.standard.set(on, forKey: "transport.wifi")
         paths?.setWifi(on)
     }
 
-    func setRelay(_ on: Bool) {
+    func setTor(_ on: Bool) {
         guard on || wifiOn else { return }
-        relayOn = on
-        UserDefaults.standard.set(on, forKey: "transport.relay")
-        paths?.setRelay(on)
-    }
-
-    /// Moves to another relay (nil: Seam's). The group lives on one relay, so the phone is
-    /// unpaired (told so first) and pairs again; this Mac leaves its old group.
-    func useRelay(_ link: RelayLink?) {
-        guard let store, let session else { return }
-        Task {
-            await session.cancelPairing()
-            guard await session.unpairPhone() else { return } // forgetting it must be saved first (SR-7-04)
-            let moved: Store
-            do {
-                moved = try store.movingRelay(to: link)
-            } catch {
-                saveWarning = "Seam couldn't save to disk. Check there's free space; messages wait on the relay until it can."
-                warning = saveWarning
-                return log.error("saving state failed")
-            }
-            await session.leaveRelayGroup() // on the old relay, before it closes
-            self.store = moved
-            paths?.restartRelay()
-        }
-    }
-
-    /// A relay connection for the current store; it reads the store when called, so a move to
-    /// another relay takes effect on the next restart.
-    private func makeRelay(_ handler: any RelayHandler) -> RelayClient? {
-        guard let store else { return nil }
-        return RelayClient(
-            device: store.device, groupID: store.appData.groupId, relayURL: store.relayURL,
-            ownerKey: store.appData.ownerKey, handler: handler
-        )
+        torOn = on
+        UserDefaults.standard.set(on, forKey: "transport.tor")
+        paths?.setTor(on)
     }
 
     // MARK: Notifications
@@ -249,13 +239,12 @@ final class SeamController {
     // MARK: Pairing
 
     func startPairing() {
-        guard let store, let session else { return }
-        let relayURL = store.relayURL.absoluteString
+        guard let session else { return }
         let name = Host.current().localizedName ?? "Mac"
         let paths = paths
         Task {
-            await paths?.settled() // "Turn On Relay" then a code: the session hears of the switch first
-            await session.startPairing(relayURL: relayURL, name: name)
+            await paths?.settled() // a switch changed just before: the session hears of it first
+            await session.startPairing(name: name)
             #if DEBUG
             // Device tests: hand the code to an emulator, which has no camera to scan with
             if let path = ProcessInfo.processInfo.environment["SEAM_PAIRING_CODE_FILE"], case .waiting(let qr, _) = await session.state.pairing {

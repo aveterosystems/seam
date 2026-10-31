@@ -14,7 +14,7 @@ public struct FromPhone: Identifiable, Sendable {
 /// Clipboard both ways: copies here go to the phone while sync is on, the phone's land here, and
 /// neither bounces back (ClipRules).
 final class ClipboardFeature: Feature {
-    /// A stale clipboard is worse than none: the relay drops it after 10 minutes.
+    /// A stale clipboard is worse than none: it expires after 10 minutes.
     static let ttl: UInt32 = 600
     /// macOS has no change notification for the pasteboard: looking at its counter twice a second
     /// is the standard way, and cheap.
