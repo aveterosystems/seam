@@ -15,6 +15,7 @@ ed25519-dalek = "3"
 futures = "0.3"
 prost = "0.14"
 rand = "0.9.4"
+hmac = "0.13" # already in the tree via libsignal; the pairing proof on the direct channel
 sha2 = "0.11"
 subtle = "2.6"
 thiserror = "2"

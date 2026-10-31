@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! The direct link between paired devices (same Wi-Fi now, any byte stream later): a Noise NN
-//! handshake (snow), then each side signs the handshake hash with the relay key pinned at
-//! pairing. The Mac (responder) proves itself first, so a fake Mac learns nothing about the phone.
+//! The direct link between devices, over any byte stream (Same Wi-Fi, Tor): a Noise NN handshake
+//! (snow), then each side proves itself over the handshake hash. The Mac (responder) always signs
+//! with its key first, so a fake Mac learns nothing about the phone. A paired phone signs with the
+//! key pinned at pairing. A phone that's pairing can't sign with a key the Mac knows yet, so it
+//! proves it scanned the Mac's code: an HMAC of the handshake hash keyed with the QR's one-time
+//! token. Such a channel is marked `pairing`; what may travel over it is the apps' to limit, and
+//! the token inside the PairRequest stays the authority (`accept_pairing`).
 //!
 //! The apps only move raw bytes: everything they read goes into [`LanChannel::receive`], and
 //! everything it returns is written to the socket. Frames inside are what the relay would carry
@@ -19,6 +23,10 @@ const PROLOGUE: &[u8] = b"seam-lan-v1";
 /// Role labels inside the signed message, so a signature can never be reflected back.
 const RESPONDER: &[u8] = b"seam-lan-v1 responder";
 const INITIATOR: &[u8] = b"seam-lan-v1 initiator";
+const PAIRING: &[u8] = b"seam-lan-v1 pairing";
+/// The peer id a pairing channel reports: the phone isn't a peer yet.
+pub const PAIRING_PEER: &str = "pairing";
+const PROOF_LEN: usize = 32;
 /// Same ceiling as a relay frame: an envelope (up to ~1.1 MB) plus framing.
 pub const MAX_FRAME: usize = 1_200_000;
 /// Noise's own limit on one message.
@@ -44,6 +52,8 @@ pub struct LanChannel {
     peer: Option<String>,
     /// The initiator's opening message, until taken by [`Self::start`].
     hello: Vec<u8>,
+    /// Pairing: the QR's one-time token (phone side), or the open pairing's (Mac side).
+    pairing_token: Option<[u8; 32]>,
     inbuf: Vec<u8>,
     partial: Vec<u8>,
 }
@@ -55,7 +65,8 @@ pub struct LanOutput {
     pub send: Vec<u8>,
     /// Complete frames from the authenticated peer.
     pub frames: Vec<Vec<u8>>,
-    /// Set on the call that finished authentication: the paired peer on the other end.
+    /// Set on the call that finished authentication: the paired peer on the other end, or
+    /// [`PAIRING_PEER`] for a phone that proved it scanned the Mac's code.
     pub authenticated: Option<String>,
 }
 
@@ -91,7 +102,24 @@ impl LanChannel {
         Ok(ch)
     }
 
-    /// The Mac's side, for an incoming connection: any confirmed peer may authenticate.
+    /// The phone's side while pairing: the Mac is pinned from the QR code (its `relay_key`), and
+    /// the phone proves it scanned that code with `token`. Send [`Self::start`] first.
+    pub fn pairing_initiator(device: &Device, relay_key: [u8; 32], token: &[u8]) -> Result<Self> {
+        let token: [u8; 32] = token
+            .try_into()
+            .map_err(|_| Error::Malformed("pairing token"))?;
+        let mut hs = builder()?.build_initiator().map_err(noise)?;
+        let mut ch = Self::new(device, true, vec![(PAIRING_PEER.to_owned(), relay_key)]);
+        ch.pairing_token = Some(token);
+        let mut msg = vec![0u8; MAX_NOISE];
+        let n = hs.write_message(&[], &mut msg).map_err(noise)?;
+        ch.state = State::Handshake(Box::new(hs));
+        ch.hello = framed(&msg[..n]);
+        Ok(ch)
+    }
+
+    /// The Mac's side, for an incoming connection: any confirmed peer may authenticate, and while
+    /// a pairing is open, a phone that proves it has its token.
     pub fn responder(device: &Device) -> Result<Self> {
         let allowed: Vec<_> = device
             .peers
@@ -99,13 +127,20 @@ impl LanChannel {
             .filter(|(_, p)| p.confirmed)
             .map(|(id, p)| (id.clone(), p.relay_key))
             .collect();
-        if allowed.is_empty() {
+        let pairing_token = device.open_pairing_token();
+        if allowed.is_empty() && pairing_token.is_none() {
             return Err(Error::NotPaired);
         }
         let hs = builder()?.build_responder().map_err(noise)?;
         let mut ch = Self::new(device, false, allowed);
+        ch.pairing_token = pairing_token;
         ch.state = State::Handshake(Box::new(hs));
         Ok(ch)
+    }
+
+    /// Whether this is a pairing channel (a phone that proved it scanned the code), not a paired peer's.
+    pub fn is_pairing(&self) -> bool {
+        self.peer.as_deref() == Some(PAIRING_PEER)
     }
 
     fn new(device: &Device, initiator: bool, allowed: Vec<(String, [u8; 32])>) -> Self {
@@ -116,6 +151,7 @@ impl LanChannel {
             allowed,
             peer: None,
             hello: Vec::new(),
+            pairing_token: None,
             inbuf: Vec::new(),
             partial: Vec::new(),
         }
@@ -206,10 +242,22 @@ impl LanChannel {
                 let Some(sig) = open_chunk(&mut t, msg, &mut self.partial)? else {
                     return Err(Error::Malformed("lan proof"));
                 };
-                let role = if self.initiator { RESPONDER } else { INITIATOR };
-                let peer = self.verify(role, &hash, &sig)?;
+                let peer = if self.initiator {
+                    self.verify(RESPONDER, &hash, &sig)?
+                } else if sig.len() == PROOF_LEN {
+                    self.verify_pairing(&hash, &sig)?
+                } else {
+                    self.verify(INITIATOR, &hash, &sig)?
+                };
                 if self.initiator {
-                    let mine = self.signer.sign(&signed(INITIATOR, &hash)).to_bytes();
+                    let mine = match &self.pairing_token {
+                        Some(token) => pairing_proof(token, &hash).to_vec(),
+                        None => self
+                            .signer
+                            .sign(&signed(INITIATOR, &hash))
+                            .to_bytes()
+                            .to_vec(),
+                    };
                     out.send.extend(seal_frame(&mut t, &mine)?);
                 }
                 self.peer = Some(peer.clone());
@@ -227,6 +275,17 @@ impl LanChannel {
         Ok(())
     }
 
+    /// A pairing phone's proof: only while a pairing is open, compared in constant time.
+    fn verify_pairing(&self, hash: &[u8], proof: &[u8]) -> Result<String> {
+        let token = self.pairing_token.as_ref().ok_or(Error::WrongPeer)?;
+        let expected = pairing_proof(token, hash);
+        if bool::from(subtle::ConstantTimeEq::ct_eq(&expected[..], proof)) {
+            Ok(PAIRING_PEER.to_owned())
+        } else {
+            Err(Error::WrongPeer)
+        }
+    }
+
     /// `WrongPeer` only for a well-formed proof from another key (someone else's device); a
     /// damaged one stays `Malformed`, so a forged packet can't make our own peer look foreign.
     fn verify(&self, role: &[u8], hash: &[u8], sig: &[u8]) -> Result<String> {
@@ -240,6 +299,17 @@ impl LanChannel {
             .map(|(id, _)| id.clone())
             .ok_or(Error::WrongPeer)
     }
+}
+
+/// HMAC-SHA256 of the handshake hash keyed with the pairing token: binds this channel to having
+/// scanned the Mac's code. Only someone who saw the QR can produce it.
+fn pairing_proof(token: &[u8; 32], hash: &[u8]) -> [u8; PROOF_LEN] {
+    use hmac::{KeyInit, Mac};
+    let mut mac =
+        hmac::Hmac::<sha2::Sha256>::new_from_slice(token).expect("HMAC takes any key length");
+    mac.update(PAIRING);
+    mac.update(hash);
+    mac.finalize().into_bytes().into()
 }
 
 fn framed(msg: &[u8]) -> Vec<u8> {
@@ -424,5 +494,95 @@ mod tests {
             "damaged, not foreign"
         );
         assert!(p1.receive(&r1.send).is_ok());
+    }
+
+    /// The pairing handshake: the phone pins the Mac from its QR and proves it has the token.
+    fn pairing_connect(
+        mac: &Device,
+        phone: &Device,
+        token: &[u8],
+    ) -> Result<(LanChannel, LanChannel, LanOutput)> {
+        let mut p = LanChannel::pairing_initiator(phone, mac.relay_key(), token)?;
+        let hello = p.start();
+        let mut m = LanChannel::responder(mac)?;
+        let r1 = m.receive(&hello)?;
+        let r2 = p.receive(&r1.send)?;
+        let r3 = m.receive(&r2.send)?;
+        Ok((p, m, r3))
+    }
+
+    #[test]
+    fn a_phone_that_scanned_the_code_opens_a_pairing_channel() {
+        let mut mac = Device::generate().unwrap();
+        let phone = Device::generate().unwrap();
+        let offer = mac.start_pairing();
+        let (mut p, mut m, done) = pairing_connect(&mac, &phone, &offer.token).unwrap();
+        assert_eq!(done.authenticated.as_deref(), Some(PAIRING_PEER));
+        assert!(m.is_pairing() && p.is_pairing());
+        let wire = p.send(b"get bundle").unwrap();
+        assert_eq!(
+            m.receive(&wire).unwrap().frames,
+            vec![b"get bundle".to_vec()]
+        );
+        let back = m.send(b"bundle").unwrap();
+        assert_eq!(p.receive(&back).unwrap().frames, vec![b"bundle".to_vec()]);
+    }
+
+    #[test]
+    fn a_wrong_token_or_no_open_pairing_is_refused() {
+        let mut mac = Device::generate().unwrap();
+        let phone = Device::generate().unwrap();
+        assert!(
+            matches!(LanChannel::responder(&mac), Err(Error::NotPaired)),
+            "nothing to authenticate against"
+        );
+        let offer = mac.start_pairing();
+        let mut wrong = offer.token;
+        wrong[0] ^= 1;
+        assert!(matches!(
+            pairing_connect(&mac, &phone, &wrong),
+            Err(Error::WrongPeer)
+        ));
+        mac.cancel_pairing();
+        assert!(
+            pairing_connect(&mac, &phone, &offer.token).is_err(),
+            "closed pairing"
+        );
+    }
+
+    #[test]
+    fn a_pairing_phone_refuses_a_mac_other_than_the_one_on_the_code() {
+        let mut mac = Device::generate().unwrap();
+        let mut impostor = Device::generate().unwrap();
+        let phone = Device::generate().unwrap();
+        let offer = mac.start_pairing();
+        let _ = impostor.start_pairing();
+        let mut p = LanChannel::pairing_initiator(&phone, mac.relay_key(), &offer.token).unwrap();
+        let hello = p.start();
+        let mut fake = LanChannel::responder(&impostor).unwrap();
+        let r = fake.receive(&hello).unwrap();
+        assert!(
+            matches!(p.receive(&r.send), Err(Error::WrongPeer)),
+            "refused before the proof leaves"
+        );
+    }
+
+    #[test]
+    fn a_paired_phone_is_still_a_peer_while_a_pairing_is_open() {
+        let (mut mac, phone, mac_id, phone_id) = pair();
+        mac.confirm_pairing(&phone_id).unwrap();
+        let _ = mac.start_pairing();
+        let (_, m) = connect(&mac, &phone, &mac_id, usize::MAX).unwrap();
+        assert_eq!(m.peer_id(), Some(phone_id.as_str()));
+        assert!(!m.is_pairing());
+    }
+
+    #[test]
+    fn an_expired_pairing_is_refused() {
+        let mut mac = Device::generate().unwrap();
+        let phone = Device::generate().unwrap();
+        let offer = mac.start_pairing();
+        mac.expire_pairing_for_test();
+        assert!(pairing_connect(&mac, &phone, &offer.token).is_err());
     }
 }

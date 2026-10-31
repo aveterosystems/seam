@@ -28,6 +28,23 @@ pub(crate) struct PendingPairing {
     expires_ms: u64,
 }
 
+impl Device {
+    #[cfg(test)]
+    pub(crate) fn expire_pairing_for_test(&mut self) {
+        if let Some(p) = self.pending_pairing.as_mut() {
+            p.expires_ms = 0;
+        }
+    }
+
+    /// The open pairing's token, if one is open and unexpired (for the direct channel's pairing proof).
+    pub(crate) fn open_pairing_token(&self) -> Option<[u8; 32]> {
+        self.pending_pairing
+            .as_ref()
+            .filter(|p| now_millis() <= p.expires_ms)
+            .map(|p| p.token)
+    }
+}
+
 /// What the Mac puts in the QR code (`token`) and sends the relay (`token_hash`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PairingOffer {

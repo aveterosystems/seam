@@ -4045,6 +4045,7 @@ dependencies = [
  "aes-gcm",
  "ed25519-dalek 3.0.0",
  "futures",
+ "hmac 0.13.0",
  "libsignal-protocol",
  "prost",
  "prost-build",
