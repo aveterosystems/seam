@@ -97,7 +97,7 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
             if (!send(e)) break
             resend.removeFirst()
         }
-        save() // through the relay (which queues them) or recorded again for this link
+        save() // recorded again for the link they went on
         return resend.isEmpty()
     }
 
@@ -146,7 +146,7 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
         return ttl != 0u && now() - q.at > ttl.toLong() * 1000
     }
 
-    /** By the envelope's own sent_at and ttl, as the relay would drop it. */
+    /** By the envelope's own sent_at and ttl, as the Mac would drop it. */
     private fun expired(e: Envelope) = now() - e.sentAt > e.ttlS.toLong() * 1000
 
     companion object {
@@ -155,7 +155,7 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
         /** Sent on the next connection, never worth one of their own (a battery change). */
         val LAZY = setOf(Payload.BodyCase.STATUS)
 
-        /** How long the relay may hold it (docs/architecture/protocol.md): a stale clipboard is worse than none. */
+        /** How long it may wait to be delivered (docs/architecture/protocol.md): a stale clipboard is worse than none. */
         fun ttlFor(payload: Payload): UInt = when (payload.bodyCase) {
             Payload.BodyCase.CLIPBOARD -> 600u
             Payload.BodyCase.STATUS -> 120u

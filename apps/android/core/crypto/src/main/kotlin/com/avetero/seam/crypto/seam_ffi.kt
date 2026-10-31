@@ -5028,7 +5028,7 @@ public interface TorStreamInterface {
     /**
      * Closes both directions; `on_closed` follows.
      */
-    fun `close`()
+    fun `shutdown`()
     
     /**
      * Starts reading: every chunk to `listener.on_bytes`, then `on_closed` once. Only the first
@@ -5151,7 +5151,7 @@ open class TorStream: Disposable, AutoCloseable, TorStreamInterface
     
     /**
      * Closes both directions; `on_closed` follows.
-     */override fun `close`()
+     */override fun `shutdown`()
         = 
     callWithHandle {
     uniffiRustCall() { _status ->

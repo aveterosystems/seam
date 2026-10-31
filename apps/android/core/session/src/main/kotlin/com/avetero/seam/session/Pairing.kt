@@ -12,8 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Pairing with a new Mac from its scanned QR code: asks the relay for its keys, starts the pairing,
- * and switches Macs on its PairAccept. The current Mac stays until the new one accepts. The session
+ * Pairing with a new Mac from its scanned QR code: over the pairing channel, asks for its keys,
+ * starts the pairing, and switches Macs on its PairAccept. The current Mac stays until the new one accepts. The session
  * owns the paths, the overall state and when to save; this decides what pairing does with them.
  * Touched only from the session's thread.
  */
@@ -24,12 +24,14 @@ internal class Pairing(
     private val now: () -> Long,
     /** Saves the device state; throws if it couldn't. */
     private val persist: () -> Unit,
-    /** Sends a sealed envelope (over the relay, while pairing). */
+    /** Sends a sealed envelope (over the pairing channel). */
     private val send: (ByteArray) -> Unit,
     /** Ends the session's attempt with a reason for the user; calls [abandon]. */
     private val fail: (String) -> Unit,
 ) {
-    private var qr: PairingQr? = null
+    /** The code being paired with; null when not pairing. */
+    var qr: PairingQr? = null
+        private set
     /** When the last pairing was confirmed by its Mac, for a "Codes don't match" tap that just missed it (SR-11-07). */
     private var pairedAt: Long? = null
 
@@ -39,15 +41,12 @@ internal class Pairing(
 
     val active: Boolean get() = qr != null
 
-    /** The new Mac's relay group to log in to, while pairing. */
-    val account: RelayAccount? get() = qr?.let { RelayAccount(it.relayUrl, it.groupId, it.token) }
-
     fun start(qr: PairingQr) {
         this.qr = qr
         _outcome.value = null
     }
 
-    /** Once the relay is up: ask for the new Mac's keys. Null when not pairing. */
+    /** Once the pairing channel is up: ask for the new Mac's keys. Null when not pairing. */
     fun request(): ClientFrame? =
         qr?.let { ClientFrame.newBuilder().setGetBundle(GetBundle.newBuilder().setDeviceKey(ByteString.copyFrom(it.relayKey))).build() }
 
@@ -67,8 +66,8 @@ internal class Pairing(
     }
 
     /**
-     * True if this was the pairing Mac's PairAccept: the old Mac is dropped and the new relay target
-     * set, in memory only; the session saves it, then calls [accepted].
+     * True if this was the pairing Mac's PairAccept: the old Mac is dropped and the new onion address
+     * and discovery secret set, in memory only; the session saves it, then calls [accepted].
      */
     fun accept(peerId: String, payload: Payload): Boolean {
         val p = qr ?: return false
@@ -77,7 +76,7 @@ internal class Pairing(
         if (!accepted || !fromPairingMac) return false
         device.peers().filter { it.id != peerId }.forEach { device.removePeer(it.id) } // the old Mac, now replaced
         // A new Mac: fresh app data, nothing heard from it and no Hello sent to it
-        device.setAppData(AppData(p.groupId, p.relayUrl, null, 0u, 0u, null))
+        device.setAppData(AppData(p.discoverySecret, p.onionAddress, ByteArray(0), 0u, 0u, null))
         qr = null
         pairedAt = now()
         return true

@@ -25,38 +25,19 @@ internal class Switches(
     val settings: StateFlow<ConnectionSettings> = _settings
 
     val wifi: Boolean get() = _settings.value.wifi
-    val relay: Boolean get() = _settings.value.relay
+    val tor: Boolean get() = _settings.value.tor
 
-    /**
-     * Reads the switches, once the device is open. With [canSave], first moves the Mac-facing state
-     * out of an older version's preferences into the app data, saved by [persist].
-     */
-    fun load(canSave: Boolean, persist: () -> Unit) {
+    /** Reads the switches, once the device is open. */
+    fun load() {
         val prefs = store.load()
-        val d = device.appData()
-        // One-time move of the Mac-facing state out of the old preferences into the sealed app data
-        val inPrefs = prefs.helloSeq != 0L || prefs.macHelloSeq != 0L || prefs.macAllows != null
-        if (d != null && inPrefs && canSave) {
-            // Whichever is newer wins, so a move that was cut short can never step a counter back
-            val mac = prefs.macHelloSeq.toULong() > d.helloSeqApplied || (d.peerAllowed == null && prefs.macAllows != null)
-            d.helloSeqSent = maxOf(d.helloSeqSent, prefs.helloSeq.toULong())
-            if (mac) {
-                d.helloSeqApplied = prefs.macHelloSeq.toULong()
-                // An empty list was an older Mac's Hello: everything allowed, as the core reads it now
-                d.peerAllowed = prefs.macAllows?.takeIf { it.isNotEmpty() }?.mapNotNull { it.toPath() }
-            }
-            device.setAppData(d)
-            // The old keys go only once the move is saved; until then the next start tries again
-            if (runCatching { persist() }.isSuccess) runCatching { store.save(prefs) }
-        }
-        _settings.value = ConnectionSettings(prefs.wifi, prefs.relay, pausedUntil = prefs.pausedUntil)
+        _settings.value = ConnectionSettings(prefs.wifi, prefs.tor, pausedUntil = prefs.pausedUntil)
         syncPeer()
     }
 
     /** The switches: user preferences, saved apart from the keys. */
-    fun save(wifi: Boolean, relay: Boolean) {
+    fun save(wifi: Boolean, tor: Boolean) {
         // From the current value, not one taken before a Hello was queued: that moved the counter on
-        val s = _settings.value.copy(wifi = wifi, relay = relay).let { it.copy(allowed = allowedFor(it)) }
+        val s = _settings.value.copy(wifi = wifi, tor = tor).let { it.copy(allowed = allowedFor(it)) }
         _settings.value = s
         runCatching { store.save(s) } // only preferences: the switches still apply this run
     }
@@ -72,8 +53,8 @@ internal class Switches(
      * The next Hello telling the Mac these switches, counted up in the app data now; the session
      * seals it and persists both in one write before anything is sent. Null if there's no Mac to tell.
      */
-    fun nextHello(wifi: Boolean = this.wifi, relay: Boolean = this.relay): Payload? {
-        val next = device.nextHello(enabled(wifi, relay)) ?: return null
+    fun nextHello(wifi: Boolean = this.wifi, tor: Boolean = this.tor): Payload? {
+        val next = device.nextHello(enabled(wifi, tor)) ?: return null
         syncPeer()
         val hello = Hello.newBuilder().setAppVersion(appVersion).setPlatform("android").setSeq(next.seq.toLong())
             .addAllAllowedTransportsValue(next.allowedTransports)
@@ -81,7 +62,7 @@ internal class Switches(
         return Payload.newBuilder().setControl(Control.newBuilder().setHello(hello)).build()
     }
 
-    /** The Mac's Hello. The relay can hold an old one and release it later: the core applies only a higher counter. False if ignored. */
+    /** The Mac's Hello. A path can deliver an old one late: the core applies only a higher counter. False if ignored. */
     fun macHello(h: Hello): Boolean {
         if (!device.applyHello(h.seq.toULong(), h.allowedTransportsValueList)) return false
         syncPeer()
@@ -104,17 +85,11 @@ internal class Switches(
     }
 
     /** The core's answer, so the phone never re-derives "on at both ends" itself. */
-    private fun allowedFor(s: ConnectionSettings) = device.allowedPaths(enabled(s.wifi, s.relay)).toSet()
+    private fun allowedFor(s: ConnectionSettings) = device.allowedPaths(enabled(s.wifi, s.tor)).toSet()
 
     /** The switches as the core's path list: the one place they're translated. */
-    fun enabled(wifi: Boolean = this.wifi, relay: Boolean = this.relay): List<PeerPath> =
-        listOfNotNull(PeerPath.LAN.takeIf { wifi }, PeerPath.RELAY.takeIf { relay })
+    fun enabled(wifi: Boolean = this.wifi, tor: Boolean = this.tor): List<PeerPath> =
+        listOfNotNull(PeerPath.LAN.takeIf { wifi }, PeerPath.TOR.takeIf { tor })
 }
 
-private fun Transport.toPath() = when (this) {
-    Transport.TRANSPORT_LAN -> PeerPath.LAN
-    Transport.TRANSPORT_RELAY -> PeerPath.RELAY
-    else -> null
-}
-
-private fun PeerPath.toTransport() = if (this == PeerPath.LAN) Transport.TRANSPORT_LAN else Transport.TRANSPORT_RELAY
+private fun PeerPath.toTransport() = if (this == PeerPath.LAN) Transport.TRANSPORT_LAN else Transport.TRANSPORT_TOR
