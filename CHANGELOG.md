@@ -2,6 +2,13 @@
 
 What changed in each release. `scripts/release.sh` drafts the next section from the merged PR titles and opens it for you to edit; the release, the Mac update window and the Android update card show that section.
 
+## 0.2.2
+
+- Each app gets one session module; path rules and app data move into seam-core
+- Same Wi‑Fi connection, connection switches and private relays
+- Android: automatic clipboard through Accessibility, no Developer options
+- Releases say what changed, on GitHub and in both apps' update prompts
+
 ## 0.2.1
 
 - Updates: choose how often Seam checks (half-hourly to weekly), install with one click, and see a badge on the Mac's menu bar icon when an update is waiting.

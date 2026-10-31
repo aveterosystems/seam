@@ -20,7 +20,7 @@
 
 ---
 
-> **Status: 0.2.1.** Pairing, clipboard both ways, the phone's battery and phone notifications on the Mac work, end to end encrypted through the Seam relay. Everything else below is being built milestone by milestone. It's an early release: expect rough edges.
+> **Status: 0.2.2.** Pairing, clipboard both ways, the phone's battery and phone notifications on the Mac work, end to end encrypted through the Seam relay. Everything else below is being built milestone by milestone. It's an early release: expect rough edges.
 
 ## Install
 
