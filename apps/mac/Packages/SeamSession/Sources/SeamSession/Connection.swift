@@ -153,19 +153,26 @@ public struct LinkLook: Equatable, Sendable {
     /// The path's name, or, when not connected, what's happening.
     public let label: String
     public let connected: Bool
+    /// Why, and what happens next: shown when the status is clicked. Nil when the label says it all.
+    public var detail: String? = nil
 
     public static let sameWifi = LinkLook(line: .solid, symbol: "wifi", label: "Same Wi‑Fi", connected: true)
     /// A neutral globe, not the Tor onion (that needs the Tor Project's permission; docs/tor/11-wording.md).
     public static let throughTor = LinkLook(line: .dashed, symbol: "globe", label: "Through Tor", connected: true)
     public static let connectingTor = LinkLook(line: .dotted, symbol: "globe", label: "Connecting through Tor…", connected: false)
-    public static let torBlocked = LinkLook.offline("Tor is blocked on this network")
-    public static let torClock = LinkLook.offline("Tor needs the correct time. Check your clock")
-    public static let noSharedPath = LinkLook.offline("Your phone and this Mac have no connection type on in common")
-    public static let waitingOnWifi = LinkLook.offline("Waiting for your phone on the same Wi‑Fi")
-    public static let away = LinkLook.offline("Offline · will send when your phone is back")
+    public static let torBlocked = LinkLook.offline("Tor is blocked on this network",
+        detail: "This network stops Tor connections. Your phone can still connect on the same Wi‑Fi.")
+    public static let torClock = LinkLook.offline("Tor needs the correct time. Check your clock",
+        detail: "Tor won't connect while this Mac's clock is wrong. Turn on Set time automatically in System Settings.")
+    public static let noSharedPath = LinkLook.offline("Your phone and this Mac have no connection type on in common",
+        detail: "Turn on the same connection type, Same Wi‑Fi or Tor, on both devices.")
+    public static let waitingOnWifi = LinkLook.offline("Waiting for your phone on the same Wi‑Fi",
+        detail: "Only Same Wi‑Fi is on, so your phone connects when it's on this Mac's network. Turn on Tor to connect from anywhere.")
+    public static let away = LinkLook.offline("Offline · will send when your phone is back",
+        detail: "To save battery, your phone disconnects about a minute after its screen goes off. It's back when you unlock it, plug it in, or it has something to send, like a copy or a notification. Copies from this Mac wait up to 10 minutes.")
 
-    public static func offline(_ why: String) -> LinkLook {
-        LinkLook(line: .broken, symbol: nil, label: why, connected: false)
+    public static func offline(_ why: String, detail: String? = nil) -> LinkLook {
+        LinkLook(line: .broken, symbol: nil, label: why, connected: false, detail: detail)
     }
 
     /// Paused on the phone (only the phone pauses): nothing syncs until it ends or the phone resumes.
@@ -180,7 +187,8 @@ public struct LinkLook: Equatable, Sendable {
                 : until.formatted(date: .abbreviated, time: .omitted) + " "
             label = "Paused on your phone until \(day)\(time)"
         }
-        return LinkLook(line: .broken, symbol: "pause.circle", label: label, connected: false)
+        return LinkLook(line: .broken, symbol: "pause.circle", label: label, connected: false,
+            detail: "Nothing syncs until the pause ends. Only your phone can resume it.")
     }
 
     /// The one place a path becomes a look. With no route, Tor's own state says why when Tor is

@@ -115,18 +115,37 @@ struct AppIcon: View {
 
 /// The status line beside the stitch: a dot, then "Connected" with the path's icon, or the reason
 /// when not connected. Everything comes from the `LinkLook`; the tooltip and VoiceOver get the words.
+/// With a `detail`, a click shows the whole reason and what happens next.
 struct LinkStatus: View {
     let look: LinkLook
+    @State private var showing = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            Circle().fill(look.connected ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
-            Text(look.connected ? "Connected" : look.label)
-            if let symbol = look.symbol { Image(systemName: symbol) }
+        Button { showing = true } label: {
+            HStack(spacing: 6) {
+                Circle().fill(look.connected ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
+                Text(look.connected ? "Connected" : look.label)
+                if let symbol = look.symbol { Image(systemName: symbol) }
+                if look.detail != nil { Image(systemName: "info.circle") }
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(look.detail == nil)
         .foregroundStyle(.secondary)
         .help(look.sentence)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(look.sentence)
+        .accessibilityHint(look.detail ?? "")
+        .accessibilityAddTraits(look.detail == nil ? [] : .isButton)
+        .popover(isPresented: $showing, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(look.sentence).font(.headline)
+                if let detail = look.detail { Text(detail).foregroundStyle(.secondary) }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(width: 260, alignment: .leading)
+            .padding(14)
+        }
     }
 }
