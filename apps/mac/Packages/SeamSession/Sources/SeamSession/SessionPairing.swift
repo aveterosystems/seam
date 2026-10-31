@@ -61,6 +61,8 @@ extension Session {
             flow.fail("Seam couldn't save the pairing on this Mac. Show a new code and scan it again.")
             return publish()
         }
+        // Anything held for a previous phone goes before the new one can send (SR-29-10)
+        for feature in features { await feature.reset() }
         await tryAccept(frame, request, attempt: 0)
     }
 
@@ -85,7 +87,6 @@ extension Session {
         }
         expiry?.cancel()
         openTokenHash = nil
-        for feature in features { await feature.reset() } // anything held for a previous phone
         phone = peer
         flow.finish(name: request.deviceName)
         publish()

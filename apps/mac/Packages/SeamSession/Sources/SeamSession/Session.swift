@@ -237,7 +237,7 @@ public actor Session {
     /// again. False if forgetting it couldn't be saved (then nothing is sent).
     @discardableResult
     public func unpairPhone() async -> Bool {
-        guard let phone else { return false }
+        guard let phone else { return true } // nothing to forget (SR-29-06: the caller's copy may lag)
         let unpair = Seam_V1_Payload.with { $0.control = .with { $0.unpair = .init() } }
         // Not saved before sending, unlike other messages (SR-2-11): the phone's keys are deleted
         // right after, so a crash can't reuse them

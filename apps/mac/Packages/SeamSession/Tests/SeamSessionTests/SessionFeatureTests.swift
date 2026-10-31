@@ -40,6 +40,16 @@ struct SessionFeatureTests {
         #expect(try clips(rig) == ["one"], "nothing copied while off goes, even after it's back on")
     }
 
+    @Test func sr_29_05_turningSyncOffMidReadStopsThatCopy() async throws {
+        let rig = try await Rig()
+        await rig.relayUp()
+        let session = rig.session
+        rig.pasteboard.whileReading = { await session.setClipboardSync(false) }
+        rig.pasteboard.copy("private")
+        await rig.timers.advance(1)
+        #expect(try clips(rig).isEmpty)
+    }
+
     @Test func aPasswordManagersCopyIsNeverSent() async throws {
         let rig = try await Rig()
         await rig.relayUp()
@@ -142,6 +152,13 @@ struct SessionFeatureTests {
         #expect(await rig.session.unpairPhone() == false)
         #expect(rig.relay.frames.count == relayBefore, "nothing on the relay, not even the removal")
         #expect(rig.lan.frames.count == lanBefore)
+    }
+
+    @Test func sr_29_06_unpairingWithNoPhoneHasNothingToForget() async throws {
+        let rig = try await Rig(paired: false)
+        await rig.relayUp()
+        #expect(await rig.session.unpairPhone(), "a relay move goes ahead")
+        #expect(rig.relay.frames.allSatisfy { $0.send.ciphertext.isEmpty }, "and nothing is sent")
     }
 
     @Test func unpairingTellsThePhoneOnceOnThePathThatsUp() async throws {

@@ -165,14 +165,20 @@ final class SeamController: RelayHandler {
         Task { await session?.setSwitches(wifi: wifiOn, relay: relayOn) }
     }
 
+    /// The last relay switch change, so pairing can wait for it (SR-29-11).
+    private var switching: Task<Void, Never>?
+
     func setRelay(_ on: Bool) {
         guard on || wifiOn else { return }
         relayOn = on
         UserDefaults.standard.set(on, forKey: "transport.relay")
-        Task {
-            if !on { await session?.cancelPairing() } // pairing goes through the relay: closed there first
-            restartRelay()
+        let previous = switching
+        switching = Task {
+            await previous?.value
+            // The session first, so nothing more goes out on a relay switched off (SR-29-07); it
+            // also closes a pairing slot while that relay is still attached
             await session?.setSwitches(wifi: wifiOn, relay: relayOn)
+            restartRelay()
         }
     }
 
@@ -182,7 +188,7 @@ final class SeamController: RelayHandler {
         guard let store, let session else { return }
         Task {
             await session.cancelPairing()
-            if phone != nil, !(await session.unpairPhone()) { return } // forgetting it must be saved first (SR-7-04)
+            guard await session.unpairPhone() else { return } // forgetting it must be saved first (SR-7-04)
             let moved: Store
             do {
                 moved = try store.movingRelay(to: link)
@@ -279,7 +285,9 @@ final class SeamController: RelayHandler {
         guard let store, let session else { return }
         let relayURL = store.relayURL.absoluteString
         let name = Host.current().localizedName ?? "Mac"
+        let switching = switching
         Task {
+            await switching?.value // "Turn On Relay" then a code: the session hears of the switch first
             await session.startPairing(relayURL: relayURL, name: name)
             #if DEBUG
             // Device tests: hand the code to an emulator, which has no camera to scan with

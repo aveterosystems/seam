@@ -58,6 +58,7 @@ final class ClipboardFeature: Feature {
         }
         guard let item = await pasteboard.firstItem(ifStill: change) else { return nil } // look again next time
         lastChange = change
+        guard syncOn else { return nil } // turned off while the read was in progress (SR-29-05)
         guard ClipRules.sendable(types: item.types), let text = rules.outgoing(item.text, now: now) else { return nil }
         let payload = Seam_V1_Payload.with {
             $0.clipboard = .with {
