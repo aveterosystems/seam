@@ -73,6 +73,7 @@ extension Session {
         await flush()
         await sendHello()
         for feature in features { await send(await feature.onConnected(now: timers.now())) }
+        await ownStatusChanged()
     }
 
     /// Its seq is counted in the core's app data and saved with the seal, before it leaves: a

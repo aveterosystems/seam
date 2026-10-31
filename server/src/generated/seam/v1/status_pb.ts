@@ -15,6 +15,9 @@ export const file_seam_v1_status: GenFile = /*@__PURE__*/
   fileDesc("ChRzZWFtL3YxL3N0YXR1cy5wcm90bxIHc2VhbS52MSJiCgZTdGF0dXMSEwoLYmF0dGVyeV9wY3QYASABKA0SEAoIY2hhcmdpbmcYAiABKAgSDwoHbmV0d29yaxgDIAEoCRITCgtzaWduYWxfYmFycxgEIAEoDRILCgNkbmQYBSABKAhCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM");
 
 /**
+ * Each device's battery for the other's screen. The phone also sends network and dnd; the Mac
+ * sends battery only, and nothing at all without a battery.
+ *
  * @generated from message seam.v1.Status
  */
 export type Status = Message<"seam.v1.Status"> & {
@@ -29,7 +32,7 @@ export type Status = Message<"seam.v1.Status"> & {
   charging: boolean;
 
   /**
-   * "wifi:Home" | "cellular" | ""
+   * "wifi" | "cellular" | "" (never the Wi‑Fi's name)
    *
    * @generated from field: string network = 3;
    */
@@ -41,6 +44,8 @@ export type Status = Message<"seam.v1.Status"> & {
   signalBars: number;
 
   /**
+   * Do Not Disturb is on
+   *
    * @generated from field: bool dnd = 5;
    */
   dnd: boolean;

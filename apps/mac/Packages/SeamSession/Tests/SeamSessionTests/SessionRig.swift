@@ -150,6 +150,13 @@ final class SavedState: @unchecked Sendable {
         get { lock.withLock { _failing } }
         set { lock.withLock { _failing = newValue } }
     }
+    /// This Mac's battery, as the session reads it.
+    private var _ownStatus: Seam_V1_Status?
+    var ownStatus: Seam_V1_Status? {
+        get { lock.withLock { _ownStatus } }
+        set { lock.withLock { _ownStatus = newValue } }
+    }
+
     var pausedUntil: Date? {
         get { lock.withLock { _pausedUntil } }
         set { lock.withLock { _pausedUntil = newValue } }
@@ -215,7 +222,8 @@ final class Rig: @unchecked Sendable {
         )
         return Session(
             device: device, storage: storage, pasteboard: pasteboard, notifications: centre,
-            wifi: wifi, tor: tor, clipboardSync: clipboardSync, appVersion: "test", timers: timers
+            wifi: wifi, tor: tor, clipboardSync: clipboardSync, appVersion: "test", timers: timers,
+            ownStatus: { saved.ownStatus }
         )
     }
 

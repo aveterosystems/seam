@@ -55,6 +55,8 @@ final class SeamController {
     @ObservationIgnored private var pairAgainWarning: String?
     @ObservationIgnored private var lastState: Session.State?
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
+    /// Tells the phone when this Mac's battery changes (once per app run).
+    @ObservationIgnored private var batteryWatch: CFRunLoopSource?
     private let log = Logger(subsystem: "com.avetero.seam", category: "session")
 
     /// The phone can be reached now, on a path both ends allow.
@@ -104,7 +106,8 @@ final class SeamController {
             ),
             pasteboard: SystemPasteboard(), notifications: notifications,
             wifi: wifiOn, tor: torOn, clipboardSync: clipboardSync,
-            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
+            ownStatus: MacBattery.read
         )
         self.session = session
         phone = store.device.peers().first { $0.confirmed }
@@ -161,6 +164,12 @@ final class SeamController {
 
     /// After sleep the services' descriptors may have lapsed: published again, once per wake.
     private func watchWake() {
+        if batteryWatch == nil {
+            batteryWatch = MacBattery.watch { [weak self] in
+                guard let session = self?.session else { return }
+                Task { await session.ownStatusChanged() }
+            }
+        }
         guard wakeObserver == nil else { return }
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main

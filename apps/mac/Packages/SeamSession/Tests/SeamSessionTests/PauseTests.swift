@@ -34,6 +34,15 @@ struct PauseTests {
         #expect(try clips(rig).isEmpty)
     }
 
+    @Test func thisMacsBatteryStaysHereWhilePaused() async throws {
+        let rig = try await Rig()
+        await rig.torUp()
+        _ = await rig.session.received(try pause(rig, .max))
+        rig.saved.ownStatus = .with { $0.batteryPct = 50 }
+        await rig.session.ownStatusChanged()
+        #expect(try rig.onTor().allSatisfy { if case .status? = $0.body { false } else { true } })
+    }
+
     @Test func untilResumedHasNoEndTime() async throws {
         let rig = try await Rig()
         await rig.torUp()

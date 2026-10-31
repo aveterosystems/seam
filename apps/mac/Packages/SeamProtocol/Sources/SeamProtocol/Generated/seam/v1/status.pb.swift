@@ -22,6 +22,8 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
+/// Each device's battery for the other's screen. The phone also sends network and dnd; the Mac
+/// sends battery only, and nothing at all without a battery.
 public nonisolated struct Seam_V1_Status: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -31,11 +33,12 @@ public nonisolated struct Seam_V1_Status: Sendable {
 
   public var charging: Bool = false
 
-  /// "wifi:Home" | "cellular" | ""
+  /// "wifi" | "cellular" | "" (never the Wi‑Fi's name)
   public var network: String = String()
 
   public var signalBars: UInt32 = 0
 
+  /// Do Not Disturb is on
   public var dnd: Bool = false
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()

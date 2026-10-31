@@ -154,6 +154,37 @@ struct SessionFeatureTests {
         #expect(await rig.session.state.status?.batteryPct == 100)
     }
 
+    @Test func thePhonesStatusSaysWhenItArrived() async throws {
+        let rig = try await Rig()
+        let sent = rig.timers.now()
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 40; $0.network = "wifi"; $0.dnd = true } }))
+        let state = await rig.session.state
+        #expect(state.statusAt == sent && state.status?.network == "wifi" && state.status?.dnd == true)
+    }
+
+    private func statuses(_ rig: Rig) throws -> [UInt32] {
+        try rig.onTor().compactMap { if case .status(let s)? = $0.body { s.batteryPct } else { nil } }
+    }
+
+    @Test func thisMacsBatteryGoesWhenThePhoneConnectsAndWhenItChanges() async throws {
+        let rig = try await Rig()
+        rig.saved.ownStatus = .with { $0.batteryPct = 64; $0.charging = true }
+        await rig.session.ownStatusChanged()
+        #expect(try statuses(rig).isEmpty, "nothing is queued while the phone is away")
+        await rig.torUp()
+        #expect(try statuses(rig) == [64])
+        rig.saved.ownStatus = .with { $0.batteryPct = 63 }
+        await rig.session.ownStatusChanged()
+        #expect(try statuses(rig) == [64, 63])
+    }
+
+    @Test func aMacWithoutABatterySendsNoStatus() async throws {
+        let rig = try await Rig()
+        await rig.torUp()
+        await rig.session.ownStatusChanged()
+        #expect(try statuses(rig).isEmpty)
+    }
+
     @Test func whenThePhoneUnpairsEveryFeaturesDataGoes() async throws {
         let rig = try await Rig()
         await rig.torUp()
