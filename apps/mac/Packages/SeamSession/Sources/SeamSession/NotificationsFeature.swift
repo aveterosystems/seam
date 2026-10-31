@@ -17,6 +17,9 @@ final class NotificationsFeature: Feature {
     private(set) var settings: Seam_V1_NotificationSettings?
     /// Phone apps' icon PNGs, from the phone when asked for. Memory only.
     private(set) var icons: [String: Data] = [:]
+    /// The phone's notifications that are still up, newest first, for the main window (memory only).
+    private(set) var shown: [Seam_V1_Notification] = []
+    static let maxShown = 200
     /// Asked once per launch each, so an app whose icon the phone can't draw isn't asked for forever.
     private var asked: Set<String> = []
 
@@ -28,8 +31,13 @@ final class NotificationsFeature: Feature {
         switch body {
         case .notification(let n):
             await centre.show(n, icon: icons[n.appID])
+            // An update to one that's up (a new message in a chat) replaces it
+            shown = Array(([n] + shown.filter { $0.key != n.key }).prefix(Self.maxShown))
         case .notificationAction(let a):
-            if a.dismissed { await centre.dismiss(key: a.key) }
+            if a.dismissed {
+                await centre.dismiss(key: a.key)
+                shown.removeAll { $0.key == a.key }
+            }
         case .notificationSettings(let s):
             return received(s)
         default:
@@ -53,16 +61,26 @@ final class NotificationsFeature: Feature {
         return Outgoing(payload: .with { $0.notificationSettingsChange = change }, ttl: Self.ttl)
     }
 
-    /// What the user did to a banner here, for the phone.
+    /// What the user did to a banner or the main window here, for the phone.
     func action(_ a: Seam_V1_NotificationAction) -> Outgoing? {
-        if a.dismissed, settings?.dismissBoth == false { return nil }
+        if a.dismissed {
+            shown.removeAll { $0.key == a.key }
+            if settings?.dismissBoth == false { return nil }
+        }
         // A typed reply waits for the phone like any message; a stale dismiss or button press
         // could hit a later notification that reuses the key (SR-19-03)
         return Outgoing(payload: .with { $0.notificationAction = a }, ttl: a.replyText.isEmpty ? Self.ttl : 0)
     }
 
+    /// The main window's dismiss: the banner goes too.
+    nonisolated(nonsending) func dismiss(_ key: String) async -> Outgoing? {
+        await centre.dismiss(key: key)
+        return action(.with { $0.key = key; $0.dismissed = true })
+    }
+
     nonisolated(nonsending) func reset() async {
         await centre.removeAll()
+        shown = []
         settings = nil
         icons = [:]
         asked = []
