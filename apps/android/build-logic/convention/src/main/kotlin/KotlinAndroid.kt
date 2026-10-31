@@ -2,21 +2,13 @@
 import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.kotlin.dsl.configure
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
-/** Settings every Android module shares. */
-internal fun Project.configureKotlinAndroid(android: CommonExtension<*, *, *, *, *, *>) {
+/** Settings every Android module shares. AGP's built-in Kotlin targets the same JVM as Java. */
+internal fun Project.configureKotlinAndroid(android: CommonExtension) {
     android.apply {
-        compileSdk = 35
+        compileSdk = 37 // material3 1.5 (Expressive) needs it; targetSdk is set separately
         defaultConfig.minSdk = 31 // Android 12: CompanionDeviceManager presence
-        compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
-        }
-    }
-    extensions.configure<KotlinAndroidProjectExtension> {
-        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+        compileOptions.sourceCompatibility = JavaVersion.VERSION_17
+        compileOptions.targetCompatibility = JavaVersion.VERSION_17
     }
 }

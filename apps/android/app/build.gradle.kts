@@ -25,6 +25,10 @@ dependencies {
     implementation(project(":feature:clipboard"))
     implementation(project(":feature:notifications"))
     implementation(libs.activity.compose)
+    // material3 used to bring these in; 1.5 no longer does
+    implementation(libs.compose.material.icons)
+    // RoundedPolygon and Morph: the cookie hero's shape changes
+    implementation(libs.graphics.shapes)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.okhttp)
     implementation(libs.coroutines.android)
