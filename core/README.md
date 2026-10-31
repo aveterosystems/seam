@@ -19,6 +19,7 @@ flowchart LR
 | Crate | What it does |
 |---|---|
 | **`seam-core`** | A device's identity and Signal sessions, plus Seam's own layer on top: identity pinning, padding, the prekey bundle byte format and file chunk sealing |
+| **`seam-tor`** | **Proposal, not used by the apps yet** (planning notes, decision 0009). Seam's Tor path on Arti: the Mac's private onion service (restricted discovery), the phone's connection to it, and the two 32-byte secrets behind them. Keys live only in memory (Arti's in-memory keystore); the apps keep them in their sealed data. Arti is pinned to one exact version because restricted discovery and the in-memory keystore are behind its experimental features |
 | **`seam-ffi`** | The API the apps see: `SeamDevice` and a few file-chunk functions. Plain bytes and strings in and out. UniFFI generates the Swift and Kotlin code from it. |
 
 ### `seam-core` modules
@@ -54,7 +55,8 @@ There are no new cryptographic primitives. Everything is libsignal or audited Ru
 
 ```bash
 cd core
-cargo test                                  # 18 tests: every security property
+cargo test                                  # every security property
+cargo test -p seam-tor --test live -- --ignored --nocapture   # seam-tor on the live Tor network (~2 min)
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```

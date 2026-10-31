@@ -5,7 +5,7 @@ import Foundation
 /// nothing empty or oversized, the same copy not sent twice in quick succession, and never an echo
 /// of what the other side just sent, so a copy can't bounce back and forth.
 public struct ClipRules: Sendable {
-    /// Fits the relay's 256 KB padding bucket with room for the envelope.
+    /// Fits the 256 KB padding bucket with room for the envelope.
     public static let maxBytes = 200_000
     /// A repeat counts as a duplicate only this soon after, so a copy that failed to send goes if
     /// it's copied again (SR-4-10).
@@ -72,10 +72,10 @@ public struct ClipRules: Sendable {
     }
 }
 
-/// The latest copy made while the relay was unreachable (SR-4-03). It's sent when the relay is
+/// The latest copy made while the phone was unreachable (SR-4-03). It's sent when the phone is
 /// back only if sync is still on, it's for the same phone, and it isn't stale.
 public struct ClipQueue<Item> {
-    /// The same 10 minutes the relay itself would hold it.
+    /// The same 10 minutes the outbox would hold it.
     public static var maxAge: TimeInterval { 600 }
 
     private var held: (item: Item, at: Date)?
@@ -94,7 +94,7 @@ public struct ClipQueue<Item> {
         held = nil
     }
 
-    /// What to send now the relay is back, if anything. Always empties the queue.
+    /// What to send now the phone is back, if anything. Always empties the queue.
     public mutating func take(now: Date = Date(), syncOn: Bool) -> Item? {
         defer { held = nil }
         guard syncOn, let held, now.timeIntervalSince(held.at) <= Self.maxAge else { return nil }

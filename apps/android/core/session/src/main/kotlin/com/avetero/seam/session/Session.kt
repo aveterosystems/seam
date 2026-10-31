@@ -11,12 +11,11 @@ import com.avetero.seam.protocol.v1.Delivered
 import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.Hello
 import com.avetero.seam.protocol.v1.Payload
-import com.avetero.seam.protocol.v1.RemoveMember
 import com.avetero.seam.protocol.v1.Unpair
 import com.avetero.seam.protocol.v1.ServerFrame
 import com.avetero.seam.protocol.v1.Transport
-import com.google.protobuf.ByteString
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,22 +36,22 @@ sealed interface SessionState {
 enum class PairingOutcome { NewMac, StillOnPreviousMac, NoMac }
 
 /**
- * The phone's link to its Mac: relay login, pairing, delivery, acks and reconnects, over the relay
- * and, on the same Wi‑Fi, directly (protocol/README.md). Everything runs on [scope], which must be
- * single-threaded, so state is only ever touched from one thread.
+ * The phone's link to its Mac: pairing, delivery, acks and reconnects, over one channel carried on
+ * Same Wi‑Fi or through Tor (docs/tor/13-implementation-contract.md). Everything runs on [scope],
+ * which must be single-threaded, so state is only ever touched from one thread.
  */
 class Session(
     private val store: StateStore,
-    private val connector: RelayConnector,
     private val myName: String,
     private val myModel: String,
     private val scope: CoroutineScope,
-    private val wait: suspend (Long) -> Unit = { delay(it) },
     private val now: () -> Long = System::currentTimeMillis,
     /** Debug builds only: the connection manager's decisions, never content, keys or addresses. Null: not built at all. */
     private val trace: ((String) -> Unit)? = null,
-    /** The same-Wi‑Fi path; null: relay only. */
+    /** The Same Wi‑Fi dialer; null: none. */
     private val lan: Lan? = null,
+    /** The Tor dialer; null: none. */
+    private val tor: TorDialer? = null,
     private val settingsStore: SettingsStore = MemorySettingsStore(),
     /** Direct-link envelopes the Mac hasn't acked yet, kept across process deaths. */
     private val pendingStore: PendingStore = MemoryPendingStore(),
@@ -83,7 +82,7 @@ class Session(
     private var storageBlocked = false
     private val device: SeamDevice = openDevice()
 
-    private val switches = Switches(device, settingsStore, appVersion).apply { load(canSave = !storageBlocked) { persist() } }
+    private val switches = Switches(device, settingsStore, appVersion).apply { load() }
 
     private val features = mutableListOf<Feature>()
     private val outbox = Outbox(pendingStore, now)
@@ -108,21 +107,46 @@ class Session(
         override fun onFrame(path: Path, frame: ServerFrame) = frame(path, frame)
         override fun onFailed(path: Path, reason: String) = fail(reason)
     }
-    private val relay = RelayPath(
-        connector, device, scope, wait, trace,
-        account = {
-            pairing.account
-                ?: device.appData()?.let { RelayAccount(it.relayUrl, it.groupId, null) }
-        },
-        wanted = { mac != null && switches.relay && wanted() },
-        events = events,
-    )
-    /** Null: relay only. */
+    /** Same Wi‑Fi. Null: no dialer. */
     private val direct = lan?.let {
-        LanPath(it, device, scope, now, trace, peer = { mac?.id }, wanted = { !pairing.active && switches.wifi && wanted() }, events = events)
+        LanPath(it, device, scope, now, trace, peer = { mac?.id }, wanted = { switches.wifi && pathWanted(PeerPath.LAN) }, events = events, pairing = { pairing.qr })
+    }
+    /** Through Tor, to the Mac's onion service. Null: no dialer. */
+    private val onion = tor?.let {
+        LanPath(
+            it, device, scope, now, trace, peer = { mac?.id }, wanted = { switches.tor && pathWanted(PeerPath.TOR) }, events = events,
+            pairing = { pairing.qr }, localOnly = false, authMs = LanPath.TOR_AUTH_MS, name = "tor",
+        )
+    }
+    private val paths: List<Path> get() = listOfNotNull(direct, onion)
+
+    /** While pairing, the path whose pairing channel authenticated first; the other stops trying. */
+    private var pairingVia: Path? = null
+    /** The pairing channel after our PairAccept ack: the Mac closes it once the ack is in (or the grace ends). */
+    private var closingPairing: Path? = null
+    private var pairingDeadline: Job? = null
+    /** Paths that authenticated and haven't gone down since: only their drop can lose an unacked envelope. */
+    private val upPaths = mutableSetOf<Path>()
+
+    /** Both paths try at once while pairing, until one wins (contract: first channel to authenticate). */
+    private fun pathWanted(p: PeerPath): Boolean {
+        val via = pairingVia
+        if (via != null && pathOf(via) != p) return false
+        return wanted()
     }
 
+    private fun pathOf(p: Path): PeerPath = if (p === direct) PeerPath.LAN else PeerPath.TOR
+
     private val mac: PeerInfo? get() = device.peers().firstOrNull { it.confirmed }
+
+    init {
+        // A relay-era pairing: its app data (a relay group) no longer reads, so there's no address to dial
+        if (mac != null && !storageBlocked && device.appData()?.onionAddress.isNullOrEmpty()) {
+            forget()
+            _notice.value = PAIR_AGAIN
+        }
+        syncTor()
+    }
 
     /**
      * Never generates over saved state it couldn't open. Only state that can never be opened (its
@@ -215,17 +239,17 @@ class Session(
         val m = mac ?: return
         trace?.invoke(
             "reconsider connect=$connect screen=${wake.screenOn} charging=${wake.charging} urgent=${outbox.urgentCount()} " +
-                "activeFor=${wake.activeFor()}ms relay=${relay.active}/${relay.up} lan=${direct?.active}/${direct?.up} pairing=${pairing.active} " +
+                "activeFor=${wake.activeFor()}ms tor=${onion?.active}/${onion?.up} lan=${direct?.active}/${direct?.up} pairing=${pairing.active} " +
                 "state=${_state.value::class.simpleName}",
         )
         if (pairing.active || storageBlocked || _state.value is SessionState.Failed) return
         if (wanted()) {
             if (connect) {
-                if (!relay.active && direct?.up != true) _state.value = SessionState.Connecting(m.name)
+                if (paths.none { it.up }) _state.value = SessionState.Connecting(m.name)
                 openLinks()
             }
             wake.keepWatching()
-        } else if (relay.active || direct?.active == true) {
+        } else if (paths.any { it.active }) {
             sleep(m)
         }
     }
@@ -252,8 +276,7 @@ class Session(
     /** Closes the connection on purpose: no reconnect until something wants one. */
     private fun sleep(m: PeerInfo) {
         trace?.invoke("sleep: closing the idle connection")
-        relay.stop()
-        closeLan()
+        closePaths()
         _state.value = SessionState.Idle(m.name)
     }
 
@@ -266,44 +289,48 @@ class Session(
     /** Pair with the Mac from its scanned (and user-confirmed) QR code. The current Mac stays until the new one accepts. */
     fun pair(qr: PairingQr) = scope.launch {
         if (storageBlocked) return@launch // pairing would replace the state we couldn't open
-        if (!switches.relay) return@launch run { _notice.value = RELAY_NEEDED_TO_PAIR } // pairing over Wi‑Fi comes later
-        closeLan() // a direct link to the current Mac would only get in the way
+        closePaths() // links to the current Mac would only get in the way
         switches.savePause(0) // a new pairing starts unpaused (SR-32-02); a kept Mac hears it in its next Hello
         outbox.clearUnsent() // what the current Mac never acked is kept: it still gets it if this pairing fails
         pairing.start(qr)
+        pairingVia = null
+        syncTor()
         _notice.value = null
         _state.value = SessionState.Pairing(qr.macName, null)
-        relay.restart()
+        pairingDeadline?.cancel()
+        pairingDeadline = scope.launch {
+            delay(PAIRING_MS) // a fresh onion address can take minutes to publish; longer is a Mac that isn't there
+            if (pairing.qr === qr && pairingVia == null) fail(MAC_NOT_FOUND)
+        }
+        openLinks() // this phone's own switches decide which carriers try
     }
 
     /**
-     * "Forget this Mac": tells the Mac (sealed), leaves the relay group, and forgets it here. While
-     * offline only the last step happens; the Mac can still unpair from its side.
+     * "Forget this Mac": tells the Mac (sealed), and forgets it here. While offline only the last
+     * step happens; the Mac can still unpair from its side.
      */
     fun forgetMac() = scope.launch {
         val m = mac ?: return@launch
         // A farewell, like a Hello: any open path this phone's own switches allow, never one they have off
-        val viaRelay = relay.up && switches.relay
-        val viaLan = direct?.up == true && switches.wifi
+        // Never on a pairing channel: only the pairing exchange travels there
+        val via = listOfNotNull(direct?.takeIf { it.up && switches.wifi }, onion?.takeIf { it.up && switches.tor })
+            .filter { it !== pairingVia && it !== closingPairing }
         val farewell = mutableListOf<Pair<Path, ClientFrame>>()
-        if ((viaRelay || viaLan) && !storageBlocked) {
+        if (via.isNotEmpty() && !storageBlocked) {
             val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(Unpair.getDefaultInstance())).build()
             // Not saved before sending, unlike other messages: the Mac's keys are deleted in the same
             // save as the forget, so a crash can't reuse them
             runCatching {
                 val frame = ClientFrame.newBuilder().setSend(Envelope.parseFrom(device.seal(m.id, unpair.toByteArray(), 0u))).build()
-                // Both: the relay queues it durably for the Mac, the direct link is instant; the Mac drops the duplicate
-                if (viaRelay) farewell += relay to frame
-                if (viaLan) direct?.let { farewell += it to frame }
-                // Leaving removes only this phone's own queue: the Unpair waits in the Mac's
-                if (viaRelay) farewell += relay to ClientFrame.newBuilder().setRemoveMember(RemoveMember.newBuilder().setDeviceKey(device.relayKey().bs())).build()
+                // Every open path: one may be dropping as we leave; the Mac drops the duplicate
+                via.forEach { farewell += it to frame }
             }
         }
         forget(farewell)
     }
 
     /**
-     * Back to unpaired: no peers, no relay target, nothing queued. Only says so once that's saved;
+     * Back to unpaired: no peers, no onion address, nothing queued. Only says so once that's saved;
      * otherwise a restart would load the old pairing, so the user is told it didn't work (SR-7-01).
      */
     private fun forget(farewell: List<Pair<Path, ClientFrame>> = emptyList()) {
@@ -317,8 +344,8 @@ class Session(
         val saved = runCatching { persist() }.isSuccess
         // The Mac is told only once forgetting it is saved: never a farewell for something that didn't happen (SR-7-01, SR-29-12)
         if (saved) farewell.forEach { (path, frame) -> path.send(frame) }
-        relay.stop()
-        closeLan() // gracefully: the farewell is written first
+        closePaths() // gracefully: the farewell is written first
+        syncTor()
         _state.value = if (saved) SessionState.Unpaired else SessionState.Failed(FORGET_FAILED)
     }
 
@@ -348,19 +375,29 @@ class Session(
         }
     }
 
-    /** A path came up. On the relay while pairing, ask for the new Mac's keys; otherwise the Mac is reachable. */
+    /** A path came up. While pairing, the first one asks for the new Mac's keys; otherwise the Mac is reachable. */
     private fun pathUp(path: Path) {
         wake.touch()
-        val request = if (path === relay) pairing.request() else null
-        if (request != null) relay.send(request) else becameConnected()
+        val request = pairing.request()
+        if (request == null) {
+            upPaths += path
+            return becameConnected()
+        }
+        if (pairingVia != null) return path.stop() // lost the race: one pairing channel is enough
+        pairingVia = path
+        paths.filter { it !== path }.forEach { it.stop() }
+        trace?.invoke("pairing: channel up")
+        path.send(request)
     }
 
     private fun frame(path: Path, frame: ServerFrame) {
+        if (path === closingPairing) return // the pairing exchange is over: nothing more is taken from that channel
         when (frame.frameCase) {
-            ServerFrame.FrameCase.BUNDLE -> if (path === relay) pairing.keysArrived(frame.bundle.bundle.toByteArray())?.let { _state.value = it }
-            ServerFrame.FrameCase.DELIVER -> deliver(frame.deliver, path)
-            // Only the Mac sends it, and only on the direct link. An unknown id: nothing to remove, nothing written
-            ServerFrame.FrameCase.DELIVERED -> if (path === direct) {
+            ServerFrame.FrameCase.BUNDLE -> if (pairing.active && path === pairingVia) pairing.keysArrived(frame.bundle.bundle.toByteArray())?.let { _state.value = it }
+            // While pairing, only the pairing channel speaks for the new Mac
+            ServerFrame.FrameCase.DELIVER -> if (!pairing.active || path === pairingVia) deliver(frame.deliver, path)
+            // The Mac's ack, on whichever path. An unknown id: nothing to remove, nothing written
+            ServerFrame.FrameCase.DELIVERED -> if (!pairing.active) {
                 outbox.acked(frame.delivered.msgId)
                 if (paused()) reconsider(connect = false) // the last thing the Mac had to confirm
             }
@@ -388,12 +425,20 @@ class Session(
         // The Mac's Hello is applied before the save, so its counter and paths are durable before the ack
         val hello = payload != null && !accepted && payload.isHello() && !pairing.active && opened.peerId == mac?.id
         if (hello) macHello(payload!!.control.hello)
-        val saved = runCatching { persist() }.isSuccess // durable before acking: the relay deletes what we ack
+        val saved = runCatching { persist() }.isSuccess // durable before acking: the Mac forgets what we ack
         if (accepted) {
             if (!saved) return fail(SAVE_FAILED)
             pairing.accepted() // only once it's saved: a restart keeps it
-            becameConnected()
-            return ack(env, via)
+            ack(env, via)
+            // The Mac undoes the pairing unless this ack arrives: let the Mac close the channel once it
+            // has it, rather than closing first and maybe cutting the ack off (a fallback if it doesn't)
+            closingPairing = via
+            pairingDeadline?.cancel()
+            pairingDeadline = scope.launch {
+                delay(PAIRED_GRACE_MS)
+                if (closingPairing === via) paired()
+            }
+            return
         }
         // Handled even if the save failed: the ratchet has moved, so a redelivery in this run would
         // open as a duplicate and be lost (SR-2-59). Not acked then, so after a restart the saved
@@ -431,7 +476,19 @@ class Session(
         queueHello()
         if (first) features.forEach { runCatching { it.onConnected(this) } } // a feature bug never takes the connection down
         flush()
-        if (switches.wifi) direct?.start() // e.g. right after pairing, or the relay came up first
+        openLinks() // e.g. Tor came up first: Same Wi‑Fi, if it's here, is preferred
+    }
+
+    /** The PairAccept is saved and acked: the pairing channel closes, and the Mac is dialled as usual. */
+    private fun paired() {
+        val m = mac ?: return
+        pairingDeadline?.cancel()
+        pairingVia = null
+        closingPairing = null
+        closePaths()
+        syncTor()
+        _state.value = SessionState.Connecting(m.name)
+        openLinks()
     }
 
     private fun flush() {
@@ -466,23 +523,28 @@ class Session(
         }
     }
 
-    /** A path went down: what the direct link never confirmed goes on the next path. */
+    /** A path went down (or an attempt failed): what it never confirmed goes on the next path. */
     private fun pathClosed(path: Path) {
-        if (path === direct) {
-            lanGone()
-            pathDown()
-            if (canSend()) flush() // e.g. the relay is up
+        val wasUp = upPaths.remove(path)
+        if (path === closingPairing) return paired() // the Mac has our ack and closed the pairing channel
+        if (pairing.active) {
+            // The Mac checks our code last: closing before it answers is a stale or replaced code
+            if (path === pairingVia) fail(if (pairing.keysHeard) "Lost the connection while pairing. Try again." else CODE_REFUSED)
             return
         }
-        if (pairing.active) return fail("Lost the connection while pairing. Try again.")
+        if (wasUp) outbox.linkDropped()
         pathDown()
+        if (wasUp && canSend()) flush() // e.g. the other path is up
     }
 
     private fun fail(reason: String) {
-        relay.stop() // ignore anything the old socket still delivers
-        closeLan()
+        closePaths() // ignore anything the old links still deliver
         outbox.clearUnsent()
-        if (pairing.abandon()) {
+        pairingDeadline?.cancel()
+        pairingVia = null
+        val abandoned = pairing.abandon()
+        syncTor()
+        if (abandoned) {
             val m = mac
             if (m != null) { // the existing pairing is untouched: carry on with it
                 _notice.value = reason
@@ -494,7 +556,7 @@ class Session(
         _state.value = SessionState.Failed(reason)
     }
 
-    /** Over the direct link when it's up and allowed at both ends, else the relay; while pairing, only the relay. */
+    /** Over Same Wi‑Fi when it's up and allowed at both ends, else Tor; while pairing, only the pairing channel. */
     private fun sendEnvelope(env: ByteArray, hello: Boolean = false): Boolean = sendSealed(Envelope.parseFrom(env), hello)
 
     /**
@@ -503,11 +565,11 @@ class Session(
      */
     private fun sendSealed(e: Envelope, hello: Boolean = false): Boolean {
         val frame = ClientFrame.newBuilder().setSend(e).build()
-        // While pairing only the relay counts, and only this phone's switch: the new Mac's wishes aren't known
-        val via = if (pairing.active) relay.takeIf { switches.relay && it.up } else route(hello)
-        trace?.invoke("send: ${e.serializedSize} bytes via ${if (via === direct) "lan" else "relay"}")
+        // While pairing only the pairing channel counts: the new Mac's wishes aren't known
+        if (pairing.active) return pairingVia?.takeIf { it.up }?.send(frame) == true
+        val via = route(hello)
+        trace?.invoke("send: ${e.serializedSize} bytes via ${if (via === direct) "lan" else "tor"}")
         if (via == null) return false
-        if (via !== direct) return via.send(frame) // the relay queues it: nothing to keep
         // Recorded before it's handed to the link
         if (!outbox.sentDirect(e)) trace?.invoke("pending: save failed")
         return via.send(frame) // a failed write stays recorded, and goes again when the link drops
@@ -518,11 +580,11 @@ class Session(
      * or for a [hello] any up path this phone's own switches allow. Null while pairing.
      */
     private fun route(hello: Boolean = false): Path? {
-        if (pairing.active) return null
-        val up = listOfNotNull(PeerPath.LAN.takeIf { direct?.up == true }, PeerPath.RELAY.takeIf { relay.up })
+        if (pairing.active || closingPairing != null) return null // nothing rides on a pairing channel
+        val up = listOfNotNull(PeerPath.LAN.takeIf { direct?.up == true }, PeerPath.TOR.takeIf { onion?.up == true })
         return when (device.route(switches.enabled(), up, hello)) {
             PeerPath.LAN -> direct
-            PeerPath.RELAY -> relay
+            PeerPath.TOR -> onion
             null -> null
         }
     }
@@ -537,7 +599,7 @@ class Session(
         _route.value = when (route()) {
             null -> null
             direct -> Transport.TRANSPORT_LAN
-            else -> Transport.TRANSPORT_RELAY
+            else -> Transport.TRANSPORT_TOR
         }
     }
 
@@ -555,21 +617,33 @@ class Session(
      * remembered list: a stale one would leave no path for the Hello that updates it.
      */
     private fun openLinks() {
-        if (switches.relay) relay.start()
-        if (!pairing.active && switches.wifi) direct?.start()
+        if (switches.wifi) direct?.start()
+        if (switches.tor) onion?.start()
+    }
+
+    /** Tells the Tor dialer where to go: the Mac on the code while pairing, else the paired Mac. */
+    private fun syncTor() {
+        val t = tor ?: return
+        val qr = pairing.qr
+        val d = if (mac != null) device.appData() else null
+        t.target = when {
+            qr != null -> TorTarget(qr.onionAddress, qr.discoverySecret)
+            d != null && d.onionAddress.isNotEmpty() -> TorTarget(d.onionAddress, d.torSecret)
+            else -> null
+        }
     }
 
     // MARK: switches and Hello
 
     /** The user's connection switches. At least one stays on; the Mac is told before anything closes. */
-    fun setSwitches(wifi: Boolean, relay: Boolean) = scope.launch {
-        if (!wifi && !relay) return@launch
-        if (switches.wifi == wifi && switches.relay == relay) return@launch
+    fun setSwitches(wifi: Boolean, tor: Boolean) = scope.launch {
+        if (!wifi && !tor) return@launch
+        if (switches.wifi == wifi && switches.tor == tor) return@launch
         if (mac != null && !pairing.active) {
-            queueHello(wifi, relay)
+            queueHello(wifi, tor)
             if (canSend() || canSendHello()) flush() // over the old paths, so the Mac stops using one we just turned off
         }
-        switches.save(wifi, relay)
+        switches.save(wifi, tor)
         applySettings()
     }
 
@@ -587,29 +661,27 @@ class Session(
      */
     private fun applySettings() {
         if (pairing.active || mac == null) return
-        if (!switches.relay && relay.active) {
-            trace?.invoke("relay switched off: closing")
-            relay.stop()
+        if (!switches.tor && onion?.active == true) {
+            trace?.invoke("tor switched off: closing")
+            stopPath(onion)
         }
-        if (!switches.wifi) closeLan()
+        if (!switches.wifi) direct?.let { stopPath(it) }
         pathDown()
         reconsider(connect = true)
         if (canSend() || canSendHello()) flush()
     }
 
     /** Only the latest Hello matters: it replaces any still queued. */
-    private fun queueHello(wifi: Boolean = switches.wifi, relay: Boolean = switches.relay) =
-        outbox.replaceHello(switches.nextHello(wifi, relay))
+    private fun queueHello(wifi: Boolean = switches.wifi, tor: Boolean = switches.tor) =
+        outbox.replaceHello(switches.nextHello(wifi, tor))
 
-    /** Closes the direct link and stops looking for the Mac. */
-    private fun closeLan() {
-        direct?.stop()
-        lanGone()
-    }
+    /** Closes both paths and stops looking for the Mac. */
+    private fun closePaths() = paths.forEach { stopPath(it) }
 
-    /** Anything the Mac hadn't confirmed may be lost with the direct link: send it again on the next path. */
-    private fun lanGone() {
-        outbox.linkDropped()
+    /** Closes one path. Anything the Mac hadn't confirmed on it may be lost: it goes again on the next path. */
+    private fun stopPath(p: Path) {
+        p.stop()
+        if (upPaths.remove(p)) outbox.linkDropped()
         updateRoute()
     }
 
@@ -624,10 +696,14 @@ class Session(
         const val CODES_DONT_MATCH = "Nothing was paired, because the codes didn't match. If you're sure it's your Mac, show a new code on it and scan again."
         const val FORGET_FAILED = "Couldn't finish forgetting your Mac: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
-        const val RELAY_NEEDED_TO_PAIR = "Pairing needs the relay for now. Turn on Relay in Settings › Connection, then scan again."
+        const val MAC_NOT_FOUND = "Couldn't reach your Mac. Keep its pairing code open, check both are online, and scan again."
+        const val PAIR_AGAIN = "Seam now connects through Tor instead of its relay. Update Seam on your Mac, then pair again."
+        /** After acking the PairAccept: time for the ack to get through before we close ourselves. */
+        const val PAIRED_GRACE_MS = 3_000L
+        /** Contract: Tor retries for up to 3 minutes while a fresh address publishes. */
+        const val PAIRING_MS = 3 * 60_000L
     }
 }
 
+internal const val CODE_REFUSED = "That pairing code didn't work. Show a new one on your Mac and scan again."
 internal const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
-
-private fun ByteArray.bs(): ByteString = ByteString.copyFrom(this)

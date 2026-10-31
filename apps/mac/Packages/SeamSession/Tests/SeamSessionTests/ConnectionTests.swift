@@ -32,7 +32,7 @@ struct OutboxTests {
         var box = Outbox()
         box.add(env(1, sentAt: 990_000, ttl: 5)) // expired at 995 s
         box.add(env(2, sentAt: 990_000, ttl: 600))
-        box.add(env(3, sentAt: 990_000, ttl: 0)) // the relay's 24 h default
+        box.add(env(3, sentAt: 990_000, ttl: 0)) // the default 24 h
         let dropped = box.dropExpired(now: now)
         #expect(dropped)
         #expect(box.waiting.map(\.msgID) == [Data([2]), Data([3])])
@@ -107,39 +107,3 @@ struct OutboxFileTests {
     }
 }
 
-struct RelayLinkTests {
-    private let key = String(repeating: "A", count: 43) // 32 bytes, base64url
-
-    @Test func readsALinkWithItsOwnerKey() throws {
-        let link = try #require(RelayLink.parse("seam-relay://relay.example.com#\(key)", allowInsecure: false))
-        #expect(link.url == URL(string: "wss://relay.example.com"))
-        #expect(link.ownerKey == Data(repeating: 0, count: 32))
-        let port = try #require(RelayLink.parse("  seam-relay://relay.example.com:8443/seam#\(key)\n", allowInsecure: false))
-        #expect(port.url.absoluteString == "wss://relay.example.com:8443/seam")
-    }
-
-    @Test func takesAPlainRelayAddress() {
-        #expect(RelayLink.parse("wss://relay.example.com", allowInsecure: false) == RelayLink(url: URL(string: "wss://relay.example.com")!, ownerKey: nil))
-        #expect(RelayLink.parse("seam-relay://relay.example.com", allowInsecure: false)?.ownerKey == nil)
-        #expect(RelayLink.parse("ws://192.168.1.2:8787", allowInsecure: true) != nil, "Debug builds only")
-    }
-
-    @Test func refusesAnythingElse() {
-        for bad in [
-            "ws://relay.example.com", // plain ws in Release
-            "https://relay.example.com",
-            "seam-relay://#\(key)", // no host
-            "seam-relay://user:pw@relay.example.com#\(key)",
-            "seam-relay://relay.example.com?x=1#\(key)",
-            "seam-relay://relay.example.com#short", // a key too short to be secret
-            "seam-relay://relay.example.com#\(key)!", // not base64url
-            "seam-relay://relay.example.com#",
-            "seam-relay://relay.example.com#\(String(repeating: "A", count: 700))", // too long a key
-            "wss://relay.example.com#\(key)", // a key only in a seam-relay link
-            "",
-            "seam-relay://" + String(repeating: "a", count: 3000),
-        ] {
-            #expect(RelayLink.parse(bad, allowInsecure: false) == nil, "\(bad.prefix(60))")
-        }
-    }
-}

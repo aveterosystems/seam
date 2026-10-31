@@ -62,13 +62,13 @@ enum SeamMark {
 }
 
 /// The stitch under the phone's name, drawn from a `LinkLook.Line` (design-system.md, "The stitch"):
-/// solid teal on the same Wi‑Fi, dashed teal through a relay, dotted grey when only nearby, broken
+/// solid teal on the same Wi‑Fi, dashed teal through Tor, dotted grey while Tor connects, broken
 /// grey when offline. The text beside it always says the same thing (it's never the only signal).
 struct Stitch: View {
     let line: LinkLook.Line
 
     var body: some View {
-        // Board M01: a 3 pt bar; relay dashes of 10 with gaps of 7
+        // Board M01: a 3 pt bar; Tor dashes of 10 with gaps of 7
         Canvas { ctx, size in
             var path = Path()
             path.move(to: CGPoint(x: 0, y: size.height / 2))

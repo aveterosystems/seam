@@ -460,7 +460,29 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 
 
 // Public interface members begin here.
+// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterUInt8: FfiConverterPrimitive {
+    typealias FfiType = UInt8
+    typealias SwiftType = UInt8
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt8 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: UInt8, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
@@ -938,6 +960,12 @@ public func FfiConverterTypeFileSealer_lower(_ value: FileSealer) -> UInt64 {
  */
 public protocol LanChannelProtocol: AnyObject, Sendable {
     
+    /**
+     * A pairing channel: a phone that proved it scanned the code, not a paired peer. Only the
+     * pairing exchange (the Mac's bundle, the PairRequest, the PairAccept) may travel over it.
+     */
+    func isPairing()  -> Bool
+    
     func peerId()  -> String?
     
     func receive(bytes: Data) throws  -> LanOutput
@@ -1023,7 +1051,23 @@ public static func initiator(device: SeamDevice, peerId: String)throws  -> LanCh
 }
     
     /**
-     * The Mac's side, for one incoming connection. Fails while no phone is paired.
+     * The phone's side while pairing: the Mac pinned from its QR code (`relay_key`), the phone
+     * proving it scanned it with the QR's `token`. Write `start()` as soon as the stream connects.
+     */
+public static func pairingInitiator(device: SeamDevice, relayKey: Data, token: Data)throws  -> LanChannel  {
+    return try  FfiConverterTypeLanChannel_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_lanchannel_pairing_initiator(
+        FfiConverterTypeSeamDevice_lower(device),
+        FfiConverterData.lower(relayKey),
+        FfiConverterData.lower(token),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The Mac's side, for one incoming connection: a paired phone, or while a pairing is open, a
+     * phone that proves it scanned the code. Fails when neither could authenticate.
      */
 public static func responder(device: SeamDevice)throws  -> LanChannel  {
     return try  FfiConverterTypeLanChannel_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
@@ -1035,6 +1079,19 @@ public static func responder(device: SeamDevice)throws  -> LanChannel  {
 }
     
 
+    
+    /**
+     * A pairing channel: a phone that proved it scanned the code, not a paired peer. Only the
+     * pairing exchange (the Mac's bundle, the PairRequest, the PairAccept) may travel over it.
+     */
+open func isPairing() -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_lanchannel_is_pairing(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
     
 open func peerId() -> String?  {
     return try!  FfiConverterOptionString.lift(try! rustCall() {
@@ -1696,19 +1753,1230 @@ public func FfiConverterTypeSeamDevice_lower(_ value: SeamDevice) -> UInt64 {
 
 
 
+
+
+/**
+ * Tor for one app. Create once; `start` before `host` or `connect`.
+ */
+public protocol TorProtocol: AnyObject, Sendable {
+    
+    /**
+     * Phone: connects to the Mac's onion service. `listener` hears `on_open` or `on_failed`.
+     */
+    func connect(onionAddress: String, discoverySecret: Data, listener: TorConnectListener) 
+    
+    /**
+     * Mac: publishes the onion service for `service_secret`, discoverable only by `clients`
+     * (discovery public keys). Each incoming stream goes to `listener.on_open`; `on_failed` if the
+     * service stops by itself. Stop it with `TorService.stop`.
+     */
+    func host(serviceSecret: Data, clients: [Data], listener: TorConnectListener)  -> TorService?
+    
+    /**
+     * Dormant: no background traffic until the next connection (the phone between connections).
+     */
+    func setDormant(dormant: Bool) 
+    
+    /**
+     * Starts Tor in the background, once; `listener` hears every state change.
+     */
+    func start(listener: TorStateListener) 
+    
+    func state()  -> TorState
+    
+}
+/**
+ * Tor for one app. Create once; `start` before `host` or `connect`.
+ */
+open class Tor: TorProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_tor(self.handle, $0) }
+    }
+    /**
+     * `app_dir`: the app's private data folder (Tor keeps its state in `app_dir/tor`).
+     */
+public convenience init(appDir: String) {
+    let handle =
+        try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_tor_new(
+        FfiConverterString.lower(appDir),uniffiCallStatus
+    )
+}
+    self.init(unsafeFromHandle: handle)
+}
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_tor(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Phone: connects to the Mac's onion service. `listener` hears `on_open` or `on_failed`.
+     */
+open func connect(onionAddress: String, discoverySecret: Data, listener: TorConnectListener)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_tor_connect(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(onionAddress),
+        FfiConverterData.lower(discoverySecret),
+        FfiConverterTypeTorConnectListener_lower(listener),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Mac: publishes the onion service for `service_secret`, discoverable only by `clients`
+     * (discovery public keys). Each incoming stream goes to `listener.on_open`; `on_failed` if the
+     * service stops by itself. Stop it with `TorService.stop`.
+     */
+open func host(serviceSecret: Data, clients: [Data], listener: TorConnectListener) -> TorService?  {
+    return try!  FfiConverterOptionTypeTorService.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_tor_host(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(serviceSecret),
+        FfiConverterSequenceData.lower(clients),
+        FfiConverterTypeTorConnectListener_lower(listener),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Dormant: no background traffic until the next connection (the phone between connections).
+     */
+open func setDormant(dormant: Bool)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_tor_set_dormant(
+            self.uniffiCloneHandle(),
+        FfiConverterBool.lower(dormant),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Starts Tor in the background, once; `listener` hears every state change.
+     */
+open func start(listener: TorStateListener)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_tor_start(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeTorStateListener_lower(listener),uniffiCallStatus
+    )
+}
+}
+    
+open func state() -> TorState  {
+    return try!  FfiConverterTypeTorState_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_tor_state(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTor: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = Tor
+
+    public static func lift(_ handle: UInt64) throws -> Tor {
+        return Tor(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: Tor) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Tor {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: Tor, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTor_lift(_ handle: UInt64) throws -> Tor {
+    return try FfiConverterTypeTor.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTor_lower(_ value: Tor) -> UInt64 {
+    return FfiConverterTypeTor.lower(value)
+}
+
+
+
+
+
+
+/**
+ * Told about a connection attempt (phone) or an incoming stream (Mac).
+ */
+public protocol TorConnectListener: AnyObject, Sendable {
+    
+    /**
+     * Connected: call `stream.listen` to start receiving, `stream.shutdown` to end it.
+     */
+    func onOpen(stream: TorStream) 
+    
+    /**
+     * Couldn't connect (or, for a service, it stopped). Never called after `on_open` for the
+     * same attempt.
+     */
+    func onFailed() 
+    
+}
+/**
+ * Told about a connection attempt (phone) or an incoming stream (Mac).
+ */
+open class TorConnectListenerImpl: TorConnectListener, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_torconnectlistener(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_torconnectlistener(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Connected: call `stream.listen` to start receiving, `stream.shutdown` to end it.
+     */
+open func onOpen(stream: TorStream)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torconnectlistener_on_open(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeTorStream_lower(stream),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Couldn't connect (or, for a service, it stopped). Never called after `on_open` for the
+     * same attempt.
+     */
+open func onFailed()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torconnectlistener_on_failed(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceTorConnectListener {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceTorConnectListener = UniffiVTableCallbackInterfaceTorConnectListener(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterTypeTorConnectListener.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface TorConnectListener: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterTypeTorConnectListener.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface TorConnectListener: handle missing in uniffiClone")
+            }
+        },
+        onOpen: { (
+            uniffiHandle: UInt64,
+            stream: UInt64,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeTorConnectListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onOpen(
+                     stream: try FfiConverterTypeTorStream_lift(stream)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onFailed: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeTorConnectListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onFailed(
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceTorConnectListener> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceTorConnectListener>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitTorConnectListener() {
+    uniffi_seam_ffi_fn_init_callback_vtable_torconnectlistener(UniffiCallbackInterfaceTorConnectListener.vtablePtr)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTorConnectListener: FfiConverter {
+    fileprivate static let handleMap = UniffiHandleMap<TorConnectListener>()
+
+    typealias FfiType = UInt64
+    typealias SwiftType = TorConnectListener
+
+    public static func lift(_ handle: UInt64) throws -> TorConnectListener {
+        if ((handle & 1) == 0) {
+            // Rust-generated handle, construct a new class that uses the handle to implement the
+            // interface
+            return TorConnectListenerImpl(unsafeFromHandle: handle)
+        } else {
+            // Swift-generated handle, get the object from the handle map
+            return try handleMap.remove(handle: handle)
+        }
+    }
+
+    public static func lower(_ value: TorConnectListener) -> UInt64 {
+         if let rustImpl = value as? TorConnectListenerImpl {
+             // Rust-implemented object.  Clone the handle and return it
+            return rustImpl.uniffiCloneHandle()
+         } else {
+            // Swift object, generate a new vtable handle and return that.
+            return handleMap.insert(obj: value)
+         }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TorConnectListener {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: TorConnectListener, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorConnectListener_lift(_ handle: UInt64) throws -> TorConnectListener {
+    return try FfiConverterTypeTorConnectListener.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorConnectListener_lower(_ value: TorConnectListener) -> UInt64 {
+    return FfiConverterTypeTorConnectListener.lower(value)
+}
+
+
+
+
+
+
+/**
+ * A running onion service.
+ */
+public protocol TorServiceProtocol: AnyObject, Sendable {
+    
+    func address()  -> String
+    
+    /**
+     * Takes the service down (streams already open stay until closed).
+     */
+    func stop() 
+    
+}
+/**
+ * A running onion service.
+ */
+open class TorService: TorServiceProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_torservice(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_torservice(handle, $0) }
+    }
+
+    
+
+    
+open func address() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torservice_address(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Takes the service down (streams already open stay until closed).
+     */
+open func stop()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torservice_stop(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTorService: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = TorService
+
+    public static func lift(_ handle: UInt64) throws -> TorService {
+        return TorService(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: TorService) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TorService {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: TorService, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorService_lift(_ handle: UInt64) throws -> TorService {
+    return try FfiConverterTypeTorService.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorService_lower(_ value: TorService) -> UInt64 {
+    return FfiConverterTypeTorService.lower(value)
+}
+
+
+
+
+
+
+/**
+ * Told when Tor's state changes. Called on Tor's threads.
+ */
+public protocol TorStateListener: AnyObject, Sendable {
+    
+    func onState(state: TorState) 
+    
+}
+/**
+ * Told when Tor's state changes. Called on Tor's threads.
+ */
+open class TorStateListenerImpl: TorStateListener, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_torstatelistener(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_torstatelistener(handle, $0) }
+    }
+
+    
+
+    
+open func onState(state: TorState)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torstatelistener_on_state(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeTorState_lower(state),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceTorStateListener {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceTorStateListener = UniffiVTableCallbackInterfaceTorStateListener(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterTypeTorStateListener.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface TorStateListener: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterTypeTorStateListener.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface TorStateListener: handle missing in uniffiClone")
+            }
+        },
+        onState: { (
+            uniffiHandle: UInt64,
+            state: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeTorStateListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onState(
+                     state: try FfiConverterTypeTorState_lift(state)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceTorStateListener> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceTorStateListener>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitTorStateListener() {
+    uniffi_seam_ffi_fn_init_callback_vtable_torstatelistener(UniffiCallbackInterfaceTorStateListener.vtablePtr)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTorStateListener: FfiConverter {
+    fileprivate static let handleMap = UniffiHandleMap<TorStateListener>()
+
+    typealias FfiType = UInt64
+    typealias SwiftType = TorStateListener
+
+    public static func lift(_ handle: UInt64) throws -> TorStateListener {
+        if ((handle & 1) == 0) {
+            // Rust-generated handle, construct a new class that uses the handle to implement the
+            // interface
+            return TorStateListenerImpl(unsafeFromHandle: handle)
+        } else {
+            // Swift-generated handle, get the object from the handle map
+            return try handleMap.remove(handle: handle)
+        }
+    }
+
+    public static func lower(_ value: TorStateListener) -> UInt64 {
+         if let rustImpl = value as? TorStateListenerImpl {
+             // Rust-implemented object.  Clone the handle and return it
+            return rustImpl.uniffiCloneHandle()
+         } else {
+            // Swift object, generate a new vtable handle and return that.
+            return handleMap.insert(obj: value)
+         }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TorStateListener {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: TorStateListener, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorStateListener_lift(_ handle: UInt64) throws -> TorStateListener {
+    return try FfiConverterTypeTorStateListener.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorStateListener_lower(_ value: TorStateListener) -> UInt64 {
+    return FfiConverterTypeTorStateListener.lower(value)
+}
+
+
+
+
+
+
+/**
+ * A byte pipe over Tor. `send` queues bytes for writing in order; `listen` starts reading.
+ */
+public protocol TorStreamProtocol: AnyObject, Sendable {
+    
+    /**
+     * Starts reading: every chunk to `listener.on_bytes`, then `on_closed` once. Only the first
+     * call does anything.
+     */
+    func listen(listener: TorStreamListener) 
+    
+    /**
+     * False once the stream is closed (the bytes won't go).
+     */
+    func send(bytes: Data)  -> Bool
+    
+    /**
+     * Closes both directions; `on_closed` follows. (Not `close`: Kotlin's `AutoCloseable.close`
+     * on every UniFFI object frees it.)
+     */
+    func shutdown() 
+    
+}
+/**
+ * A byte pipe over Tor. `send` queues bytes for writing in order; `listen` starts reading.
+ */
+open class TorStream: TorStreamProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_torstream(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_torstream(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Starts reading: every chunk to `listener.on_bytes`, then `on_closed` once. Only the first
+     * call does anything.
+     */
+open func listen(listener: TorStreamListener)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torstream_listen(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeTorStreamListener_lower(listener),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * False once the stream is closed (the bytes won't go).
+     */
+open func send(bytes: Data) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torstream_send(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(bytes),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Closes both directions; `on_closed` follows. (Not `close`: Kotlin's `AutoCloseable.close`
+     * on every UniFFI object frees it.)
+     */
+open func shutdown()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torstream_shutdown(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTorStream: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = TorStream
+
+    public static func lift(_ handle: UInt64) throws -> TorStream {
+        return TorStream(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: TorStream) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TorStream {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: TorStream, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorStream_lift(_ handle: UInt64) throws -> TorStream {
+    return try FfiConverterTypeTorStream.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorStream_lower(_ value: TorStream) -> UInt64 {
+    return FfiConverterTypeTorStream.lower(value)
+}
+
+
+
+
+
+
+/**
+ * What a stream reports. Called on Tor's threads, in order, `on_closed` exactly once.
+ */
+public protocol TorStreamListener: AnyObject, Sendable {
+    
+    func onBytes(bytes: Data) 
+    
+    func onClosed() 
+    
+}
+/**
+ * What a stream reports. Called on Tor's threads, in order, `on_closed` exactly once.
+ */
+open class TorStreamListenerImpl: TorStreamListener, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_torstreamlistener(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_torstreamlistener(handle, $0) }
+    }
+
+    
+
+    
+open func onBytes(bytes: Data)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torstreamlistener_on_bytes(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(bytes),uniffiCallStatus
+    )
+}
+}
+    
+open func onClosed()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torstreamlistener_on_closed(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceTorStreamListener {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceTorStreamListener = UniffiVTableCallbackInterfaceTorStreamListener(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterTypeTorStreamListener.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface TorStreamListener: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterTypeTorStreamListener.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface TorStreamListener: handle missing in uniffiClone")
+            }
+        },
+        onBytes: { (
+            uniffiHandle: UInt64,
+            bytes: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeTorStreamListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onBytes(
+                     bytes: try FfiConverterData.lift(bytes)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onClosed: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeTorStreamListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onClosed(
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceTorStreamListener> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceTorStreamListener>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitTorStreamListener() {
+    uniffi_seam_ffi_fn_init_callback_vtable_torstreamlistener(UniffiCallbackInterfaceTorStreamListener.vtablePtr)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTorStreamListener: FfiConverter {
+    fileprivate static let handleMap = UniffiHandleMap<TorStreamListener>()
+
+    typealias FfiType = UInt64
+    typealias SwiftType = TorStreamListener
+
+    public static func lift(_ handle: UInt64) throws -> TorStreamListener {
+        if ((handle & 1) == 0) {
+            // Rust-generated handle, construct a new class that uses the handle to implement the
+            // interface
+            return TorStreamListenerImpl(unsafeFromHandle: handle)
+        } else {
+            // Swift-generated handle, get the object from the handle map
+            return try handleMap.remove(handle: handle)
+        }
+    }
+
+    public static func lower(_ value: TorStreamListener) -> UInt64 {
+         if let rustImpl = value as? TorStreamListenerImpl {
+             // Rust-implemented object.  Clone the handle and return it
+            return rustImpl.uniffiCloneHandle()
+         } else {
+            // Swift object, generate a new vtable handle and return that.
+            return handleMap.insert(obj: value)
+         }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TorStreamListener {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: TorStreamListener, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorStreamListener_lift(_ handle: UInt64) throws -> TorStreamListener {
+    return try FfiConverterTypeTorStreamListener.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorStreamListener_lower(_ value: TorStreamListener) -> UInt64 {
+    return FfiConverterTypeTorStreamListener.lower(value)
+}
+
+
+
+
 /**
  * The app's saved data for its pairing (seam_core::links::AppData).
  */
 public struct AppData: Equatable, Hashable {
     /**
-     * 16 bytes.
+     * Mac: its onion service's secret seed. Phone: its restricted-discovery secret. 32 bytes.
      */
-    public var groupId: Data
-    public var relayUrl: String
+    public var torSecret: Data
     /**
-     * A private relay's owner key (decision 0007); None on Seam's relay.
+     * Phone: the Mac's onion address. Mac: empty.
      */
-    public var ownerKey: Data?
+    public var onionAddress: String
+    /**
+     * Mac: the paired phone's discovery public key (32 bytes). Phone: empty.
+     */
+    public var peerDiscovery: Data
     public var helloSeqSent: UInt64
     public var helloSeqApplied: UInt64
     /**
@@ -1720,17 +2988,20 @@ public struct AppData: Equatable, Hashable {
     // declare one manually.
     public init(
         /**
-         * 16 bytes.
-         */groupId: Data, relayUrl: String, 
+         * Mac: its onion service's secret seed. Phone: its restricted-discovery secret. 32 bytes.
+         */torSecret: Data, 
         /**
-         * A private relay's owner key (decision 0007); None on Seam's relay.
-         */ownerKey: Data?, helloSeqSent: UInt64, helloSeqApplied: UInt64, 
+         * Phone: the Mac's onion address. Mac: empty.
+         */onionAddress: String, 
+        /**
+         * Mac: the paired phone's discovery public key (32 bytes). Phone: empty.
+         */peerDiscovery: Data, helloSeqSent: UInt64, helloSeqApplied: UInt64, 
         /**
          * The peer's paths from its last Hello. None: everything (never heard, or an older version).
          */peerAllowed: [PeerPath]?) {
-        self.groupId = groupId
-        self.relayUrl = relayUrl
-        self.ownerKey = ownerKey
+        self.torSecret = torSecret
+        self.onionAddress = onionAddress
+        self.peerDiscovery = peerDiscovery
         self.helloSeqSent = helloSeqSent
         self.helloSeqApplied = helloSeqApplied
         self.peerAllowed = peerAllowed
@@ -1752,9 +3023,9 @@ public struct FfiConverterTypeAppData: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppData {
         return
             try AppData(
-                groupId: FfiConverterData.read(from: &buf), 
-                relayUrl: FfiConverterString.read(from: &buf), 
-                ownerKey: FfiConverterOptionData.read(from: &buf), 
+                torSecret: FfiConverterData.read(from: &buf), 
+                onionAddress: FfiConverterString.read(from: &buf), 
+                peerDiscovery: FfiConverterData.read(from: &buf), 
                 helloSeqSent: FfiConverterUInt64.read(from: &buf), 
                 helloSeqApplied: FfiConverterUInt64.read(from: &buf), 
                 peerAllowed: FfiConverterOptionSequenceTypePeerPath.read(from: &buf)
@@ -1762,9 +3033,9 @@ public struct FfiConverterTypeAppData: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: AppData, into buf: inout [UInt8]) {
-        FfiConverterData.write(value.groupId, into: &buf)
-        FfiConverterString.write(value.relayUrl, into: &buf)
-        FfiConverterOptionData.write(value.ownerKey, into: &buf)
+        FfiConverterData.write(value.torSecret, into: &buf)
+        FfiConverterString.write(value.onionAddress, into: &buf)
+        FfiConverterData.write(value.peerDiscovery, into: &buf)
         FfiConverterUInt64.write(value.helloSeqSent, into: &buf)
         FfiConverterUInt64.write(value.helloSeqApplied, into: &buf)
         FfiConverterOptionSequenceTypePeerPath.write(value.peerAllowed, into: &buf)
@@ -1860,7 +3131,7 @@ public struct LanOutput: Equatable, Hashable {
      */
     public var frames: [Data]
     /**
-     * Set once, on the call that finished authentication: the paired peer's id.
+     * Set once, on the call that finished authentication: the paired peer's id, or "pairing".
      */
     public var authenticated: String?
 
@@ -1871,7 +3142,7 @@ public struct LanOutput: Equatable, Hashable {
          * seam.v1 ClientFrame (Mac side) or ServerFrame (phone side) bytes, from the authenticated peer.
          */frames: [Data], 
         /**
-         * Set once, on the call that finished authentication: the paired peer's id.
+         * Set once, on the call that finished authentication: the paired peer's id, or "pairing".
          */authenticated: String?) {
         self.send = send
         self.frames = frames
@@ -2246,9 +3517,9 @@ public enum PeerPath: Equatable, Hashable {
      */
     case lan
     /**
-     * Through the relay.
+     * Through Tor, to the Mac's private onion service.
      */
-    case relay
+    case tor
 
 
 
@@ -2272,7 +3543,7 @@ public struct FfiConverterTypePeerPath: FfiConverterRustBuffer {
         
         case 1: return .lan
         
-        case 2: return .relay
+        case 2: return .tor
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -2286,7 +3557,7 @@ public struct FfiConverterTypePeerPath: FfiConverterRustBuffer {
             writeInt(&buf, Int32(1))
         
         
-        case .relay:
+        case .tor:
             writeInt(&buf, Int32(2))
         
         }
@@ -2445,6 +3716,194 @@ public func FfiConverterTypeSeamError_lower(_ value: SeamError) -> RustBuffer {
     return FfiConverterTypeSeamError.lower(value)
 }
 
+
+
+public enum TorBlock: Equatable, Hashable {
+    
+    case offline
+    /**
+     * The network blocks Tor (workplaces, some countries).
+     */
+    case filtered
+    /**
+     * The device clock is too far off for Tor.
+     */
+    case clockSkewed
+    case other
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension TorBlock: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTorBlock: FfiConverterRustBuffer {
+    typealias SwiftType = TorBlock
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TorBlock {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .offline
+        
+        case 2: return .filtered
+        
+        case 3: return .clockSkewed
+        
+        case 4: return .other
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: TorBlock, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .offline:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .filtered:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .clockSkewed:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .other:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorBlock_lift(_ buf: RustBuffer) throws -> TorBlock {
+    return try FfiConverterTypeTorBlock.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorBlock_lower(_ value: TorBlock) -> RustBuffer {
+    return FfiConverterTypeTorBlock.lower(value)
+}
+
+
+
+/**
+ * How Tor is doing, for the apps' status line.
+ */
+
+public enum TorState: Equatable, Hashable {
+    
+    case off
+    /**
+     * Bootstrapping, percent done.
+     */
+    case starting(percent: UInt8
+    )
+    case ready
+    /**
+     * The network or device stops Tor: say why (decision 0004: never a silent fallback).
+     */
+    case blocked(reason: TorBlock
+    )
+    case failed
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension TorState: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTorState: FfiConverterRustBuffer {
+    typealias SwiftType = TorState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TorState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .off
+        
+        case 2: return .starting(percent: try FfiConverterUInt8.read(from: &buf)
+        )
+        
+        case 3: return .ready
+        
+        case 4: return .blocked(reason: try FfiConverterTypeTorBlock.read(from: &buf)
+        )
+        
+        case 5: return .failed
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: TorState, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .off:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .starting(percent):
+            writeInt(&buf, Int32(2))
+            FfiConverterUInt8.write(percent, into: &buf)
+            
+        
+        case .ready:
+            writeInt(&buf, Int32(3))
+        
+        
+        case let .blocked(reason):
+            writeInt(&buf, Int32(4))
+            FfiConverterTypeTorBlock.write(reason, into: &buf)
+            
+        
+        case .failed:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorState_lift(_ buf: RustBuffer) throws -> TorState {
+    return try FfiConverterTypeTorState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTorState_lower(_ value: TorState) -> RustBuffer {
+    return FfiConverterTypeTorState.lower(value)
+}
+
+
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
@@ -2472,8 +3931,8 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
-    typealias SwiftType = Data?
+fileprivate struct FfiConverterOptionTypeTorService: FfiConverterRustBuffer {
+    typealias SwiftType = TorService?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
@@ -2481,13 +3940,13 @@ fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
             return
         }
         writeInt(&buf, Int8(1))
-        FfiConverterData.write(value, into: &buf)
+        FfiConverterTypeTorService.write(value, into: &buf)
     }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
-        case 1: return try FfiConverterData.read(from: &buf)
+        case 1: return try FfiConverterTypeTorService.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -2698,6 +4157,39 @@ public func chunkDataSize() -> UInt32  {
     )
 })
 }
+/**
+ * The public half of a discovery secret, which the Mac's service lets discover it (empty for
+ * one that isn't 32 bytes).
+ */
+public func torDiscoveryPublic(discoverySecret: Data) -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_tor_discovery_public(
+        FfiConverterData.lower(discoverySecret),uniffiCallStatus
+    )
+})
+}
+/**
+ * A fresh 32-byte Tor secret: the Mac's onion service seed, or a phone's discovery secret.
+ */
+public func torNewSecret() -> Data  {
+    return try!  FfiConverterData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_tor_new_secret(uniffiCallStatus
+    )
+})
+}
+/**
+ * The onion address for a service secret ("" for one that isn't 32 bytes).
+ */
+public func torOnionAddress(serviceSecret: Data) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_tor_onion_address(
+        FfiConverterData.lower(serviceSecret),uniffiCallStatus
+    )
+})
+}
 
 private enum InitializationResult {
     case ok
@@ -2717,6 +4209,15 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_func_chunk_data_size() != 5213) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_func_tor_discovery_public() != 59638) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_tor_new_secret() != 49073) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_tor_onion_address() != 19237) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_method_filereceiver_finish() != 55133) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2730,6 +4231,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_filesealer_seal_next() != 34290) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_lanchannel_is_pairing() != 19809) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_lanchannel_peer_id() != 59835) {
@@ -2819,6 +4323,51 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_start_pairing() != 54107) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_method_tor_connect() != 49519) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_tor_host() != 2785) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_tor_set_dormant() != 21623) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_tor_start() != 61822) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_tor_state() != 48875) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torconnectlistener_on_open() != 35223) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torconnectlistener_on_failed() != 27702) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torservice_address() != 43733) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torservice_stop() != 10173) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torstatelistener_on_state() != 7167) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torstream_listen() != 12116) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torstream_send() != 32431) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torstream_shutdown() != 19247) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torstreamlistener_on_bytes() != 27000) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torstreamlistener_on_closed() != 24974) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_constructor_filereceiver_new() != 31203) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2828,7 +4377,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_constructor_lanchannel_initiator() != 27183) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_constructor_lanchannel_responder() != 26492) {
+    if (uniffi_seam_ffi_checksum_constructor_lanchannel_pairing_initiator() != 57756) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_lanchannel_responder() != 4934) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_constructor_seamdevice_generate() != 39377) {
@@ -2837,7 +4389,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_constructor_seamdevice_restore() != 15264) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_constructor_tor_new() != 24386) {
+        return InitializationResult.apiChecksumMismatch
+    }
 
+    uniffiCallbackInitTorConnectListener()
+    uniffiCallbackInitTorStateListener()
+    uniffiCallbackInitTorStreamListener()
     return InitializationResult.ok
 }()
 

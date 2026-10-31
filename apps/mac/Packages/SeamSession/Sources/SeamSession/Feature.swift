@@ -2,7 +2,7 @@
 import Foundation
 import SeamProtocol
 
-/// A payload a feature wants sealed and sent to the phone, with its time limit (0: the relay's 24 h).
+/// A payload a feature wants sealed and sent to the phone, with its time limit (0: the outbox's 24 h).
 public struct Outgoing: Sendable {
     public let payload: Seam_V1_Payload
     public let ttl: UInt32

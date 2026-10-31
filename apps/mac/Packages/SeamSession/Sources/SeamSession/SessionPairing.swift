@@ -3,28 +3,45 @@ import Foundation
 import SeamCore
 import SeamProtocol
 
-/// Pairing around the core's state machine and `PairingFlow`: the code's 5 minutes, the relay's
-/// pairing slot, PairAccept retried then undone, and which relay keys may go.
-extension Session {
-    /// Tries for PairAccept, with backoff between them: about a minute in all.
-    static let acceptAttempts = 6
+/// The PairAccept on its way to the pairing phone.
+struct PendingAccept {
+    let msgID: Data
+    let request: PairingRequest
+    /// The app data from before the pairing, to put back if it's undone.
+    let previous: AppData?
+}
 
-    /// A fresh QR code. `relayURL` and `name` go into it.
-    public func startPairing(relayURL: String, name: String) async {
-        // Pairing goes through the relay for now
-        guard relayOn, !flow.isConfirming, let data = device.appData() else { return }
+/// Pairing over the direct channel (docs/tor/13-implementation-contract.md, "Pairing exchange"),
+/// around the core's state machine and `PairingFlow`. A code names a new onion service, so a phone
+/// removed later only knows a dead address (SR-33-01). The phone reaches this Mac on Same Wi‑Fi or
+/// through that service; over that pairing channel it gets the bundle, sends its request, and hears
+/// the PairAccept.
+extension Session {
+    /// How long the PairAccept may take to be acked before the pairing is undone.
+    static let acceptDeadline: TimeInterval = 60
+
+    var pairingOpen: Bool {
+        switch flow.state {
+        case .waiting, .confirm, .confirming: true
+        default: false
+        }
+    }
+
+    /// A fresh QR code naming a new onion service only the phone holding it can find.
+    public func startPairing(name: String) async {
+        guard !flow.isConfirming else { return }
+        closePairing() // an earlier code's service and slot
         let offer = device.startPairing()
-        openTokenHash = offer.tokenHash
-        storage.setNeedsBundles(true)
+        let secret = torNewSecret()
+        let discovery = torNewSecret()
+        pairingService = TorServiceSpec(secret: secret, clients: [torDiscoveryPublic(discoverySecret: discovery)])
         let qr = PairingQR(
-            relayURL: relayURL, groupID: data.groupId, token: offer.token,
+            onionAddress: torOnionAddress(serviceSecret: secret), discoverySecret: discovery, token: offer.token,
             identityKey: device.identityKey(), relayKey: device.relayKey(), name: name
         )
         flow.start(qr: qr.url, now: timers.now())
-        expiry?.cancel()
         expiry = timers.after(PairingDeadline.lifetime) { [weak self] in await self?.pairingExpired() }
         publish()
-        await announcePairing()
     }
 
     /// Pair was clicked. Safe to call twice: only the first call does anything.
@@ -37,46 +54,122 @@ extension Session {
     /// Cancel, or the window closed. Does nothing while PairAccept is already on its way.
     public func cancelPairing() async {
         guard let previous = flow.cancel() else { return }
-        switch previous {
-        case .confirm(let request): await reject(request)
-        case .waiting: await closeSlot()
-        default: break
-        }
+        if case .confirm(let request) = previous { device.rejectPairing(peerId: request.peerId) }
+        closePairing()
         publish()
     }
 
+    // MARK: The pairing channel
+
+    func pairingLinked(on path: PeerPath) {
+        // Only while a code is showing, and only one pairing link: a second carrier's goes
+        guard pairingOpen, pairingPath == nil || pairingPath == path else {
+            return links[path]?.close(peerId: LanServer.pairingPeer) ?? ()
+        }
+        pairingPath = path
+    }
+
+    func pairingUnlinked(on path: PeerPath) async {
+        guard pairingPath == path else { return }
+        pairingPath = nil
+        // The PairAccept may not have arrived: never leave a half-paired phone (the phone acks
+        // before it closes, so a finished pairing is never here)
+        if let pending = pendingAccept { await failAccept(pending) }
+    }
+
+    /// Steps 1–2: this Mac's bundle, fresh, saved as used before it goes.
+    func sendBundle(on path: PeerPath) {
+        guard path == pairingPath, case .waiting = flow.state else { return }
+        do {
+            let bundle: Data
+            if let sent = pairingBundle {
+                bundle = sent
+            } else {
+                guard let fresh = try device.prekeyBundles(count: 1).first else { return }
+                try storage.saveState()
+                pairingBundle = fresh
+                bundle = fresh
+            }
+            let key = device.relayKey()
+            _ = links[path]?.send(.with { $0.bundle = .with { $0.deviceKey = key; $0.bundle = bundle } }, to: LanServer.pairingPeer)
+        } catch {
+            log.error("pairing bundle failed")
+        }
+    }
+
+    /// Steps 3–4: the phone's request, checked by the core, then the safety code for the user.
+    func pairingEnvelope(_ envelope: Seam_V1_Envelope, on path: PeerPath) {
+        guard path == pairingPath, case .waiting = flow.state, let bytes = try? envelope.serializedData() else { return }
+        do {
+            let request = try device.acceptPairing(envelope: bytes)
+            guard flow.received(request) else { return device.rejectPairing(peerId: request.peerId) }
+            _ = links[path]?.send(.with { $0.delivered = .with { $0.msgID = envelope.msgID } }, to: LanServer.pairingPeer)
+        } catch {
+            log.error("pairing attempt refused")
+            links[path]?.close(peerId: LanServer.pairingPeer)
+        }
+    }
+
+    /// Step 5: the phone has the PairAccept.
+    func pairingAcked(_ msgID: Data, on path: PeerPath) async {
+        guard path == pairingPath, let pending = pendingAccept, pending.msgID == msgID else { return }
+        pendingAccept = nil
+        await finishPairing(pending.request)
+    }
+
+    // MARK: Private
+
     /// Saved before the phone hears it's paired: never tell it so unless this Mac will remember.
+    /// The new service becomes the pairing's; the old one stops once this is saved.
     private func sendAccept(_ request: PairingRequest) async {
-        let frame: Seam_V1_ClientFrame
+        let previous = device.appData()
+        // The phone left while the user compared codes: nothing to tell
+        guard let service = pairingService, let path = pairingPath, links[path] != nil else {
+            device.rejectPairing(peerId: request.peerId)
+            closePairing()
+            flow.fail("Couldn't reach your phone. Show a new code and scan it again.")
+            return publish()
+        }
+        let envelope: Seam_V1_Envelope
         do {
             try device.confirmPairing(peerId: request.peerId)
             let accept = Seam_V1_Payload.with { $0.control = .with { $0.pairAccept = .init() } }
             let sealed = try device.seal(peerId: request.peerId, payload: try accept.serializedData(), ttlS: 0)
             device.forgetHello() // a new pairing starts the Hello counts again, on both devices
+            try device.setAppData(data: AppData(
+                torSecret: service.secret, onionAddress: "", peerDiscovery: service.clients[0],
+                helloSeqSent: 0, helloSeqApplied: 0, peerAllowed: nil
+            ))
             try storage.saveState()
-            frame = Frames.send(try Seam_V1_Envelope(serializedBytes: sealed))
+            envelope = try Seam_V1_Envelope(serializedBytes: sealed)
         } catch {
             log.error("pairing confirm failed")
-            await undoPairing(request.peerId)
+            await undoPairing(request.peerId, previous: previous)
             flow.fail("Seam couldn't save the pairing on this Mac. Show a new code and scan it again.")
             return publish()
         }
         // Anything held for a previous phone goes before the new one can send (SR-29-10)
         for feature in features { await feature.reset() }
-        await tryAccept(frame, request, attempt: 0)
+        let pending = PendingAccept(msgID: envelope.msgID, request: request, previous: previous)
+        pendingAccept = pending
+        guard links[path]?.send(.with { $0.deliver = envelope }, to: LanServer.pairingPeer) == true else {
+            return await failAccept(pending)
+        }
+        expiry?.cancel()
+        expiry = timers.after(Self.acceptDeadline) { [weak self] in await self?.acceptTimedOut(pending.msgID) }
     }
 
-    /// The relay may be reconnecting: retried with backoff, then the pairing is undone.
-    private func tryAccept(_ frame: Seam_V1_ClientFrame, _ request: PairingRequest, attempt: Int) async {
-        guard attempt < Self.acceptAttempts else {
-            log.error("pairing accept not delivered")
-            await undoPairing(request.peerId)
-            flow.fail("Couldn't reach your phone. Check both are online, then show a new code and scan it again.")
-            return publish()
-        }
-        if let relay, (try? await relay.send(frame)) != nil { return await finishPairing(request) }
-        let delay = Backoff().delay(attempt: attempt, jitter: .random(in: 0..<1))
-        _ = timers.after(delay) { [weak self] in await self?.tryAccept(frame, request, attempt: attempt + 1) }
+    private func acceptTimedOut(_ msgID: Data) async {
+        guard let pending = pendingAccept, pending.msgID == msgID else { return }
+        await failAccept(pending)
+    }
+
+    private func failAccept(_ pending: PendingAccept) async {
+        pendingAccept = nil
+        log.error("pairing accept not delivered")
+        await undoPairing(pending.request.peerId, previous: pending.previous)
+        flow.fail("Couldn't reach your phone. Show a new code and scan it again.")
+        publish()
     }
 
     private func finishPairing(_ request: PairingRequest) async {
@@ -85,88 +178,37 @@ extension Session {
             flow.fail("Pairing didn't finish. Show a new code and scan it again.")
             return publish()
         }
-        expiry?.cancel()
-        openTokenHash = nil
+        if let old = phone, old.id != peer.id { up = [] } // the old phone's links no longer count
         phone = peer
         flow.finish(name: request.deviceName)
-        publish()
+        closePairing() // the phone comes back as itself, on the same service
         await sendHello()
-        await uploadBundlesIfNeeded()
         publish()
     }
 
-    /// The user said no to a verified request: forget the phone and take it out of the group.
-    private func reject(_ request: PairingRequest) async {
-        let key = removableRelayKey(request.peerId)
-        device.rejectPairing(peerId: request.peerId)
-        await closeSlot()
-        if let key { try? await relay?.send(Frames.removeMember(key)) }
-    }
-
-    /// A phone confirmed here whose PairAccept never got out.
-    private func undoPairing(_ peerId: String) async {
-        let key = removableRelayKey(peerId)
+    /// A phone confirmed here whose PairAccept never got out: forgotten, the app data put back.
+    private func undoPairing(_ peerId: String, previous: AppData?) async {
         await clipboard.reset()
         device.removePeer(peerId: peerId)
+        if let previous { try? device.setAppData(data: previous) } else { device.clearAppData() }
         do { try storage.saveState() } catch { saveFailed() }
-        await closeSlot()
-        if let key { try? await relay?.send(Frames.removeMember(key)) }
+        closePairing()
     }
 
     private func pairingExpired() async {
         guard flow.expire() else { return }
-        await closeSlot()
+        closePairing()
         publish()
     }
 
-    /// Closes the pairing slot in the core and on the relay, so the code can't be used later.
-    private func closeSlot() async {
+    /// The code can't be used any more: the core's slot, the new service (unless it became the
+    /// pairing's) and the pairing link all go.
+    func closePairing() {
         expiry?.cancel()
         device.cancelPairing()
-        guard openTokenHash != nil else { return }
-        openTokenHash = nil
-        try? await relay?.send(Frames.closePairing())
-    }
-
-    /// The slot on the relay, for what's left of the code's life: a reconnect never extends it.
-    func announcePairing() async {
-        guard let hash = openTokenHash, case .waiting(_, let deadline) = flow.state else { return }
-        let ttl = deadline.ttlSeconds(at: timers.now())
-        guard ttl > 0 else { return }
-        try? await relay?.send(Frames.openPairing(tokenHash: hash, ttl: ttl))
-    }
-
-    /// A phone's first envelope while a code is showing.
-    func acceptPairing(_ envelope: Data) {
-        do {
-            let request = try device.acceptPairing(envelope: envelope)
-            guard flow.received(request) else { return device.rejectPairing(peerId: request.peerId) }
-        } catch {
-            // A wrong or stale code doesn't use up the slot; keep waiting for the real phone
-            log.error("pairing attempt refused")
-        }
-    }
-
-    func removableRelayKey(_ peerId: String) -> Data? {
-        Self.removableRelayKey(peerId, among: device.peers())
-    }
-
-    /// The peer's relay key, unless another (already paired) device shares it: a pairing request
-    /// claiming the paired phone's key must not take the phone out of the group when it's rejected.
-    static func removableRelayKey(_ peerId: String, among peers: [PeerInfo]) -> Data? {
-        guard let key = peers.first(where: { $0.id == peerId })?.relayKey else { return nil }
-        return peers.contains { $0.id != peerId && $0.confirmed && $0.relayKey == key } ? nil : key
-    }
-
-    func uploadBundlesIfNeeded() async {
-        guard storage.needsBundles(), let relay else { return }
-        do {
-            let bundles = try device.prekeyBundles(count: 20)
-            try storage.saveState()
-            try await relay.send(Frames.putBundles(bundles))
-            storage.setNeedsBundles(false)
-        } catch {
-            log.error("bundle upload failed; retrying on next connect")
-        }
+        pairingService = nil
+        if let path = pairingPath { links[path]?.close(peerId: LanServer.pairingPeer) }
+        pairingPath = nil
+        pairingBundle = nil
     }
 }

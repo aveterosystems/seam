@@ -30,6 +30,7 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 - Attacks that need a device that's already compromised (malware running as the user, a rooted phone with the attacker in control)
 - Denial of service against the relay, unless it also breaks confidentiality or integrity
 - Vulnerabilities in libsignal itself: please report those to Signal at security@signal.org. Tell us too, so we can pin a fixed version.
+- Vulnerabilities in Arti or the Tor network: please report those to the Tor Project (https://support.torproject.org/misc/bug-or-feedback/). Tell us too, so we can update Arti.
 
 ## Supported versions
 

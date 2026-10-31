@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "seam-tor"
+version = "0.1.0"
+description = "Seam's Tor path: a private onion service on the Mac, a Tor client on the phone (Arti)"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Pinned exactly: restricted discovery and the in-memory keystore are behind Arti's experimental
+# features, which carry no semver promise (docs/tor/03-what-changes.md).
+arti-client = { version = "=0.47.0", default-features = false, features = [
+    "tokio", "rustls", "compression", "static-sqlite",
+    "onion-service-client", "onion-service-service", "keymgr", "experimental-api", "ephemeral-keystore",
+    # Guards for a long-running onion service's own circuits (lite by default), as Tor advises
+    "vanguards",
+] }
+# Arti's own crates, same exact version, for the key and onion-service types arti-client exposes
+tor-cell = "=0.47.0"
+tor-hscrypto = "=0.47.0"
+tor-hsservice = { version = "=0.47.0", features = ["restricted-discovery"] }
+tor-keymgr = { version = "=0.47.0", features = ["ephemeral-keystore"] }
+tor-llcrypto = "=0.47.0"
+tor-proto = "=0.47.0"
+safelog = "=0.10.0"
+tor-rtcompat = { version = "=0.47.0", default-features = false, features = ["tokio", "rustls"] }
+futures = "0.3"
+# Arti's TLS to Tor relays needs a crypto backend; ring cross-compiles for Android with no extra
+# tooling. It only carries Tor's link layer, under Tor's own encryption.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+getrandom = "0.3"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "time", "io-util", "macros"] }
+zeroize = "1"
+
+[dev-dependencies]
+tempfile = "3"

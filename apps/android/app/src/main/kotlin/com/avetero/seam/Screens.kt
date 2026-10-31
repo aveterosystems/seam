@@ -287,11 +287,6 @@ private fun Intro(title: String, body: String, action: String, error: String?, o
 @Composable
 private fun Confirm(qr: PairingQr, onConfirm: (PairingQr) -> Unit, onCancel: () -> Unit) {
     SheetHead("Pair with ${qr.macName}?", "Only if it's your Mac, the one in front of you")
-    Text(
-        if (qr.officialRelay) "Through ${qr.relayHost}" else "Through ${qr.relayHost}: not Seam's relay. Only pair if you run it.",
-        fontSize = 14.sp, textAlign = TextAlign.Center,
-        color = if (qr.officialRelay) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-    )
     val armed = armedAfterDelay()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = { onConfirm(qr) }, enabled = armed, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Pair", fontSize = 16.sp) }

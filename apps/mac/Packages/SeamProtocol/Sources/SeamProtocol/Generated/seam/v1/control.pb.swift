@@ -34,8 +34,11 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
   /// same network, direct
   case lan // = 1
 
-  /// internet, through a Seam relay (ours or self-hosted)
+  /// retired with the relay (decision 0009); never reused
   case relay // = 2
+
+  /// internet, through Tor to the Mac's private onion service
+  case tor // = 4
 
   /// direct Bluetooth LE (decision 0006; not built yet)
   case bluetooth // = 3
@@ -51,6 +54,7 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
     case 1: self = .lan
     case 2: self = .relay
     case 3: self = .bluetooth
+    case 4: self = .tor
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -61,6 +65,7 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
     case .lan: return 1
     case .relay: return 2
     case .bluetooth: return 3
+    case .tor: return 4
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -70,6 +75,7 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
     .unspecified,
     .lan,
     .relay,
+    .tor,
     .bluetooth,
   ]
 
@@ -255,7 +261,7 @@ public nonisolated struct Seam_V1_PairAccept: Sendable {
 fileprivate nonisolated let _protobuf_package = "seam.v1"
 
 nonisolated extension Seam_V1_Transport: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0TRANSPORT_UNSPECIFIED\0\u{1}TRANSPORT_LAN\0\u{1}TRANSPORT_RELAY\0\u{1}TRANSPORT_BLUETOOTH\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0TRANSPORT_UNSPECIFIED\0\u{1}TRANSPORT_LAN\0\u{1}TRANSPORT_RELAY\0\u{1}TRANSPORT_BLUETOOTH\0\u{1}TRANSPORT_TOR\0")
 }
 
 nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {

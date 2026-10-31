@@ -10,7 +10,8 @@ let package = Package(
     products: [.library(name: "SeamCore", targets: ["SeamCore"])],
     targets: [
         .binaryTarget(name: "SeamCoreFFI", path: "SeamCoreFFI.xcframework"),
-        .target(name: "SeamCore", dependencies: ["SeamCoreFFI"]),
+        // Tor (arti) reads compressed directory documents with the system's liblzma
+        .target(name: "SeamCore", dependencies: ["SeamCoreFFI"], linkerSettings: [.linkedLibrary("lzma")]),
         .testTarget(name: "SeamCoreTests", dependencies: ["SeamCore"]),
     ]
 )

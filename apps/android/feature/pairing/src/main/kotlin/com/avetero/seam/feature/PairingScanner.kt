@@ -31,6 +31,8 @@ sealed interface ScanResult {
     data class Code(val qr: PairingQr) : ScanResult
     /** Read a QR code that isn't a Seam pairing code. */
     data object NotSeam : ScanResult
+    /** A pairing code from a Mac on the relay version of Seam (v1): it needs updating first. */
+    data object OldMac : ScanResult
 }
 
 /** Reads a QR code from a camera frame's brightness plane (Y of YUV), or null if there isn't one. */
@@ -51,7 +53,7 @@ object QrDecoder {
  * and back (SR-11-15). The camera closes when this leaves the screen. Needs the CAMERA permission.
  */
 @Composable
-fun QrViewfinder(active: Boolean, allowCleartext: Boolean, onResult: (ScanResult) -> Unit, modifier: Modifier = Modifier) {
+fun QrViewfinder(active: Boolean, onResult: (ScanResult) -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val reading = rememberUpdatedState(active)
@@ -70,8 +72,8 @@ fun QrViewfinder(active: Boolean, allowCleartext: Boolean, onResult: (ScanResult
                     val plane = it.planes[0]
                     val bytes = ByteArray(plane.buffer.remaining()).also { b -> plane.buffer.get(b) }
                     val raw = QrDecoder.decode(bytes, plane.rowStride, it.width, it.height) ?: return@use
-                    val qr = PairingQr.parse(raw, allowCleartext)
-                    if (qr == null) main.post { report.value(ScanResult.NotSeam) }
+                    val qr = PairingQr.parse(raw)
+                    if (qr == null) main.post { report.value(if (PairingQr.isOldVersion(raw)) ScanResult.OldMac else ScanResult.NotSeam) }
                     else if (latched.compareAndSet(false, true)) main.post { if (reading.value) report.value(ScanResult.Code(qr)) }
                 }
             }

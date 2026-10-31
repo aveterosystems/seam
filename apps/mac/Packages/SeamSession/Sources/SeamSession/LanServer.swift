@@ -4,21 +4,27 @@ import Network
 import SeamCore
 import SeamProtocol
 
-/// What the direct link reports, in order, on `LanServer.events`. `peerId` is the authenticated
-/// paired device the link belongs to.
+/// What a direct link reports, in order, on `LanServer.events`. `peerId` is the authenticated
+/// paired device the link belongs to, or `LanServer.pairingPeer` for a phone that proved it
+/// scanned this Mac's code (a pairing channel, which carries only the pairing exchange).
 public enum LanEvent: Sendable, Equatable {
-    /// A paired phone proved who it is; it may now be sent to.
+    /// A paired (or pairing) phone proved who it is; it may now be sent to.
     case authenticated(peerId: String)
     /// That phone's link closed (not reported when a newer link from it replaced this one).
     case closed(peerId: String)
     case envelope(peerId: String, Seam_V1_Envelope)
     case delivered(peerId: String, msgID: Data)
+    /// A pairing phone asks for this Mac's prekey bundle (pairing channels only).
+    case bundleRequest(peerId: String)
 }
 
-/// The Mac's side of the same‑Wi‑Fi link (protocol/README.md, "The direct connection"): a TCP
-/// listener announced over Bonjour, on Wi‑Fi and wired Ethernet only. All the cryptography is the
+/// The Mac's side of a direct link (protocol/README.md, "The direct connection"), over either
+/// carrier: Same Wi‑Fi (a TCP listener announced over Bonjour, on Wi‑Fi and wired Ethernet only) or
+/// Tor (streams from the Mac's onion service, handed in with `adopt`). All the cryptography is the
 /// core's `LanChannel`; this only moves bytes, enforces the limits, and turns frames into events.
 public final class LanServer: @unchecked Sendable {
+    /// The peer id of a pairing channel (the core's PAIRING_PEER).
+    public static let pairingPeer = "pairing"
     public static let serviceType = "_seam._tcp"
     /// Fixed, so the Bonjour name doesn't announce whose Mac it is.
     public static let serviceName = "Seam"
@@ -32,10 +38,15 @@ public final class LanServer: @unchecked Sendable {
     public static let firstBytesDeadline: TimeInterval = 2
     /// A link closed on purpose waits this long at most for what was already sent to be written.
     public static let closeGrace: TimeInterval = 2
+    /// Over Tor a handshake crosses about six relays each way: more time before a stream goes.
+    public static let torFirstBytesDeadline: TimeInterval = 15
+    public static let torAuthDeadline: TimeInterval = 45
 
     public let events: AsyncStream<LanEvent>
     private let continuation: AsyncStream<LanEvent>.Continuation
     private let device: SeamDevice
+    /// False: no TCP listener; streams come in through `adopt` (the Tor carrier).
+    private let listens: Bool
     private let advertise: Bool
     private let deadline: TimeInterval
     private let firstBytesDeadline: TimeInterval
@@ -52,17 +63,17 @@ public final class LanServer: @unchecked Sendable {
 
     /// Only touched on `queue`.
     private final class Link: @unchecked Sendable {
-        let connection: NWConnection
+        let pipe: any Pipe
         let channel: LanChannel
         let address: String
         var peer: String?
         var heard = false
         var closed = false
-        /// Frames handed to the connection and not yet written.
+        /// Frames handed to the pipe and not yet written.
         var unsent = 0
 
-        init(connection: NWConnection, channel: LanChannel, address: String) {
-            self.connection = connection
+        init(pipe: any Pipe, channel: LanChannel, address: String) {
+            self.pipe = pipe
             self.channel = channel
             self.address = address
         }
@@ -73,8 +84,14 @@ public final class LanServer: @unchecked Sendable {
         self.init(device: device, advertise: advertise, authDeadline: authDeadline, firstBytesDeadline: Self.firstBytesDeadline, allowLoopback: false)
     }
 
-    init(device: SeamDevice, advertise: Bool, authDeadline: TimeInterval, firstBytesDeadline: TimeInterval, allowLoopback: Bool) {
+    /// The Tor carrier: no listener; each stream from the onion service comes in through `adopt`.
+    public static func tor(device: SeamDevice) -> LanServer {
+        LanServer(device: device, listens: false, advertise: false, authDeadline: torAuthDeadline, firstBytesDeadline: torFirstBytesDeadline, allowLoopback: false)
+    }
+
+    init(device: SeamDevice, listens: Bool = true, advertise: Bool, authDeadline: TimeInterval, firstBytesDeadline: TimeInterval, allowLoopback: Bool) {
         self.device = device
+        self.listens = listens
         self.advertise = advertise
         self.deadline = authDeadline
         self.firstBytesDeadline = firstBytesDeadline
@@ -85,7 +102,8 @@ public final class LanServer: @unchecked Sendable {
     /// Listens on any free port and returns it once ready. If the listener fails later (a network
     /// change), it starts again by itself with backoff. Single use: after `stop()`, make a new one.
     public func start() async throws -> UInt16 {
-        try await withCheckedThrowingContinuation { (done: CheckedContinuation<UInt16, Error>) in
+        guard listens else { return 0 } // the Tor carrier: streams arrive through `adopt`
+        return try await withCheckedThrowingContinuation { (done: CheckedContinuation<UInt16, Error>) in
             queue.async { self.listen(first: done) }
         }
     }
@@ -112,15 +130,15 @@ public final class LanServer: @unchecked Sendable {
             }
             link.unsent += 1
             WireDump.record(wire, out: true)
-            link.connection.send(content: wire, completion: .contentProcessed { [weak self] error in
-                link.unsent -= 1 // on `queue`: the connection runs there
-                if error != nil {
+            link.pipe.write(wire) { [weak self] ok in
+                link.unsent -= 1 // on `queue`: the pipe calls back there
+                if !ok {
                     self?.drop(link)
-                    link.connection.cancel() // closed gracefully already: it's not coming
+                    link.pipe.cancel() // closed gracefully already: it's not coming
                 } else if link.closed, link.unsent == 0 {
-                    link.connection.cancel() // the last frame of a graceful close is out
+                    link.pipe.cancel() // the last frame of a graceful close is out
                 }
-            })
+            }
             return true
         }
     }
@@ -128,43 +146,6 @@ public final class LanServer: @unchecked Sendable {
     /// Closes a peer's link (one that isn't, or is no longer, the paired phone).
     public func close(peerId: String) {
         queue.sync { if let link = authed[peerId] { drop(link, graceful: true) } }
-    }
-
-    /// Whether a connection may come from `host`: private, link-local or unique-local only, never
-    /// the internet (a port forward, a VPN) or this Mac itself.
-    static func isLocal(_ host: NWEndpoint.Host) -> Bool {
-        switch host {
-        case .ipv4(let a): return isLocal(v4: [UInt8](a.rawValue))
-        case .ipv6(let a):
-            let b = [UInt8](a.rawValue)
-            guard b.count == 16 else { return false }
-            if b[0..<10].allSatisfy({ $0 == 0 }) && b[10] == 0xFF && b[11] == 0xFF { return isLocal(v4: Array(b[12...])) } // ::ffff:a.b.c.d
-            return (b[0] == 0xFE && b[1] & 0xC0 == 0x80) || b[0] & 0xFE == 0xFC // fe80::/10, fc00::/7
-        default: return false
-        }
-    }
-
-    /// Which waiting connection makes room: one that has sent nothing yet, at random, else any at
-    /// random. Random, so an attacker can't predict which of its own (or the phone's) goes.
-    static func victim<T>(_ candidates: [T], heard: (T) -> Bool) -> T? {
-        candidates.filter { !heard($0) }.randomElement() ?? candidates.randomElement()
-    }
-
-    /// The per-address limit's bucket: the IPv4 address (IPv4-mapped too), the exact address for
-    /// link-local IPv6 (the whole LAN shares fe80::/64, so the phone would share an attacker's
-    /// bucket), and the /64 for other IPv6 (one device can hold a whole /64).
-    static func addressKey(_ host: NWEndpoint.Host) -> String {
-        guard case .ipv6(let a) = host else { return "\(host)" }
-        let b = [UInt8](a.rawValue)
-        guard b.count == 16 else { return "\(host)" }
-        if b[0..<10].allSatisfy({ $0 == 0 }) && b[10] == 0xFF && b[11] == 0xFF { return b[12...].map(String.init).joined(separator: ".") }
-        if b[0] == 0xFE && b[1] & 0xC0 == 0x80 { return b.map { String(format: "%02x", $0) }.joined() } // fe80::/10, without the zone
-        return b[..<8].map { String(format: "%02x", $0) }.joined() + "::/64"
-    }
-
-    private static func isLocal(v4 b: [UInt8]) -> Bool {
-        guard b.count == 4 else { return false }
-        return b[0] == 10 || (b[0] == 172 && b[1] & 0xF0 == 16) || (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254)
     }
 
     // MARK: Private (on `queue`)
@@ -237,27 +218,42 @@ public final class LanServer: @unchecked Sendable {
         }
         // No paired phone: the core refuses to make a responder, so nobody gets in
         guard let channel = try? LanChannel.responder(device: device) else { return c.cancel() }
-        let address = Self.addressKey(host)
+        take(ConnectionPipe(c, queue: queue), channel: channel, address: Self.addressKey(host))
+    }
+
+    /// A stream from the Mac's onion service, handled exactly like a Same Wi‑Fi connection. Only the
+    /// paired phone (or, while pairing, the phone that scanned the code) can find the service, and
+    /// the channel still has to authenticate it.
+    public func adopt(_ stream: TorStream) {
+        queue.async {
+            guard !self.stopped, let channel = try? LanChannel.responder(device: self.device) else { return stream.shutdown() }
+            // Tor streams carry no address to bucket by: each is its own bucket, so only the overall limit applies
+            self.take(TorPipe(stream, queue: self.queue), channel: channel, address: UUID().uuidString)
+        }
+    }
+
+    /// A new link, which has to authenticate within the deadlines.
+    private func take(_ pipe: any Pipe, channel: LanChannel, address: String) {
         // Room for the newcomer: first within its own address, then overall
         let same = pending.filter { $0.address == address }
         if same.count >= Self.maxPendingPerAddress, let v = Self.victim(same, heard: \.heard) { drop(v) }
         if pending.count >= Self.maxPending, let v = Self.victim(pending, heard: \.heard) { drop(v) }
-        let link = Link(connection: c, channel: channel, address: address)
+        let link = Link(pipe: pipe, channel: channel, address: address)
         pending.append(link)
-        c.stateUpdateHandler = { [weak self, weak link] state in
-            switch state {
-            case .failed, .cancelled: if let link { self?.drop(link) }
-            default: break
-            }
-        }
-        c.start(queue: queue)
         queue.asyncAfter(deadline: .now() + firstBytesDeadline) { [weak self, weak link] in
             if let link, !link.heard { self?.drop(link) }
         }
         queue.asyncAfter(deadline: .now() + deadline) { [weak self, weak link] in
             if let link, link.peer == nil { self?.drop(link) }
         }
-        read(link)
+        pipe.start { [weak self, weak link] data, done in
+            guard let self, let link, !link.closed else { return }
+            if let data, !data.isEmpty {
+                link.heard = true
+                if !self.handle(link, data) { return self.drop(link) }
+            }
+            if done { self.drop(link) }
+        }
     }
 
     private func isLoopback(_ host: NWEndpoint.Host) -> Bool {
@@ -268,25 +264,13 @@ public final class LanServer: @unchecked Sendable {
         }
     }
 
-    private func read(_ link: Link) {
-        link.connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, complete, error in
-            guard let self, !link.closed else { return }
-            if let data, !data.isEmpty {
-                link.heard = true
-                if !self.handle(link, data) { return self.drop(link) }
-            }
-            if complete || error != nil { return self.drop(link) }
-            self.read(link)
-        }
-    }
-
     /// False closes the link: the channel refused the bytes (a stranger, tampering, garbage).
     private func handle(_ link: Link, _ data: Data) -> Bool {
         WireDump.record(data, out: false)
         guard let out = try? link.channel.receive(bytes: data) else { return false }
         if !out.send.isEmpty {
             WireDump.record(out.send, out: true)
-            link.connection.send(content: out.send, completion: .idempotent)
+            link.pipe.write(out.send) { _ in }
         }
         if let peer = out.authenticated {
             pending.removeAll { $0 === link }
@@ -299,11 +283,19 @@ public final class LanServer: @unchecked Sendable {
         guard let peer = link.peer else { return true }
         for bytes in out.frames {
             // From the authenticated phone, but still only the frames this link carries
-            guard let frame = try? Seam_V1_ClientFrame(serializedBytes: bytes) else { continue }
+            let pairing = link.channel.isPairing()
+            guard let frame = try? Seam_V1_ClientFrame(serializedBytes: bytes) else {
+                if pairing { return false }
+                continue
+            }
             switch frame.frame {
             case .send(let envelope): continuation.yield(.envelope(peerId: peer, envelope))
             case .delivered(let d): continuation.yield(.delivered(peerId: peer, msgID: d.msgID))
-            default: break
+            // Only a pairing phone needs the bundle, and only this Mac's
+            case .getBundle(let g) where pairing && g.deviceKey == device.relayKey():
+                continuation.yield(.bundleRequest(peerId: peer))
+            // A pairing channel carries the pairing exchange and nothing else: anything more closes it
+            default: if pairing { return false }
             }
         }
         return true
@@ -315,53 +307,14 @@ public final class LanServer: @unchecked Sendable {
         guard !link.closed else { return }
         link.closed = true
         if graceful && link.unsent > 0 {
-            queue.asyncAfter(deadline: .now() + Self.closeGrace) { link.connection.cancel() }
+            queue.asyncAfter(deadline: .now() + Self.closeGrace) { link.pipe.cancel() }
         } else {
-            link.connection.cancel()
+            link.pipe.cancel()
         }
         pending.removeAll { $0 === link }
         if let peer = link.peer, authed[peer] === link {
             authed[peer] = nil
             continuation.yield(.closed(peerId: peer))
         }
-    }
-}
-
-/// Runs its body at most once, from any thread.
-final class Once: @unchecked Sendable {
-    private let lock = NSLock()
-    private var done = false
-
-    /// True if the body ran now.
-    @discardableResult
-    func run(_ body: () -> Void) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !done else { return false }
-        done = true
-        body()
-        return true
-    }
-}
-
-/// Debug builds only, and only when started with SEAM_WIRE_DUMP=<file>: appends every byte the
-/// direct link sends or receives on the socket (before any decryption), so a test can check that
-/// nothing readable crosses the network. Compiled out of Release.
-enum WireDump {
-    #if DEBUG
-    private static let file: FileHandle? = ProcessInfo.processInfo.environment["SEAM_WIRE_DUMP"].flatMap { path in
-        FileManager.default.createFile(atPath: path, contents: nil, attributes: [.posixPermissions: 0o600])
-        return FileHandle(forWritingAtPath: path)
-    }
-    private static let lock = NSLock()
-    #endif
-
-    static func record(_ bytes: Data, out: Bool) {
-        #if DEBUG
-        guard let file else { return }
-        lock.lock()
-        defer { lock.unlock() }
-        file.write(Data((out ? ">" : "<").utf8) + withUnsafeBytes(of: UInt32(bytes.count).bigEndian) { Data($0) } + bytes)
-        #endif
     }
 }

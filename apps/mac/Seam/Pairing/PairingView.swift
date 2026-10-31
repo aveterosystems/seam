@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamCore
 import SeamSession
 import SwiftUI
 
@@ -99,18 +100,14 @@ struct PairingView: View {
         }
     }
 
-    @ViewBuilder private var right: some View {
-        if !controller.relayOn {
-            outcome("Pairing goes through the relay for now. Turn it on to show a code; you can turn it off again once you've paired.", button: "Turn On Relay") {
-                controller.setRelay(true)
-                controller.startPairing()
-            }
-        } else {
-            pairing
-        }
+    /// While Tor isn't ready the phone can still pair on the same Wi‑Fi: say why Tor waits (decision 0004).
+    private var torNote: String? {
+        guard controller.torOn, controller.torState != .ready else { return nil }
+        return LinkLook.of(route: nil, allowed: [.tor], tor: controller.torState).label
     }
 
-    @ViewBuilder private var pairing: some View {
+    /// Pairing works over either path, and one is always on: a code can always show.
+    @ViewBuilder private var right: some View {
         switch controller.pairing {
         case .idle:
             outcome("Show a code to scan with Seam on your phone.", button: "Show code") { controller.startPairing() }
@@ -129,12 +126,11 @@ struct PairingView: View {
                 Circle().fill(SeamStyle.warn).frame(width: 8, height: 8)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let left = Int(deadline.remaining(at: context.date))
-                    Text(controller.relayUp
-                        ? "Waiting for your phone… code expires in \(left / 60):\(String(format: "%02d", left % 60))"
-                        : "Connecting to \(controller.relayHost)…")
+                    Text("Waiting for your phone… code expires in \(left / 60):\(String(format: "%02d", left % 60))")
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
+            if let torNote { Text(torNote).font(.caption).foregroundStyle(.secondary) }
         case .confirm(let request):
             ConfirmView(controller: controller, name: request.deviceName, code: request.safetyCode, sending: false)
         case .confirming(let request):
@@ -180,7 +176,6 @@ private struct ConfirmView: View {
                     .accessibilityLabel("Code \(code)")
             }
             Text("Check your phone shows the same code.").font(.caption).foregroundStyle(.secondary)
-            Text("Through \(controller.relayHost)").font(.caption).foregroundStyle(.secondary)
             HStack {
                 // Cancel is the prominent, default button: Return cancels, and the look says so (SR-10-02)
                 Button("Cancel", role: .cancel) { PairingWindow.close() }

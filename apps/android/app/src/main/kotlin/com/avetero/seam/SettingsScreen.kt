@@ -72,7 +72,7 @@ fun SettingsScreen(
     onOpenNotifications: () -> Unit = {},
     connection: ConnectionSettings = ConnectionSettings(),
     look: LinkLook = LinkLook.Reconnecting,
-    onSwitches: (wifi: Boolean, relay: Boolean) -> Unit = { _, _ -> },
+    onSwitches: (wifi: Boolean, tor: Boolean) -> Unit = { _, _ -> },
 ) {
     var explainClipboard by remember { mutableStateOf(false) }
     var confirmForget by remember { mutableStateOf(false) }
@@ -102,13 +102,13 @@ fun SettingsScreen(
             // The last one on can't be turned off: Seam would have no way to reach the Mac
             SwitchItem(
                 "Same Wi‑Fi", "Straight to your Mac on this network. Nothing leaves it",
-                checked = connection.wifi, onChange = { onSwitches(it, connection.relay) }, enabled = !connection.wifi || connection.relay,
+                checked = connection.wifi, onChange = { onSwitches(it, connection.tor) }, enabled = !connection.wifi || connection.tor,
             )
             SwitchItem(
-                "Relay", "Through Seam's relay over the internet, so it works anywhere. Also needed to pair",
-                checked = connection.relay, onChange = { onSwitches(connection.wifi, it) }, enabled = !connection.relay || connection.wifi,
+                "Internet (Tor)", "Through Tor when you're not on the same Wi‑Fi, so it works anywhere and hides where you are",
+                checked = connection.tor, onChange = { onSwitches(connection.wifi, it) }, enabled = !connection.tor || connection.wifi,
             )
-            Item("Encryption", "End-to-end on every path: neither the relay nor your network can read anything")
+            Item("Encryption", "End-to-end on every path: neither Tor nor your network can read anything")
         }
         Section("Privacy & security") {
             Item(

@@ -10,6 +10,9 @@ use seam_core::{Device, SignalProtocolError, bundle, file, lan, links};
 
 uniffi::setup_scaffolding!();
 
+mod tor;
+pub use tor::*;
+
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum SeamError {
     /// The other device isn't paired (or was unpaired).
@@ -105,15 +108,15 @@ pub struct PairingRequest {
 pub enum PeerPath {
     /// Same Wi-Fi, direct.
     Lan,
-    /// Through the relay.
-    Relay,
+    /// Through Tor, to the Mac's private onion service.
+    Tor,
 }
 
 impl From<links::Path> for PeerPath {
     fn from(p: links::Path) -> Self {
         match p {
             links::Path::Lan => Self::Lan,
-            links::Path::Relay => Self::Relay,
+            links::Path::Tor => Self::Tor,
         }
     }
 }
@@ -126,31 +129,39 @@ impl From<PeerPath> for links::Path {
     fn from(p: PeerPath) -> Self {
         match p {
             PeerPath::Lan => Self::Lan,
-            PeerPath::Relay => Self::Relay,
+            PeerPath::Tor => Self::Tor,
         }
     }
 }
 
 /// The app's saved data for its pairing (seam_core::links::AppData).
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Clone, PartialEq, Eq, uniffi::Record)]
 pub struct AppData {
-    /// 16 bytes.
-    pub group_id: Vec<u8>,
-    pub relay_url: String,
-    /// A private relay's owner key (decision 0007); None on Seam's relay.
-    pub owner_key: Option<Vec<u8>>,
+    /// Mac: its onion service's secret seed. Phone: its restricted-discovery secret. 32 bytes.
+    pub tor_secret: Vec<u8>,
+    /// Phone: the Mac's onion address. Mac: empty.
+    pub onion_address: String,
+    /// Mac: the paired phone's discovery public key (32 bytes). Phone: empty.
+    pub peer_discovery: Vec<u8>,
     pub hello_seq_sent: u64,
     pub hello_seq_applied: u64,
     /// The peer's paths from its last Hello. None: everything (never heard, or an older version).
     pub peer_allowed: Option<Vec<PeerPath>>,
 }
 
+impl std::fmt::Debug for AppData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The secret never prints; the core's own Debug already redacts it
+        std::fmt::Debug::fmt(&links::AppData::from(self.clone()), f)
+    }
+}
+
 impl From<links::AppData> for AppData {
     fn from(d: links::AppData) -> Self {
         Self {
-            group_id: d.group_id,
-            relay_url: d.relay_url,
-            owner_key: d.owner_key,
+            tor_secret: d.tor_secret,
+            onion_address: d.onion_address,
+            peer_discovery: d.peer_discovery,
             hello_seq_sent: d.hello_seq_sent,
             hello_seq_applied: d.hello_seq_applied,
             peer_allowed: d
@@ -163,9 +174,9 @@ impl From<links::AppData> for AppData {
 impl From<AppData> for links::AppData {
     fn from(d: AppData) -> Self {
         Self {
-            group_id: d.group_id,
-            relay_url: d.relay_url,
-            owner_key: d.owner_key.filter(|k| !k.is_empty()),
+            tor_secret: d.tor_secret,
+            onion_address: d.onion_address,
+            peer_discovery: d.peer_discovery,
             hello_seq_sent: d.hello_seq_sent,
             hello_seq_applied: d.hello_seq_applied,
             peer_allowed: d
@@ -500,7 +511,7 @@ pub struct LanOutput {
     pub send: Vec<u8>,
     /// seam.v1 ClientFrame (Mac side) or ServerFrame (phone side) bytes, from the authenticated peer.
     pub frames: Vec<Vec<u8>>,
-    /// Set once, on the call that finished authentication: the paired peer's id.
+    /// Set once, on the call that finished authentication: the paired peer's id, or "pairing".
     pub authenticated: Option<String>,
 }
 
@@ -522,7 +533,28 @@ impl LanChannel {
         }))
     }
 
-    /// The Mac's side, for one incoming connection. Fails while no phone is paired.
+    /// The phone's side while pairing: the Mac pinned from its QR code (`relay_key`), the phone
+    /// proving it scanned it with the QR's `token`. Write `start()` as soon as the stream connects.
+    #[uniffi::constructor]
+    pub fn pairing_initiator(
+        device: &SeamDevice,
+        relay_key: Vec<u8>,
+        token: Vec<u8>,
+    ) -> Result<Arc<Self>> {
+        let key: [u8; 32] = relay_key.try_into().map_err(|_| SeamError::Invalid {
+            detail: "relay key".into(),
+        })?;
+        Ok(Arc::new(Self {
+            inner: Mutex::new(lan::LanChannel::pairing_initiator(
+                &device.lock(),
+                key,
+                &token,
+            )?),
+        }))
+    }
+
+    /// The Mac's side, for one incoming connection: a paired phone, or while a pairing is open, a
+    /// phone that proves it scanned the code. Fails when neither could authenticate.
     #[uniffi::constructor]
     pub fn responder(device: &SeamDevice) -> Result<Arc<Self>> {
         Ok(Arc::new(Self {
@@ -551,6 +583,12 @@ impl LanChannel {
 
     pub fn peer_id(&self) -> Option<String> {
         self.lock().peer_id().map(str::to_owned)
+    }
+
+    /// A pairing channel: a phone that proved it scanned the code, not a paired peer. Only the
+    /// pairing exchange (the Mac's bundle, the PairRequest, the PairAccept) may travel over it.
+    pub fn is_pairing(&self) -> bool {
+        self.lock().is_pairing()
     }
 }
 
@@ -639,16 +677,16 @@ mod tests {
             SeamDevice::generate().unwrap(),
         );
         assert_eq!(
-            mac.next_hello(vec![PeerPath::Lan, PeerPath::Relay]),
+            mac.next_hello(vec![PeerPath::Lan, PeerPath::Tor]),
             None,
             "no app data yet"
         );
         assert_eq!(mac.allowed_paths(vec![PeerPath::Lan]), vec![PeerPath::Lan]);
         for d in [&mac, &phone] {
             d.set_app_data(AppData {
-                group_id: vec![1; 16],
-                relay_url: "wss://relay.avetero.com".into(),
-                owner_key: None,
+                tor_secret: vec![1; 32],
+                onion_address: String::new(),
+                peer_discovery: vec![],
                 hello_seq_sent: 0,
                 hello_seq_applied: 0,
                 peer_allowed: None,
@@ -670,13 +708,13 @@ mod tests {
             "a replay changes nothing"
         );
         assert_eq!(
-            mac.allowed_paths(vec![PeerPath::Lan, PeerPath::Relay]),
+            mac.allowed_paths(vec![PeerPath::Lan, PeerPath::Tor]),
             vec![PeerPath::Lan]
         );
         assert_eq!(
             mac.route(
-                vec![PeerPath::Lan, PeerPath::Relay],
-                vec![PeerPath::Relay],
+                vec![PeerPath::Lan, PeerPath::Tor],
+                vec![PeerPath::Tor],
                 false
             ),
             None,
@@ -684,11 +722,11 @@ mod tests {
         );
         assert_eq!(
             mac.route(
-                vec![PeerPath::Lan, PeerPath::Relay],
-                vec![PeerPath::Relay],
+                vec![PeerPath::Lan, PeerPath::Tor],
+                vec![PeerPath::Tor],
                 true
             ),
-            Some(PeerPath::Relay),
+            Some(PeerPath::Tor),
             "a Hello still goes"
         );
 
@@ -700,19 +738,19 @@ mod tests {
         );
         mac.forget_hello();
         assert_eq!(
-            mac.allowed_paths(vec![PeerPath::Lan, PeerPath::Relay]),
-            vec![PeerPath::Lan, PeerPath::Relay]
+            mac.allowed_paths(vec![PeerPath::Lan, PeerPath::Tor]),
+            vec![PeerPath::Lan, PeerPath::Tor]
         );
-        assert_eq!(mac.app_data().unwrap().group_id, vec![1; 16]);
+        assert_eq!(mac.app_data().unwrap().tor_secret, vec![1; 32]);
 
         // SR-29-01: app data that wouldn't read back is refused, and nothing changes
         let mut bad = mac.app_data().unwrap();
-        bad.group_id = vec![1; 3];
+        bad.tor_secret = vec![1; 3];
         assert!(matches!(
             mac.set_app_data(bad),
             Err(SeamError::Invalid { .. })
         ));
-        assert_eq!(mac.app_data().unwrap().group_id, vec![1; 16]);
+        assert_eq!(mac.app_data().unwrap().tor_secret, vec![1; 32]);
     }
 
     #[test]

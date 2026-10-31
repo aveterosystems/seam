@@ -212,7 +212,7 @@ class NotificationsFeature(context: Context, private val session: SessionApi) : 
         private const val MAX_TEXT = 4000
         private const val MAX_BUTTONS = 3
         private const val ICON_PX = 64
-        /** Icons per settings message: keeps it well under the relay's size limit. */
+        /** Icons per settings message: keeps each message well under the size limit. */
         private const val MAX_ICONS = 40
 
         fun accessGranted(context: Context): Boolean =

@@ -4,46 +4,33 @@ package com.avetero.seam.session
 import java.net.URI
 import java.net.URLDecoder
 import java.util.Base64
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
-/** The Mac's pairing QR code (format: protocol/README.md, "The pairing QR code"). */
+/** The Mac's pairing QR code, version 2 (docs/tor/13-implementation-contract.md). */
 class PairingQr(
-    val relayUrl: String,
-    val groupId: ByteArray,
+    /** The Mac's new onion service for this pairing. */
+    val onionAddress: String,
+    /** This phone's restricted-discovery secret for that service: without it the address can't be reached. */
+    val discoverySecret: ByteArray,
     val token: ByteArray,
     val identityKey: ByteArray,
+    /** The Mac's channel key: pins the pairing channel to this Mac. */
     val relayKey: ByteArray,
     val macName: String,
 ) {
-    /** For the confirm screen: the host the phone is about to trust with its traffic. */
-    val relayHost: String get() = relayUrl.toHttpUrlOrNull(cleartext = relayUrl.startsWith("ws://"))?.host ?: relayUrl
-
-    /** False for a self-hosted or unknown relay: the confirm sheet says so (SR-11-14). */
-    val officialRelay: Boolean get() = relayHost == OFFICIAL_RELAY_HOST
-
     companion object {
-        const val OFFICIAL_RELAY_HOST = "relay.avetero.com"
-
         /**
-         * Null for anything that isn't a valid v1 Seam pairing code. The relay must be `wss://`
-         * (`ws://` only when [allowCleartext], i.e. debug builds) with no credentials, query or
-         * fragment, so a crafted code can't crash the app or downgrade to plaintext.
+         * Null for anything that isn't a valid v2 Seam pairing code: every value checked for size and
+         * form, so a crafted code can't crash the app or point it anywhere but an onion service.
          */
-        fun parse(text: String, allowCleartext: Boolean = false): PairingQr? = runCatching {
-            if (text.length > 4096) return null
-            val uri = URI(text)
-            if (uri.scheme != "seam" || uri.authority != "pair") return null
-            val q = uri.rawQuery.orEmpty().split("&").mapNotNull {
-                val i = it.indexOf('=')
-                if (i <= 0) null else it.substring(0, i) to URLDecoder.decode(it.substring(i + 1), "UTF-8")
-            }.toMap()
-            if (q["v"] != "1") return null
+        fun parse(text: String): PairingQr? = runCatching {
+            val q = query(text) ?: return null
+            if (q["v"] != "2") return null
             val b64 = { key: String, size: Int ->
                 Base64.getUrlDecoder().decode(q.getValue(key)).also { require(it.size == size) { "$key size" } }
             }
             PairingQr(
-                relayUrl = validRelay(q.getValue("r"), allowCleartext) ?: return null,
-                groupId = b64("g", 16),
+                onionAddress = q.getValue("o").takeIf { ONION.matches(it) } ?: return null,
+                discoverySecret = b64("d", 32),
                 token = b64("t", 32),
                 identityKey = b64("i", 33),
                 relayKey = b64("k", 32),
@@ -51,16 +38,20 @@ class PairingQr(
             )
         }.getOrNull()
 
-        private fun validRelay(raw: String, allowCleartext: Boolean): String? {
-            if (raw.length > 512) return null
-            if (!raw.startsWith("wss://") && !(allowCleartext && raw.startsWith("ws://"))) return null
-            val url = raw.toHttpUrlOrNull(cleartext = raw.startsWith("ws://")) ?: return null
-            if (url.username.isNotEmpty() || url.password.isNotEmpty() || url.query != null || url.fragment != null) return null
-            val s = url.toString()
-            return (if (url.isHttps) "wss://" + s.removePrefix("https://") else "ws://" + s.removePrefix("http://")).trimEnd('/')
+        /** A pairing code from a Mac still on the relay version: it needs updating first. */
+        fun isOldVersion(text: String): Boolean = runCatching { query(text)?.get("v") == "1" }.getOrDefault(false)
+
+        private fun query(text: String): Map<String, String>? {
+            if (text.length > 4096) return null
+            val uri = URI(text)
+            if (uri.scheme != "seam" || uri.authority != "pair") return null
+            return uri.rawQuery.orEmpty().split("&").mapNotNull {
+                val i = it.indexOf('=')
+                if (i <= 0) null else it.substring(0, i) to URLDecoder.decode(it.substring(i + 1), "UTF-8")
+            }.toMap()
         }
 
-        private fun String.toHttpUrlOrNull(cleartext: Boolean) =
-            replaceFirst(if (cleartext) "ws://" else "wss://", if (cleartext) "http://" else "https://").toHttpUrlOrNull()
+        /** A v3 onion address: 56 base32 characters. */
+        private val ONION = Regex("[a-z2-7]{56}\\.onion")
     }
 }

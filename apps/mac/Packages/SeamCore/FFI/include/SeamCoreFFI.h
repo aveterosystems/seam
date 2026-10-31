@@ -243,6 +243,70 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureRes
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER_METHOD0
+typedef void (*UniffiCallbackInterfaceTorConnectListenerMethod0)(uint64_t, uint64_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER_METHOD1
+typedef void (*UniffiCallbackInterfaceTorConnectListenerMethod1)(uint64_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_STATE_LISTENER_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_STATE_LISTENER_METHOD0
+typedef void (*UniffiCallbackInterfaceTorStateListenerMethod0)(uint64_t, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_STREAM_LISTENER_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_STREAM_LISTENER_METHOD0
+typedef void (*UniffiCallbackInterfaceTorStreamListenerMethod0)(uint64_t, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_STREAM_LISTENER_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_STREAM_LISTENER_METHOD1
+typedef void (*UniffiCallbackInterfaceTorStreamListenerMethod1)(uint64_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER
+typedef struct UniffiVTableCallbackInterfaceTorConnectListener {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceTorConnectListenerMethod0 _Nonnull onOpen;
+    UniffiCallbackInterfaceTorConnectListenerMethod1 _Nonnull onFailed;
+} UniffiVTableCallbackInterfaceTorConnectListener;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TOR_STATE_LISTENER
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TOR_STATE_LISTENER
+typedef struct UniffiVTableCallbackInterfaceTorStateListener {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceTorStateListenerMethod0 _Nonnull onState;
+} UniffiVTableCallbackInterfaceTorStateListener;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TOR_STREAM_LISTENER
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TOR_STREAM_LISTENER
+typedef struct UniffiVTableCallbackInterfaceTorStreamListener {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceTorStreamListenerMethod0 _Nonnull onBytes;
+    UniffiCallbackInterfaceTorStreamListenerMethod1 _Nonnull onClosed;
+} UniffiVTableCallbackInterfaceTorStreamListener;
+
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_FILERECEIVER
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_FILERECEIVER
 uint64_t uniffi_seam_ffi_fn_clone_filereceiver(uint64_t handle, RustCallStatus *_Nonnull out_status
@@ -314,9 +378,19 @@ void uniffi_seam_ffi_fn_free_lanchannel(uint64_t handle, RustCallStatus *_Nonnul
 uint64_t uniffi_seam_ffi_fn_constructor_lanchannel_initiator(uint64_t device, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_PAIRING_INITIATOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_PAIRING_INITIATOR
+uint64_t uniffi_seam_ffi_fn_constructor_lanchannel_pairing_initiator(uint64_t device, RustBuffer relay_key, RustBuffer token, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_RESPONDER
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_LANCHANNEL_RESPONDER
 uint64_t uniffi_seam_ffi_fn_constructor_lanchannel_responder(uint64_t device, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_IS_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_IS_PAIRING
+int8_t uniffi_seam_ffi_fn_method_lanchannel_is_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_LANCHANNEL_PEER_ID
@@ -485,10 +559,181 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_sign_relay_login(uint64_t ptr, R
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_start_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TOR
+uint64_t uniffi_seam_ffi_fn_clone_tor(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TOR
+void uniffi_seam_ffi_fn_free_tor(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_TOR_NEW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_TOR_NEW
+uint64_t uniffi_seam_ffi_fn_constructor_tor_new(RustBuffer app_dir, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_CONNECT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_CONNECT
+void uniffi_seam_ffi_fn_method_tor_connect(uint64_t ptr, RustBuffer onion_address, RustBuffer discovery_secret, uint64_t listener, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_HOST
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_HOST
+RustBuffer uniffi_seam_ffi_fn_method_tor_host(uint64_t ptr, RustBuffer service_secret, RustBuffer clients, uint64_t listener, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_SET_DORMANT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_SET_DORMANT
+void uniffi_seam_ffi_fn_method_tor_set_dormant(uint64_t ptr, int8_t dormant, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_START
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_START
+void uniffi_seam_ffi_fn_method_tor_start(uint64_t ptr, uint64_t listener, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_STATE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TOR_STATE
+RustBuffer uniffi_seam_ffi_fn_method_tor_state(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORCONNECTLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORCONNECTLISTENER
+uint64_t uniffi_seam_ffi_fn_clone_torconnectlistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORCONNECTLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORCONNECTLISTENER
+void uniffi_seam_ffi_fn_free_torconnectlistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TORCONNECTLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TORCONNECTLISTENER
+void uniffi_seam_ffi_fn_init_callback_vtable_torconnectlistener(const UniffiVTableCallbackInterfaceTorConnectListener* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORCONNECTLISTENER_ON_OPEN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORCONNECTLISTENER_ON_OPEN
+void uniffi_seam_ffi_fn_method_torconnectlistener_on_open(uint64_t ptr, uint64_t stream, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORCONNECTLISTENER_ON_FAILED
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORCONNECTLISTENER_ON_FAILED
+void uniffi_seam_ffi_fn_method_torconnectlistener_on_failed(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSERVICE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSERVICE
+uint64_t uniffi_seam_ffi_fn_clone_torservice(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSERVICE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSERVICE
+void uniffi_seam_ffi_fn_free_torservice(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSERVICE_ADDRESS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSERVICE_ADDRESS
+RustBuffer uniffi_seam_ffi_fn_method_torservice_address(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSERVICE_STOP
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSERVICE_STOP
+void uniffi_seam_ffi_fn_method_torservice_stop(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSTATELISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSTATELISTENER
+uint64_t uniffi_seam_ffi_fn_clone_torstatelistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSTATELISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSTATELISTENER
+void uniffi_seam_ffi_fn_free_torstatelistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TORSTATELISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TORSTATELISTENER
+void uniffi_seam_ffi_fn_init_callback_vtable_torstatelistener(const UniffiVTableCallbackInterfaceTorStateListener* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTATELISTENER_ON_STATE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTATELISTENER_ON_STATE
+void uniffi_seam_ffi_fn_method_torstatelistener_on_state(uint64_t ptr, RustBuffer state, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSTREAM
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSTREAM
+uint64_t uniffi_seam_ffi_fn_clone_torstream(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSTREAM
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSTREAM
+void uniffi_seam_ffi_fn_free_torstream(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_LISTEN
+void uniffi_seam_ffi_fn_method_torstream_listen(uint64_t ptr, uint64_t listener, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SEND
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SEND
+int8_t uniffi_seam_ffi_fn_method_torstream_send(uint64_t ptr, RustBuffer bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SHUTDOWN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SHUTDOWN
+void uniffi_seam_ffi_fn_method_torstream_shutdown(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSTREAMLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSTREAMLISTENER
+uint64_t uniffi_seam_ffi_fn_clone_torstreamlistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSTREAMLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TORSTREAMLISTENER
+void uniffi_seam_ffi_fn_free_torstreamlistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TORSTREAMLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TORSTREAMLISTENER
+void uniffi_seam_ffi_fn_init_callback_vtable_torstreamlistener(const UniffiVTableCallbackInterfaceTorStreamListener* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAMLISTENER_ON_BYTES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAMLISTENER_ON_BYTES
+void uniffi_seam_ffi_fn_method_torstreamlistener_on_bytes(uint64_t ptr, RustBuffer bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAMLISTENER_ON_CLOSED
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAMLISTENER_ON_CLOSED
+void uniffi_seam_ffi_fn_method_torstreamlistener_on_closed(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CHUNK_DATA_SIZE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CHUNK_DATA_SIZE
 uint32_t uniffi_seam_ffi_fn_func_chunk_data_size(RustCallStatus *_Nonnull out_status
     
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_DISCOVERY_PUBLIC
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_DISCOVERY_PUBLIC
+RustBuffer uniffi_seam_ffi_fn_func_tor_discovery_public(RustBuffer discovery_secret, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_NEW_SECRET
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_NEW_SECRET
+RustBuffer uniffi_seam_ffi_fn_func_tor_new_secret(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_ONION_ADDRESS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_ONION_ADDRESS
+RustBuffer uniffi_seam_ffi_fn_func_tor_onion_address(RustBuffer service_secret, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_SEAM_FFI_RUSTBUFFER_ALLOC
@@ -757,6 +1002,24 @@ uint16_t uniffi_seam_ffi_checksum_func_chunk_data_size(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_DISCOVERY_PUBLIC
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_DISCOVERY_PUBLIC
+uint16_t uniffi_seam_ffi_checksum_func_tor_discovery_public(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_NEW_SECRET
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_NEW_SECRET
+uint16_t uniffi_seam_ffi_checksum_func_tor_new_secret(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_ONION_ADDRESS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_ONION_ADDRESS
+uint16_t uniffi_seam_ffi_checksum_func_tor_onion_address(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_FILERECEIVER_FINISH
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_FILERECEIVER_FINISH
 uint16_t uniffi_seam_ffi_checksum_method_filereceiver_finish(void
@@ -784,6 +1047,12 @@ uint16_t uniffi_seam_ffi_checksum_method_filesealer_key(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_FILESEALER_SEAL_NEXT
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_FILESEALER_SEAL_NEXT
 uint16_t uniffi_seam_ffi_checksum_method_filesealer_seal_next(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_IS_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_LANCHANNEL_IS_PAIRING
+uint16_t uniffi_seam_ffi_checksum_method_lanchannel_is_pairing(void
     
 );
 #endif
@@ -961,6 +1230,96 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_start_pairing(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_CONNECT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_CONNECT
+uint16_t uniffi_seam_ffi_checksum_method_tor_connect(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_HOST
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_HOST
+uint16_t uniffi_seam_ffi_checksum_method_tor_host(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_SET_DORMANT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_SET_DORMANT
+uint16_t uniffi_seam_ffi_checksum_method_tor_set_dormant(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_START
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_START
+uint16_t uniffi_seam_ffi_checksum_method_tor_start(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_STATE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_STATE
+uint16_t uniffi_seam_ffi_checksum_method_tor_state(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORCONNECTLISTENER_ON_OPEN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORCONNECTLISTENER_ON_OPEN
+uint16_t uniffi_seam_ffi_checksum_method_torconnectlistener_on_open(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORCONNECTLISTENER_ON_FAILED
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORCONNECTLISTENER_ON_FAILED
+uint16_t uniffi_seam_ffi_checksum_method_torconnectlistener_on_failed(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSERVICE_ADDRESS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSERVICE_ADDRESS
+uint16_t uniffi_seam_ffi_checksum_method_torservice_address(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSERVICE_STOP
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSERVICE_STOP
+uint16_t uniffi_seam_ffi_checksum_method_torservice_stop(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTATELISTENER_ON_STATE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTATELISTENER_ON_STATE
+uint16_t uniffi_seam_ffi_checksum_method_torstatelistener_on_state(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_LISTEN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_LISTEN
+uint16_t uniffi_seam_ffi_checksum_method_torstream_listen(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SEND
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SEND
+uint16_t uniffi_seam_ffi_checksum_method_torstream_send(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SHUTDOWN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SHUTDOWN
+uint16_t uniffi_seam_ffi_checksum_method_torstream_shutdown(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAMLISTENER_ON_BYTES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAMLISTENER_ON_BYTES
+uint16_t uniffi_seam_ffi_checksum_method_torstreamlistener_on_bytes(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAMLISTENER_ON_CLOSED
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAMLISTENER_ON_CLOSED
+uint16_t uniffi_seam_ffi_checksum_method_torstreamlistener_on_closed(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_FILERECEIVER_NEW
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_FILERECEIVER_NEW
 uint16_t uniffi_seam_ffi_checksum_constructor_filereceiver_new(void
@@ -979,6 +1338,12 @@ uint16_t uniffi_seam_ffi_checksum_constructor_lanchannel_initiator(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_PAIRING_INITIATOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_PAIRING_INITIATOR
+uint16_t uniffi_seam_ffi_checksum_constructor_lanchannel_pairing_initiator(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_RESPONDER
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_LANCHANNEL_RESPONDER
 uint16_t uniffi_seam_ffi_checksum_constructor_lanchannel_responder(void
@@ -994,6 +1359,12 @@ uint16_t uniffi_seam_ffi_checksum_constructor_seamdevice_generate(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_SEAMDEVICE_RESTORE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_SEAMDEVICE_RESTORE
 uint16_t uniffi_seam_ffi_checksum_constructor_seamdevice_restore(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_TOR_NEW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_TOR_NEW
+uint16_t uniffi_seam_ffi_checksum_constructor_tor_new(void
     
 );
 #endif

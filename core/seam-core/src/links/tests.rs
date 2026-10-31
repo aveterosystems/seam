@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
-use Path::{Lan, Relay};
+use Path::{Lan, Tor};
 
 const LAN: i32 = 1;
-const RELAY: i32 = 2;
+const TOR: i32 = 4;
+const OLD_RELAY: i32 = 2;
 const BLUETOOTH: i32 = 3;
 const FUTURE: i32 = 99;
 
 fn data() -> AppData {
-    AppData::new(vec![7; 16], "wss://relay.avetero.com".into(), None)
+    AppData::new(vec![7; 32], ADDRESS.into(), vec![])
 }
 
-/// The switches as a list: Same Wi-Fi and the relay on or off.
-fn on(lan: bool, relay: bool) -> Vec<Path> {
-    [(Lan, lan), (Relay, relay)]
+const ADDRESS: &str = "seamseamseamseamseamseamseamseamseamseamseamseamseam2.onion";
+
+/// The switches as a list: Same Wi-Fi and Tor on or off.
+fn on(lan: bool, tor: bool) -> Vec<Path> {
+    [(Lan, lan), (Tor, tor)]
         .into_iter()
         .filter_map(|(p, on)| on.then_some(p))
         .collect()
@@ -31,18 +34,18 @@ fn allowed_paths_table() {
     type Case<'a> = (bool, bool, Option<&'a [i32]>, &'a [Path]);
     let cases: &[Case] = &[
         // my wifi, my relay, peer's Hello list (None = never heard), allowed
-        (true, true, None, &[Lan, Relay]),
+        (true, true, None, &[Lan, Tor]),
         (true, false, None, &[Lan]),
-        (false, true, None, &[Relay]),
-        (true, true, Some(&[]), &[Lan, Relay]), // an older peer's Hello has no list
+        (false, true, None, &[Tor]),
+        (true, true, Some(&[]), &[Lan, Tor]), // an older peer's Hello has no list
         (true, true, Some(&[LAN]), &[Lan]),
-        (true, true, Some(&[RELAY]), &[Relay]),
-        (true, true, Some(&[LAN, RELAY]), &[Lan, Relay]),
+        (true, true, Some(&[TOR]), &[Tor]),
+        (true, true, Some(&[LAN, TOR]), &[Lan, Tor]),
         (false, true, Some(&[LAN]), &[]),
-        (true, false, Some(&[RELAY]), &[]),
+        (true, false, Some(&[TOR]), &[]),
         (true, true, Some(&[FUTURE]), &[]), // a newer peer using only paths this build lacks
         (true, true, Some(&[BLUETOOTH]), &[]), // known to the schema, not a path yet
-        (true, true, Some(&[FUTURE, RELAY]), &[Relay]),
+        (true, true, Some(&[FUTURE, TOR]), &[Tor]),
     ];
     for (wifi, relay, peer, want) in cases {
         let d = match peer {
@@ -59,14 +62,14 @@ fn allowed_paths_table() {
 
 #[test]
 fn route_prefers_same_wifi_then_relay_else_waits() {
-    let both = heard(&[LAN, RELAY]);
+    let both = heard(&[LAN, TOR]);
     assert_eq!(
         both.route(&on(true, true), &on(true, true), false),
         Some(Lan)
     );
     assert_eq!(
         both.route(&on(true, true), &on(false, true), false),
-        Some(Relay)
+        Some(Tor)
     );
     assert_eq!(both.route(&on(true, true), &on(false, false), false), None);
     let lan_only = heard(&[LAN]);
@@ -76,7 +79,7 @@ fn route_prefers_same_wifi_then_relay_else_waits() {
         "waits instead of using the relay"
     );
     assert_eq!(
-        heard(&[RELAY]).route(&on(true, true), &on(true, false), false),
+        heard(&[TOR]).route(&on(true, true), &on(true, false), false),
         None
     );
 }
@@ -92,7 +95,7 @@ fn a_hello_takes_any_path_my_switches_allow() {
     );
     assert_eq!(
         d.route(&on(false, true), &on(false, true), true),
-        Some(Relay),
+        Some(Tor),
         "a Hello still goes"
     );
     assert_eq!(
@@ -110,22 +113,22 @@ fn a_hello_takes_any_path_my_switches_allow() {
 
 #[test]
 fn preference_is_the_cores_whatever_order_callers_use() {
-    let both = heard(&[LAN, RELAY]);
+    let both = heard(&[LAN, TOR]);
     assert_eq!(
-        both.allowed(&[Relay, Lan, Relay]),
-        vec![Lan, Relay],
+        both.allowed(&[Tor, Lan, Tor]),
+        vec![Lan, Tor],
         "ordered, each once"
     );
-    assert_eq!(both.route(&[Relay, Lan], &[Relay, Lan], false), Some(Lan));
-    assert_eq!(both.route(&[Relay, Lan], &[Relay], false), Some(Relay));
+    assert_eq!(both.route(&[Tor, Lan], &[Tor, Lan], false), Some(Lan));
+    assert_eq!(both.route(&[Tor, Lan], &[Tor], false), Some(Tor));
     assert_eq!(
-        both.route(&[], &[Lan, Relay], false),
+        both.route(&[], &[Lan, Tor], false),
         None,
         "nothing switched on"
     );
-    assert_eq!(both.route(&[Lan, Relay], &[], false), None, "nothing up");
+    assert_eq!(both.route(&[Lan, Tor], &[], false), None, "nothing up");
     let mut d = data();
-    assert_eq!(d.next_hello(&[Relay, Lan, Lan]), (1, vec![LAN, RELAY]));
+    assert_eq!(d.next_hello(&[Tor, Lan, Lan]), (1, vec![LAN, TOR]));
 }
 
 #[test]
@@ -133,14 +136,14 @@ fn hellos_apply_only_when_newer() {
     let mut d = data();
     assert!(!d.apply_hello(0, &[LAN]), "0 never counts");
     assert!(d.apply_hello(5, &[LAN]));
-    assert!(!d.apply_hello(5, &[RELAY]), "equal is a replay");
-    assert!(!d.apply_hello(4, &[RELAY]), "older");
+    assert!(!d.apply_hello(5, &[TOR]), "equal is a replay");
+    assert!(!d.apply_hello(4, &[TOR]), "older");
     assert_eq!(d.peer_allowed, Some(vec![Lan]));
     assert!(
-        d.apply_hello(u64::MAX, &[RELAY]),
+        d.apply_hello(u64::MAX, &[TOR]),
         "compared unsigned, up to the limit"
     );
-    assert_eq!(d.peer_allowed, Some(vec![Relay]));
+    assert_eq!(d.peer_allowed, Some(vec![Tor]));
     assert!(!d.apply_hello(1 << 63, &[LAN]));
 }
 
@@ -148,8 +151,8 @@ fn hellos_apply_only_when_newer() {
 fn next_hello_counts_up_and_lists_my_switches() {
     let mut d = data();
     assert_eq!(d.next_hello(&on(true, false)), (1, vec![LAN]));
-    assert_eq!(d.next_hello(&on(true, true)), (2, vec![LAN, RELAY]));
-    assert_eq!(d.next_hello(&on(false, true)), (3, vec![RELAY]));
+    assert_eq!(d.next_hello(&on(true, true)), (2, vec![LAN, TOR]));
+    assert_eq!(d.next_hello(&on(false, true)), (3, vec![TOR]));
 }
 
 #[test]
@@ -165,20 +168,18 @@ fn forgetting_the_peer_starts_hello_state_again() {
         ),
         (0, 0, None)
     );
-    assert_eq!(d.group_id, vec![7; 16], "the relay group stays");
+    assert_eq!(d.tor_secret, vec![7; 32], "the Tor details stay");
 }
 
 #[test]
 fn round_trip() {
-    let mut d = AppData::new(
-        vec![1; 16],
-        "wss://relay.example.com".into(),
-        Some(vec![9; 32]),
-    );
+    let mut d = AppData::new(vec![1; 32], String::new(), vec![9; 32]); // a Mac's
     assert_eq!(AppData::decode(&d.encode()), Some(d.clone()));
     d.next_hello(&on(true, true));
-    assert!(d.apply_hello(3, &[RELAY]));
+    assert!(d.apply_hello(3, &[TOR]));
     assert_eq!(AppData::decode(&d.encode()), Some(d.clone()));
+    let phone = data();
+    assert_eq!(AppData::decode(&phone.encode()), Some(phone));
     let empty = heard(&[FUTURE]);
     assert_eq!(
         AppData::decode(&empty.encode()).unwrap().peer_allowed,
@@ -189,165 +190,54 @@ fn round_trip() {
 
 #[test]
 fn rejects_damaged_bytes() {
-    let good = heard(&[LAN]).encode();
-    assert_eq!(
-        AppData::decode(&[]),
-        None,
-        "state from before app data existed"
-    );
-    assert_eq!(AppData::decode(&good[..good.len() - 1]), None, "truncated");
-    assert_eq!(
-        AppData::decode(&[good.as_slice(), &[0]].concat()),
-        None,
-        "trailing bytes"
-    );
-    let short_group = AppData::new(vec![1, 2], "wss://r".into(), None).encode();
-    assert_eq!(
-        AppData::decode(&short_group),
-        None,
-        "group id must be 16 bytes"
-    );
-}
-
-// Bytes as the Mac's current release writes them (AppData.swift v1-v3).
-fn mac_bytes(v: u8, key: &[u8], hello: Option<(u64, u64, Option<&[u8]>)>) -> Vec<u8> {
-    let url = b"wss://relay.example.com";
-    let mut out = vec![v, 16];
-    out.extend([3; 16]);
-    out.extend((url.len() as u16).to_be_bytes());
-    out.extend(url);
-    if v >= 2 {
-        out.extend((key.len() as u16).to_be_bytes());
-        out.extend(key);
+    let good = heard(&[LAN, TOR]).encode();
+    for n in 0..good.len() {
+        assert_eq!(AppData::decode(&good[..n]), None, "cut at {n}");
     }
-    if let Some((sent, applied, list)) = hello {
-        out.extend(sent.to_be_bytes());
-        out.extend(applied.to_be_bytes());
-        match list {
-            None => out.push(0xFF),
-            Some(l) => {
-                out.push(l.len() as u8);
-                out.extend(l);
-            }
-        }
-    }
-    out
-}
-
-// Bytes as Android's current release writes them (RelayTarget v1-v2).
-fn android_bytes(hello: Option<(u64, u64, Option<&[u8]>)>) -> Vec<u8> {
-    let url = b"wss://relay.example.com";
-    let mut out = vec![if hello.is_some() { 2 } else { 1 }];
-    out.extend((url.len() as u16).to_be_bytes());
-    out.extend(url);
-    out.extend([3; 16]);
-    if let Some((sent, applied, list)) = hello {
-        out.extend(sent.to_be_bytes());
-        out.extend(applied.to_be_bytes());
-        out.push(list.is_some() as u8);
-        let l = list.unwrap_or(&[]);
-        out.push(l.len() as u8);
-        out.extend(l);
-    }
-    out
+    let mut longer = good.clone();
+    longer.push(0);
+    assert_eq!(AppData::decode(&longer), None, "trailing bytes");
+    let mut wrong_key = data().encode();
+    wrong_key[1 + 32 + 1 + ADDRESS.len()] = 31; // a peer key that's neither absent nor 32 bytes
+    assert_eq!(AppData::decode(&wrong_key), None);
 }
 
 #[test]
-fn reads_the_macs_earlier_formats() {
-    let plain = AppData::decode(&mac_bytes(1, &[], None)).unwrap();
-    assert_eq!(
-        (
-            plain.relay_url.as_str(),
-            plain.group_id.clone(),
-            plain.owner_key.clone()
-        ),
-        ("wss://relay.example.com", vec![3; 16], None)
-    );
-    let owned = AppData::decode(&mac_bytes(2, &[9; 32], None)).unwrap();
-    assert_eq!(owned.owner_key, Some(vec![9; 32]));
-    let v3 = AppData::decode(&mac_bytes(3, &[], Some((4, 6, Some(&[1]))))).unwrap();
-    assert_eq!(
-        (
-            v3.hello_seq_sent,
-            v3.hello_seq_applied,
-            v3.peer_allowed.clone(),
-            v3.owner_key.clone()
-        ),
-        (4, 6, Some(vec![Lan]), None)
-    );
-    let never = AppData::decode(&mac_bytes(3, &[], Some((1, 0, None)))).unwrap();
-    assert_eq!(never.peer_allowed, None);
-    let unknown = AppData::decode(&mac_bytes(3, &[], Some((1, 2, Some(&[0]))))).unwrap();
-    assert_eq!(
-        unknown.peer_allowed,
-        Some(vec![]),
-        "the Mac stored an unknown value: nothing in common"
-    );
-    // The Mac kept an older phone's empty Hello as an empty list, and read it as everything
-    let old_phone = AppData::decode(&mac_bytes(3, &[], Some((1, 2, Some(&[]))))).unwrap();
-    assert_eq!(old_phone.allowed(&on(true, true)), vec![Lan, Relay]);
-    assert_eq!(
-        AppData::decode(&mac_bytes(2, &[], None)),
-        None,
-        "v2 always had a key"
-    );
-}
-
-#[test]
-fn reads_androids_earlier_formats() {
-    let v1 = AppData::decode(&android_bytes(None)).unwrap();
-    assert_eq!(
-        (
-            v1.relay_url.as_str(),
-            v1.group_id.clone(),
-            v1.peer_allowed.clone()
-        ),
-        ("wss://relay.example.com", vec![3; 16], None)
-    );
-    let v2 = AppData::decode(&android_bytes(Some((5, 7, Some(&[2]))))).unwrap();
-    assert_eq!(
-        (
-            v2.hello_seq_sent,
-            v2.hello_seq_applied,
-            v2.peer_allowed.clone()
-        ),
-        (5, 7, Some(vec![Relay]))
-    );
-    let never = AppData::decode(&android_bytes(Some((1, 0, None)))).unwrap();
-    assert_eq!(never.peer_allowed, None);
-    // Android stored a Mac's old empty Hello as "allows nothing"; it meant "older Mac, everything"
-    let old_mac = AppData::decode(&android_bytes(Some((1, 2, Some(&[]))))).unwrap();
-    assert_eq!(old_mac.allowed(&on(true, true)), vec![Lan, Relay]);
-}
-
-#[test]
-fn writes_one_format_whichever_it_read() {
-    for bytes in [
-        mac_bytes(3, &[], Some((4, 6, Some(&[1])))),
-        android_bytes(Some((4, 6, Some(&[1])))),
-    ] {
-        let d = AppData::decode(&bytes).unwrap();
-        assert_eq!(d.encode()[0], VERSION);
-        assert_eq!(AppData::decode(&d.encode()), Some(d));
+fn earlier_relay_formats_are_not_read_so_the_devices_pair_again() {
+    // v1-v4 held a relay group (decision 0009 replaces relays with Tor)
+    for v in 1..=4u8 {
+        let mut bytes = vec![v, 16];
+        bytes.extend([7; 16]);
+        bytes.extend(23u16.to_be_bytes());
+        bytes.extend(b"wss://relay.avetero.com");
+        assert_eq!(AppData::decode(&bytes), None, "v{v}");
     }
+    // An old peer's relay value means nothing now
+    assert_eq!(heard(&[OLD_RELAY]).peer_allowed, Some(vec![]));
+}
+
+#[test]
+fn the_secret_never_prints() {
+    let printed = format!("{:?}", AppData::new(vec![0xAB; 32], String::new(), vec![]));
+    assert!(
+        !printed.to_lowercase().contains("abab") && !printed.contains("171"),
+        "{printed}"
+    );
 }
 
 // SR-29-01..03: only app data that reads back can be saved
 #[test]
 fn only_app_data_that_reads_back_is_accepted() {
-    let short = AppData::new(vec![1; 15], "wss://r".into(), None);
-    assert!(short.checked().is_err(), "group id must be 16 bytes");
-    let long_url = AppData::new(vec![1; 16], "é".repeat(40_000), None);
-    assert!(long_url.checked().is_err(), "never cut a URL mid-character");
-    let long_key = AppData::new(vec![1; 16], "wss://r".into(), Some(vec![1; 70_000]));
-    assert!(long_key.checked().is_err());
-    let mut repeated = data();
-    repeated.peer_allowed = Some(vec![Relay, Lan, Relay, Lan]);
-    let ok = repeated.checked().unwrap();
-    assert_eq!(
-        ok.peer_allowed,
-        Some(vec![Lan, Relay]),
-        "sorted, no repeats"
-    );
+    for bad in [
+        AppData::new(vec![1; 31], String::new(), vec![]),
+        AppData::new(vec![1; 32], "x".repeat(256), vec![]),
+        AppData::new(vec![1; 32], String::new(), vec![2; 31]),
+    ] {
+        assert!(bad.checked().is_err(), "{bad:?}");
+    }
+    let mut d = data();
+    d.peer_allowed = Some(vec![Tor, Lan, Tor]);
+    let ok = d.checked().unwrap();
+    assert_eq!(ok.peer_allowed, Some(vec![Lan, Tor]));
     assert_eq!(AppData::decode(&ok.encode()), Some(ok));
 }
