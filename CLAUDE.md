@@ -15,3 +15,7 @@ The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready
 ### Domain docs
 
 Single-context: root `GLOSSARY.md` plus decision records in `docs/decisions/`. See `docs/agents/domain.md`.
+
+### Design
+
+UI work in any app (a screen, a control, an animation): read `docs/design/design-system.md` and `docs/design/motion.md` first. Motion comes from motion.md's catalogue, and a screen is done when it passes that doc's finish checklist.
