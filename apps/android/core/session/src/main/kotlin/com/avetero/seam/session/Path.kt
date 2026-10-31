@@ -5,7 +5,7 @@ import com.avetero.seam.protocol.v1.ClientFrame
 import com.avetero.seam.protocol.v1.ServerFrame
 
 /**
- * One way to reach the Mac (the relay, or Same Wi‑Fi). The path owns connecting, logging in,
+ * One way to reach the Mac (Same Wi‑Fi, or Tor). The path owns connecting, proving the Mac,
  * backing off and giving up; Session owns when a connection is wanted (decision 0005) and what
  * goes over it. Runs on Session's single-threaded scope.
  */
@@ -32,14 +32,14 @@ internal interface PathEvents {
     /** A connection, or an attempt at one, ended. The path tries again by itself while it's wanted. */
     fun onDown(path: Path)
 
-    /** A frame from the Mac or the relay that the path doesn't handle itself. */
+    /** A frame from the Mac that the path doesn't handle itself. */
     fun onFrame(path: Path, frame: ServerFrame)
 
     /** Gave up for good; [reason] is a fixed text for the user. */
     fun onFailed(path: Path, reason: String)
 }
 
-/** A plain byte pipe under a path: a WebSocket to the relay, or a TCP socket on Same Wi‑Fi. */
+/** A plain byte pipe under a path: a TCP socket on Same Wi‑Fi, or a stream through Tor. */
 interface Link {
     fun send(frame: ByteArray): Boolean
     fun close()

@@ -13,7 +13,8 @@ import com.avetero.seam.session.FilePendingStore
 import com.avetero.seam.session.KeystoreStateStore
 import com.avetero.seam.session.NsdLan
 import com.avetero.seam.session.PrefsSettingsStore
-import com.avetero.seam.session.OkHttpRelayConnector
+import com.avetero.seam.crypto.Tor
+import com.avetero.seam.session.TorLan
 import com.avetero.seam.session.Session
 import java.io.File
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -32,14 +33,19 @@ class SeamApplication : Application() {
         private set
     lateinit var notifications: NotificationsFeature
         private set
+    /** Tor, one per process: started on first use, dormant while there's nothing to send. */
+    lateinit var tor: TorLan
+        private set
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
         val name = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
+        val dir = File(filesDir, "seam")
+        tor = TorLan(Tor(dir.path))
         session = Session(
-            store = KeystoreStateStore(File(filesDir, "seam")),
-            connector = OkHttpRelayConnector(),
+            store = KeystoreStateStore(dir),
+            tor = tor,
             myName = name,
             myModel = Build.MODEL,
             // One thread for all session state: no locks, no races. Nothing that escapes a handler

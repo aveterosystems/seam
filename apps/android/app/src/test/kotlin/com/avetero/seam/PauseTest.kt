@@ -36,10 +36,10 @@ class PauseTest {
     @Test fun thePausedLookWinsUntilTheTimeComes() {
         val now = 1_000_000L
         val c = ConnectionSettings(pausedUntil = now + 60_000, allowed = setOf(PeerPath.LAN))
-        val paused = LinkLook.of(SessionState.Idle("Mac"), null, c, now)
+        val paused = LinkLook.of(SessionState.Idle("Mac"), null, c, now = now)
         assertEquals(LinkLook.Line.Broken, paused.line)
         assertFalse(paused.connected)
         assertEquals(pausedLabel(now + 60_000, now), paused.label)
-        assertEquals("over: back to normal", LinkLook.Idle, LinkLook.of(SessionState.Idle("Mac"), null, c, now + 60_000))
+        assertEquals("over: back to normal", LinkLook.Idle, LinkLook.of(SessionState.Idle("Mac"), null, c, now = now + 60_000))
     }
 }

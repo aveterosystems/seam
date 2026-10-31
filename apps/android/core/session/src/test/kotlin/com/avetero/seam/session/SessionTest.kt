@@ -1,24 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam.session
 
-import com.avetero.seam.crypto.LanChannel
 import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.SeamDevice
-import com.avetero.seam.crypto.SeamException
-import com.avetero.seam.protocol.v1.BundleResult
-import com.avetero.seam.protocol.v1.Challenge
 import com.avetero.seam.protocol.v1.ClientFrame
 import com.avetero.seam.protocol.v1.Control
-import com.avetero.seam.protocol.v1.Delivered
 import com.avetero.seam.protocol.v1.Envelope
-import com.avetero.seam.protocol.v1.LoginResult
-import com.avetero.seam.protocol.v1.Notification
-import com.avetero.seam.protocol.v1.PairAccept
-import com.avetero.seam.protocol.v1.Payload
-import com.avetero.seam.protocol.v1.RelayError
-import com.avetero.seam.protocol.v1.ServerFrame
-import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.protocol.v1.Hello
+import com.avetero.seam.protocol.v1.Notification
+import com.avetero.seam.protocol.v1.Payload
+import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.protocol.v1.Transport
 import com.google.protobuf.ByteString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,245 +25,133 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private class MemoryStore : StateStore {
-    var blob: ByteArray? = null
-    var quarantined: ByteArray? = null
-    var failSaves = false
-    val saves = mutableListOf<ByteArray>()
-    var keyFailures = 0
-    var keyError: () -> Exception = { StateUnreadableException(javax.crypto.AEADBadTagException()) }
-    var failQuarantine = false
-    override fun load() = blob
-    override fun storageKey(): ByteArray {
-        if (keyFailures > 0) { keyFailures--; throw keyError() }
-        return ByteArray(32) { 3 }
-    }
-    override fun save(blob: ByteArray) {
-        if (failSaves) throw java.io.IOException("disk full")
-        this.blob = blob
-        saves += blob
-    }
-    override fun quarantine() {
-        if (failQuarantine) error("rename failed")
-        quarantined = blob
-        blob = null
-    }
-}
-
-/** A relay with a real Mac (the Rust core) behind it, answering the way server/src/group.ts does. */
-private class FakeRelay(var mac: SeamDevice) : RelayConnector {
-    val logins = mutableListOf<ClientFrame>()
-    val macReceived = mutableListOf<Payload>()
-    /** Every envelope sent through it, as sent. */
-    val envelopes = mutableListOf<Envelope>()
-    /** Hellos are kept apart: every connection sends one. */
-    val hellos = mutableListOf<Payload>()
-    val sealedTtls = mutableListOf<Int>()
-    val removed = mutableListOf<ByteArray>()
-    var delivered = 0
-    var refuseToken = false
-    var withholdAccept = false
-    var refuseNextLogin: String? = null
-    var throwOnConnect = false
-    var listener: LinkListener? = null
-    val urls = mutableListOf<String>()
-
-    override fun connect(url: String, listener: LinkListener): Link {
-        if (throwOnConnect) throw IllegalArgumentException("bad url")
-        urls += url
-        this.listener = listener
-        reply(ServerFrame.newBuilder().setChallenge(Challenge.newBuilder().setNonce(ByteString.copyFrom(ByteArray(32) { 1 }))))
-        return object : Link {
-            override fun send(frame: ByteArray): Boolean {
-                handle(ClientFrame.parseFrom(frame))
-                return true
-            }
-            override fun close() = Unit
-        }
-    }
-
-    private fun handle(f: ClientFrame) {
-        when (f.frameCase) {
-            ClientFrame.FrameCase.LOGIN -> {
-                logins += f
-                val refusal = refuseNextLogin ?: if (refuseToken && !f.login.joinToken.isEmpty) "bad_token" else null
-                refuseNextLogin = null
-                if (refusal != null) reply(ServerFrame.newBuilder().setError(RelayError.newBuilder().setCode(refusal)))
-                else reply(ServerFrame.newBuilder().setLoginResult(LoginResult.newBuilder().setOk(true)))
-            }
-            ClientFrame.FrameCase.GET_BUNDLE -> reply(
-                ServerFrame.newBuilder().setBundle(
-                    BundleResult.newBuilder().setDeviceKey(f.getBundle.deviceKey)
-                        .setBundle(ByteString.copyFrom(mac.prekeyBundles(1u).first())),
-                ),
-            )
-            ClientFrame.FrameCase.SEND -> {
-                sealedTtls += f.send.ttlS
-                envelopes += f.send
-                val env = f.send.toByteArray()
-                try {
-                    val p = Payload.parseFrom(mac.open(env).payload)
-                    if (p.hasControl() && p.control.hasHello()) hellos += p else macReceived += p
-                } catch (_: SeamException.NotPaired) {
-                    val request = mac.acceptPairing(env)
-                    if (withholdAccept) return
-                    mac.confirmPairing(request.peerId) // the user confirmed the code
-                    val accept = Payload.newBuilder().setControl(Control.newBuilder().setPairAccept(PairAccept.getDefaultInstance())).build()
-                    deliverToPhone(mac.seal(request.peerId, accept.toByteArray(), 0u))
-                }
-            }
-            ClientFrame.FrameCase.DELIVERED -> delivered++
-            ClientFrame.FrameCase.REMOVE_MEMBER -> removed += f.removeMember.deviceKey.toByteArray()
-            else -> Unit
-        }
-    }
-
-    fun deliverToPhone(env: ByteArray) = reply(ServerFrame.newBuilder().setDeliver(Envelope.parseFrom(env)))
-    fun listenerFrame(f: ServerFrame) = listener!!.onFrame(f.toByteArray())
-    fun drop() = listener!!.onClosed("dropped")
-    fun error(code: String) = reply(ServerFrame.newBuilder().setError(RelayError.newBuilder().setCode(code)))
-    private fun reply(f: ServerFrame.Builder) = listener!!.onFrame(f.build().toByteArray())
-}
-
-/** Macs on the "network": each address answers with a real core LanChannel, as the Mac app does. */
-private class FakeLan(var macs: Map<LanAddress, SeamDevice>) : Lan {
-    var found: ((LanAddress) -> Unit)? = null
-    var discovering = false
-    var discoveries = 0
-    /** Re-announced to every new discovery, as NSD does. */
-    var adverts = listOf<LanAddress>()
-    var opened = 0
-    var open: MacEnd? = null
-    val macReceived = mutableListOf<Payload>()
-    val hellos = mutableListOf<Payload>()
-    var delivered = 0
-    /** This many next connections drop before answering (a busy Mac, or one made to drop us). */
-    var dropNext = 0
-    /** This many next connections get one byte of the Mac's handshake flipped (a forged packet). */
-    var corruptNext = 0
-
-    override fun discover(found: (LanAddress) -> Unit, lost: (LanAddress) -> Unit) {
-        discovering = true
-        discoveries++
-        this.found = found
-        adverts.forEach(found)
-    }
-    override fun stopDiscovery() {
-        discovering = false
-    }
-    fun announce(vararg a: LanAddress) = a.forEach { found!!(it) }
-
-    /** Acks each envelope it handles (ServerFrame.delivered), as the Mac does. */
-    var acks = true
-    /** Envelopes that "never arrived": recorded, not opened, not acked (lost with a dying link). */
-    var lose = false
-    val lost = mutableListOf<Envelope>()
-    /** Every envelope that arrived, as sent (duplicates included). */
-    val envelopes = mutableListOf<Envelope>()
-
-    inner class MacEnd(val mac: SeamDevice, val listener: LinkListener) : Link {
-        val ch = LanChannel.responder(mac)
-        var closed = false
-        var drops = false
-        var corrupts = false
-        override fun send(frame: ByteArray): Boolean {
-            if (closed) return false
-            if (drops) return true.also { closed = true; listener.onClosed("dropped") }
-            val out = try {
-                ch.receive(frame)
-            } catch (_: Exception) {
-                closed = true
-                listener.onClosed("refused")
-                return true
-            }
-            if (out.send.isNotEmpty()) {
-                if (corrupts) out.send[out.send.size - 1] = (out.send.last().toInt() xor 1).toByte()
-                listener.onFrame(out.send)
-            }
-            for (f in out.frames) {
-                val c = ClientFrame.parseFrom(f)
-                when (c.frameCase) {
-                    ClientFrame.FrameCase.SEND -> {
-                        if (lose) {
-                            lost += c.send
-                            continue
-                        }
-                        envelopes += c.send
-                        val opened = try {
-                            mac.open(c.send.toByteArray())
-                        } catch (_: SeamException.Duplicate) {
-                            if (acks) delivered(c.send.msgId) // the Mac acks a duplicate too, and drops it
-                            continue
-                        }
-                        val p = Payload.parseFrom(opened.payload)
-                        if (p.hasControl() && p.control.hasHello()) hellos += p else macReceived += p
-                        if (acks) delivered(c.send.msgId)
-                    }
-                    ClientFrame.FrameCase.DELIVERED -> delivered++
-                    else -> Unit
-                }
-            }
-            return true
-        }
-        override fun close() {
-            closed = true
-        }
-        fun deliverToPhone(env: ByteArray) =
-            listener.onFrame(ch.send(ServerFrame.newBuilder().setDeliver(Envelope.parseFrom(env)).build().toByteArray()))
-        fun drop() = listener.onClosed("dropped")
-        fun delivered(id: ByteString) =
-            listener.onFrame(ch.send(ServerFrame.newBuilder().setDelivered(Delivered.newBuilder().setMsgId(id)).build().toByteArray()))
-    }
-
-    override fun connect(address: LanAddress, listener: LinkListener): Link {
-        opened++
-        return MacEnd(macs.getValue(address), listener).also {
-            open = it
-            if (dropNext > 0) { dropNext--; it.drops = true }
-            if (corruptNext > 0) { corruptNext--; it.corrupts = true }
-        }
-    }
-}
-
-private fun qrFor(mac: SeamDevice, name: String = "MacBook Pro") =
-    PairingQr("ws://relay.test", ByteArray(16) { 9 }, mac.startPairing().token, mac.identityKey(), mac.relayKey(), name)
-
+/** The session through a fake Tor and a fake Same Wi‑Fi, each with a real Mac (the Rust core) behind it. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionTest {
+    private val tor = FakeTor()
+    private var onions = 0
     private val mac = SeamDevice.generate()
     private val qr = qrFor(mac)
     private val store = MemoryStore()
-    private val relay = FakeRelay(mac)
     private val pending = MemoryPendingStore()
 
+    /** The Mac's pairing code, its new onion service hosted for this phone. */
+    private fun qrFor(mac: SeamDevice, name: String = "MacBook Pro"): PairingQr {
+        val onion = ('a' + onions++).toString().repeat(56) + ".onion"
+        tor.services[onion] = mac
+        return PairingQr(onion, ByteArray(32) { 5 }, mac.startPairing().token, mac.identityKey(), mac.relayKey(), name)
+    }
+
+    /** A code whose token the Mac no longer accepts (expired, or replaced by a newer one). */
+    private fun expired(q: PairingQr) = PairingQr(q.onionAddress, q.discoverySecret, ByteArray(32) { 1 }, q.identityKey, q.relayKey, q.macName)
+
     private fun TestScope.session(
-        connector: RelayConnector = relay,
-        wait: suspend (Long) -> Unit = {},
         trace: ((String) -> Unit)? = null,
         now: () -> Long = { testScheduler.currentTime },
         lan: Lan? = null,
+        dialer: TorDialer? = tor,
         settings: SettingsStore = MemorySettingsStore(),
     ) = Session(
-        store, connector, "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)), wait = wait, now = now, trace = trace, lan = lan, settingsStore = settings, pendingStore = pending,
+        store, "Galaxy S25 Ultra", "SM-S938B",
+        TestScope(StandardTestDispatcher(testScheduler)), now = now, trace = trace, lan = lan, tor = dialer, settingsStore = settings, pendingStore = pending,
     )
 
     private fun status(pct: Int) = Payload.newBuilder().setStatus(Status.newBuilder().setBatteryPct(pct).setCharging(true)).build()
+    private fun clip(t: String) = Payload.newBuilder().setClipboard(com.avetero.seam.protocol.v1.Clipboard.newBuilder().setText(t)).build()
+    private val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(com.avetero.seam.protocol.v1.Unpair.getDefaultInstance())).build()
 
     private fun TestScope.paired(): Session = session().also {
         it.pair(qr)
         advanceUntilIdle()
     }
 
-    @Test fun pairsShowsTheSafetyCodeThenConnects() = runTest {
+    // MARK: pairing over the channel (docs/tor/13-implementation-contract.md)
+
+    @Test fun pairsThroughTorThenConnectsNormally() = runTest {
         val s = paired()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertArrayEquals(qr.token, relay.logins.single().login.joinToken.toByteArray())
         assertEquals("Galaxy S25 Ultra", mac.peers().single().name)
-        assertEquals("ws://relay.test/v1/connect?group=CQkJCQkJCQkJCQkJCQkJCQ", relay.urls.single())
-        assertTrue(relay.delivered >= 1) // the PairAccept was acked
-        assertTrue("the phone never asks the relay to create a group", !relay.logins.single().login.createGroup)
+        assertEquals("one pairing channel", 1, tor.pairings)
+        assertTrue("the PairAccept was acked", tor.delivered >= 1)
+        assertTrue("only ever the code's address", tor.dialled.all { it == qr.onionAddress })
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
+        assertEquals("then a normal channel: pairing channel and this one", 2, tor.opened)
     }
+
+    @Test fun pairsOverSameWifi() = runTest {
+        val lan = FakeLan(mapOf(home to mac)).apply { adverts = listOf(home) }
+        tor.services.clear() // the onion address isn't published yet
+        val s = session(lan = lan)
+        s.pair(qr)
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        assertEquals(1, lan.pairings)
+        assertEquals(0, tor.pairings)
+        assertEquals(Transport.TRANSPORT_LAN, s.route.value)
+    }
+
+    @Test fun pairingTriesBothAndOnlyOneChannelPairs() = runTest {
+        val lan = FakeLan(mapOf(home to mac)).apply { adverts = listOf(home) }
+        val s = session(lan = lan)
+        s.pair(qr)
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        assertEquals("one pairing request", 1, mac.peers().size)
+        assertEquals("the keys were asked for once", 1, lan.bundles + tor.bundles)
+        assertEquals("Same Wi‑Fi preferred once paired", Transport.TRANSPORT_LAN, s.route.value)
+    }
+
+    @Test fun someoneElsesMacOnTheNetworkCantTakeThePairing() = runTest {
+        val lan = FakeLan(mapOf(neighbour to SeamDevice.generate().also { it.startPairing() })).apply { adverts = listOf(neighbour) }
+        val s = session(lan = lan)
+        s.pair(qr)
+        advanceUntilIdle()
+        assertEquals("their Mac fails the pinned key", 0, lan.pairings)
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        assertEquals(1, tor.pairings)
+    }
+
+    @Test fun aPairingChannelCarriesOnlyThePairingExchange() = runTest {
+        val s = paired()
+        s.send(status(1)) // queued for the old Mac as the new pairing starts
+        tor.withholdAccept = true
+        tor.pairingFrames.clear()
+        s.pair(qrFor(SeamDevice.generate(), "Mac mini"))
+        s.send(status(2))
+        s.setSwitches(wifi = false, tor = true)
+        advanceUntilIdle()
+        assertTrue(s.state.value is SessionState.Pairing)
+        val allowed = setOf(ClientFrame.FrameCase.GET_BUNDLE, ClientFrame.FrameCase.SEND, ClientFrame.FrameCase.DELIVERED)
+        assertTrue(tor.pairingFrames.toString(), tor.pairingFrames.isNotEmpty() && tor.pairingFrames.all { it in allowed })
+        assertEquals("only the pairing request was sent on it", 1, tor.pairingFrames.count { it == ClientFrame.FrameCase.SEND })
+    }
+
+    @Test fun aPairingThatFindsNoMacGivesUpAfterThreeMinutes() = runTest {
+        tor.services.clear()
+        val s = session()
+        s.pair(qr)
+        advanceTimeBy(150_000)
+        runCurrent()
+        assertTrue("still trying while the address publishes", s.state.value is SessionState.Pairing)
+        assertTrue("retried", tor.dialled.size >= 3)
+        advanceUntilIdle()
+        assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Couldn't reach your Mac"))
+    }
+
+    @Test fun aRelayEraPairingAsksToPairAgain() = runTest {
+        paired()
+        // What an older version left: a paired Mac, app data the core no longer reads (none)
+        val old = SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).apply { clearAppData() }
+        store.blob = old.exportState(ByteArray(32) { 3 })
+        val s = session()
+        s.start()
+        advanceUntilIdle()
+        assertEquals(SessionState.Unpaired, s.state.value)
+        assertTrue(s.notice.value!!.contains("pair again"))
+        assertTrue(SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
+    }
+
+    // MARK: delivery
 
     @Test fun sendsBatteryStatusToTheMacOnceConnected() = runTest {
         val s = session()
@@ -281,7 +160,7 @@ class SessionTest {
         advanceUntilIdle()
         s.send(status(82))
         advanceUntilIdle()
-        assertEquals(82, relay.macReceived.single().status.batteryPct)
+        assertEquals(82, tor.macReceived.single().status.batteryPct)
     }
 
     @Test fun featuresAreToldWhenConnected() = runTest {
@@ -296,16 +175,16 @@ class SessionTest {
         s.pair(qr)
         advanceUntilIdle()
         assertEquals(1, connects)
-        assertEquals(55, relay.macReceived.single().status.batteryPct)
+        assertEquals(55, tor.macReceived.single().status.batteryPct)
     }
 
-    @Test fun reconnectsAfterADropWithoutTheJoinToken() = runTest {
+    @Test fun reconnectsAfterADropWithoutPairingAgain() = runTest {
         val s = paired()
-        relay.drop()
+        tor.drop()
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertEquals(2, relay.logins.size)
-        assertTrue("second login is a normal one", relay.logins[1].login.joinToken.isEmpty)
+        assertEquals(3, tor.opened)
+        assertEquals("a normal channel, never a pairing one", 1, tor.pairings)
     }
 
     @Test fun survivesARestartWithoutRePairing() = runTest {
@@ -316,13 +195,12 @@ class SessionTest {
         assertEquals(SessionState.Connected("MacBook Pro"), restarted.state.value)
         restarted.send(status(40))
         advanceUntilIdle()
-        assertEquals(40, relay.macReceived.single().status.batteryPct)
+        assertEquals(40, tor.macReceived.single().status.batteryPct)
     }
 
     @Test fun expiredCodeFailsCleanlyAndLeavesNoHalfPairing() = runTest {
-        relay.refuseToken = true
         val s = session()
-        s.pair(qr)
+        s.pair(expired(qr))
         advanceUntilIdle()
         assertTrue(s.state.value is SessionState.Failed)
         val restarted = session()
@@ -331,20 +209,11 @@ class SessionTest {
         assertEquals(SessionState.Unpaired, restarted.state.value)
     }
 
-    @Test fun garbageFromTheRelayIsIgnored() = runTest {
+    @Test fun anEnvelopeThatCantBeOpenedIsIgnored() = runTest {
         val s = paired()
-        relay.listener!!.onFrame(byteArrayOf(1, 2, 3, 4))
-        relay.deliverToPhone(Envelope.newBuilder().setVersion(1).setMsgId(ByteString.copyFrom(ByteArray(16))).build().toByteArray())
+        tor.deliverToPhone(Envelope.newBuilder().setVersion(1).setMsgId(ByteString.copyFrom(ByteArray(16))).build().toByteArray())
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-    }
-
-    @Test fun sr_2_02_aConnectThatThrowsFailsCleanly() = runTest {
-        relay.throwOnConnect = true
-        val s = session()
-        s.pair(qr)
-        advanceUntilIdle()
-        assertEquals(SessionState.Failed("That relay address doesn't work."), s.state.value)
     }
 
     @Test fun sr_2_03_aFeatureThatThrowsDoesNotCrashAndTheMessageIsAcked() = runTest {
@@ -355,20 +224,20 @@ class SessionTest {
         })
         s.pair(qr)
         advanceUntilIdle()
-        val acked = relay.delivered
-        relay.deliverToPhone(mac.seal(mac.peers().single().id, status(1).toByteArray(), 0u))
+        val acked = tor.delivered
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, status(1).toByteArray(), 0u))
         advanceUntilIdle()
-        assertEquals(acked + 1, relay.delivered)
+        assertEquals(acked + 1, tor.delivered)
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
     }
 
     @Test fun sr_2_03_aSaveFailureIsShownAndTheMessageIsNotAcked() = runTest {
         val s = paired()
-        val acked = relay.delivered
+        val acked = tor.delivered
         store.failSaves = true
-        relay.deliverToPhone(mac.seal(mac.peers().single().id, status(1).toByteArray(), 0u))
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, status(1).toByteArray(), 0u))
         advanceUntilIdle()
-        assertEquals("not acked, so the relay keeps it", acked, relay.delivered)
+        assertEquals("not acked, so the Mac keeps it", acked, tor.delivered)
         assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Couldn't save"))
     }
 
@@ -429,35 +298,12 @@ class SessionTest {
         })
         s.pair(qr)
         advanceUntilIdle()
-        val acked = relay.delivered
+        val acked = tor.delivered
         store.failSaves = true
-        relay.deliverToPhone(mac.seal(mac.peers().single().id, status(9).toByteArray(), 0u))
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, status(9).toByteArray(), 0u))
         advanceUntilIdle()
         assertEquals("handled, not lost", listOf(9), received)
-        assertEquals("not acked, so a restart from the saved state opens it again", acked, relay.delivered)
-    }
-
-    @Test fun sr_2_61_aPhoneTheRelayNoLongerKnowsIsToldToPairAgain() = runTest {
-        val s = paired()
-        repeat(5) { // MAX_REFUSALS
-            relay.error("not_member")
-            runCurrent() // reconnects at once, before the connection counts as stable
-        }
-        advanceUntilIdle()
-        assertEquals(SessionState.Failed("The relay didn't recognise this phone. Pair again."), s.state.value)
-    }
-
-    @Test fun sr_2_61_theBackoffGrowsWhileTheRelayKeepsDroppingUs() = runTest {
-        val delays = mutableListOf<Long>()
-        val s = session(wait = { delays += it })
-        s.pair(qr)
-        advanceUntilIdle()
-        repeat(3) {
-            relay.error("storage") // accepted the login, then dropped us
-            runCurrent()
-        }
-        assertEquals(3, delays.size)
-        assertTrue("each wait at least ~doubles: $delays", delays.zipWithNext().all { (a, b) -> b >= a * 3 / 2 })
+        assertEquals("not acked, so a restart from the saved state opens it again", acked, tor.delivered)
     }
 
     @Test fun sr_2_62_aFeatureThatThrowsOnConnectDoesNotTakeTheConnectionDown() = runTest {
@@ -471,17 +317,18 @@ class SessionTest {
         s.pair(qr)
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertEquals("the next feature still ran, and its message went out", 55, relay.macReceived.single().status.batteryPct)
+        assertEquals("the next feature still ran, and its message went out", 55, tor.macReceived.single().status.batteryPct)
     }
 
     @Test fun sr_2_63_noSavedStateEverHoldsTwoMacs() = runTest {
         val s = paired()
         val before = store.saves.size
         val newMac = SeamDevice.generate()
-        relay.mac = newMac
-        s.pair(qrFor(newMac, "Mac mini"))
+        val next = qrFor(newMac, "Mac mini")
+        s.pair(next)
         advanceUntilIdle()
         assertEquals(SessionState.Connected("Mac mini"), s.state.value)
+        assertEquals("dials the new Mac's address from now on", next.onionAddress, tor.dialled.last())
         for (blob in store.saves.drop(before)) {
             val peers = SeamDevice.restore(blob, ByteArray(32) { 3 }).peers()
             assertTrue("a saved state with ${peers.size} Macs", peers.size <= 1)
@@ -499,38 +346,49 @@ class SessionTest {
 
     @Test fun clipboardWaitsAtMostTenMinutesAndOnlyTheLatestIsQueued() = runTest {
         val s = paired()
-        relay.drop() // runs before the sends below, so they wait in the outbox for the reconnect
-        val clip = { t: String -> Payload.newBuilder().setClipboard(com.avetero.seam.protocol.v1.Clipboard.newBuilder().setText(t)).build() }
-        relay.sealedTtls.clear()
+        tor.drop() // runs before the sends below, so they wait in the outbox for the reconnect
         s.send(clip("old"))
         s.send(clip("new"))
         advanceUntilIdle()
-        assertEquals(listOf("new"), relay.macReceived.filter { it.hasClipboard() }.map { it.clipboard.text })
-        assertEquals(600, relay.sealedTtls.last())
+        assertEquals(listOf("new"), tor.macReceived.filter { it.hasClipboard() }.map { it.clipboard.text })
+        assertEquals(600, tor.ttls.last { it.first == Payload.BodyCase.CLIPBOARD }.second)
     }
 
     @Test fun sr_4_04_aClipboardQueuedTooLongIsDroppedNotSentLate() = runTest {
-        val s = session(wait = { kotlinx.coroutines.delay(11 * 60_000L) }) // the relay comes back after 11 minutes
-        s.pair(qr)
-        advanceUntilIdle()
-        relay.drop()
-        s.send(Payload.newBuilder().setClipboard(com.avetero.seam.protocol.v1.Clipboard.newBuilder().setText("stale")).build())
+        val s = paired()
+        tor.services.remove(qr.onionAddress) // the Mac is unreachable for 11 minutes
+        tor.drop()
+        s.send(clip("stale"))
+        advanceTimeBy(11 * 60_000L)
+        tor.services[qr.onionAddress] = mac
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertTrue("never sent late", relay.macReceived.none { it.hasClipboard() })
+        assertTrue("never sent late", tor.macReceived.none { it.hasClipboard() })
     }
 
-    @Test fun forgettingTheMacTellsItLeavesTheGroupAndForgetsIt() = runTest {
+    @Test fun sr_2_20_theOutboxKeepsOnlyTheLatestStatus() = runTest {
         val s = paired()
-        val phoneKey = relay.logins.first().login.deviceKey.toByteArray()
+        tor.services.remove(qr.onionAddress) // offline for a moment
+        tor.drop()
+        repeat(5) { s.send(status(it)) }
+        runCurrent()
+        tor.services[qr.onionAddress] = mac
+        advanceUntilIdle()
+        assertEquals(listOf(4), tor.macReceived.map { it.status.batteryPct })
+    }
+
+    // MARK: forgetting
+
+    @Test fun forgettingTheMacTellsItAndForgetsIt() = runTest {
+        val s = paired()
         s.forgetMac()
         advanceUntilIdle()
         assertEquals(SessionState.Unpaired, s.state.value)
-        assertTrue("the Mac was told", relay.macReceived.any { it.hasControl() && it.control.hasUnpair() })
-        assertArrayEquals("the phone left the group", phoneKey, relay.removed.single())
+        assertTrue("the Mac was told", tor.macReceived.any { it.hasControl() && it.control.hasUnpair() })
         val saved = SeamDevice.restore(store.blob!!, ByteArray(32) { 3 })
         assertTrue("nothing saved still pairs", saved.peers().isEmpty())
-        assertNull("nor keeps the old relay group", saved.appData())
+        assertNull("nor keeps the Mac's address", saved.appData())
+        assertNull("and Tor has nowhere to go", tor.target)
         val again = session()
         again.start()
         advanceUntilIdle()
@@ -554,52 +412,48 @@ class SessionTest {
         s.forgetMac()
         advanceUntilIdle()
         assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Couldn't finish forgetting"))
-        assertTrue("the Mac wasn't told something that didn't happen", relay.macReceived.none { it.hasControl() && it.control.hasUnpair() })
-        assertTrue("and the phone didn't leave the group", relay.removed.isEmpty())
+        assertTrue("the Mac wasn't told something that didn't happen", tor.macReceived.none { it.hasControl() && it.control.hasUnpair() })
     }
 
     @Test fun anUnpairIsIgnoredWhilePairingWithAnotherMac() = runTest {
         val s = paired()
         val newMac = SeamDevice.generate()
-        relay.mac = newMac
-        relay.withholdAccept = true // the new Mac hasn't accepted yet
+        tor.withholdAccept = true // the new Mac hasn't accepted yet
         s.pair(qrFor(newMac, "Mac mini"))
         advanceUntilIdle()
-        val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(com.avetero.seam.protocol.v1.Unpair.getDefaultInstance())).build()
-        relay.deliverToPhone(mac.seal(mac.peers().single().id, unpair.toByteArray(), 0u))
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, unpair.toByteArray(), 0u))
         advanceUntilIdle()
         assertTrue("still pairing, nothing forgotten", s.state.value is SessionState.Pairing)
     }
 
     @Test fun whenTheMacUnpairsThePhoneForgetsIt() = runTest {
         val s = paired()
-        val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(com.avetero.seam.protocol.v1.Unpair.getDefaultInstance())).build()
-        relay.deliverToPhone(mac.seal(mac.peers().single().id, unpair.toByteArray(), 0u))
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, unpair.toByteArray(), 0u))
         advanceUntilIdle()
         assertEquals(SessionState.Unpaired, s.state.value)
         assertTrue(SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
     }
 
-    private fun clip(t: String) = Payload.newBuilder().setClipboard(com.avetero.seam.protocol.v1.Clipboard.newBuilder().setText(t)).build()
+    // MARK: decision 0005: the connection is held only while it's cheap or needed
 
     @Test fun d0005_screenOffAndIdleClosesTheConnection() = runTest {
         val s = paired()
-        val logins = relay.logins.size
+        val opened = tor.opened
         s.setScreenOn(false)
         advanceUntilIdle() // a minute with nothing to carry
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
-        assertEquals("and it doesn't reconnect by itself", logins, relay.logins.size)
+        assertEquals("and it doesn't reconnect by itself", opened, tor.opened)
     }
 
     @Test fun d0005_aCopyWhileIdleConnectsSendsAndSleepsAgain() = runTest {
         val s = paired()
         s.setScreenOn(false)
         advanceUntilIdle()
-        val logins = relay.logins.size
+        val opened = tor.opened
         s.send(clip("sent from an idle phone"))
         advanceUntilIdle()
-        assertEquals(logins + 1, relay.logins.size)
-        assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "sent from an idle phone" })
+        assertEquals(opened + 1, tor.opened)
+        assertTrue(tor.macReceived.any { it.hasClipboard() && it.clipboard.text == "sent from an idle phone" })
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
     }
 
@@ -660,9 +514,9 @@ class SessionTest {
     }
 
     // Pause: only the phone pauses and resumes. Paused, it tells the Mac once, then makes no
-    // connections at all (no relay, no Wi‑Fi search) and captures nothing, until it ends or resumes.
+    // connections at all (no Tor, no Wi‑Fi search) and captures nothing, until it ends or resumes.
     /** The pause each Hello told the Mac, in order (the pause rides on the Hello, SR-32-01). */
-    private fun pausesSent() = relay.hellos.map { it.control.hello.pausedUntilMs }
+    private fun pausesSent() = tor.hellos.map { it.control.hello.pausedUntilMs }
 
     @Test fun pausingTellsTheMacThenGoesSilent() = runTest {
         val s = paired()
@@ -672,14 +526,14 @@ class SessionTest {
         assertEquals("the Mac is told when it ends", until, pausesSent().last())
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
         assertEquals(until, s.settings.value.pausedUntil)
-        val logins = relay.logins.size
+        val opened = tor.opened
         s.setScreenOn(false)
         s.setScreenOn(true) // picking the phone up doesn't connect while paused
         s.setCharging(true) // nor does charging
         s.send(clip("copied while paused"))
         advanceTimeBy(30 * 60_000L)
-        assertEquals("no connection at all", logins, relay.logins.size)
-        assertTrue("nothing captured", relay.macReceived.none { it.hasClipboard() && it.clipboard.text == "copied while paused" })
+        assertEquals("no connection at all", opened, tor.opened)
+        assertTrue("nothing captured", tor.macReceived.none { it.hasClipboard() && it.clipboard.text == "copied while paused" })
         assertEquals(CpuPlan.None, s.cpu.value)
     }
 
@@ -687,10 +541,10 @@ class SessionTest {
         val s = paired()
         s.setScreenOn(false)
         advanceUntilIdle()
-        val logins = relay.logins.size
+        val opened = tor.opened
         s.pause(Long.MAX_VALUE)
         advanceUntilIdle()
-        assertEquals(logins + 1, relay.logins.size)
+        assertEquals(opened + 1, tor.opened)
         assertEquals(Long.MAX_VALUE, pausesSent().last())
         assertEquals("and closes again straight away", SessionState.Idle("MacBook Pro"), s.state.value)
     }
@@ -707,7 +561,7 @@ class SessionTest {
         assertTrue("the Mac ends it at the same time by the clock", pausesSent().none { it > testScheduler.currentTime && it != Long.MAX_VALUE })
         s.send(clip("after the pause"))
         advanceUntilIdle()
-        assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "after the pause" })
+        assertTrue(tor.macReceived.any { it.hasClipboard() && it.clipboard.text == "after the pause" })
     }
 
     @Test fun resumingTellsTheMacAndReconnects() = runTest {
@@ -721,7 +575,7 @@ class SessionTest {
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
         s.send(clip("after resume"))
         advanceUntilIdle()
-        assertTrue(relay.macReceived.any { it.hasClipboard() && it.clipboard.text == "after resume" })
+        assertTrue(tor.macReceived.any { it.hasClipboard() && it.clipboard.text == "after resume" })
     }
 
     @Test fun aPauseSurvivesARestart() = runTest {
@@ -729,13 +583,13 @@ class SessionTest {
         val s = session(settings = settings).also { it.pair(qr); advanceUntilIdle() }
         s.pause(Long.MAX_VALUE)
         advanceUntilIdle()
-        val logins = relay.logins.size
+        val opened = tor.opened
         val restarted = session(settings = settings)
         restarted.start()
         restarted.setScreenOn(true)
         advanceUntilIdle()
         assertEquals(Long.MAX_VALUE, restarted.settings.value.pausedUntil)
-        assertEquals("still silent", logins, relay.logins.size)
+        assertEquals("still silent", opened, tor.opened)
     }
 
     @Test fun onSameWifiThePauseWaitsForTheMacsAckThenNeverReconnects() = runTest {
@@ -747,13 +601,13 @@ class SessionTest {
         advanceUntilIdle()
         assertTrue(lan.hellos.any { it.control.hello.pausedUntilMs == Long.MAX_VALUE })
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
-        val (opened, logins) = lan.opened to relay.logins.size
+        val (opened, viaTor) = lan.opened to tor.opened
         s.setScreenOn(false)
         s.setScreenOn(true)
         lan.announce(home)
         advanceTimeBy(10 * 60_000L)
         assertEquals("acked, so nothing to resend: no link opened again", opened, lan.opened)
-        assertEquals(logins, relay.logins.size)
+        assertEquals(viaTor, tor.opened)
     }
 
     @Test fun thePauseNoticeIsntCutOffBeforeTheMacConfirmsIt() = runTest {
@@ -790,38 +644,30 @@ class SessionTest {
         val s = paired()
         s.setScreenOn(false)
         advanceUntilIdle()
-        val logins = relay.logins.size
+        val opened = tor.opened
         s.send(status(42))
         advanceUntilIdle()
-        assertEquals("no radio wake-up for a battery change", logins, relay.logins.size)
+        assertEquals("no radio wake-up for a battery change", opened, tor.opened)
         s.setScreenOn(true) // the user picks the phone up
         advanceUntilIdle()
-        assertEquals(logins + 1, relay.logins.size)
-        assertEquals(42, relay.macReceived.last { it.hasStatus() }.status.batteryPct)
+        assertEquals(opened + 1, tor.opened)
+        assertEquals(42, tor.macReceived.last { it.hasStatus() }.status.batteryPct)
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
     }
 
     @Test fun sr_8_01_aCopyThatCantGoDoesNotSpinAndGivesUpWhenStale() = runTest {
-        var silent = false
-        // Connects, but the relay never answers: the copy can't go
-        val flaky = RelayConnector { url, listener ->
-            if (!silent) relay.connect(url, listener)
-            else object : Link {
-                override fun send(frame: ByteArray) = true
-                override fun close() = Unit
-            }
-        }
         var decisions = 0
-        val s = session(flaky, trace = { if (++decisions > 500) error("busy loop: $decisions decisions") })
+        val s = session(trace = { if (++decisions > 2_000) error("busy loop: $decisions decisions") })
         s.pair(qr)
         advanceUntilIdle()
-        silent = true
+        tor.silent = true // connects, but the Mac never answers: the copy can't go
         s.setScreenOn(false)
         advanceUntilIdle() // goes idle
+        val before = decisions
         s.send(clip("can't go"))
-        advanceTimeBy(30 * 60_000L) // half an hour of a silent relay
-        assertTrue("bounded, not a loop: $decisions", decisions < 50)
-        relay.drop() // let the stuck link close
+        advanceTimeBy(30 * 60_000L) // half an hour of a silent Mac
+        // Each attempt waits out the Tor proof timeout, then the retry wait: a few a minute at most
+        assertTrue("bounded, not a loop: ${decisions - before}", decisions - before < 200)
         advanceUntilIdle()
         assertTrue("and a stale copy stops keeping it awake", s.state.value is SessionState.Idle || s.state.value is SessionState.Connecting)
     }
@@ -839,18 +685,20 @@ class SessionTest {
 
     @Test fun d0005_aRestartWithTheScreenOffStaysIdle() = runTest {
         paired()
-        val logins = relay.logins.size
+        val opened = tor.opened
         val restarted = session()
         restarted.setScreenOn(false)
         advanceTimeBy(61_000)
         restarted.start()
         advanceUntilIdle()
         assertEquals(SessionState.Idle("MacBook Pro"), restarted.state.value)
-        assertEquals(logins, relay.logins.size)
+        assertEquals(opened, tor.opened)
     }
 
+    // MARK: codes and outcomes
+
     @Test fun codesDontMatchStopsPairingAndTrustsNothing() = runTest {
-        relay.withholdAccept = true // the Mac shows its code and waits for the user
+        tor.withholdAccept = true // the Mac shows its code and waits for the user
         val s = session()
         s.pair(qr)
         advanceUntilIdle()
@@ -896,20 +744,19 @@ class SessionTest {
         store.failSaves = true
         s.send(status(77))
         advanceUntilIdle()
-        assertTrue(relay.macReceived.isEmpty())
+        assertTrue(tor.macReceived.isEmpty())
     }
 
     @Test fun sr_2_18_aFailedRePairKeepsTheExistingMac() = runTest {
         val s = paired()
-        val other = SeamDevice.generate()
-        relay.refuseToken = true
-        s.pair(qrFor(other, "Someone else's Mac"))
+        s.pair(expired(qrFor(SeamDevice.generate(), "Someone else's Mac")))
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertTrue(s.notice.value!!.contains("expired"))
+        assertTrue(s.notice.value!!.startsWith("Couldn't reach your Mac"))
+        assertEquals("back to the current Mac's address", qr.onionAddress, tor.target?.onionAddress)
         s.send(status(66))
         advanceUntilIdle()
-        assertEquals(66, relay.macReceived.single().status.batteryPct)
+        assertEquals(66, tor.macReceived.single().status.batteryPct)
     }
 
     // MARK: pairing outcome (SR-11-06: the setup screens follow only a new Mac)
@@ -920,22 +767,21 @@ class SessionTest {
         s.pair(qr)
         advanceUntilIdle()
         assertEquals(PairingOutcome.NewMac, s.pairingOutcome.value)
-        s.pair(qrFor(SeamDevice.generate().also { relay.mac = it }, "Mac mini")) // replacing it is a new Mac too
+        s.pair(qrFor(SeamDevice.generate(), "Mac mini")) // replacing it is a new Mac too
         advanceUntilIdle()
         assertEquals(SessionState.Connected("Mac mini"), s.state.value)
         assertEquals(PairingOutcome.NewMac, s.pairingOutcome.value)
     }
 
     @Test fun sr_11_06_anAcceptThatCantBeSavedIsNotANewMac() = runTest {
-        relay.withholdAccept = true
+        tor.withholdAccept = true
         val s = session()
         s.pair(qr)
         advanceUntilIdle()
         store.failSaves = true
         val phoneId = mac.peers().single().id
         mac.confirmPairing(phoneId)
-        val accept = Payload.newBuilder().setControl(Control.newBuilder().setPairAccept(PairAccept.getDefaultInstance())).build()
-        relay.deliverToPhone(mac.seal(phoneId, accept.toByteArray(), 0u))
+        tor.deliverToPhone(mac.seal(phoneId, FakeLan.ACCEPT.toByteArray(), 0u))
         advanceUntilIdle()
         assertTrue(s.state.value is SessionState.Failed)
         assertTrue("no setup screens over a failure", s.pairingOutcome.value != PairingOutcome.NewMac)
@@ -943,22 +789,20 @@ class SessionTest {
 
     @Test fun sr_11_06_aFailedPairingWhilePairedReportsStillOnThePreviousMac() = runTest {
         val s = paired()
-        relay.refuseToken = true
-        s.pair(qrFor(SeamDevice.generate(), "Someone else's Mac"))
+        s.pair(expired(qrFor(SeamDevice.generate(), "Someone else's Mac")))
         advanceUntilIdle()
         assertEquals(PairingOutcome.StillOnPreviousMac, s.pairingOutcome.value)
     }
 
     @Test fun sr_11_06_aFailedFirstPairingReportsNoMac() = runTest {
-        relay.refuseToken = true
         val s = session()
-        s.pair(qr)
+        s.pair(expired(qr))
         advanceUntilIdle()
         assertEquals(PairingOutcome.NoMac, s.pairingOutcome.value)
     }
 
     @Test fun sr_2_18_aRestartMidPairingForgetsTheHalfPairedMac() = runTest {
-        relay.withholdAccept = true
+        tor.withholdAccept = true
         val s = session()
         s.pair(qr)
         advanceUntilIdle()
@@ -969,33 +813,7 @@ class SessionTest {
         assertEquals(SessionState.Unpaired, restarted.state.value)
     }
 
-    @Test fun sr_2_19_aRelayErrorWhilePairedReconnectsInsteadOfFailing() = runTest {
-        val s = paired()
-        relay.refuseNextLogin = "storage"
-        relay.drop()
-        advanceUntilIdle()
-        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertEquals(3, relay.logins.size) // pairing, refused, then the retry
-    }
-
-    @Test fun sr_2_19_relayErrorTextIsNeverShown() = runTest {
-        relay.refuseNextLogin = "<script>evil</script>"
-        val s = session()
-        s.pair(qr)
-        advanceUntilIdle()
-        assertEquals(SessionState.Failed("The relay refused the connection."), s.state.value)
-    }
-
-    @Test fun sr_2_20_theOutboxKeepsOnlyTheLatestStatus() = runTest {
-        val s = paired()
-        relay.drop()
-        relay.refuseNextLogin = "storage" // stay offline for a moment
-        repeat(5) { s.send(status(it)) }
-        advanceUntilIdle()
-        assertEquals(listOf(4), relay.macReceived.map { it.status.batteryPct })
-    }
-
-    // MARK: same Wi‑Fi (protocol/README.md, decision 0006)
+    // MARK: same Wi‑Fi and the switches (decision 0006)
 
     private val home = LanAddress("192.168.1.20", 50001)
     private val neighbour = LanAddress("192.168.1.30", 50002)
@@ -1025,7 +843,7 @@ class SessionTest {
         return mac.seal(mac.peers().single().id, hello.toByteArray(), 0u)
     }
 
-    @Test fun onTheSameWifiMessagesGoDirectAndTheRelayStaysAsTheMailbox() = runTest {
+    @Test fun onTheSameWifiMessagesGoDirectAndTorStaysOpen() = runTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = pairedWithLan(lan)
         assertTrue("looks for the Mac once paired", lan.discovering)
@@ -1036,9 +854,9 @@ class SessionTest {
         s.send(status(70))
         advanceUntilIdle()
         assertEquals(70, lan.macReceived.single().status.batteryPct)
-        assertTrue("not through the relay", relay.macReceived.none { it.hasStatus() })
-        assertTrue("the relay connection stays: it's the mailbox", relay.listener != null && relay.logins.isNotEmpty())
-        assertEquals(listOf(Transport.TRANSPORT_LAN, Transport.TRANSPORT_RELAY), lan.hellos.last().control.hello.allowedTransportsList)
+        assertTrue("not through Tor", tor.macReceived.none { it.hasStatus() })
+        assertTrue("Tor stays, so losing Wi‑Fi is seamless", tor.open?.closed == false)
+        assertEquals(listOf(Transport.TRANSPORT_LAN, Transport.TRANSPORT_TOR), lan.hellos.last().control.hello.allowedTransportsList)
     }
 
     @Test fun someoneElsesMacOnTheNetworkIsRefusedAndOursIsFound() = runTest {
@@ -1060,15 +878,15 @@ class SessionTest {
         })
         lan.announce(home)
         advanceUntilIdle()
-        val relayAcks = relay.delivered
+        val torAcks = tor.delivered
         lan.open!!.deliverToPhone(mac.seal(mac.peers().single().id, status(12).toByteArray(), 0u))
         advanceUntilIdle()
         assertEquals(12, received.single().status.batteryPct)
         assertEquals(1, lan.delivered)
-        assertEquals(relayAcks, relay.delivered)
+        assertEquals(torAcks, tor.delivered)
     }
 
-    @Test fun whenTheDirectLinkDropsMessagesGoThroughTheRelay() = runTest {
+    @Test fun whenTheDirectLinkDropsMessagesGoThroughTor() = runTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = pairedWithLan(lan)
         lan.announce(home)
@@ -1076,27 +894,28 @@ class SessionTest {
         lan.open!!.drop()
         runCurrent()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertEquals(Transport.TRANSPORT_RELAY, s.route.value)
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
         advanceTimeBy(1_300)
         runCurrent()
         assertTrue("looks for the Mac again, after a short wait", lan.discovering)
         s.send(status(33))
         advanceUntilIdle()
-        assertEquals(33, relay.macReceived.single().status.batteryPct)
+        assertEquals(33, tor.macReceived.single().status.batteryPct)
     }
 
-    @Test fun relayOffNeverUsesTheRelayAndMessagesWaitForWifi() = runTest {
+    @Test fun torOffNeverUsesTorAndMessagesWaitForWifi() = runTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = pairedWithLan(lan)
-        s.setSwitches(wifi = true, relay = false)
+        s.setSwitches(wifi = true, tor = false)
         advanceUntilIdle()
-        assertEquals("the Mac was told first, over the relay", listOf(Transport.TRANSPORT_LAN), relay.hellos.last().control.hello.allowedTransportsList)
+        assertEquals("the Mac was told first, through Tor", listOf(Transport.TRANSPORT_LAN), tor.hellos.last().control.hello.allowedTransportsList)
         assertEquals(null, s.route.value)
-        val logins = relay.logins.size
+        assertTrue("Tor closed", tor.open!!.closed)
+        val opened = tor.opened
         s.send(status(5))
         advanceUntilIdle()
-        assertTrue("waits rather than using the relay", relay.macReceived.none { it.hasStatus() })
-        assertEquals(logins, relay.logins.size)
+        assertTrue("waits rather than using Tor", tor.macReceived.none { it.hasStatus() })
+        assertEquals(opened, tor.opened)
         lan.announce(home)
         advanceUntilIdle()
         assertEquals(5, lan.macReceived.single().status.batteryPct)
@@ -1104,10 +923,10 @@ class SessionTest {
 
     @Test fun theLastSwitchCantBeTurnedOff() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
-        s.setSwitches(wifi = false, relay = true)
-        s.setSwitches(wifi = false, relay = false)
+        s.setSwitches(wifi = false, tor = true)
+        s.setSwitches(wifi = false, tor = false)
         advanceUntilIdle()
-        assertEquals(false to true, s.settings.value.wifi to s.settings.value.relay)
+        assertEquals(false to true, s.settings.value.wifi to s.settings.value.tor)
     }
 
     @Test fun onlyPathsTheMacAllowsAreUsed() = runTest {
@@ -1116,68 +935,68 @@ class SessionTest {
         val s = pairedWithLan(lan, settings)
         lan.announce(home)
         advanceUntilIdle()
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_RELAY)) // the Mac turned Same Wi‑Fi off
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR)) // the Mac turned Same Wi‑Fi off
         advanceUntilIdle()
-        assertEquals(setOf(Transport.TRANSPORT_RELAY), s.settings.value.macAllows)
-        assertEquals("the core's answer for the status line", setOf(PeerPath.RELAY), s.settings.value.allowed)
+        assertEquals(setOf(Transport.TRANSPORT_TOR), s.settings.value.macAllows)
+        assertEquals("the core's answer for the status line", setOf(PeerPath.TOR), s.settings.value.allowed)
         assertTrue("our own switch still allows it: the link stays, for the Mac's next Hello", !lan.open!!.closed)
-        assertEquals(Transport.TRANSPORT_RELAY, s.route.value)
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
         s.send(status(9))
         advanceUntilIdle()
-        assertEquals(9, relay.macReceived.single().status.batteryPct)
+        assertEquals(9, tor.macReceived.single().status.batteryPct)
         assertTrue(lan.macReceived.isEmpty())
     }
 
     @Test fun aStaleMacListNeverLocksThePhoneOut() = runTest {
-        // On a device: the phone remembered the Mac's [Same Wi‑Fi]; the Mac then went relay-only
+        // On a device: the phone remembered the Mac's [Same Wi‑Fi]; the Mac then went Tor-only
         val s = pairedWithLan(FakeLan(emptyMap())) // no Mac on this network
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_LAN))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_LAN))
         advanceUntilIdle()
-        assertTrue("the relay stays open: it's our own switch that counts", relay.listener != null)
+        assertTrue("Tor stays open: it's our own switch that counts", tor.open?.closed == false)
         s.send(clip("waiting"))
         advanceUntilIdle()
-        assertTrue("but nothing is sent where the Mac said no", relay.macReceived.none { it.hasClipboard() })
-        // After a restart the phone still connects to the relay, despite the stale list
-        val logins = relay.logins.size
+        assertTrue("but nothing is sent where the Mac said no", tor.macReceived.none { it.hasClipboard() })
+        // After a restart the phone still connects through Tor, despite the stale list
+        val opened = tor.opened
         val restarted = session(lan = FakeLan(emptyMap()))
         restarted.start()
         advanceUntilIdle()
-        assertTrue(relay.logins.size > logins)
+        assertTrue(tor.opened > opened)
         restarted.send(clip("waiting"))
         advanceUntilIdle()
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_RELAY)) // the Mac's new choice gets through
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR)) // the Mac's new choice gets through
         advanceUntilIdle()
-        assertEquals(Transport.TRANSPORT_RELAY, restarted.route.value)
-        assertEquals("waiting", relay.macReceived.last { it.hasClipboard() }.clipboard.text)
+        assertEquals(Transport.TRANSPORT_TOR, restarted.route.value)
+        assertEquals("waiting", tor.macReceived.last { it.hasClipboard() }.clipboard.text)
     }
 
     @Test fun aHelloUsesOurOwnPathsEvenWhereTheMacSaidNo() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_LAN)) // the Mac excludes the relay
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_LAN)) // the Mac excludes Tor
         advanceUntilIdle()
-        val hellos = relay.hellos.size
-        s.setSwitches(wifi = false, relay = true) // now no path both ends allow
+        val hellos = tor.hellos.size
+        s.setSwitches(wifi = false, tor = true) // now no path both ends allow
         advanceUntilIdle()
-        assertTrue("the Hello still went, through the relay", relay.hellos.size > hellos)
-        assertEquals(listOf(Transport.TRANSPORT_RELAY), relay.hellos.last().control.hello.allowedTransportsList)
+        assertTrue("the Hello still went, through Tor", tor.hellos.size > hellos)
+        assertEquals(listOf(Transport.TRANSPORT_TOR), tor.hellos.last().control.hello.allowedTransportsList)
         s.send(clip("never"))
         s.send(status(3))
         advanceUntilIdle()
-        assertTrue("a normal payload never does", relay.macReceived.none { it.hasClipboard() || it.hasStatus() })
+        assertTrue("a normal payload never does", tor.macReceived.none { it.hasClipboard() || it.hasStatus() })
         assertEquals(null, s.route.value)
     }
 
     @Test fun noSharedPathMeansNothingIsSent() = runTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = pairedWithLan(lan)
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_LAN))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_LAN))
         advanceUntilIdle()
-        s.setSwitches(wifi = false, relay = true)
+        s.setSwitches(wifi = false, tor = true)
         advanceUntilIdle()
         s.send(status(1))
         advanceUntilIdle()
         assertEquals(null, s.route.value)
-        assertTrue(relay.macReceived.none { it.hasStatus() })
+        assertTrue(tor.macReceived.none { it.hasStatus() })
     }
 
     @Test fun sleepClosesBothPaths() = runTest {
@@ -1190,25 +1009,17 @@ class SessionTest {
         runCurrent()
         assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
         assertTrue(lan.open!!.closed)
-        assertTrue(!lan.discovering)
+        assertTrue(tor.open!!.closed)
+        assertTrue(!lan.discovering && !tor.discovering)
         assertEquals(null, s.route.value)
-    }
-
-    @Test fun pairingNeedsTheRelayForNow() = runTest {
-        val s = session(settings = MemorySettingsStore(ConnectionSettings(wifi = true, relay = false)))
-        s.pair(qr)
-        advanceUntilIdle()
-        assertEquals(SessionState.Unpaired, s.state.value)
-        assertTrue(s.notice.value!!.contains("Relay"))
-        assertTrue(relay.logins.isEmpty())
     }
 
     @Test fun aNewMacStartsWithNothingHeard() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_LAN))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_LAN))
         advanceUntilIdle()
         assertEquals(setOf(Transport.TRANSPORT_LAN), s.settings.value.macAllows)
-        s.pair(qrFor(SeamDevice.generate().also { relay.mac = it }, "Mac mini"))
+        s.pair(qrFor(SeamDevice.generate(), "Mac mini"))
         advanceUntilIdle()
         assertEquals(SessionState.Connected("Mac mini"), s.state.value)
         assertEquals(null, s.settings.value.macAllows)
@@ -1217,42 +1028,50 @@ class SessionTest {
 
     @Test fun aDelayedOldHelloNeverUndoesANewerOne() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
-        val both = setOf(Transport.TRANSPORT_LAN, Transport.TRANSPORT_RELAY)
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_LAN, Transport.TRANSPORT_RELAY, seq = 5))
+        val both = setOf(Transport.TRANSPORT_LAN, Transport.TRANSPORT_TOR)
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_LAN, Transport.TRANSPORT_TOR, seq = 5))
         advanceUntilIdle()
-        // The relay held older ones back and released them late; a sender that never counts sends 0
+        // Older ones arriving late; a sender that never counts sends 0
         for (seq in listOf(4L, 5L, 0L)) {
-            relay.deliverToPhone(macHello(Transport.TRANSPORT_RELAY, seq = seq))
+            tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR, seq = seq))
             advanceUntilIdle()
             assertEquals("seq $seq ignored", both, s.settings.value.macAllows)
         }
         assertEquals(5L, s.settings.value.macHelloSeq)
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_RELAY, seq = 6))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR, seq = 6))
         advanceUntilIdle()
-        assertEquals(setOf(Transport.TRANSPORT_RELAY), s.settings.value.macAllows)
+        assertEquals(setOf(Transport.TRANSPORT_TOR), s.settings.value.macAllows)
     }
 
     @Test fun aHelloNamingATransportThisBuildDoesntKnowIsSafe() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
         val hello = Payload.newBuilder().setControl(
             Control.newBuilder().setHello(
-                Hello.newBuilder().setSeq(1).addAllowedTransports(Transport.TRANSPORT_RELAY).addAllowedTransportsValue(9),
+                Hello.newBuilder().setSeq(1).addAllowedTransports(Transport.TRANSPORT_TOR).addAllowedTransportsValue(9),
             ),
         ).build()
-        relay.deliverToPhone(mac.seal(mac.peers().single().id, hello.toByteArray(), 0u))
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, hello.toByteArray(), 0u))
         advanceUntilIdle()
-        assertEquals("a newer Mac's transport is dropped, never stored", setOf(Transport.TRANSPORT_RELAY), s.settings.value.macAllows)
+        assertEquals("a newer Mac's transport is dropped, never stored", setOf(Transport.TRANSPORT_TOR), s.settings.value.macAllows)
         assertTrue(s.state.value.toString(), s.state.value !is SessionState.Failed)
+    }
+
+    @Test fun theRetiredRelayMeansNothingInAHello() = runTest {
+        val s = pairedWithLan(FakeLan(emptyMap()))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_RELAY))
+        advanceUntilIdle()
+        assertEquals(emptySet<Transport>(), s.settings.value.macAllows)
+        assertEquals(null, s.route.value)
     }
 
     @Test fun anOlderMacsEmptyListAllowsEverythingThisPhoneAllows() = runTest {
         // Versions from before the switches send no list: the same rule as the Mac (spec 01)
         val lan = FakeLan(mapOf(home to mac))
         val s = pairedWithLan(lan)
-        relay.deliverToPhone(macHello())
+        tor.deliverToPhone(macHello())
         advanceUntilIdle()
         assertNull(s.settings.value.macAllows)
-        assertEquals(Transport.TRANSPORT_RELAY, s.route.value)
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
         lan.announce(home)
         advanceUntilIdle()
         assertEquals(Transport.TRANSPORT_LAN, s.route.value)
@@ -1263,13 +1082,13 @@ class SessionTest {
         val hello = Payload.newBuilder().setControl(
             Control.newBuilder().setHello(Hello.newBuilder().setSeq(1).addAllowedTransportsValue(9)),
         ).build()
-        relay.deliverToPhone(mac.seal(mac.peers().single().id, hello.toByteArray(), 0u))
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, hello.toByteArray(), 0u))
         advanceUntilIdle()
         assertEquals(emptySet<Transport>(), s.settings.value.macAllows)
         assertEquals(null, s.route.value)
         s.send(status(4))
         advanceUntilIdle()
-        assertTrue(relay.macReceived.none { it.hasStatus() })
+        assertTrue(tor.macReceived.none { it.hasStatus() })
     }
 
     @Test fun whereOurMacLastProvedItselfIsNeverSkippedForLong() = runTest {
@@ -1296,11 +1115,11 @@ class SessionTest {
     @Test fun eachHelloThePhoneSendsCountsUp() = runTest {
         val settings = MemorySettingsStore()
         val s = pairedWithLan(FakeLan(emptyMap()), settings)
-        s.setSwitches(wifi = false, relay = true)
+        s.setSwitches(wifi = false, tor = true)
         advanceUntilIdle()
-        s.setSwitches(wifi = true, relay = true)
+        s.setSwitches(wifi = true, tor = true)
         advanceUntilIdle()
-        val seqs = relay.hellos.map { it.control.hello.seq }
+        val seqs = tor.hellos.map { it.control.hello.seq }
         assertTrue(seqs.toString(), seqs.size >= 3 && seqs.first() == 1L && seqs.zipWithNext().all { (a, b) -> b > a })
         assertEquals(seqs.last(), s.settings.value.helloSeq)
         s.forgetMac()
@@ -1311,41 +1130,20 @@ class SessionTest {
 
     @Test fun aRestartKeepsTheHelloCountersAndTheMacsChoice() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
-        relay.deliverToPhone(macHello(Transport.TRANSPORT_RELAY, seq = 7))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR, seq = 7))
         advanceUntilIdle()
         val sent = s.settings.value.helloSeq
         assertTrue(sent >= 1)
         val restarted = session(settings = MemorySettingsStore()) // nothing about the Mac in preferences
-        assertEquals(setOf(Transport.TRANSPORT_RELAY), restarted.settings.value.macAllows)
+        assertEquals(setOf(Transport.TRANSPORT_TOR), restarted.settings.value.macAllows)
         assertEquals(7L, restarted.settings.value.macHelloSeq)
         assertEquals(sent, restarted.settings.value.helloSeq)
         restarted.start()
         advanceUntilIdle()
-        assertEquals("never reuses a counter", sent + 1, relay.hellos.last().control.hello.seq)
+        assertEquals("never reuses a counter", sent + 1, tor.hellos.last().control.hello.seq)
     }
 
-    @Test fun oldPreferencesMoveIntoTheSealedState() = runTest {
-        paired()
-        val old = MemorySettingsStore(ConnectionSettings(wifi = true, relay = true, macAllows = setOf(Transport.TRANSPORT_LAN), macHelloSeq = 4, helloSeq = 9))
-        val saves = store.saves.size
-        val s = session(settings = old)
-        assertEquals(setOf(Transport.TRANSPORT_LAN), s.settings.value.macAllows)
-        assertEquals(4L, s.settings.value.macHelloSeq)
-        assertEquals(9L, s.settings.value.helloSeq)
-        assertTrue("saved sealed", store.saves.size > saves)
-        assertEquals("and gone from preferences", ConnectionSettings(), old.load())
-        val again = session(settings = old)
-        assertEquals(9L, again.settings.value.helloSeq)
-    }
-
-    @Test fun oldPreferencesWithOnlyAnUnusablePathMeanNothingInCommon() = runTest {
-        paired()
-        val old = MemorySettingsStore(ConnectionSettings(wifi = true, relay = true, macAllows = setOf(Transport.TRANSPORT_BLUETOOTH), macHelloSeq = 4, helloSeq = 9))
-        val s = session(settings = old)
-        assertEquals(emptySet<Transport>(), s.settings.value.macAllows)
-    }
-
-    /** Connected over Same Wi‑Fi, with the relay up too. */
+    /** Connected over Same Wi‑Fi, with Tor up too. */
     private fun TestScope.onWifi(lan: FakeLan, now: () -> Long = { testScheduler.currentTime }): Session =
         session(lan = lan, now = now).also {
             it.pair(qr)
@@ -1355,20 +1153,34 @@ class SessionTest {
             assertEquals(Transport.TRANSPORT_LAN, it.route.value)
         }
 
-    @Test fun whatTheMacNeverAckedGoesThroughTheRelayAsItWasSealed() = runTest {
+    @Test fun whatTheMacNeverAckedGoesThroughTorAsItWasSealed() = runTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = onWifi(lan)
         lan.lose = true // the link is dying: what's written now never arrives
         s.send(status(41))
         advanceUntilIdle()
-        val sent = lan.lost.single { it.msgId !in relay.envelopes.map(Envelope::getMsgId) }
+        val sent = lan.lost.single { it.msgId !in tor.envelopes.map(Envelope::getMsgId) }
         val saves = store.saves.size
         lan.open!!.drop()
         runCurrent()
-        val again = relay.envelopes.last()
+        val again = tor.envelopes.last()
         assertEquals("the same envelope, not a new seal", sent, again)
         assertEquals("nothing sealed (or saved) again", saves, store.saves.size)
-        assertEquals(41, relay.macReceived.single { it.hasStatus() }.status.batteryPct)
+        assertEquals(41, tor.macReceived.single { it.hasStatus() }.status.batteryPct)
+    }
+
+    @Test fun aFailedTorAttemptResendsNothing() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = onWifi(lan)
+        lan.lose = true
+        s.send(status(46))
+        advanceUntilIdle()
+        tor.services.remove(qr.onionAddress)
+        tor.drop() // Tor was up: its drop resends, once
+        advanceTimeBy(5 * 60_000L) // then many failed Tor attempts
+        runCurrent()
+        assertTrue(tor.dialled.size > 3)
+        assertEquals("an attempt that never came up loses nothing, so resends nothing", 2, lan.lost.count { it.msgId == lan.lost.last().msgId })
     }
 
     @Test fun aFailedNewPairingKeepsWhatTheCurrentMacNeverAcked() = runTest {
@@ -1378,12 +1190,11 @@ class SessionTest {
         s.send(status(47))
         advanceUntilIdle()
         val sent = lan.lost.last()
-        relay.refuseToken = true
-        s.pair(qrFor(SeamDevice.generate(), "Someone else's Mac"))
+        s.pair(expired(qrFor(SeamDevice.generate(), "Someone else's Mac")))
         advanceUntilIdle()
         assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
-        assertTrue("still owed to the current Mac", relay.envelopes.any { it == sent } || pending.load().contains(sent))
-        assertEquals(47, relay.macReceived.single { it.hasStatus() }.status.batteryPct)
+        assertTrue("still owed to the current Mac", tor.envelopes.any { it == sent } || pending.load().contains(sent))
+        assertEquals(47, tor.macReceived.single { it.hasStatus() }.status.batteryPct)
     }
 
     @Test fun aRestartSendsWhatTheMacNeverAckedUnchanged() = runTest {
@@ -1398,9 +1209,9 @@ class SessionTest {
         val restarted = session()
         restarted.start()
         advanceUntilIdle()
-        assertTrue("the same envelope, sealed once", relay.envelopes.any { it == sent })
-        assertEquals(44, relay.macReceived.single { it.hasStatus() }.status.batteryPct)
-        assertTrue("through the relay, which queues it: nothing left", pending.load().isEmpty())
+        assertTrue("the same envelope, sealed once", tor.envelopes.any { it == sent })
+        assertEquals(44, tor.macReceived.single { it.hasStatus() }.status.batteryPct)
+        assertTrue("acked through Tor: nothing left", pending.load().isEmpty())
     }
 
     @Test fun forgettingTheMacClearsWhatWasPending() = runTest {
@@ -1420,23 +1231,20 @@ class SessionTest {
         val s = onWifi(lan)
         s.forgetMac()
         advanceUntilIdle()
-        assertTrue("through the relay, which queues it for the Mac", relay.macReceived.last().control.hasUnpair())
-        val sealed = relay.envelopes.last()
-        assertTrue("the same sealed Unpair over the direct link too", lan.envelopes.last() == sealed)
-        assertEquals("then it leaves the relay group", 1, relay.removed.size)
+        assertTrue(lan.macReceived.last().control.hasUnpair())
+        assertTrue("the same sealed Unpair through Tor too, in case Wi‑Fi is dropping", lan.envelopes.last() == tor.envelopes.last())
         assertEquals(SessionState.Unpaired, s.state.value)
     }
 
     @Test fun aFarewellNeverUsesAPathThisPhoneTurnedOff() = runTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = onWifi(lan)
-        s.setSwitches(wifi = true, relay = false)
+        s.setSwitches(wifi = true, tor = false)
         advanceUntilIdle()
-        val relayEnvelopes = relay.envelopes.size
+        val torEnvelopes = tor.envelopes.size
         s.forgetMac()
         advanceUntilIdle()
-        assertEquals("nothing through the relay", relayEnvelopes, relay.envelopes.size)
-        assertTrue(relay.removed.isEmpty())
+        assertEquals("nothing through Tor", torEnvelopes, tor.envelopes.size)
         assertTrue(lan.macReceived.any { it.hasControl() && it.control.hasUnpair() })
     }
 
@@ -1447,13 +1255,13 @@ class SessionTest {
         advanceUntilIdle()
         assertEquals(42, lan.macReceived.single().status.batteryPct)
         assertTrue("acked: gone from the file too", pending.load().isEmpty())
-        val before = relay.envelopes.size
+        val before = tor.envelopes.size
         lan.open!!.drop()
         runCurrent()
-        assertEquals("acked: nothing to send again", before, relay.envelopes.size)
+        assertEquals("acked: nothing to send again", before, tor.envelopes.size)
     }
 
-    @Test fun anAckForAnUnknownIdOrFromTheRelayClearsNothing() = runTest {
+    @Test fun anAckForAnUnknownIdClearsNothing() = runTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = onWifi(lan)
         lan.lose = true
@@ -1461,11 +1269,10 @@ class SessionTest {
         advanceUntilIdle()
         val sent = lan.lost.last()
         lan.open!!.delivered(ByteString.copyFrom(ByteArray(16) { 7 })) // not one we sent
-        relay.listenerFrame(ServerFrame.newBuilder().setDelivered(Delivered.newBuilder().setMsgId(sent.msgId)).build()) // the relay never sends this
         advanceUntilIdle()
         lan.open!!.drop()
         runCurrent()
-        assertEquals(sent, relay.envelopes.last())
+        assertEquals(sent, tor.envelopes.last())
     }
 
     @Test fun anUnackedEnvelopePastItsTtlIsDroppedNotSentLate() = runTest {
@@ -1473,12 +1280,12 @@ class SessionTest {
         val lan = FakeLan(mapOf(home to mac))
         val s = onWifi(lan, now = { System.currentTimeMillis() + offset }) // sent_at is wall-clock time
         lan.lose = true
-        s.send(Payload.newBuilder().setClipboard(com.avetero.seam.protocol.v1.Clipboard.newBuilder().setText("old")).build())
+        s.send(clip("old"))
         advanceUntilIdle()
         offset = 601_000 // a clipboard lives 10 minutes
         lan.open!!.drop()
         runCurrent()
-        assertTrue(relay.macReceived.none { it.hasClipboard() })
+        assertTrue(tor.macReceived.none { it.hasClipboard() })
     }
 
     @Test fun aCrowdOfFakeMacsCantHideTheRealOne() = runTest {
@@ -1486,15 +1293,16 @@ class SessionTest {
         val stranger = strangerMac()
         val lan = FakeLan(fakes.associateWith { stranger } + (home to mac))
         val s = pairedWithLan(lan)
+        val discoveries = lan.discoveries
         lan.adverts = fakes + home // the real Mac is announced last, past the cap
         lan.announce(*lan.adverts.toTypedArray())
         repeat(50) { runCurrent() } // no time passes: only what's already due
         assertEquals("only the first 8 are tried", 8, lan.opened)
-        assertEquals("not found yet: still on the relay", Transport.TRANSPORT_RELAY, s.route.value)
+        assertEquals("not found yet: still through Tor", Transport.TRANSPORT_TOR, s.route.value)
         advanceTimeBy(31_000) // every one refused: discovery starts again, without counting them
         runCurrent()
         advanceUntilIdle()
-        assertEquals(2, lan.discoveries)
+        assertEquals(discoveries + 1, lan.discoveries)
         assertEquals(Transport.TRANSPORT_LAN, s.route.value)
         assertEquals("each fake tried once, then our Mac", 11, lan.opened)
     }
@@ -1507,7 +1315,7 @@ class SessionTest {
         lan.dropNext = 1
         lan.announce(home)
         runCurrent()
-        assertEquals(Transport.TRANSPORT_RELAY, s.route.value)
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
         advanceTimeBy(31_000)
         runCurrent()
         advanceUntilIdle()
@@ -1523,7 +1331,7 @@ class SessionTest {
         lan.corruptNext = 1
         lan.announce(home)
         runCurrent()
-        assertEquals(Transport.TRANSPORT_RELAY, s.route.value)
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
         advanceTimeBy(31_000)
         runCurrent()
         advanceUntilIdle()
@@ -1582,113 +1390,5 @@ class SessionTest {
         lan.announce(home)
         advanceUntilIdle()
         assertEquals(Transport.TRANSPORT_LAN, s.route.value)
-    }
-}
-
-class FilePendingStoreTest {
-    private val dir = kotlin.io.path.createTempDirectory("seam-pending").toFile()
-    private fun env(id: Int) = Envelope.newBuilder().setVersion(1).setMsgId(ByteString.copyFrom(ByteArray(16) { id.toByte() }))
-        .setCiphertext(ByteString.copyFrom(ByteArray(300) { 7 })).setTtlS(600).build()
-
-    @Test fun roundTripsInOrderAndClears() {
-        val store = FilePendingStore(dir)
-        store.save(listOf(env(1), env(2)))
-        assertEquals(listOf(env(1), env(2)), FilePendingStore(dir).load())
-        store.save(emptyList())
-        assertTrue(store.load().isEmpty())
-        assertTrue(!java.io.File(dir, "pending.bin").exists())
-    }
-
-    @Test fun aCorruptOrForeignFileReadsAsEmpty() {
-        val f = java.io.File(dir, "pending.bin")
-        for (bytes in listOf(byteArrayOf(), byteArrayOf(9), byteArrayOf(1, 0, 0, 0, 50, 1, 2), byteArrayOf(1, 0x7f, -1, -1, -1), byteArrayOf(1, 0, 0, 0, 2, -1, -1))) {
-            f.writeBytes(bytes)
-            assertTrue(bytes.contentToString(), FilePendingStore(dir).load().isEmpty())
-        }
-    }
-}
-
-class TcpLinkTest {
-    @Test fun aFrameSentRightBeforeCloseIsStillWritten() {
-        java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress()).use { server ->
-            val got = java.util.concurrent.CompletableFuture<ByteArray>()
-            Thread {
-                server.accept().use { got.complete(it.getInputStream().readBytes()) } // until the phone's side ends
-            }.start()
-            val closed = java.util.concurrent.CountDownLatch(1)
-            val link = connectTcp(
-                LanAddress("127.0.0.1", server.localPort),
-                object : LinkListener {
-                    override fun onFrame(frame: ByteArray) = Unit
-                    override fun onClosed(reason: String) = closed.countDown()
-                },
-                allowed = { true }, // loopback, for the test only
-            )
-            val farewell = ByteArray(200_000) { (it % 251).toByte() }
-            assertTrue(link.send(farewell))
-            link.close() // straight away, as forget() does
-            assertTrue("no sends after close", !link.send(byteArrayOf(1)))
-            assertArrayEquals(farewell, got.get(5, java.util.concurrent.TimeUnit.SECONDS))
-            assertTrue(closed.await(5, java.util.concurrent.TimeUnit.SECONDS))
-        }
-    }
-}
-
-class LocalNetworkTest {
-    @Test fun acceptsOnlyPrivateAndLinkLocalLiterals() {
-        listOf("10.0.0.5", "172.16.0.1", "172.31.255.255", "192.168.1.20", "169.254.3.4", "fe80::1", "fe80::1%wlan0", "fd12:3456::1", "::ffff:192.168.1.2")
-            .forEach { assertTrue(it, isLocalNetwork(it)) }
-        listOf("127.0.0.1", "::1", "8.8.8.8", "172.32.0.1", "192.169.0.1", "0.0.0.0", "224.0.0.251", "ff02::fb", "2001:db8::1",
-            "999.1.1.1", "mac.local", "example.com", "", "10.0.0", "::ffff:8.8.8.8")
-            .forEach { assertTrue(it, !isLocalNetwork(it)) }
-    }
-}
-
-class PairingQrTest {
-    private fun b64(n: Int, v: Int = 1) = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(n) { v.toByte() })
-    private fun url(v: String = "1", r: String = "wss%3A%2F%2Frelay.example.com", g: String = b64(16), i: String = b64(33)) =
-        "seam://pair?v=$v&r=$r&g=$g&t=${b64(32)}&i=$i&k=${b64(32)}&n=MacBook%20Pro"
-
-    @Test fun parsesAValidCode() {
-        val qr = PairingQr.parse(url())!!
-        assertEquals("wss://relay.example.com", qr.relayUrl)
-        assertEquals("relay.example.com", qr.relayHost)
-        assertEquals("MacBook Pro", qr.macName)
-        assertEquals(16, qr.groupId.size)
-        assertEquals(33, qr.identityKey.size)
-    }
-
-    @Test fun refusesAnythingElse() {
-        assertNull(PairingQr.parse("https://example.com"))
-        assertNull(PairingQr.parse(url(v = "2")))
-        assertNull(PairingQr.parse(url(g = b64(15))))
-        assertNull(PairingQr.parse(url(i = "not*base64")))
-        assertNull(PairingQr.parse(url(r = "http%3A%2F%2Fevil")))
-        assertNull(PairingQr.parse(url().replace("&k=", "&x=")))
-    }
-
-    @Test fun sr_2_02_badRelayUrlsAreRefusedNotCrashed() {
-        for (r in listOf("wss%3A%2F%2F", "wss%3A%2F%2F%5Bx", "wss%3A%2F%2Fa%20b", "wss%3A%2F%2Fuser%3Apass%40relay.example.com",
-            "wss%3A%2F%2Frelay.example.com%2F%3Fq%3D1", "wss%3A%2F%2Frelay.example.com%23frag", "wss%3A%2F%2F" + "a".repeat(600))) {
-            assertNull(r, PairingQr.parse(url(r = r)))
-        }
-    }
-
-    @Test fun sr_2_02_plaintextRelaysOnlyInDebugBuilds() {
-        val local = url(r = "ws%3A%2F%2Flocalhost%3A8787")
-        assertNull(PairingQr.parse(local))
-        assertEquals("ws://localhost:8787", PairingQr.parse(local, allowCleartext = true)!!.relayUrl)
-    }
-}
-
-class BackoffTest {
-    @Test fun doublesFromOneSecondToAMinuteThenResets() {
-        val b = Backoff(kotlin.random.Random(0))
-        val delays = List(9) { b.next() }
-        listOf(1_000L, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000, 60_000, 60_000).zip(delays).forEach { (base, d) ->
-            assertTrue("$d within 20% above $base", d in base..(base * 12 / 10))
-        }
-        b.reset()
-        assertTrue(b.next() < 1_300)
     }
 }

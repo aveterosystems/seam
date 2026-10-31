@@ -70,8 +70,8 @@ class MainActivity : ComponentActivity() {
                         value = System.currentTimeMillis()
                     }
                 }
-                val look = LinkLook.of(state, route, connection, now)
-                var relayToPair by remember { mutableStateOf<PairingQr?>(null) }
+                val tor by app.tor.state.collectAsStateWithLifecycle()
+                val look = LinkLook.of(state, route, connection, tor, now)
                 val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
                 val updateOffer by app.updater.offer.collectAsStateWithLifecycle()
                 val updateStatus by app.updater.status.collectAsStateWithLifecycle()
@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                 // Debug builds only: a pairing code passed at launch (device tests on an emulator, which
                 // has no camera to scan with). It still goes through the same confirm and safety code
                 var scanned by remember {
-                    mutableStateOf(if (BuildConfig.DEBUG) intent?.dataString?.let { PairingQr.parse(it, allowCleartext = true) } else null)
+                    mutableStateOf(if (BuildConfig.DEBUG) intent?.dataString?.let { PairingQr.parse(it) } else null)
                 }
                 // The notification's Settings button opens straight there
                 var settings by remember { mutableStateOf(intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true) }
@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
                         onOpenNotifications = { notificationSettings = true },
                         connection = connection,
                         look = look,
-                        onSwitches = { wifi, relay -> session.setSwitches(wifi, relay) },
+                        onSwitches = { wifi, tor -> session.setSwitches(wifi, tor) },
                     )
                 }
                 SeamScreen(
@@ -154,15 +154,10 @@ class MainActivity : ComponentActivity() {
                     scanError = scanError ?: notice,
                     toConfirm = scanned,
                     onConfirm = { qr ->
-                        // Pairing goes through the relay for now: ask before turning it back on
-                        if (!connection.relay) {
-                            scanned = null
-                            relayToPair = qr
-                        } else {
-                            // scanned clears once the session says Pairing, so the sheet never drops out in between
-                            session.pair(qr)
-                            ConnectionService.start(this@MainActivity)
-                        }
+                        // Pairing tries Same Wi‑Fi and Tor at once, whichever switches are on.
+                        // scanned clears once the session says Pairing, so the sheet never drops out in between
+                        session.pair(qr)
+                        ConnectionService.start(this@MainActivity)
                     },
                     onCancelConfirm = {
                         scanned = null
@@ -200,13 +195,14 @@ class MainActivity : ComponentActivity() {
                     },
                     camera = { reading ->
                         if (cameraAllowed) {
-                            QrViewfinder(active = reading, allowCleartext = BuildConfig.DEBUG, modifier = Modifier.fillMaxSize(), onResult = { r ->
+                            QrViewfinder(active = reading, modifier = Modifier.fillMaxSize(), onResult = { r ->
                                 when (r) {
                                     is ScanResult.Code -> {
                                         scanned = r.qr // nothing changes until the user confirms who this is
                                         scanError = null
                                     }
                                     ScanResult.NotSeam -> scanError = "That isn't a Seam pairing code. Open Seam on your Mac to show one."
+                                    ScanResult.OldMac -> scanError = "That code is from an older Seam. Update Seam on your Mac, then show the new code."
                                 }
                             })
                         } else {
@@ -220,22 +216,6 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                 )
-                relayToPair?.let { qr ->
-                    AlertDialog(
-                        onDismissRequest = { relayToPair = null },
-                        title = { Text("Turn on Relay to pair?") },
-                        text = { Text("Pairing goes through Seam's relay for now. Everything stays end-to-end encrypted. You can turn Relay off again in Settings › Connection once you've paired.") },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                relayToPair = null
-                                session.setSwitches(connection.wifi, relay = true)
-                                session.pair(qr)
-                                ConnectionService.start(this@MainActivity)
-                            }) { Text("Turn On and Pair") }
-                        },
-                        dismissButton = { TextButton(onClick = { relayToPair = null }) { Text("Cancel") } },
-                    )
-                }
               }
               }
             }

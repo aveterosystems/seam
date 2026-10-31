@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Release builds: TLS only. The relay is always wss://. -->
+<!-- No cleartext HTTP: updates come over HTTPS; Same Wi‑Fi and Tor aren't HTTP. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

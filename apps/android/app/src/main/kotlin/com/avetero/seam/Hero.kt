@@ -25,7 +25,7 @@ import kotlin.math.sin
 /**
  * Board A01's hero: the Expressive "cookie" (a circle with 9 soft scallops) in primaryContainer,
  * with the Mac and this phone joined by stitches, drawn from a [LinkLook.Line]
- * (design-system.md, "The stitch"): solid teal on the same Wi‑Fi, dashed teal through the relay,
+ * (design-system.md, "The stitch"): solid teal on the same Wi‑Fi, dashed teal through Tor,
  * dotted grey when only nearby, broken grey when not connected.
  */
 @Composable

@@ -12,9 +12,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * The Same Wi‑Fi path: finds Seam services on the network, proves each is our Mac through the
- * core's LanChannel (Noise and both proofs), and skips ones that refused us for a while. At most
- * one connection attempt at a time.
+ * A direct path to the Mac over any [Lan] dialer: Same Wi‑Fi (NSD and TCP) or Tor (the Mac's onion
+ * service). Finds candidates, proves each is our Mac through the core's LanChannel (Noise and both
+ * proofs), and skips ones that refused us for a while. At most one connection attempt at a time.
+ * While pairing ([pairing] non-null) it opens a pairing channel instead: the Mac pinned from the QR
+ * code, the phone proving it scanned it.
  */
 internal class LanPath(
     private val lan: Lan,
@@ -27,6 +29,14 @@ internal class LanPath(
     /** Whether to keep trying: this phone's switch is on and something needs a connection (decision 0005). */
     private val wanted: () -> Boolean,
     private val events: PathEvents,
+    /** The QR code being paired with, if any: then the channel is a pairing one. */
+    private val pairing: () -> PairingQr? = { null },
+    /** Same Wi‑Fi: only addresses inside the local network. Tor dials its one onion address. */
+    private val localOnly: Boolean = true,
+    /** How long a connection may take to prove itself: milliseconds locally, much longer through Tor. */
+    private val authMs: Long = AUTH_MS,
+    /** "lan" or "tor", for the trace. */
+    private val name: String = "lan",
 ) : Path {
     private var link: Link? = null
     private var channel: LanChannel? = null
@@ -49,17 +59,17 @@ internal class LanPath(
     override val active get() = link != null || discovering || retry?.isActive == true || reconnect?.isActive == true
 
     override fun start() {
-        if (link != null || authed || peer() == null || reconnect?.isActive == true || !wanted()) return // rule 8 (SR-29-09)
+        if (link != null || authed || (peer() == null && pairing() == null) || reconnect?.isActive == true || !wanted()) return // rule 8 (SR-29-09)
         if (discovering) return tryNext()
         discovering = true
         found.clear()
-        trace?.invoke("lan: discovering")
+        trace?.invoke("$name: discovering")
         lan.discover(
             found = { a ->
                 scope.launch {
                     // An advert can name any address: only ever connect within the local network, and to a few
                     // Refused ones don't count toward the cap, so fakes can't crowd out the Mac
-                    if (discovering && isLocalNetwork(a.host) && !isRefused(a) && found.size < MAX_FOUND) {
+                    if (discovering && (!localOnly || isLocalNetwork(a.host)) && !isRefused(a) && found.size < MAX_FOUND) {
                         found += a
                         tryNext()
                     }
@@ -100,20 +110,21 @@ internal class LanPath(
     }
 
     private fun connect(a: LanAddress) {
+        val qr = pairing()
         val ch = try {
-            LanChannel.initiator(device, peer() ?: return)
+            if (qr != null) LanChannel.pairingInitiator(device, qr.relayKey, qr.token) else LanChannel.initiator(device, peer() ?: return)
         } catch (_: Exception) {
             return
         }
         val mine = ++generation
-        trace?.invoke("lan: connecting")
+        trace?.invoke("$name: connecting")
         val listener = object : LinkListener {
             override fun onFrame(frame: ByteArray) {
                 scope.launch { if (mine == generation) received(frame, a) }
             }
             override fun onClosed(reason: String) {
                 scope.launch {
-                    trace?.invoke("lan closed: $reason")
+                    trace?.invoke("$name closed: $reason")
                     if (mine == generation) closed(a)
                 }
             }
@@ -123,9 +134,9 @@ internal class LanPath(
         link?.send(ch.start())
         deadline?.cancel()
         deadline = scope.launch {
-            delay(AUTH_MS)
+            delay(authMs)
             if (mine == generation && !authed) {
-                trace?.invoke("lan: no proof in time")
+                trace?.invoke("$name: no proof in time")
                 closed(a)
             }
         }
@@ -136,14 +147,16 @@ internal class LanPath(
         val out = try {
             ch.receive(bytes)
         } catch (e: Exception) {
-            trace?.invoke("lan: channel failed")
+            trace?.invoke("$name: channel failed")
             // Only a valid proof from another key is someone else's Mac; damaged bytes may be a
             // forged packet on our own Mac's connection, so that's just the short retry
             return closed(a, notOurMac = e is SeamException.UntrustedIdentity)
         }
         if (out.send.isNotEmpty()) link?.send(out.send)
         if (out.authenticated != null) {
-            if (out.authenticated != peer()) return closed(a, notOurMac = true) // the core only accepts our Mac; never trust anything else
+            // The core only accepts our Mac (or, pairing, the Mac on the code); never trust anything else
+            val expected = if (pairing() != null) PAIRING_PEER else peer()
+            if (out.authenticated != expected) return closed(a, notOurMac = true)
             authed = true
             lastGood = a
             deadline?.cancel()
@@ -153,7 +166,7 @@ internal class LanPath(
                 delay(STABLE_MS)
                 backoff.reset() // only a link that stayed up earns a quick reconnect
             }
-            trace?.invoke("lan: authenticated")
+            trace?.invoke("$name: authenticated")
             events.onUp(this)
         }
         for (f in out.frames) {
@@ -224,14 +237,18 @@ internal class LanPath(
         }
     }
 
-    private companion object {
+    companion object {
         /** The handshake and both proofs take milliseconds; anything slower isn't worth waiting for. */
         const val AUTH_MS = 10_000L
+        /** Through Tor: the rendezvous alone can take tens of seconds, a fresh address a minute or more. */
+        const val TOR_AUTH_MS = 90_000L
+        /** What the core's LanChannel reports for a pairing channel. */
+        const val PAIRING_PEER = "pairing"
         /** How soon to try Macs that refused or were unreachable again (one may have restarted). */
-        const val RETRY_MS = 30_000L
+        private const val RETRY_MS = 30_000L
         /** More Seam services than this on one network is a flood, not a home. */
-        const val MAX_FOUND = 8
+        private const val MAX_FOUND = 8
         /** How long a service that failed its proof (someone else's Mac) is skipped: a Mac that restarted gets a new port anyway. */
-        const val REFUSED_MS = 10 * 60_000L
+        private const val REFUSED_MS = 10 * 60_000L
     }
 }

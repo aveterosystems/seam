@@ -18,7 +18,6 @@ dependencies {
     api(project(":core:crypto"))
     api(project(":core:protocol"))
     api(libs.coroutines.android)
-    api(libs.okhttp)
     testImplementation(libs.junit)
     testImplementation(libs.jna)
     testImplementation(libs.coroutines.test)
