@@ -64,15 +64,15 @@ The encryption, pairing and sync all live in one shared core, so each new platfo
 
 | | **Seam** | Bounce Connect | KDE Connect | Phone Link |
 |---|---|---|---|---|
-| **Your computer** | Mac today; Linux and Windows next | Mac | Linux, Windows, Mac | Windows |
-| **Works away from home** | ✅ Through Tor | Same Wi‑Fi only | Same network, or through your own VPN | Over Wi‑Fi or mobile data |
-| **Encryption** | Signal Protocol, end-to-end, post-quantum | AES-256 | TLS | Not published |
-| **Hides where you are** | ✅ Tor | Not needed (local only) | Not needed (local or your own VPN) | Not published |
-| **Account** | None | None | None | Microsoft account |
-| **Open source** | ✅ AGPL-3.0 | Not stated | ✅ GPL | No |
-| **Price** | Free | Paid Android app | Free | Free with Windows |
+| **Your computer** | [Mac today; Linux and Windows next](#works-where-you-work) | [Mac](https://bounceconnect.app) | [Linux, Windows, Mac](https://kdeconnect.kde.org/download.html) | [Windows](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Works away from home** | ✅ [Through Tor](#private-by-design) | [Same Wi‑Fi only](https://bounceconnect.app) | [Same network, or through your own VPN](https://userbase.kde.org/KDEConnect) | [Over Wi‑Fi or mobile data](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Encryption** | [Signal Protocol, end-to-end, post-quantum](#private-by-design) | [AES-256](https://bounceconnect.app) | [TLS](https://invent.kde.org/network/kdeconnect-kde/-/blob/master/README.md) | [Not published](https://support.microsoft.com/en-us/windows/apps/phonelink/frequently-asked-questions-about-the-phone-link) |
+| **Hides where you are** | ✅ [Tor](#private-by-design) | [Not needed (local only)](https://bounceconnect.app/privacy) | [Not needed (local or your own VPN)](https://userbase.kde.org/KDEConnect) | [Not published](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Account** | [None](#set-up-in-ten-seconds) | [None](https://bounceconnect.app/privacy) | [None](https://userbase.kde.org/KDEConnect) | [Microsoft account](https://support.microsoft.com/en-us/windows/apps/phonelink/frequently-asked-questions-about-the-phone-link) |
+| **Open source** | ✅ [AGPL-3.0](LICENSE) | [Not stated](https://bounceconnect.app) | ✅ [GPL](https://invent.kde.org/network/kdeconnect-kde/-/blob/master/README.md) | [Not stated](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Price** | [Free](#faq) | [Paid Android app](https://bounceconnect.app) | [Free](https://kdeconnect.kde.org/) | [Comes with Windows](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
 
-<sub>From each project's own pages, October 2026. Something out of date? Please [open an issue](https://github.com/aveterosystems/seam/issues).</sub>
+<sub>Each value links to the project's own page it comes from, checked October 2026. Something out of date? Please [open an issue](https://github.com/aveterosystems/seam/issues).</sub>
 
 ## Set up in ten seconds
 
