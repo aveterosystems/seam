@@ -10,10 +10,9 @@ public protocol RelaySocket: Sendable {
     func close()
 }
 
-/// What the app does with relay events, on the main actor (they drive the UI). `relayReceived`
-/// returns true once the envelope is dealt with (handled, a duplicate, or dropped for good); only
-/// then is it acked so the relay deletes it.
-@MainActor
+/// What the app does with relay events: the `Session` takes them, on its own actor, and
+/// publishes what the UI shows. `relayReceived` returns true once the envelope is dealt with
+/// (handled, a duplicate, or dropped for good); only then is it acked so the relay deletes it.
 public protocol RelayHandler: AnyObject, Sendable {
     func relayConnected(members: [Data]) async
     func relayDisconnected() async

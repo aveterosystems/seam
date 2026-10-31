@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.protocol.v1.Transport
 import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
@@ -25,9 +26,9 @@ class LinkLookTest {
     }
 
     @Test fun notConnectedIsBrokenAndSaysWhy() {
-        val wifiOnly = ConnectionSettings(wifi = true, relay = false)
+        val wifiOnly = ConnectionSettings(wifi = true, relay = false, allowed = setOf(PeerPath.LAN))
         assertEquals(LinkLook.WaitingOnWifi, LinkLook.of(SessionState.Connecting("Mac"), null, wifiOnly))
-        assertEquals(LinkLook.NoSharedPath, LinkLook.of(up, null, wifiOnly.copy(macAllows = setOf(Transport.TRANSPORT_RELAY))))
+        assertEquals(LinkLook.NoSharedPath, LinkLook.of(up, null, wifiOnly.copy(allowed = emptySet())))
         assertEquals(LinkLook.Idle, LinkLook.of(SessionState.Idle("Mac"), null, all))
         assertEquals(LinkLook.Reconnecting, LinkLook.of(SessionState.Connecting("Mac"), null, all))
         for (l in listOf(LinkLook.WaitingOnWifi, LinkLook.NoSharedPath, LinkLook.Idle, LinkLook.Reconnecting)) {

@@ -27,6 +27,8 @@ pub enum Path {
 }
 
 impl Path {
+    /// Every path this build knows, in order of preference (decision 0006: Same Wi-Fi first).
+    /// The one place that order lives: everything below picks by it, whatever order callers use.
     pub const ALL: [Path; 2] = [Path::Lan, Path::Relay];
 
     pub fn transport(self) -> i32 {
@@ -42,24 +44,19 @@ impl Path {
     }
 }
 
-/// This device's paths from its own switches.
-pub fn mine(wifi: bool, relay: bool) -> Vec<Path> {
-    let mut out = Vec::new();
-    if wifi {
-        out.push(Path::Lan);
-    }
-    if relay {
-        out.push(Path::Relay);
-    }
-    out
+/// This device's paths from its own switches (`enabled`), in order of preference, each once.
+pub fn mine(enabled: &[Path]) -> Vec<Path> {
+    Path::ALL
+        .into_iter()
+        .filter(|p| enabled.contains(p))
+        .collect()
 }
 
-/// Same Wi-Fi first, then the relay, among `allowed` paths that are up. None: wait in the outbox.
-pub fn route(allowed: &[Path], lan_up: bool, relay_up: bool) -> Option<Path> {
-    [(Path::Lan, lan_up), (Path::Relay, relay_up)]
+/// The most preferred path that's both `allowed` and `up`. None: wait in the outbox.
+pub fn route(allowed: &[Path], up: &[Path]) -> Option<Path> {
+    Path::ALL
         .into_iter()
-        .find(|(p, up)| *up && allowed.contains(p))
-        .map(|(p, _)| p)
+        .find(|p| allowed.contains(p) && up.contains(p))
 }
 
 /// The app's saved data for its one pairing: where the relay group is, and the Hello state.
@@ -90,9 +87,9 @@ impl AppData {
         }
     }
 
-    /// Paths on at both ends.
-    pub fn allowed(&self, wifi: bool, relay: bool) -> Vec<Path> {
-        let mut out = mine(wifi, relay);
+    /// Paths on at both ends, in order of preference.
+    pub fn allowed(&self, enabled: &[Path]) -> Vec<Path> {
+        let mut out = mine(enabled);
         if let Some(peer) = &self.peer_allowed {
             out.retain(|p| peer.contains(p));
         }
@@ -102,28 +99,21 @@ impl AppData {
     /// The path to send on now. A Hello may take any up path this device's own switches allow,
     /// even one the peer's last list excludes, so a switch change always reaches it (two devices
     /// that each remember the other's old single-path choice could otherwise never reach each other).
-    pub fn route(
-        &self,
-        wifi: bool,
-        relay: bool,
-        lan_up: bool,
-        relay_up: bool,
-        hello: bool,
-    ) -> Option<Path> {
+    pub fn route(&self, enabled: &[Path], up: &[Path], hello: bool) -> Option<Path> {
         let allowed = if hello {
-            mine(wifi, relay)
+            mine(enabled)
         } else {
-            self.allowed(wifi, relay)
+            self.allowed(enabled)
         };
-        route(&allowed, lan_up, relay_up)
+        route(&allowed, up)
     }
 
     /// The next Hello's seq and allowed list (`seam.v1.Transport` numbers). Save before it leaves.
-    pub fn next_hello(&mut self, wifi: bool, relay: bool) -> (u64, Vec<i32>) {
+    pub fn next_hello(&mut self, enabled: &[Path]) -> (u64, Vec<i32>) {
         self.hello_seq_sent = self.hello_seq_sent.wrapping_add(1);
         (
             self.hello_seq_sent,
-            mine(wifi, relay).into_iter().map(Path::transport).collect(),
+            mine(enabled).into_iter().map(Path::transport).collect(),
         )
     }
 

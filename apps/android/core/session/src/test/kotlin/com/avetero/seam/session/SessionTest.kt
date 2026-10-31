@@ -2,6 +2,7 @@
 package com.avetero.seam.session
 
 import com.avetero.seam.crypto.LanChannel
+import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.SeamDevice
 import com.avetero.seam.crypto.SeamException
 import com.avetero.seam.protocol.v1.BundleResult
@@ -613,6 +614,51 @@ class SessionTest {
         assertEquals("but not for ever", SessionState.Idle("MacBook Pro"), s.state.value)
     }
 
+    // Rule 8: Android suspends the CPU seconds after the screen goes off, and the session's idle
+    // timer doesn't run while it's suspended. The session says when the CPU must be awake so the
+    // idle check runs on time; the service only carries it out.
+    @Test fun rule8_anIdleCheckDueWithinAMinuteHoldsTheCpuUntilJustAfterIt() = runTest {
+        val s = paired()
+        s.setScreenOn(false)
+        advanceUntilIdle()
+        s.send(clip("copied with the screen off")) // connects, sends, then a one-minute window
+        runCurrent()
+        val hold = s.cpu.value as CpuPlan.Hold
+        assertTrue("until just after the window, never longer: ${hold.until - testScheduler.currentTime}", hold.until - testScheduler.currentTime in 1..Wakefulness.CPU_HOLD_MS)
+        advanceUntilIdle()
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+        assertEquals("closed: nothing to hold", CpuPlan.None, s.cpu.value)
+    }
+
+    @Test fun rule8_aReplyWindowLetsTheCpuSleepAndWakesItNearTheEnd() = runTest {
+        val s = paired()
+        s.setScreenOn(false)
+        advanceUntilIdle()
+        s.send(Payload.newBuilder().setNotification(Notification.newBuilder().setKey("k").setCanReply(true)).build())
+        runCurrent()
+        val end = testScheduler.currentTime + Wakefulness.REPLY_WINDOW_MS
+        val wake = s.cpu.value as CpuPlan.WakeAt
+        assertTrue("no five-minute hold: wake shortly before the end", wake.at in end - Wakefulness.CPU_WAKE_BEFORE_MS - 2_000..end - Wakefulness.CPU_WAKE_BEFORE_MS + 2_000)
+        // The alarm fires: from here the check is due within a minute, so hold until it runs
+        advanceTimeBy(wake.at - testScheduler.currentTime)
+        s.checkIdle()
+        runCurrent()
+        assertTrue(s.cpu.value is CpuPlan.Hold)
+        advanceUntilIdle()
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+        assertEquals(CpuPlan.None, s.cpu.value)
+    }
+
+    @Test fun rule8_noCpuHoldWhileTheScreenIsOnOrCharging() = runTest {
+        val s = paired()
+        runCurrent()
+        assertEquals("screen on", CpuPlan.None, s.cpu.value)
+        s.setScreenOn(false)
+        s.setCharging(true)
+        runCurrent()
+        assertEquals("charging", CpuPlan.None, s.cpu.value)
+    }
+
     @Test fun d0005_aBatteryChangeWaitsForTheNextConnection() = runTest {
         val s = paired()
         s.setScreenOn(false)
@@ -946,6 +992,7 @@ class SessionTest {
         relay.deliverToPhone(macHello(Transport.TRANSPORT_RELAY)) // the Mac turned Same Wi‑Fi off
         advanceUntilIdle()
         assertEquals(setOf(Transport.TRANSPORT_RELAY), s.settings.value.macAllows)
+        assertEquals("the core's answer for the status line", setOf(PeerPath.RELAY), s.settings.value.allowed)
         assertTrue("our own switch still allows it: the link stays, for the Mac's next Hello", !lan.open!!.closed)
         assertEquals(Transport.TRANSPORT_RELAY, s.route.value)
         s.send(status(9))

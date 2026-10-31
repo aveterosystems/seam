@@ -2,6 +2,7 @@
 package com.avetero.seam.session
 
 import android.content.Context
+import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.protocol.v1.Transport
 
 /**
@@ -17,6 +18,8 @@ data class ConnectionSettings(
     val macHelloSeq: Long = 0,
     /** The counter of the last Hello this phone sent. */
     val helloSeq: Long = 0,
+    /** Paths on at both ends, as the core decides from the switches and the Mac's Hello (decision 0006). Never saved. */
+    val allowed: Set<PeerPath> = setOf(PeerPath.LAN, PeerPath.RELAY),
 )
 
 interface SettingsStore {

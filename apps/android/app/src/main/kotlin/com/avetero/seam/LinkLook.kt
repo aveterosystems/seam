@@ -2,6 +2,7 @@
 package com.avetero.seam
 
 import androidx.annotation.DrawableRes
+import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.protocol.v1.Transport
 import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
@@ -27,9 +28,8 @@ data class LinkLook(val line: Line, val label: String, val connected: Boolean, @
 
         /** The one place the session's state becomes a look. */
         fun of(state: SessionState, route: Transport?, c: ConnectionSettings): LinkLook {
-            fun both(t: Transport) = (if (t == Transport.TRANSPORT_LAN) c.wifi else c.relay) && (c.macAllows?.contains(t) ?: true)
-            val wifi = both(Transport.TRANSPORT_LAN)
-            val relay = both(Transport.TRANSPORT_RELAY)
+            val wifi = PeerPath.LAN in c.allowed
+            val relay = PeerPath.RELAY in c.allowed
             return when {
                 route == Transport.TRANSPORT_LAN -> SameWifi
                 route == Transport.TRANSPORT_RELAY -> Relay

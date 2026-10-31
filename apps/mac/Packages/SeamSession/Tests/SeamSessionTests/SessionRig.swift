@@ -258,7 +258,7 @@ final class Rig: @unchecked Sendable {
 
     /// The phone's Hello, as its switches say.
     func phoneHello(wifi: Bool, relay: Bool) throws -> Seam_V1_Envelope {
-        let next = try #require(phone.nextHello(wifi: wifi, relay: relay))
+        let next = try #require(phone.nextHello(enabled: (wifi ? [.lan] : []) + (relay ? [.relay] : [])))
         return try fromPhone(.with {
             $0.control = .with {
                 $0.hello = .with {

@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 internal class Wakefulness(
     private val scope: CoroutineScope,
     private val now: () -> Long,
+    /** Screen, charging or the activity window changed: the CPU plan may change with them. */
+    private val onChanged: () -> Unit = {},
     private val onWindowEnd: () -> Unit,
 ) {
     var screenOn = true
@@ -30,11 +32,16 @@ internal class Wakefulness(
     fun setScreenOn(on: Boolean) {
         screenOn = on
         if (on) touch()
+        onChanged()
     }
 
     fun setCharging(on: Boolean) {
         charging = on
+        onChanged()
     }
+
+    /** When the idle check must run, if only the activity window keeps the connection; null while it's cheap. */
+    fun idleCheckAt(): Long? = if (screenOn || charging) null else activeUntil
 
     /** Wanted if the session [needs] it, or it's cheap, or there was activity in the last [IDLE_MS]. */
     fun wanted(needs: () -> Boolean): Boolean = screenOn || charging || needs() || now() < activeUntil
@@ -45,6 +52,7 @@ internal class Wakefulness(
     fun touch(windowMs: Long = IDLE_MS) {
         activeUntil = maxOf(activeUntil, now() + windowMs)
         scheduleIdleCheck()
+        onChanged()
     }
 
     /** After carrying [payload]: a reply window if the Mac may answer it. */
@@ -71,8 +79,28 @@ internal class Wakefulness(
         const val IDLE_MS = 60_000L
         /** After a notification you can reply to: long enough that a reply from the Mac needs no push. */
         const val REPLY_WINDOW_MS = 5 * 60_000L
+        /** How long before the idle check a sleeping CPU is woken; from then on it's held awake. */
+        const val CPU_WAKE_BEFORE_MS = IDLE_MS
+        /** The longest the CPU is ever held awake for an idle check: a minute plus a margin. */
+        const val CPU_HOLD_MS = CPU_WAKE_BEFORE_MS + 5_000L
 
         fun windowFor(payload: Payload): Long =
             if (payload.hasNotification() && payload.notification.canReply) REPLY_WINDOW_MS else IDLE_MS
     }
+}
+
+/**
+ * What the CPU must do so the idle check runs on time with the screen off (CONTRIBUTING rule 8).
+ * Android suspends the CPU seconds after the screen goes off, and timers don't run while it's
+ * suspended, so a connection would outlive its window. Times are on the session's clock.
+ */
+sealed interface CpuPlan {
+    /** Nothing to do: the screen is on, it's charging, or nothing is open. */
+    data object None : CpuPlan
+
+    /** The check is due within a minute: keep the CPU awake until [until], then let go. */
+    data class Hold(val until: Long) : CpuPlan
+
+    /** The check is further off: let the CPU sleep, wake it at [at] and call `Session.checkIdle`. */
+    data class WakeAt(val at: Long) : CpuPlan
 }

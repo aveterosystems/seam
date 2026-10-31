@@ -9,7 +9,7 @@ import SeamSession
 /// The app's one live object: opens the store, runs the connections to the phone, and shows what
 /// the session (SeamSession's `Session`, which owns delivery, features and pairing) reports.
 @MainActor @Observable
-final class SeamController: RelayHandler {
+final class SeamController {
     /// Logged in to the relay (pairing and the relay path need it).
     private(set) var relayUp = false
     /// The connection switches (Settings › Connection; decision 0006). At least one stays on.
@@ -39,10 +39,8 @@ final class SeamController: RelayHandler {
     @ObservationIgnored private var store: Store?
     @ObservationIgnored private var session: Session?
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
-    @ObservationIgnored private var relay: RelayClient?
-    @ObservationIgnored private var relayTask: Task<Void, Never>?
-    @ObservationIgnored private var lan: LanServer?
-    @ObservationIgnored private var lanTask: Task<Void, Never>?
+    /// Runs the relay connection and the Same Wi‑Fi listener the switches allow (SeamSession `Paths`).
+    @ObservationIgnored private var paths: Paths?
     @ObservationIgnored private let notifications = PhoneNotifications()
     @ObservationIgnored private var iconPNGs: [String: Data] = [:]
     /// A save here (moving relays) failed; the session reports its own.
@@ -85,6 +83,7 @@ final class SeamController: RelayHandler {
 
     private func begin(_ store: Store) {
         self.store = store
+        paths?.stop()
         if let old = session { Task { await old.stop() } }
         let session = Session(
             device: store.device,
@@ -98,15 +97,22 @@ final class SeamController: RelayHandler {
         )
         self.session = session
         phone = store.device.peers().first { $0.confirmed }
+        let paths = Paths(
+            session: session, wifi: wifiOn, relay: relayOn,
+            makeRelay: { [weak self] handler in self?.makeRelay(handler) },
+            makeLan: { LanServer(device: store.device) },
+            lanFailed: { [log] in log.error("same Wi‑Fi listener didn't start") }
+        )
+        self.paths = paths
         updatesTask?.cancel()
         updatesTask = Task { [weak self] in
             for await state in session.updates { self?.show(state) }
         }
         notifications.start { action in Task { await session.notificationAction(action) } }
+        let paired = phone != nil
         Task {
             await session.start() // what waited from before, ahead of any path
-            restartRelay()
-            updateLan()
+            paths.start(phonePaired: paired)
         }
     }
 
@@ -125,7 +131,7 @@ final class SeamController: RelayHandler {
         if case .confirm = s.pairing, pairing != s.pairing { NSApp.activate() } // the safety code needs the user's eyes now
         pairing = s.pairing
         warning = s.warning ?? saveWarning
-        updateLan() // the phone may have come or gone
+        paths?.setPhonePaired(s.phone != nil) // the phone may have come or gone
     }
 
     // MARK: Phone
@@ -161,25 +167,14 @@ final class SeamController: RelayHandler {
         guard on || relayOn else { return } // one always stays on
         wifiOn = on
         UserDefaults.standard.set(on, forKey: "transport.wifi")
-        updateLan()
-        Task { await session?.setSwitches(wifi: wifiOn, relay: relayOn) }
+        paths?.setWifi(on)
     }
-
-    /// The last relay switch change, so pairing can wait for it (SR-29-11).
-    private var switching: Task<Void, Never>?
 
     func setRelay(_ on: Bool) {
         guard on || wifiOn else { return }
         relayOn = on
         UserDefaults.standard.set(on, forKey: "transport.relay")
-        let previous = switching
-        switching = Task {
-            await previous?.value
-            // The session first, so nothing more goes out on a relay switched off (SR-29-07); it
-            // also closes a pairing slot while that relay is still attached
-            await session?.setSwitches(wifi: wifiOn, relay: relayOn)
-            restartRelay()
-        }
+        paths?.setRelay(on)
     }
 
     /// Moves to another relay (nil: Seam's). The group lives on one relay, so the phone is
@@ -199,55 +194,18 @@ final class SeamController: RelayHandler {
             }
             await session.leaveRelayGroup() // on the old relay, before it closes
             self.store = moved
-            restartRelay()
+            paths?.restartRelay()
         }
     }
 
-    /// (Re)starts the relay connection for the current store, if the switch allows: the old
-    /// connection finishes first, so its events never land after the new one's.
-    private func restartRelay() {
-        let oldTask = relayTask
-        var next: RelayClient?
-        if relayOn, let store {
-            next = RelayClient(
-                device: store.device, groupID: store.appData.groupId, relayURL: store.relayURL,
-                ownerKey: store.appData.ownerKey, handler: self
-            )
-        }
-        relay = next
-        let session = session
-        relayTask = Task {
-            await session?.setRelay(next)
-            oldTask?.cancel()
-            await oldTask?.value
-            guard !Task.isCancelled, let next else { return }
-            await next.run()
-        }
-    }
-
-    /// The same‑Wi‑Fi listener runs while the switch is on and a phone is paired.
-    private func updateLan() {
-        let wanted = wifiOn && phone != nil && store != nil
-        if wanted, lan == nil, let store, let session {
-            let server = LanServer(device: store.device)
-            lan = server
-            lanTask = Task { [weak self] in
-                do {
-                    _ = try await server.start()
-                } catch {
-                    self?.log.error("same Wi‑Fi listener didn't start")
-                    if self?.lan === server { self?.lan = nil }
-                    return
-                }
-                await session.setLan(server)
-                for await event in server.events { await session.lanEvent(event) }
-            }
-        } else if !wanted, let server = lan {
-            lanTask?.cancel()
-            lan = nil
-            server.stop() // closes the link gracefully: what was already sent is written first
-            Task { await session?.setLan(nil) }
-        }
+    /// A relay connection for the current store; it reads the store when called, so a move to
+    /// another relay takes effect on the next restart.
+    private func makeRelay(_ handler: any RelayHandler) -> RelayClient? {
+        guard let store else { return nil }
+        return RelayClient(
+            device: store.device, groupID: store.appData.groupId, relayURL: store.relayURL,
+            ownerKey: store.appData.ownerKey, handler: handler
+        )
     }
 
     // MARK: Notifications
@@ -285,9 +243,9 @@ final class SeamController: RelayHandler {
         guard let store, let session else { return }
         let relayURL = store.relayURL.absoluteString
         let name = Host.current().localizedName ?? "Mac"
-        let switching = switching
+        let paths = paths
         Task {
-            await switching?.value // "Turn On Relay" then a code: the session hears of the switch first
+            await paths?.settled() // "Turn On Relay" then a code: the session hears of the switch first
             await session.startPairing(relayURL: relayURL, name: name)
             #if DEBUG
             // Device tests: hand the code to an emulator, which has no camera to scan with
@@ -306,26 +264,5 @@ final class SeamController: RelayHandler {
     /// Cancel, or the window closed. Does nothing while PairAccept is already on its way.
     func cancelPairing() {
         Task { await session?.cancelPairing() }
-    }
-
-    // MARK: RelayHandler
-
-    func relayConnected(members: [Data]) async {
-        await session?.relayConnected()
-    }
-
-    func relayDisconnected() async {
-        await session?.relayDisconnected()
-    }
-
-    func relayReceived(_ envelope: Seam_V1_Envelope) async -> Bool {
-        await session?.relayReceived(envelope) ?? true
-    }
-
-    func relayPeerJoined(_ deviceKey: Data) async {}
-    func relayBundle(deviceKey: Data, bundle: Data) async {}
-
-    func relayError(_ code: String) async {
-        await session?.relayError(code)
     }
 }

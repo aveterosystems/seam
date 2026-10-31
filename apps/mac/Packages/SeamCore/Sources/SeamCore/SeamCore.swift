@@ -1141,10 +1141,10 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     func acceptPairing(envelope: Data) throws  -> PairingRequest
     
     /**
-     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
-     * last applied Hello.
+     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * switches (`enabled`, any order) and the peer's last applied Hello.
      */
-    func allowedPaths(wifi: Bool, relay: Bool)  -> [PeerPath]
+    func allowedPaths(enabled: [PeerPath])  -> [PeerPath]
     
     /**
      * The app's relay group and Hello state, sealed inside `export_state` with the keys. None
@@ -1192,7 +1192,7 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
      * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
      * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
      */
-    func nextHello(wifi: Bool, relay: Bool)  -> HelloOut?
+    func nextHello(enabled: [PeerPath])  -> HelloOut?
     
     /**
      * Open an Envelope from a paired peer.
@@ -1223,8 +1223,11 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     /**
      * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
      * any up path this device's switches allow, so a switch change always reaches the peer.
+     *
+     * `enabled`: this device's switches; `up`: the paths connected now. Any order: the core
+     * decides preference.
      */
-    func route(wifi: Bool, relay: Bool, lanUp: Bool, relayUp: Bool, hello: Bool)  -> PeerPath?
+    func route(enabled: [PeerPath], up: [PeerPath], hello: Bool)  -> PeerPath?
     
     func safetyCode(peerId: String) throws  -> String
     
@@ -1345,16 +1348,15 @@ open func acceptPairing(envelope: Data)throws  -> PairingRequest  {
 }
     
     /**
-     * Paths switched on at both ends (decision 0006): this device's switches and the peer's
-     * last applied Hello.
+     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * switches (`enabled`, any order) and the peer's last applied Hello.
      */
-open func allowedPaths(wifi: Bool, relay: Bool) -> [PeerPath]  {
+open func allowedPaths(enabled: [PeerPath]) -> [PeerPath]  {
     return try!  FfiConverterSequenceTypePeerPath.lift(try! rustCall() {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(
             self.uniffiCloneHandle(),
-        FfiConverterBool.lower(wifi),
-        FfiConverterBool.lower(relay),uniffiCallStatus
+        FfiConverterSequenceTypePeerPath.lower(enabled),uniffiCallStatus
     )
 })
 }
@@ -1468,13 +1470,12 @@ open func identityKey() -> Data  {
      * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
      * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
      */
-open func nextHello(wifi: Bool, relay: Bool) -> HelloOut?  {
+open func nextHello(enabled: [PeerPath]) -> HelloOut?  {
     return try!  FfiConverterOptionTypeHelloOut.lift(try! rustCall() {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_next_hello(
             self.uniffiCloneHandle(),
-        FfiConverterBool.lower(wifi),
-        FfiConverterBool.lower(relay),uniffiCallStatus
+        FfiConverterSequenceTypePeerPath.lower(enabled),uniffiCallStatus
     )
 })
 }
@@ -1566,16 +1567,17 @@ open func removePeer(peerId: String)  {try! rustCall() {
     /**
      * The path to send on now (Same Wi-Fi first), or None to wait. A Hello (`hello`) may take
      * any up path this device's switches allow, so a switch change always reaches the peer.
+     *
+     * `enabled`: this device's switches; `up`: the paths connected now. Any order: the core
+     * decides preference.
      */
-open func route(wifi: Bool, relay: Bool, lanUp: Bool, relayUp: Bool, hello: Bool) -> PeerPath?  {
+open func route(enabled: [PeerPath], up: [PeerPath], hello: Bool) -> PeerPath?  {
     return try!  FfiConverterOptionTypePeerPath.lift(try! rustCall() {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_route(
             self.uniffiCloneHandle(),
-        FfiConverterBool.lower(wifi),
-        FfiConverterBool.lower(relay),
-        FfiConverterBool.lower(lanUp),
-        FfiConverterBool.lower(relayUp),
+        FfiConverterSequenceTypePeerPath.lower(enabled),
+        FfiConverterSequenceTypePeerPath.lower(up),
         FfiConverterBool.lower(hello),uniffiCallStatus
     )
 })
@@ -2745,7 +2747,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() != 62568) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() != 63738) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() != 6953) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 29712) {
@@ -2775,7 +2777,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_identity_key() != 47370) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_next_hello() != 61978) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_next_hello() != 17158) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_open() != 5951) {
@@ -2799,7 +2801,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_remove_peer() != 46663) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_route() != 11407) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_route() != 18284) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_safety_code() != 38571) {

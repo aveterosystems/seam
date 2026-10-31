@@ -47,6 +47,11 @@ public actor Session {
     var relay: (any RelaySender)?
     var lanUp = false
     var relayUp = false
+
+    /// The switches as the core's path list: the one place they're translated (the core picks the order).
+    var enabledPaths: [PeerPath] { (wifi ? [.lan] : []) + (relayOn ? [.relay] : []) }
+    /// The links connected now, as the core's path list.
+    var upPaths: [PeerPath] { (lanUp ? [.lan] : []) + (relayUp ? [.relay] : []) }
     var phone: PeerInfo?
     var warning: String?
     /// Sealed envelopes not yet delivered (waiting for a path, or sent directly and not yet acked),
@@ -92,8 +97,8 @@ public actor Session {
 
     public var state: State {
         State(
-            phone: phone, route: device.route(wifi: wifi, relay: relayOn, lanUp: lanUp, relayUp: relayUp, hello: false),
-            allowed: device.allowedPaths(wifi: wifi, relay: relayOn), relayUp: relayUp,
+            phone: phone, route: device.route(enabled: enabledPaths, up: upPaths, hello: false),
+            allowed: device.allowedPaths(enabled: enabledPaths), relayUp: relayUp,
             waiting: outbox.waiting.count + outbox.sent.count, status: status.status, recentFromPhone: clipboard.recent,
             notificationSettings: notifications.settings, appIcons: notifications.icons, pairing: flow.state, warning: warning
         )
@@ -294,7 +299,7 @@ public actor Session {
     }
 
     private func pollClipboard() async {
-        let connected = device.route(wifi: wifi, relay: relayOn, lanUp: lanUp, relayUp: relayUp, hello: false) != nil
+        let connected = device.route(enabled: enabledPaths, up: upPaths, hello: false) != nil
         if let out = await clipboard.poll(paired: phone != nil, connected: connected, now: timers.now()) {
             await send([out])
         }
