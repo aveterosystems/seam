@@ -1,0 +1,158 @@
+<!doctype html>
+<!-- README hero: a link copied on the Mac lands on the phone. Only what the apps show today
+     (PopoverView.swift and Screens.kt in 0.2.3); measurements in pt/dp from the code, 1 px each. -->
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: Roboto; src: url(Roboto.ttf); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1000px; height: 920px; background: transparent; overflow: hidden; }
+.sym { display: inline-block; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; flex: none; }
+
+/* Mac popover */
+.pop { position: absolute; left: 70px; top: 118px; width: 360px; background: #f5f5f5; border-radius: 12px;
+  border: 0.5px solid rgba(0,0,0,.14); box-shadow: 0 22px 60px rgba(0,0,0,.16), 0 4px 14px rgba(0,0,0,.08);
+  font-family: -apple-system, "SF Pro Text", sans-serif; color: rgba(0,0,0,.85); overflow: hidden; }
+.sec { color: rgba(0,0,0,.5); } .ter { color: rgba(0,0,0,.28); } .ink { color: #07604F; }
+.row { display: flex; align-items: center; }
+.div { height: 1px; background: rgba(0,0,0,.1); }
+.head { padding: 14px 14px 12px; gap: 12px; }
+.tile { width: 40px; height: 40px; border-radius: 10px; background: rgba(11,127,111,.13); color: #07604F; display: grid; place-items: center; }
+.pill { height: 20px; padding: 0 8px; border-radius: 10px; background: rgba(0,0,0,.08); font-size: 10px; font-weight: 500; display: grid; place-items: center; }
+.cap { height: 22px; border-radius: 11px; background: #fff; border: 0.5px solid rgba(0,0,0,.16); box-shadow: 0 .5px 1px rgba(0,0,0,.08); display: grid; place-items: center; }
+.stitch { height: 3px; margin: 0 14px; background: #0B7F6F; }
+.mods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 14px; }
+.mod { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.mod .c { width: 44px; height: 44px; border-radius: 50%; background: #0B7F6F; color: #fff; display: grid; place-items: center; }
+.mod .t { font-size: 11px; font-weight: 500; height: 28px; text-align: center; }
+.small { font-size: 11px; }
+.btn { height: 20px; padding: 0 9px; font-size: 11px; border-radius: 10px; background: #fff; border: 0.5px solid rgba(0,0,0,.16); box-shadow: 0 .5px 1px rgba(0,0,0,.08); display: grid; place-items: center; }
+.key { font-size: 11px; padding: 0 4px; border-radius: 4px; background: rgba(0,0,0,.08); }
+
+/* Android phone */
+.bezel { position: absolute; left: 540px; top: 30px; width: 382px; height: 798px; border-radius: 56px; background: #16191a;
+  box-shadow: 0 30px 70px rgba(0,0,0,.22), 0 6px 18px rgba(0,0,0,.12), inset 0 0 0 1.5px #2a2e30; }
+.screen { position: absolute; left: 11px; top: 11px; width: 360px; height: 776px; border-radius: 45px; background: #F8F9FA; overflow: hidden;
+  font-family: Roboto, sans-serif; color: #1A1C1E; display: flex; flex-direction: column; }
+.abar { height: 64px; padding: 0 4px 0 16px; display: flex; align-items: center; }
+.abar svg { width: 24px; height: 24px; }
+.body { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px 24px 24px; }
+.mac { font-size: 36px; line-height: 44px; font-weight: 600; letter-spacing: -0.6px; }
+.acts { display: flex; gap: 28px; }
+.act { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; }
+.act .b { width: 68px; height: 68px; display: grid; place-items: center; }
+.act svg { width: 26px; height: 26px; }
+.card { width: 100%; background: #EAECEE; border-radius: 24px; padding: 14px 14px 14px 18px; display: flex; align-items: center; gap: 12px; }
+.paste { height: 40px; padding: 0 24px; border-radius: 20px; background: #CCE8E1; color: #06201B; font-size: 14px; font-weight: 500; display: grid; place-items: center; }
+
+/* The copy in flight */
+.fly { position: absolute; left: 0; top: 0; height: 40px; padding: 0 16px 0 7px; border-radius: 20px; background: #0B6F61; color: #fff;
+  display: flex; align-items: center; gap: 10px; font: 600 15px -apple-system, sans-serif; white-space: nowrap;
+  box-shadow: 0 0 0 6px rgba(11,127,111,.16), 0 10px 28px rgba(11,111,97,.45); transform-origin: center; }
+.fly .k { background: rgba(255,255,255,.18); border-radius: 13px; padding: 4px 9px; font-size: 13px; }
+</style></head><body>
+
+<div class="pop">
+  <div class="row head">
+    <div class="tile"><i class="sym" style="--m:url(sym/iphone.png);width:16.3px;height:19.5px"></i></div>
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:600">Pixel 9</div>
+      <div class="row sec" style="gap:6px;font-size:10px;margin-top:2px">
+        <i style="width:8px;height:8px;border-radius:50%;background:#28C840"></i>Connected
+        <i class="sym" style="--m:url(sym/wifi.png);width:13.1px;height:9.8px"></i>
+      </div>
+    </div>
+    <div class="pill sec">82%</div>
+    <div class="cap" style="width:34px"><i class="sym" style="--m:url(sym/slider.horizontal.3.png);width:16px;height:13px"></i></div>
+  </div>
+  <div class="stitch"></div>
+  <div class="mods">
+    <div class="mod"><div class="c"><i class="sym" style="--m:url(sym/doc.on.clipboard.png);width:21.2px;height:23.9px"></i></div><div class="t">Clipboard</div></div>
+    <div class="mod"><div class="c"><i class="sym" style="--m:url(sym/bell.png);width:19.1px;height:20.2px"></i></div><div class="t">Notifications</div></div>
+  </div>
+  <div class="div"></div>
+  <div style="padding-bottom:6px">
+    <div class="small ter" style="padding:10px 14px 4px;font-weight:600">From your phone's clipboard</div>
+    <div class="row" style="padding:8px 18px;gap:10px"><div style="flex:1"><div style="font-size:12px">ZK4 9QP</div><div class="small ter">Copied on your phone · 2 min ago</div></div><div class="btn">Copy</div></div>
+    <div class="row" style="padding:8px 18px;gap:10px"><div style="flex:1"><div style="font-size:12px">https://maps.app.goo.gl/…/the-old-forge</div><div class="small ter">Copied on your phone · 18 min ago</div></div><div class="btn">Open</div></div>
+  </div>
+  <div class="div"></div>
+  <div class="row" style="padding:10px 14px;gap:6px">
+    <i class="sym sec" style="--m:url(sym/checkmark.shield.png);width:10.6px;height:11.7px"></i>
+    <span class="small sec" style="flex:1">End-to-end encrypted</span>
+    <span class="ink" style="font-size:12px;font-weight:600">Settings</span>
+    <span class="key sec">⌘,</span>
+  </div>
+</div>
+
+<div class="bezel"><div class="screen">
+  <div class="abar">
+    <svg viewBox="0 0 32 32" fill="#006B5E"><path fill-rule="evenodd" d="M6.5,6h5a2.5,2.5 0 0 1 2.5,2.5v15a2.5,2.5 0 0 1 -2.5,2.5h-5a2.5,2.5 0 0 1 -2.5,-2.5v-15a2.5,2.5 0 0 1 2.5,-2.5zM20.5,6h5a2.5,2.5 0 0 1 2.5,2.5v15a2.5,2.5 0 0 1 -2.5,2.5h-5a2.5,2.5 0 0 1 -2.5,-2.5v-15a2.5,2.5 0 0 1 2.5,-2.5z"/><path stroke="#006B5E" stroke-width="2" stroke-linecap="round" d="M14,11h4M14,16h4M14,21h4"/></svg>
+    <span style="margin-left:8px;flex:1;font-size:20px;font-weight:700;letter-spacing:-0.3px">Seam</span>
+    <div style="width:48px;height:48px;display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="#44474A"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.920,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></div>
+  </div>
+  <div class="body">
+    <!-- Hero.kt: the cookie r = 138 + 9·cos(9t) on a 300 grid, and the board's 200×140 drawing -->
+    <svg width="300" height="300" viewBox="0 0 300 300">
+      <path id="cookie" fill="#9FF2E0"/>
+      <g transform="translate(50 80)" stroke-linecap="round">
+        <rect x="6" y="18" width="104" height="70" rx="8" fill="#F8F9FA" stroke="#00201B" stroke-width="5"/>
+        <line x1="0" y1="100" x2="118" y2="100" stroke="#00201B" stroke-width="6"/>
+        <rect x="150" y="10" width="44" height="90" rx="10" fill="#00201B"/>
+        <line x1="166" y1="90" x2="178" y2="90" stroke="#9FF2E0" stroke-width="4"/>
+        <path d="M120 40h22M120 54h22M120 68h22" stroke="#006B5E" stroke-width="5"/>
+      </g>
+    </svg>
+    <div class="mac" style="margin-top:4px">MacBook Pro</div>
+    <div class="row" style="margin-top:6px;font-size:15px;color:#44474A">
+      <i style="width:8px;height:8px;border-radius:50%;background:#1C7C3A;margin-right:8px"></i>Connected
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="#44474A" style="margin-left:6px"><path d="M1,9l2,2c4.97,-4.97 13.03,-4.97 18,0l2,-2C16.93,2.93 7.08,2.93 1,9zM9,17l3,3 3,-3c-1.65,-1.66 -4.34,-1.66 -6,0zM5,13l2,2c2.76,-2.76 7.24,-2.76 10,0l2,-2C15.14,9.14 8.87,9.14 5,13z"/></svg>
+    </div>
+    <div class="row" style="margin-top:6px;font-size:13px;color:#74777A">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="#74777A" style="margin-right:6px"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.710 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>End-to-end encrypted
+    </div>
+    <div class="acts" style="margin-top:32px">
+      <div class="act"><div class="b" style="border-radius:22px;background:#006B5E"><svg viewBox="0 0 24 24" fill="#fff"><path d="M19,2h-4.18C14.4,0.84 13.3,0 12,0c-1.3,0 -2.4,0.84 -2.82,2H5c-1.1,0 -2,0.9 -2,2v16c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2V4c0,-1.1 -0.9,-2 -2,-2zM12,2c0.55,0 1,0.45 1,1s-0.45,1 -1,1 -1,-0.45 -1,-1 0.45,-1 1,-1zM19,20H5V4h2v3h10V4h2v16z"/></svg></div>Clipboard</div>
+      <div class="act"><div class="b" style="border-radius:50%;background:#E4E6E8"><svg viewBox="0 0 24 24" fill="#1A1C1E"><path d="M6,19h4V5H6v14zM14,5v14h4V5h-4z"/></svg></div>Pause</div>
+    </div>
+    <div style="flex:1"></div>
+    <div class="card" id="card">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;letter-spacing:.4px;color:#74777A">Copied on your Mac · just now</div>
+        <div style="font-size:15px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Booking ref KX7-29QP</div>
+      </div>
+      <div class="paste" id="paste">Paste</div>
+    </div>
+  </div>
+</div></div>
+
+<div class="fly" id="fly"><span class="k">⌘C</span>Booking ref KX7-29QP</div>
+
+<script>
+// The cookie, as Hero.kt draws it
+let d = "";
+for (let i = 0; i <= 180; i++) {
+  const t = i / 180 * Math.PI * 2, r = 138 + 9 * Math.cos(9 * t);
+  d += (i ? "L" : "M") + (150 + r * Math.cos(t)).toFixed(2) + "," + (150 + r * Math.sin(t)).toFixed(2);
+}
+document.getElementById("cookie").setAttribute("d", d + "Z");
+
+// Frame n of 19 (from the URL hash): pill fades in over the popover, arcs to the phone, becomes the card
+const n = +location.hash.slice(1) || 19;
+const fly = document.getElementById("fly"), card = document.getElementById("card");
+const w = fly.offsetWidth, h = fly.offsetHeight;
+const from = [250, 330], to = [731, 771], ctrl = [640, 300];
+const ease = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+function at(t, scale, alpha) {
+  const u = 1 - t, x = u*u*from[0] + 2*u*t*ctrl[0] + t*t*to[0], y = u*u*from[1] + 2*u*t*ctrl[1] + t*t*to[1];
+  fly.style.transform = `translate(${x - w/2}px, ${y - h/2}px) scale(${scale})`;
+  fly.style.opacity = alpha;
+}
+//            1   2    3    4    5   6    7    8    9    10   11   12   13   14   15   16   17   18   19
+const path = [0,  0,   0,   0,   0,  .1,  .25, .42, .6,  .76, .88, .95, 1,   1,   1,   1,   1,   1,   1][n-1];
+const size = [1,  .8,  .9,  1,   1,  1,   1,   1,   .98, .95, .92, .9,  .9,  .9,  .9,  .9,  1,   1,   1][n-1];
+const show = [0,  .35, .7,  1,   1,  1,   1,   1,   1,   1,   1,   1,   .8,  .55, .3,  .1,  0,   0,   0][n-1];
+const cardA= [0,  0,   0,   0,   0,  0,   0,   0,   0,   0,   0,   0,   .3,  .55, .75, .9,  1,   1,   1][n-1];
+at(ease(path), size, show);
+card.style.opacity = cardA;
+if (n === 18) document.getElementById("paste").style.background = "#B5DBD2"; // a press on Paste
+</script>
+</body></html>
