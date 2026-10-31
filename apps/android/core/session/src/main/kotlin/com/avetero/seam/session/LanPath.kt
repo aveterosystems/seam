@@ -49,7 +49,7 @@ internal class LanPath(
     override val active get() = link != null || discovering || retry?.isActive == true || reconnect?.isActive == true
 
     override fun start() {
-        if (link != null || authed || peer() == null || reconnect?.isActive == true) return
+        if (link != null || authed || peer() == null || reconnect?.isActive == true || !wanted()) return // rule 8 (SR-29-09)
         if (discovering) return tryNext()
         discovering = true
         found.clear()

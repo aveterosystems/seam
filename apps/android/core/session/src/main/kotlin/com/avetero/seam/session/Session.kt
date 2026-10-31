@@ -226,35 +226,40 @@ class Session(
         // A farewell, like a Hello: any open path this phone's own switches allow, never one they have off
         val viaRelay = relay.up && switches.relay
         val viaLan = direct?.up == true && switches.wifi
+        val farewell = mutableListOf<Pair<Path, ClientFrame>>()
         if ((viaRelay || viaLan) && !storageBlocked) {
             val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(Unpair.getDefaultInstance())).build()
+            // Not saved before sending, unlike other messages: the Mac's keys are deleted in the same
+            // save as the forget, so a crash can't reuse them
             runCatching {
                 val frame = ClientFrame.newBuilder().setSend(Envelope.parseFrom(device.seal(m.id, unpair.toByteArray(), 0u))).build()
-                persist()
                 // Both: the relay queues it durably for the Mac, the direct link is instant; the Mac drops the duplicate
-                if (viaRelay) relay.send(frame)
-                if (viaLan) direct?.send(frame)
+                if (viaRelay) farewell += relay to frame
+                if (viaLan) direct?.let { farewell += it to frame }
                 // Leaving removes only this phone's own queue: the Unpair waits in the Mac's
-                if (viaRelay) relay.send(ClientFrame.newBuilder().setRemoveMember(RemoveMember.newBuilder().setDeviceKey(device.relayKey().bs())).build())
+                if (viaRelay) farewell += relay to ClientFrame.newBuilder().setRemoveMember(RemoveMember.newBuilder().setDeviceKey(device.relayKey().bs())).build()
             }
         }
-        forget() // closes both links gracefully: what was just sent is written first
+        forget(farewell)
     }
 
     /**
      * Back to unpaired: no peers, no relay target, nothing queued. Only says so once that's saved;
      * otherwise a restart would load the old pairing, so the user is told it didn't work (SR-7-01).
      */
-    private fun forget() {
-        relay.stop()
-        closeLan()
+    private fun forget(farewell: List<Pair<Path, ClientFrame>> = emptyList()) {
         pairing.clear()
         outbox.clearAll()
         device.peers().forEach { device.removePeer(it.id) }
         device.clearAppData()
         features.forEach { runCatching { it.reset() } } // a feature bug never blocks forgetting
         switches.syncPeer()
-        _state.value = if (runCatching { persist() }.isSuccess) SessionState.Unpaired else SessionState.Failed(FORGET_FAILED)
+        val saved = runCatching { persist() }.isSuccess
+        // The Mac is told only once forgetting it is saved: never a farewell for something that didn't happen (SR-7-01, SR-29-12)
+        if (saved) farewell.forEach { (path, frame) -> path.send(frame) }
+        relay.stop()
+        closeLan() // gracefully: the farewell is written first
+        _state.value = if (saved) SessionState.Unpaired else SessionState.Failed(FORGET_FAILED)
     }
 
     /**

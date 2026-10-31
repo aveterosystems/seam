@@ -23,7 +23,9 @@ class LanPathTest {
         val adverts = listOf(LanAddress("192.168.1.20", 50001))
         var opened = 0
         var aborted = 0
+        var discoveries = 0
         override fun discover(found: (LanAddress) -> Unit, lost: (LanAddress) -> Unit) {
+            discoveries++
             adverts.forEach(found)
         }
         override fun stopDiscovery() = Unit
@@ -74,5 +76,14 @@ class LanPathTest {
         runCurrent()
         assertEquals(2, lan.opened)
         path.stop()
+    }
+
+    @Test fun sr_29_09_neverLooksForTheMacWhenNoConnectionIsWanted() = runTest {
+        val lan = SilentLan()
+        val path = LanPath(lan, SeamDevice.generate(), this, { testScheduler.currentTime }, null, peer = { "mac" }, wanted = { false }, events = Events())
+        path.start() // e.g. the reconnect timer after a link dropped with the screen off
+        runCurrent()
+        assertEquals("rule 8: no network discovery running for nothing", 0, lan.discoveries)
+        assertTrue(!path.active)
     }
 }
