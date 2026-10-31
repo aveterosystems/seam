@@ -1,128 +1,231 @@
-<p align="center">
-  <img src=".github/assets/seam-icon.svg" width="96" height="96" alt="Seam">
-</p>
-
 <h1 align="center">Seam</h1>
 
 <p align="center">
-  <strong>Your Android phone and your Mac, stitched together.</strong><br>
-  Notifications, texts, clipboard and files between Android and macOS: as seamless as an iPhone, and end-to-end encrypted with the Signal Protocol.
+  <strong>Your phone and your computer, stitched together.</strong><br>
+  Notifications, clipboard and battery from your phone, right there on your desktop.<br>
+  End-to-end encrypted with the Signal Protocol. No account. Nothing in the cloud that can read it.
 </p>
 
 <p align="center">
-  <a href="https://github.com/aveterosystems/seam/actions/workflows/core.yml"><img src="https://github.com/aveterosystems/seam/actions/workflows/core.yml/badge.svg?branch=main" alt="core"></a>
-  <a href="https://github.com/aveterosystems/seam/actions/workflows/mac.yml"><img src="https://github.com/aveterosystems/seam/actions/workflows/mac.yml/badge.svg?branch=main" alt="mac"></a>
-  <a href="https://github.com/aveterosystems/seam/actions/workflows/android.yml"><img src="https://github.com/aveterosystems/seam/actions/workflows/android.yml/badge.svg?branch=main" alt="android"></a>
-  <a href="https://github.com/aveterosystems/seam/actions/workflows/server.yml"><img src="https://github.com/aveterosystems/seam/actions/workflows/server.yml/badge.svg?branch=main" alt="server"></a>
-  <a href="https://github.com/aveterosystems/seam/actions/workflows/protocol.yml"><img src="https://github.com/aveterosystems/seam/actions/workflows/protocol.yml/badge.svg?branch=main" alt="protocol"></a>
+  <a href="https://github.com/aveterosystems/seam/releases/latest"><strong>Download the latest release →</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/aveterosystems/seam/releases/latest"><img src="https://img.shields.io/github/v/release/aveterosystems/seam?color=0B7F6F&label=release" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Android-12%2B-0B7F6F" alt="Android 12+">
+  <img src="https://img.shields.io/badge/macOS-14%2B-0B7F6F" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Linux-planned-lightgrey" alt="Linux: planned">
+  <img src="https://img.shields.io/badge/Windows-planned-lightgrey" alt="Windows: planned">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-0B7F6F" alt="Licence: AGPL-3.0"></a>
+</p>
+
+<p align="center">
+  <img src="assets/readme/hero-animated.png" width="560" alt="A link copied on the Mac appears on the Android phone a moment later">
 </p>
 
 ---
 
-> **Status: 0.2.2.** Pairing, clipboard both ways, the phone's battery and phone notifications on the Mac work, end to end encrypted through the Seam relay. Everything else below is being built milestone by milestone. It's an early release: expect rough edges.
+## Your phone, on your computer
+
+<p align="center">
+  <img src="assets/readme/mac-notifications.png" width="640" alt="Phone notifications in Seam's Mac window, with an inline reply">
+</p>
+
+### 🔔 Notifications that follow you
+
+Your phone buzzes on the desk. Your computer already knows. Phone notifications land in your desktop's own notifications, and you can reply or dismiss right there. Clear one on the computer and it's gone from the phone too.
+
+You pick which apps get through. Every app starts off, and the phone filters before anything leaves it.
+
+### 📋 Copy here, paste there
+
+Copy on your computer, paste on your phone. Copy a code on your phone, paste it on your computer. No buttons, no sharing sheets, no emailing yourself links.
+
+### 🔋 Battery at a glance
+
+Your phone's charge sits right on your desktop, so you know when it needs a charger before it tells you.
+
+### Coming soon
+
+<p align="center">
+  <img src="assets/readme/messages.png" width="640" alt="A planned Messages window for texting from your phone's number">
+</p>
+
+- 💬 **Texts on your computer.** Read and reply from your phone's number, in a full Messages window.
+- 📁 **Files both ways.** Share sheet, drag and drop, or browse your phone like a drive.
+- 📣 **Ring my phone.** Find it down the side of the sofa, even on silent.
+
+## Works where you work
+
+| | Today | Next |
+|---|---|---|
+| **Phone** | Android 12+ | |
+| **Computer** | macOS 14+ | Linux, then Windows |
+
+The encryption, pairing and sync all live in one shared core, so each new platform is a new app on top, not a rewrite.
+
+## Why Seam?
+
+| | **Seam** | Bounce Connect | KDE Connect | Phone Link |
+|---|---|---|---|---|
+| **Your computer** | Mac today; Linux and Windows next | Mac | Linux, Windows; Mac as nightly builds | Windows |
+| **Works away from home** | ✅ Through Tor | Same Wi‑Fi only | Same network only | Through Microsoft's servers |
+| **Encryption** | Signal Protocol, end-to-end, post-quantum | AES-256 | TLS | Not published |
+| **Hides where you are** | ✅ Tor | Not needed (local only) | Not needed (local only) | No |
+| **Account** | None | None | None | Microsoft account |
+| **Open source** | ✅ AGPL-3.0 | Not stated | ✅ GPL | No |
+| **Price** | Free | Paid Android app | Free | Free with Windows |
+
+<sub>From each project's own pages, October 2026. Something out of date? Please [open an issue](https://github.com/aveterosystems/seam/issues).</sub>
+
+## Set up in ten seconds
+
+<p align="center">
+  <img src="assets/readme/pairing.png" width="480" alt="Seam's pairing window, showing a QR code">
+</p>
+
+Open Seam on your computer. Scan the code with your phone. That's it.
+
+No account, no email, no password, no sign-in.
+
+## Private by design
+
+Only your two devices can read anything. Not us, not Google or Apple, not anyone on your network.
+
+- **The Signal Protocol**, through Signal's own [libsignal](https://github.com/signalapp/libsignal), with post-quantum protection. No home-made cryptography.
+- **Keys never leave your devices.** They're made on each device and pinned when you pair, so nothing can slip in between.
+- **A new key for every message.** A leaked key opens one message, not your history.
+- **Fast at home, private everywhere.** On the same Wi‑Fi your devices talk directly. Everywhere else they connect through Tor, which also hides where you are. Seam runs no servers that carry your messages.
+- **Open source, signed releases.** Every release is built in public by GitHub Actions and signed with Seam's keys.
+
+### Tested, not just promised
+
+Privacy claims are easy to make. Seam's are checked by automated tests in Rust, Swift and Kotlin, and CI runs them on every change:
+
+- 🚫 **No Google tracking, enforced.** The Android build fails if Firebase, Google's telemetry transport or ML Kit ever sneaks in through a dependency.
+- 📏 **Size gives nothing away.** Tests prove an encrypted message doesn't reveal how long the original was.
+- 🛡️ **Forgeries bounce off.** Tampered, replayed and unknown-sender messages are all rejected.
+- 🧅 **Invisible on Tor.** A test on the real Tor network shows only your paired phone can even find your computer, and that Tor keys never touch the disk. This one needs the live network, so it's run by hand, not by CI.
+- ⏸️ **Paused means paused.** Pause Seam on your phone and tests check it makes no connections at all.
+
+What the tests don't do, so you know exactly what you're getting:
+
+- The no-tracking check looks for known Google libraries. It doesn't watch every connection the app makes.
+- The Mac app has no tracking libraries, but no test enforces that yet.
+- Tests prove the code does what it says. They're not a replacement for an outside security review.
+
+Found a vulnerability? Please read [SECURITY.md](SECURITY.md) rather than opening an issue.
 
 ## Install
 
-Download both apps from the [latest release](https://github.com/aveterosystems/seam/releases/latest), then open Seam on the Mac and scan its code with the phone.
+Seam is an early release (0.2.2). Expect rough edges, and tell us about them.
 
-- **Android 12 or later:** open `Seam-<version>-android.apk` on the phone and allow the install.
-- **macOS 14 or later** (Apple silicon or Intel): unzip `Seam-<version>-mac.zip` and drag Seam to Applications. Seam isn't notarized by Apple yet, so the first time you open each version macOS blocks it: open **System Settings › Privacy & Security** and click **Open Anyway**.
+Download both apps from the [latest release](https://github.com/aveterosystems/seam/releases/latest).
 
-After that, both apps update themselves: once a day they check GitHub for a newer release (GitHub sees your IP address and Seam's version when they do; turn it off in Settings), (each asks first), and install one only if it's signed with Seam's keys and you say so. Each release says how to check its files yourself.
+| | |
+|---|---|
+| **Mac** (macOS 14+, Apple silicon or Intel) | Unzip `Seam-<version>-mac.zip` and drag Seam to Applications. Seam isn't notarized by Apple yet, so the first time you open each version, go to **System Settings › Privacy & Security** and click **Open Anyway**. |
+| **Android** (12+) | Open `Seam-<version>-android.apk` on the phone and allow the install. |
 
-## What it does
+Both apps keep themselves up to date. They check GitHub once a day, ask before installing, and only accept updates signed with Seam's keys. You can turn this off in Settings.
 
-| | Feature | |
+### Check what you downloaded
+
+Every release is built by GitHub Actions from a tagged commit, and every file carries a GitHub attestation that proves it. With the [GitHub CLI](https://cli.github.com):
+
+```sh
+gh attestation verify Seam-<version>-mac.zip --repo aveterosystems/seam \
+  --signer-workflow aveterosystems/seam/.github/workflows/release.yml \
+  --source-ref refs/tags/v<version>
+```
+
+Run the same for `Seam-<version>-android.apk`. Then check the files are signed by Seam. These fingerprints never change; if one ever does, don't install it.
+
+| App | Signing certificate SHA-256 | Check with |
 |---|---|---|
-| 🔔 | **Phone notifications on your Mac**, in Notification Centre, with reply and dismiss that sync both ways. Every app starts off; you choose which ones reach the Mac, and the phone filters before anything leaves it | In 0.2.0 |
-| 💬 | **Texts on your Mac**: read and reply from the menu bar or a full Messages window | Planned |
-| 📋 | **Clipboard both ways**: Mac to phone automatically; phone to Mac automatically in the GitHub build once you turn on Seam in Android's Accessibility settings (or a one-time setup from the Mac over USB), otherwise one tap | In 0.1.0 |
-| 📁 | **Files in either direction**: share sheet, drag onto the menu bar, or the phone in Finder | Planned |
-| 🔋 | **Battery and status**: the phone's battery in the Mac's menu bar; a desktop widget later | Battery in 0.1.0 |
-| 📣 | **Ring my phone** from the Mac, even on silent | Planned |
+| Android | `8da099e274277f70752f943f5081a163d10a434192adee0fc630478844c7459a` | `apksigner verify --print-certs` |
+| Mac | `2049f2317d0b7caeac304b764586b661c8e9393a5a6f8328104bd07cdc05c06a` | `codesign -d --extract-certificates`, then `shasum -a 256` |
 
-It's designed to feel native on both sides: a menu bar app that follows macOS's own look on the Mac, and Material 3 on Android. It uses the system's own surfaces (Notification Centre, the Share menu, Quick Settings) instead of making you open an app.
+The same fingerprints are kept in [`release/`](release/).
 
-## How it works
+## Roadmap
 
-```mermaid
-flowchart LR
-    subgraph You["Your devices: the only place anything is readable"]
-        Mac["Seam for Mac"]
-        Phone["Seam for Android"]
-        Mac <-. "same Wi‑Fi:<br/>direct (planned)" .-> Phone
-    end
-    Relay["Seam relay<br/>a blind postman"]
-    Mac <-- "sealed envelopes" --> Relay
-    Relay <-- "sealed envelopes" --> Phone
-```
+- [x] Pair with a QR code, no account
+- [x] Clipboard both ways
+- [x] Phone battery on the computer
+- [x] Phone notifications, with reply and dismiss
+- [x] Direct connection on the same Wi‑Fi
+- [ ] Works anywhere through Tor, with no Seam servers in between *(in progress)*
+- [ ] Files both ways
+- [ ] Texts on your computer
+- [ ] Ring my phone
+- [ ] Seam for Linux
+- [ ] Seam for Windows
 
-- **Pair once with a QR code.** The phone scans the Mac's screen. That's the whole setup: no accounts, emails or passwords.
-- **Through the relay today.** Sealed messages go through the relay, which queues them until the other device connects. The phone connects only when there's something to send or receive, to save battery.
-- **Planned:** a direct link when both are on the same Wi‑Fi, and a choice of Automatic, **Local only** (nothing leaves your network), **Internet only** or **your own self-hosted relay**. The encryption is identical in every mode.
+Follow along in [issues](https://github.com/aveterosystems/seam/issues) and the [changelog](CHANGELOG.md).
 
-## Security
+## FAQ
 
-Nobody but your two devices can read anything: not us, not our hosting provider, not Google or Apple, not anyone on your network.
+<details>
+<summary><strong>Is Seam free?</strong></summary>
 
-```mermaid
-flowchart LR
-    A["Your data"] --> B["Padded to a<br/>fixed size"] --> C["Signal Protocol<br/>post-quantum keys,<br/>new key per message"] --> D["Sealed envelope<br/>the relay can't open"]
-```
+Yes. Free and open source, with no subscription, no ads and no in-app purchases.
+</details>
 
-- **The Signal Protocol**, through Signal's own [libsignal](https://github.com/signalapp/libsignal), including its latest **post-quantum** protection (PQXDH and the triple ratchet). Seam has no home-made cryptography.
-- **One shared core.** The encryption is written once in Rust and used by both apps, so there's no second copy to get subtly wrong.
-- **Keys never leave your devices.** They're created on-device and stored encrypted: on Android under a key in the hardware keystore, on the Mac under a key in your login keychain (moving to the Secure Enclave is planned).
-- **Pinned at pairing.** Each device trusts exactly one key, the one it learned from the QR code. A server can't slip itself in between.
-- **Every message gets its own key**, and old keys are deleted. A leaked key opens one message, not your history.
-- **Fixed-size padding** and **a relay that logs no IP addresses or contents** keep metadata to a minimum (Cloudflare, which hosts the relay, still sees IP addresses at its network edge). Push notifications, when they arrive, will be empty: no content, no sender.
-- **Signed releases you can check.** Each release is built by GitHub Actions from a tag on `main`, signed with Seam's own pinned keys, and carries build attestations.
-- **Security properties are tested** from Rust, Swift and Kotlin, and the threat model lists what isn't covered yet. An independent audit is planned before 1.0.
+<details>
+<summary><strong>Can you see my messages, clipboard or notifications?</strong></summary>
 
-Found a vulnerability? Please see [SECURITY.md](SECURITY.md).
+No. Everything is end-to-end encrypted between your two devices, and Seam runs no servers that carry your data. There are no analytics or tracking either, and [tests keep it that way](#tested-not-just-promised). Besides Tor, the only outside service Seam talks to is GitHub, for the daily update check, which you can turn off.
+</details>
 
-## Repository layout
+<details>
+<summary><strong>Do my phone and computer need to be on the same Wi‑Fi?</strong></summary>
 
-```
-seam/
-├── core/              The Rust crypto core on libsignal, and its Swift/Kotlin bindings
-├── protocol/          The Protobuf message format shared by every codebase
-├── apps/
-│   ├── mac/           Seam for Mac: SwiftUI menu bar app (macOS 14+)
-│   └── android/       Seam for Android: Jetpack Compose (Android 12+)
-├── server/            The relay: a Cloudflare Worker that routes sealed envelopes
-├── scripts/           Code generation, build and release helpers
-├── release/           Release notes template and the pinned signing-certificate fingerprints
-└── .github/workflows/ CI: one workflow per part, run only when that part changes
-```
+No. On the same Wi‑Fi they talk directly. Anywhere else they connect through Tor.
+</details>
 
-## Building from source
+<details>
+<summary><strong>Is Tor slow?</strong></summary>
 
-| Part | Needs | Build and test |
-|---|---|---|
-| [Crypto core](core/README.md) | Rust, `protoc` | `cd core && cargo test` |
-| [Mac app](apps/mac/README.md) | Xcode 26+, XcodeGen, Rust | `scripts/build-mac-core.sh`, then `cd apps/mac && xcodegen generate && open Seam.xcodeproj` |
-| [Android app](apps/android/README.md) | JDK 17, Android SDK + NDK 29, Rust, cargo-ndk | `cd apps/android && ./gradlew test assembleFullDebug` |
-| [Relay](server/README.md) | Node 22 | `cd server && npm ci && npm test` |
-| [Protocol](protocol/README.md) | `protoc` (buf optional) | `scripts/gen-protocol.sh` |
+At home you won't notice it, because the devices talk directly. Away from home, connecting takes a few seconds and each message about half a second more. That's fine for clipboard and notifications, and it hides where you are.
+</details>
 
-Each link goes to that part's README, with the details. Releases are built by CI; see [Releasing](CONTRIBUTING.md#releasing).
+<details>
+<summary><strong>What happens when my laptop is asleep?</strong></summary>
+
+Nothing is lost. Your phone holds on to anything new and sends it once the laptop wakes up, usually within a minute of opening the lid.
+</details>
+
+<details>
+<summary><strong>What if Tor is blocked where I am?</strong></summary>
+
+Seam keeps working on the same Wi‑Fi. Support for Tor bridges, which get around most blocks, is planned.
+</details>
+
+<details>
+<summary><strong>Why isn't Seam on Google Play?</strong></summary>
+
+Some features, like automatic clipboard sync, use Android permissions that Google Play restricts. Shipping on GitHub means you get every feature, and updates still arrive automatically.
+</details>
+
+<details>
+<summary><strong>Does it work with an iPhone?</strong></summary>
+
+Not today. iOS doesn't let apps read other apps' notifications or the clipboard in the background, which Seam needs.
+</details>
+
+## Build it yourself
+
+Seam is one Rust core with a native app on each platform: SwiftUI on the Mac and Jetpack Compose on Android so far. Each part has its own README:
+
+[Core](core/README.md) · [Mac app](apps/mac/README.md) · [Android app](apps/android/README.md) · [Protocol](protocol/README.md)
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first: it covers the setup, the rules every change follows (especially the security ones) and how to add a feature.
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md). It covers setup, the security rules every change follows, and how to add a feature.
 
 ## Licence
 
-Copyright © 2026 Avetero.
+Seam is free software under the [GNU Affero General Public License v3.0](LICENSE). Copyright © 2026 Avetero. It builds on open-source work listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
-Seam is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License v3.0](LICENSE), as published by the Free Software Foundation. It's distributed in the hope that it will be useful, but **without any warranty**; see the licence for details.
-
-In practice: you can use, study, change and share Seam. If you distribute it, or run a modified relay as a network service, you must share your source code under the same licence. Seam builds on open-source work listed in [THIRD_PARTY.md](THIRD_PARTY.md), above all Signal's libsignal.
-
-## Acknowledgements
-
-- [Signal](https://signal.org) for libsignal, the Signal Protocol and its post-quantum work
-- [Mozilla](https://github.com/mozilla/uniffi-rs) for UniFFI, which lets one Rust core serve Swift and Kotlin
-- [Cryspen](https://cryspen.com) for libcrux's formally verified ML-KEM
+Made possible by [Signal](https://signal.org)'s libsignal, [Mozilla](https://github.com/mozilla/uniffi-rs)'s UniFFI and [Cryspen](https://cryspen.com)'s formally verified ML-KEM.
