@@ -146,9 +146,13 @@ extension Session {
         }
     }
 
-    /// The peer's relay key, unless another (already paired) device shares it.
     func removableRelayKey(_ peerId: String) -> Data? {
-        let peers = device.peers()
+        Self.removableRelayKey(peerId, among: device.peers())
+    }
+
+    /// The peer's relay key, unless another (already paired) device shares it: a pairing request
+    /// claiming the paired phone's key must not take the phone out of the group when it's rejected.
+    static func removableRelayKey(_ peerId: String, among peers: [PeerInfo]) -> Data? {
         guard let key = peers.first(where: { $0.id == peerId })?.relayKey else { return nil }
         return peers.contains { $0.id != peerId && $0.confirmed && $0.relayKey == key } ? nil : key
     }

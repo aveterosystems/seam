@@ -108,6 +108,16 @@ struct SessionPairingTests {
         await rig.session.startPairing(relayURL: "wss://relay.example.com", name: "Mac")
         #expect(await rig.session.state.pairing == .idle)
     }
+    @Test func aRelayKeyAnotherPairedDeviceSharesIsKept() {
+        let shared = Data(repeating: 7, count: 32)
+        let phone = PeerInfo(id: "phone", name: "Phone", relayKey: shared, confirmed: true)
+        let claimant = PeerInfo(id: "claimant", name: "Not the phone", relayKey: shared, confirmed: false)
+        #expect(Session.removableRelayKey("claimant", among: [phone, claimant]) == nil, "rejecting it keeps the phone in the group")
+        #expect(Session.removableRelayKey("phone", among: [phone]) == shared)
+        let unconfirmed = PeerInfo(id: "phone", name: "Phone", relayKey: shared, confirmed: false)
+        #expect(Session.removableRelayKey("claimant", among: [unconfirmed, claimant]) == shared, "only a paired device counts")
+        #expect(Session.removableRelayKey("nobody", among: [phone]) == nil)
+    }
 }
 
 extension Seam_V1_ClientFrame.OneOf_Frame {

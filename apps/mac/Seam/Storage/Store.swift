@@ -126,22 +126,14 @@ struct Store: Sendable {
     }
 
     /// UserDefaults keys builds before 0.3 kept Hello state in.
-    private static let legacyKeys = ["peerTransports", "helloSeqSent", "helloSeqApplied", "peerTransportsAt"]
-
-    /// Those builds' Hello state moves into the sealed app data once, saved before the old keys
-    /// go, unless the app data already has some.
+    /// Those builds' Hello state moves into the sealed app data once, saved before the old keys go.
     private static func migrateHelloState(_ data: inout AppData, device: SeamDevice, key: Data, file: StateFile) throws {
-        let d = defaults
-        guard legacyKeys.contains(where: { d.object(forKey: $0) != nil }) else { return }
-        if data.peerAllowed == nil, data.helloSeqApplied == 0, let raw = d.array(forKey: "peerTransports") as? [Int] {
-            // An empty list was an older phone's: everything, as the core reads it
-            data.peerAllowed = raw.isEmpty ? nil : Array(Set(raw.compactMap { $0 == 1 ? PeerPath.lan : $0 == 2 ? .relay : nil }))
-            data.helloSeqSent = max(data.helloSeqSent, (d.object(forKey: "helloSeqSent") as? NSNumber)?.uint64Value ?? 0)
-            data.helloSeqApplied = (d.object(forKey: "helloSeqApplied") as? NSNumber)?.uint64Value ?? 0
+        guard LegacyHelloState.present(in: defaults) else { return }
+        if LegacyHelloState.migrate(&data, from: defaults) {
             device.setAppData(data: data)
             try Store(device: device, appData: data, key: key, file: file).save()
         }
-        legacyKeys.forEach(d.removeObject(forKey:))
+        LegacyHelloState.remove(from: defaults)
     }
 
     private static func create(at file: StateFile) throws -> Store {
