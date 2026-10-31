@@ -59,8 +59,9 @@ jobs:
           cd ../../core && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
           cargo install cargo-ndk --locked --version "$CARGO_NDK"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" > /dev/null
+      # The tests of the variant that ships (CI tests the debug ones)
       - name: Tests, then the unsigned full build
-        run: ./gradlew test assembleFullRelease
+        run: ./gradlew testReleaseUnitTest testFullReleaseUnitTest assembleFullRelease
       - run: mkdir -p ../../dist && cp app/build/outputs/apk/full/release/app-full-release-unsigned.apk ../../dist/unsigned.apk
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: android-unsigned, path: dist/, if-no-files-found: error, retention-days: 1 }

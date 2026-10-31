@@ -50,4 +50,5 @@ jobs:
           cd ../../core && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
           cargo install cargo-ndk --locked
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" > /dev/null
-      - run: ./gradlew test assemblePlayDebug assembleFullDebug
+      # The tests of the variants built here; the release workflow tests the release variant
+      - run: ./gradlew testDebugUnitTest testPlayDebugUnitTest testFullDebugUnitTest assemblePlayDebug assembleFullDebug
