@@ -21,7 +21,7 @@ data class LanAddress(val host: String, val port: Int)
 /**
  * The same-Wi‑Fi path's plumbing: finding Macs, and a plain byte stream to one. It carries only
  * what the core's LanChannel produces, so everything on it is already encrypted and authenticated.
- * Reuses [RelayLink]/[RelayListener] as the byte pipe: here a "frame" is just bytes read or written.
+ * Here a [Link] "frame" is just bytes read or written.
  */
 interface Lan {
     /** Start looking; [found] and [lost] may be called on any thread, and repeatedly. */
@@ -29,7 +29,7 @@ interface Lan {
     fun stopDiscovery()
     /** That service refused us: free its place, so it doesn't count toward any cap. */
     fun forget(address: LanAddress) {}
-    fun connect(address: LanAddress, listener: RelayListener): RelayLink
+    fun connect(address: LanAddress, listener: LinkListener): Link
 }
 
 /** NSD (mDNS) discovery of `_seam._tcp` and raw TCP: no HTTP, so Android's cleartext policy doesn't apply. */
@@ -124,7 +124,7 @@ class NsdLan(context: Context) : Lan {
         finished.await(RESOLVE_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)
     }
 
-    override fun connect(address: LanAddress, listener: RelayListener): RelayLink {
+    override fun connect(address: LanAddress, listener: LinkListener): Link {
         wifiWatch
         return connectTcp(address, listener, open)
     }
@@ -138,16 +138,16 @@ class NsdLan(context: Context) : Lan {
 
 /**
  * A raw TCP link: connects and writes on one thread (in order), reads on another. [close] is
- * graceful: what [RelayLink.send] already accepted is written first (at most [DRAIN_MS]), so "send,
+ * graceful: what [Link.send] already accepted is written first (at most [DRAIN_MS]), so "send,
  * then close" never drops the last frame. Errors close at once. [open] tracks the abrupt closers,
  * so losing Wi‑Fi can close every link. [allowed] guards the address (tests use loopback).
  */
 internal fun connectTcp(
     address: LanAddress,
-    listener: RelayListener,
+    listener: LinkListener,
     open: MutableSet<(String) -> Unit> = java.util.concurrent.ConcurrentHashMap.newKeySet(),
     allowed: (String) -> Boolean = ::isLocalNetwork,
-): RelayLink {
+): Link {
     val socket = Socket()
     val accepting = AtomicBoolean(true)
     val finished = AtomicBoolean(false)
@@ -189,7 +189,7 @@ internal fun connectTcp(
             }
         }.apply { isDaemon = true; name = "seam-lan-read" }.start()
     }
-    return object : RelayLink {
+    return object : Link {
         override fun send(frame: ByteArray): Boolean {
             if (!accepting.get()) return false
             return runCatching {
@@ -243,59 +243,5 @@ fun isLocalNetwork(host: String): Boolean {
             (bytes[0] == 169 && bytes[1] == 254)
         16 -> (bytes[0] == 0xfe && (bytes[1] and 0xc0) == 0x80) || (bytes[0] and 0xfe) == 0xfc
         else -> false
-    }
-}
-
-/**
- * The user's connection switches (decision 0006), and what the Mac last said it allows. Only the
- * switches are saved through a [SettingsStore]; the rest is kept sealed in the app data.
- */
-data class ConnectionSettings(
-    val wifi: Boolean = true,
-    val relay: Boolean = true,
-    /** From the Mac's latest Hello; null until it sends one (older Macs never do): everything allowed. */
-    val macAllows: Set<com.avetero.seam.protocol.v1.Transport>? = null,
-    /** The counter of the Hello [macAllows] came from: one not higher is ignored. */
-    val macHelloSeq: Long = 0,
-    /** The counter of the last Hello this phone sent. */
-    val helloSeq: Long = 0,
-)
-
-interface SettingsStore {
-    fun load(): ConnectionSettings
-    fun save(settings: ConnectionSettings)
-}
-
-/** Like [PrefsSettingsStore]: keeps only the switches (and whatever an older version left, until the first save). */
-class MemorySettingsStore(private var settings: ConnectionSettings = ConnectionSettings()) : SettingsStore {
-    override fun load() = settings
-    override fun save(settings: ConnectionSettings) {
-        this.settings = ConnectionSettings(settings.wifi, settings.relay)
-    }
-}
-
-/** The switches in SharedPreferences: the user's preferences. Older versions kept the Mac-facing state here too; load() still reads it once, for the move. */
-class PrefsSettingsStore(context: Context) : SettingsStore {
-    private val prefs = context.getSharedPreferences("connection", Context.MODE_PRIVATE)
-
-    override fun load(): ConnectionSettings {
-        val wifi = prefs.getBoolean("wifi", true)
-        val relay = prefs.getBoolean("relay", true)
-        val mac = prefs.getStringSet("macAllows", null)
-            ?.mapNotNull { it.toIntOrNull()?.let(com.avetero.seam.protocol.v1.Transport::forNumber) }?.toSet()
-        // Both off can only be a damaged file: fall back to the defaults rather than never connecting
-        val macSeq = prefs.getLong("macHelloSeq", 0)
-        val mySeq = prefs.getLong("helloSeq", 0)
-        return if (!wifi && !relay) ConnectionSettings(macAllows = mac, macHelloSeq = macSeq, helloSeq = mySeq)
-        else ConnectionSettings(wifi, relay, mac, macSeq, mySeq)
-    }
-
-    override fun save(settings: ConnectionSettings) {
-        prefs.edit()
-            .putBoolean("wifi", settings.wifi)
-            .putBoolean("relay", settings.relay)
-            // The Mac-facing state now lives in the sealed app data (Session); these keys are only ever read, to migrate
-            .remove("macAllows").remove("macHelloSeq").remove("helloSeq")
-            .apply()
     }
 }

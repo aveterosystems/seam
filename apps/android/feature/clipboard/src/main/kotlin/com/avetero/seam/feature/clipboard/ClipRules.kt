@@ -32,6 +32,13 @@ class ClipRules(private val maxBytes: Int = MAX_BYTES) {
         return text
     }
 
+    /** The Mac was forgotten: nothing it sent counts as an echo any more. */
+    fun reset() {
+        lastSent = null
+        lastSentAt = 0L
+        lastReceived = null
+    }
+
     /** Text from the other side to put on this clipboard, or null to ignore it. */
     fun incoming(text: String): String? {
         if (!fits(text)) return null

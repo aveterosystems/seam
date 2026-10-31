@@ -365,14 +365,29 @@ uint64_t uniffi_seam_ffi_fn_constructor_seamdevice_restore(RustBuffer state, Rus
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_accept_pairing(uint64_t ptr, RustBuffer envelope, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ALLOWED_PATHS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ALLOWED_PATHS
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(uint64_t ptr, int8_t wifi, int8_t relay, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APP_DATA
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APP_DATA
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_app_data(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APPLY_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APPLY_HELLO
+int8_t uniffi_seam_ffi_fn_method_seamdevice_apply_hello(uint64_t ptr, uint64_t seq, RustBuffer allowed_transports, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CANCEL_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CANCEL_PAIRING
 void uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+void uniffi_seam_ffi_fn_method_seamdevice_clear_app_data(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CONFIRM_PAIRING
@@ -385,6 +400,11 @@ void uniffi_seam_ffi_fn_method_seamdevice_confirm_pairing(uint64_t ptr, RustBuff
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_export_state(uint64_t ptr, RustBuffer storage_key, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_FORGET_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_FORGET_HELLO
+void uniffi_seam_ffi_fn_method_seamdevice_forget_hello(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ID
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ID
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_id(uint64_t ptr, RustCallStatus *_Nonnull out_status
@@ -393,6 +413,11 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_id(uint64_t ptr, RustCallStatus 
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_IDENTITY_KEY
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_IDENTITY_KEY
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_identity_key(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_next_hello(uint64_t ptr, int8_t wifi, int8_t relay, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_OPEN
@@ -428,6 +453,11 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_relay_key(uint64_t ptr, RustCall
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_REMOVE_PEER
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_REMOVE_PEER
 void uniffi_seam_ffi_fn_method_seamdevice_remove_peer(uint64_t ptr, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ROUTE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_ROUTE
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_route(uint64_t ptr, int8_t wifi, int8_t relay, int8_t lan_up, int8_t relay_up, int8_t hello, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_SAFETY_CODE
@@ -787,15 +817,33 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ALLOWED_PATHS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ALLOWED_PATHS
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APP_DATA
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APP_DATA
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_app_data(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APPLY_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APPLY_HELLO
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_apply_hello(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CANCEL_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CANCEL_PAIRING
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CLEAR_APP_DATA
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_clear_app_data(void
     
 );
 #endif
@@ -811,6 +859,12 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_export_state(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_FORGET_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_FORGET_HELLO
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_forget_hello(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ID
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ID
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_id(void
@@ -820,6 +874,12 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_id(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_IDENTITY_KEY
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_IDENTITY_KEY
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_identity_key(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_NEXT_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_NEXT_HELLO
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_next_hello(void
     
 );
 #endif
@@ -862,6 +922,12 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_relay_key(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_REMOVE_PEER
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_REMOVE_PEER
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_remove_peer(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ROUTE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_ROUTE
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_route(void
     
 );
 #endif

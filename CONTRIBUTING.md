@@ -134,7 +134,7 @@ When every thread has its reply, post **one resolution summary** on the PR: a ta
 
 ## Adding a feature
 
-A feature is one Protobuf message in `protocol/seam/v1/` (taking the next free block of ten field numbers), one module per app behind the `Feature` interface, and one line in each app's feature registry. It advertises a capability string, so it stays off until both devices support it.
+A feature is one Protobuf message in `protocol/seam/v1/` (taking the next free block of ten field numbers), one module per app behind the `Feature` interface (receive, on connected, reset when the other device is forgotten), listed in each app's session (`Session` on the Mac, `SeamApplication` on Android). Capability strings in `Hello`, so a feature stays off until both devices support it, are planned but not built yet.
 
 ## Releasing
 

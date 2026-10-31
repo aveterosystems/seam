@@ -22,6 +22,14 @@ class ClipRulesTest {
         assertEquals("a", r.outgoing("a", now = ClipRules.REPEAT_MS))
     }
 
+    @Test fun aForgottenMacsClipIsNoLongerTreatedAsAnEcho() {
+        val r = ClipRules()
+        r.incoming("from the old Mac")
+        assertNull("an echo of what just arrived", r.outgoing("from the old Mac", now = 0))
+        r.reset()
+        assertEquals("from the old Mac", r.outgoing("from the old Mac", now = 0))
+    }
+
     @Test fun sharePreviewIsShort() {
         assertEquals("short", ClipRules.preview("short"))
         val long = "x".repeat(1000)

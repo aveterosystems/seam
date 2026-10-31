@@ -73,15 +73,15 @@ private class FakeRelay(var mac: SeamDevice) : RelayConnector {
     var withholdAccept = false
     var refuseNextLogin: String? = null
     var throwOnConnect = false
-    var listener: RelayListener? = null
+    var listener: LinkListener? = null
     val urls = mutableListOf<String>()
 
-    override fun connect(url: String, listener: RelayListener): RelayLink {
+    override fun connect(url: String, listener: LinkListener): Link {
         if (throwOnConnect) throw IllegalArgumentException("bad url")
         urls += url
         this.listener = listener
         reply(ServerFrame.newBuilder().setChallenge(Challenge.newBuilder().setNonce(ByteString.copyFrom(ByteArray(32) { 1 }))))
-        return object : RelayLink {
+        return object : Link {
             override fun send(frame: ByteArray): Boolean {
                 handle(ClientFrame.parseFrom(frame))
                 return true
@@ -169,7 +169,7 @@ private class FakeLan(var macs: Map<LanAddress, SeamDevice>) : Lan {
     /** Every envelope that arrived, as sent (duplicates included). */
     val envelopes = mutableListOf<Envelope>()
 
-    inner class MacEnd(val mac: SeamDevice, val listener: RelayListener) : RelayLink {
+    inner class MacEnd(val mac: SeamDevice, val listener: LinkListener) : Link {
         val ch = LanChannel.responder(mac)
         var closed = false
         var drops = false
@@ -223,7 +223,7 @@ private class FakeLan(var macs: Map<LanAddress, SeamDevice>) : Lan {
             listener.onFrame(ch.send(ServerFrame.newBuilder().setDelivered(Delivered.newBuilder().setMsgId(id)).build().toByteArray()))
     }
 
-    override fun connect(address: LanAddress, listener: RelayListener): RelayLink {
+    override fun connect(address: LanAddress, listener: LinkListener): Link {
         opened++
         return MacEnd(macs.getValue(address), listener).also {
             open = it
@@ -527,11 +527,24 @@ class SessionTest {
         assertEquals(SessionState.Unpaired, s.state.value)
         assertTrue("the Mac was told", relay.macReceived.any { it.hasControl() && it.control.hasUnpair() })
         assertArrayEquals("the phone left the group", phoneKey, relay.removed.single())
-        assertTrue("nothing saved still pairs", SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
+        val saved = SeamDevice.restore(store.blob!!, ByteArray(32) { 3 })
+        assertTrue("nothing saved still pairs", saved.peers().isEmpty())
+        assertNull("nor keeps the old relay group", saved.appData())
         val again = session()
         again.start()
         advanceUntilIdle()
         assertEquals("a restart stays unpaired", SessionState.Unpaired, again.state.value)
+    }
+
+    @Test fun forgettingTheMacResetsEveryFeature() = runTest {
+        val s = paired()
+        var resets = 0
+        s.register(object : Feature {
+            override fun reset() { resets++ }
+        })
+        s.forgetMac()
+        advanceUntilIdle()
+        assertEquals(1, resets)
     }
 
     @Test fun sr_7_01_aForgetThatCantBeSavedSaysSoAndSendsNothing() = runTest {
@@ -620,7 +633,7 @@ class SessionTest {
         // Connects, but the relay never answers: the copy can't go
         val flaky = RelayConnector { url, listener ->
             if (!silent) relay.connect(url, listener)
-            else object : RelayLink {
+            else object : Link {
                 override fun send(frame: ByteArray) = true
                 override fun close() = Unit
             }
@@ -724,6 +737,51 @@ class SessionTest {
         s.send(status(66))
         advanceUntilIdle()
         assertEquals(66, relay.macReceived.single().status.batteryPct)
+    }
+
+    // MARK: pairing outcome (SR-11-06: the setup screens follow only a new Mac)
+
+    @Test fun sr_11_06_pairingAMacReportsANewMac() = runTest {
+        val s = session()
+        assertNull(s.pairingOutcome.value)
+        s.pair(qr)
+        advanceUntilIdle()
+        assertEquals(PairingOutcome.NewMac, s.pairingOutcome.value)
+        s.pair(qrFor(SeamDevice.generate().also { relay.mac = it }, "Mac mini")) // replacing it is a new Mac too
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("Mac mini"), s.state.value)
+        assertEquals(PairingOutcome.NewMac, s.pairingOutcome.value)
+    }
+
+    @Test fun sr_11_06_anAcceptThatCantBeSavedIsNotANewMac() = runTest {
+        relay.withholdAccept = true
+        val s = session()
+        s.pair(qr)
+        advanceUntilIdle()
+        store.failSaves = true
+        val phoneId = mac.peers().single().id
+        mac.confirmPairing(phoneId)
+        val accept = Payload.newBuilder().setControl(Control.newBuilder().setPairAccept(PairAccept.getDefaultInstance())).build()
+        relay.deliverToPhone(mac.seal(phoneId, accept.toByteArray(), 0u))
+        advanceUntilIdle()
+        assertTrue(s.state.value is SessionState.Failed)
+        assertTrue("no setup screens over a failure", s.pairingOutcome.value != PairingOutcome.NewMac)
+    }
+
+    @Test fun sr_11_06_aFailedPairingWhilePairedReportsStillOnThePreviousMac() = runTest {
+        val s = paired()
+        relay.refuseToken = true
+        s.pair(qrFor(SeamDevice.generate(), "Someone else's Mac"))
+        advanceUntilIdle()
+        assertEquals(PairingOutcome.StillOnPreviousMac, s.pairingOutcome.value)
+    }
+
+    @Test fun sr_11_06_aFailedFirstPairingReportsNoMac() = runTest {
+        relay.refuseToken = true
+        val s = session()
+        s.pair(qr)
+        advanceUntilIdle()
+        assertEquals(PairingOutcome.NoMac, s.pairingOutcome.value)
     }
 
     @Test fun sr_2_18_aRestartMidPairingForgetsTheHalfPairedMac() = runTest {
@@ -1013,6 +1071,33 @@ class SessionTest {
         assertTrue(s.state.value.toString(), s.state.value !is SessionState.Failed)
     }
 
+    @Test fun anOlderMacsEmptyListAllowsEverythingThisPhoneAllows() = runTest {
+        // Versions from before the switches send no list: the same rule as the Mac (spec 01)
+        val lan = FakeLan(mapOf(home to mac))
+        val s = pairedWithLan(lan)
+        relay.deliverToPhone(macHello())
+        advanceUntilIdle()
+        assertNull(s.settings.value.macAllows)
+        assertEquals(Transport.TRANSPORT_RELAY, s.route.value)
+        lan.announce(home)
+        advanceUntilIdle()
+        assertEquals(Transport.TRANSPORT_LAN, s.route.value)
+    }
+
+    @Test fun aListOfOnlyTransportsThisBuildCantUseMeansNothingInCommon() = runTest {
+        val s = pairedWithLan(FakeLan(emptyMap()))
+        val hello = Payload.newBuilder().setControl(
+            Control.newBuilder().setHello(Hello.newBuilder().setSeq(1).addAllowedTransportsValue(9)),
+        ).build()
+        relay.deliverToPhone(mac.seal(mac.peers().single().id, hello.toByteArray(), 0u))
+        advanceUntilIdle()
+        assertEquals(emptySet<Transport>(), s.settings.value.macAllows)
+        assertEquals(null, s.route.value)
+        s.send(status(4))
+        advanceUntilIdle()
+        assertTrue(relay.macReceived.none { it.hasStatus() })
+    }
+
     @Test fun whereOurMacLastProvedItselfIsNeverSkippedForLong() = runTest {
         // NN is anonymous: an attacker who answers first can make our Mac's address look foreign
         val lan = FakeLan(mapOf(home to mac))
@@ -1077,6 +1162,13 @@ class SessionTest {
         assertEquals("and gone from preferences", ConnectionSettings(), old.load())
         val again = session(settings = old)
         assertEquals(9L, again.settings.value.helloSeq)
+    }
+
+    @Test fun oldPreferencesWithOnlyAnUnusablePathMeanNothingInCommon() = runTest {
+        paired()
+        val old = MemorySettingsStore(ConnectionSettings(wifi = true, relay = true, macAllows = setOf(Transport.TRANSPORT_BLUETOOTH), macHelloSeq = 4, helloSeq = 9))
+        val s = session(settings = old)
+        assertEquals(emptySet<Transport>(), s.settings.value.macAllows)
     }
 
     /** Connected over Same Wi‑Fi, with the relay up too. */
@@ -1352,7 +1444,7 @@ class TcpLinkTest {
             val closed = java.util.concurrent.CountDownLatch(1)
             val link = connectTcp(
                 LanAddress("127.0.0.1", server.localPort),
-                object : RelayListener {
+                object : LinkListener {
                     override fun onFrame(frame: ByteArray) = Unit
                     override fun onClosed(reason: String) = closed.countDown()
                 },
@@ -1412,45 +1504,6 @@ class PairingQrTest {
         val local = url(r = "ws%3A%2F%2Flocalhost%3A8787")
         assertNull(PairingQr.parse(local))
         assertEquals("ws://localhost:8787", PairingQr.parse(local, allowCleartext = true)!!.relayUrl)
-    }
-}
-
-class RelayTargetTest {
-    @Test fun version2RoundTripsThePeerState() {
-        val group = ByteArray(16) { 4 }
-        for (allows in listOf(null, emptySet(), setOf(Transport.TRANSPORT_LAN, Transport.TRANSPORT_RELAY))) {
-            val t = RelayTarget("wss://relay.example.com", group, helloSeq = Long.MAX_VALUE, macHelloSeq = -1L /* u64 max */, macAllows = allows)
-            val back = RelayTarget.decode(t.encode())!!
-            assertEquals(t.copy(groupId = back.groupId), back)
-            assertArrayEquals(group, back.groupId)
-        }
-    }
-
-    @Test fun version1StillReadsAsNothingHeard() {
-        val u = "wss://relay.example.com".toByteArray()
-        val v1 = byteArrayOf(1, 0, u.size.toByte()) + u + ByteArray(16) { 4 }
-        val t = RelayTarget.decode(v1)!!
-        assertEquals("wss://relay.example.com", t.url)
-        assertEquals(0L, t.helloSeq)
-        assertEquals(0L, t.macHelloSeq)
-        assertNull(t.macAllows)
-        assertNull("trailing bytes", RelayTarget.decode(v1 + 0))
-    }
-
-    @Test fun refusesDamagedVersion2() {
-        val good = RelayTarget("wss://r", ByteArray(16), 1, 2, setOf(Transport.TRANSPORT_LAN)).encode()
-        assertNull(RelayTarget.decode(good.copyOf(good.size - 1)))
-        assertNull(RelayTarget.decode(good + 0))
-        assertNull(RelayTarget.decode(good.copyOf().also { it[it.size - 3] = 2 }), )
-    }
-
-    @Test fun roundTripsAndRefusesGarbage() {
-        val t = RelayTarget("wss://relay.example.com", ByteArray(16) { 4 })
-        val back = RelayTarget.decode(t.encode())!!
-        assertEquals(t.url, back.url)
-        assertArrayEquals(t.groupId, back.groupId)
-        assertNull(RelayTarget.decode(byteArrayOf()))
-        assertNull(RelayTarget.decode(t.encode().copyOf(10)))
     }
 }
 

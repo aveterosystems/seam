@@ -122,7 +122,7 @@ class ConnectionService : Service() {
 
     companion object {
         private const val CHANNEL = "connection"
-        /** The session's one-minute idle window (Session.IDLE_MS) plus a little margin. */
+        /** The session's one-minute idle window (Wakefulness.IDLE_MS) plus a little margin. */
         private const val IDLE_CHECK_MS = 65_000L
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ConnectionService::class.java))

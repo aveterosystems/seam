@@ -11,21 +11,9 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 
-/** One open WebSocket to the relay. Frames are protobuf ClientFrame / ServerFrame bytes. */
-interface RelayLink {
-    fun send(frame: ByteArray): Boolean
-    fun close()
-    /** Closes at once, dropping anything still queued: for a peer that never proved who it is. */
-    fun abort() = close()
-}
-
-interface RelayListener {
-    fun onFrame(frame: ByteArray)
-    fun onClosed(reason: String)
-}
-
+/** Opens one WebSocket to the relay. Frames are protobuf ClientFrame / ServerFrame bytes. */
 fun interface RelayConnector {
-    fun connect(url: String, listener: RelayListener): RelayLink
+    fun connect(url: String, listener: LinkListener): Link
 }
 
 class OkHttpRelayConnector(
@@ -36,7 +24,7 @@ class OkHttpRelayConnector(
     // 4 minutes while held (SR-8-05); nothing is lost meanwhile, the relay queues it.
     private val client: OkHttpClient = OkHttpClient.Builder().pingInterval(2, TimeUnit.MINUTES).build(),
 ) : RelayConnector {
-    override fun connect(url: String, listener: RelayListener): RelayLink {
+    override fun connect(url: String, listener: LinkListener): Link {
         val closed = AtomicBoolean(false)
         fun closeOnce(reason: String) {
             if (closed.compareAndSet(false, true)) listener.onClosed(reason)
@@ -58,7 +46,7 @@ class OkHttpRelayConnector(
                     closeOnce(t.javaClass.simpleName)
             },
         )
-        return object : RelayLink {
+        return object : Link {
             override fun send(frame: ByteArray) = ws.send(frame.toByteString())
             override fun close() {
                 ws.close(1000, null)

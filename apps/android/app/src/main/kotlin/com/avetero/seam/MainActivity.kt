@@ -35,6 +35,7 @@ import com.avetero.seam.feature.QrViewfinder
 import com.avetero.seam.feature.ScanResult
 import com.avetero.seam.feature.clipboard.AutoClipboard
 import com.avetero.seam.session.PairingQr
+import com.avetero.seam.session.PairingOutcome
 import com.avetero.seam.session.SessionState
 
 class MainActivity : ComponentActivity() {
@@ -89,18 +90,16 @@ class MainActivity : ComponentActivity() {
                     resumed++
                     onPauseOrDispose {}
                 }
-                // Board A03 follows a pairing that finished on this screen with a new Mac; a failed
-                // re-pair falls back to the old Mac, which isn't a new pairing (SR-11-06)
-                var pairingFrom by remember { mutableStateOf<String?>(null) }
+                // Board A03 follows a pairing that finished on this screen with a new Mac; Session
+                // decides that, so a failed re-pair back to the old Mac never shows it (SR-11-06)
                 var wasPairing by remember { mutableStateOf(false) }
                 var setup by remember { mutableStateOf(false) }
                 if (state is SessionState.Pairing) {
-                    if (!wasPairing) pairingFrom = session.macCode()
                     wasPairing = true
                 } else if (wasPairing) {
                     wasPairing = false
                     scanning = false // the pairing screen closes when pairing ends, either way
-                    setup = isNewPairing(pairingFrom, session.macCode(), state)
+                    setup = session.pairingOutcome.value == PairingOutcome.NewMac
                 }
                 val clipboardStatus = resumed.let { when {
                     AutoClipboard.available(this@MainActivity) -> ClipboardStatus.Automatic
@@ -229,8 +228,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-/** Whether pairing just ended with a different Mac than before (SR-11-06). Codes identify a Mac. */
-internal fun isNewPairing(codeBefore: String?, codeAfter: String?, state: SessionState): Boolean =
-    codeAfter != null && codeAfter != codeBefore &&
-        (state is SessionState.Connected || state is SessionState.Idle || state is SessionState.Connecting)

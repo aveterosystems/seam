@@ -18,4 +18,7 @@ interface Feature {
     fun onConnected(session: SessionApi) {}
 
     fun receive(payload: Payload, fromPeer: String) {}
+
+    /** The Mac was forgotten: drop anything kept from it. */
+    fun reset() {}
 }

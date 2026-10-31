@@ -33,6 +33,14 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
     private val _fromMac = MutableStateFlow<FromMac?>(null)
     val fromMac: StateFlow<FromMac?> = _fromMac
 
+    override fun reset() {
+        // On the main thread like every other use of rules, after any clip already posted (SR-29-08)
+        main.post {
+            rules.reset()
+            _fromMac.value = null // the old Mac's last clip leaves the home screen
+        }
+    }
+
     /** Something new was copied on the phone (from [AutoClipboard]). */
     fun copied(text: String?) {
         rules.outgoing(text)?.let(::send)

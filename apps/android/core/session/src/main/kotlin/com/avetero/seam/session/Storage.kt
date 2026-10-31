@@ -8,7 +8,6 @@ import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import com.avetero.seam.protocol.v1.Envelope
-import com.avetero.seam.protocol.v1.Transport
 import java.io.File
 import java.nio.ByteBuffer
 import java.io.FileOutputStream
@@ -204,56 +203,5 @@ class FilePendingStore(private val dir: File) : PendingStore {
     private companion object {
         const val MAX_ENVELOPE = 1_200_000
         const val MAX_ENTRIES = 100
-    }
-}
-
-/**
- * Which relay and group this phone belongs to, and what it knows of its Mac's connection choices,
- * kept inside the core's sealed state (appData) so none of it can drift apart from the identity or
- * be edited outside the encryption. Version 2 adds the Hello counters and the Mac's allowed paths;
- * version 1 (relay and group only) still reads, as counters 0 and everything allowed.
- *
- * v1: 1 | u16 URL length | URL | 16-byte group
- * v2: 2 | u16 URL length | URL | 16-byte group | u64 helloSeq | u64 macHelloSeq | u8 known (0/1) | u8 n | n × u8 Transport
- */
-internal data class RelayTarget(
-    val url: String,
-    val groupId: ByteArray,
-    /** The counter of the last Hello this phone sealed. */
-    val helloSeq: Long = 0,
-    /** The counter of the Mac Hello [macAllows] came from. */
-    val macHelloSeq: Long = 0,
-    /** Null until the Mac sends a Hello: everything allowed. */
-    val macAllows: Set<Transport>? = null,
-) {
-    fun encode(): ByteArray {
-        val u = url.toByteArray()
-        val allows = macAllows.orEmpty().map { it.number.toByte() }
-        return ByteBuffer.allocate(3 + u.size + 16 + 8 + 8 + 2 + allows.size)
-            .put(2).putShort(u.size.toShort()).put(u).put(groupId)
-            .putLong(helloSeq).putLong(macHelloSeq)
-            .put(if (macAllows == null) 0 else 1).put(allows.size.toByte()).put(allows.toByteArray())
-            .array()
-    }
-
-    companion object {
-        fun decode(b: ByteArray): RelayTarget? {
-            if (b.size < 3 || (b[0] != 1.toByte() && b[0] != 2.toByte())) return null
-            val n = ((b[1].toInt() and 0xff) shl 8) or (b[2].toInt() and 0xff)
-            if (b.size < 3 + n + 16) return null
-            val url = String(b, 3, n)
-            val group = b.copyOfRange(3 + n, 3 + n + 16)
-            if (b[0] == 1.toByte()) return if (b.size == 3 + n + 16) RelayTarget(url, group) else null
-            val rest = ByteBuffer.wrap(b, 3 + n + 16, b.size - (3 + n + 16))
-            if (rest.remaining() < 18) return null
-            val mine = rest.long
-            val mac = rest.long
-            val known = rest.get()
-            val count = rest.get().toInt() and 0xff
-            if (known !in 0..1 || rest.remaining() != count) return null
-            // Unknown numbers (a newer Mac's transport) are dropped: never allowed by accident
-            val allows = (0 until count).mapNotNull { Transport.forNumber(rest.get().toInt()) }.toSet()
-            return RelayTarget(url, group, mine, mac, if (known == 1.toByte()) allows else null)
-        }
     }
 }
