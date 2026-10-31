@@ -126,6 +126,10 @@ class NotificationsFeature(context: Context, private val session: SessionApi) : 
         session.send(Payload.newBuilder().setNotificationAction(NotificationAction.newBuilder().setKey(key).setDismissed(true)).build())
     }
 
+    override fun reset() {
+        main.post { iconsWanted.clear() } // what the old Mac asked for
+    }
+
     override fun onConnected(session: SessionApi) {
         main.post { sendSettings() } // so the Mac's pane always shows what the phone does
     }
