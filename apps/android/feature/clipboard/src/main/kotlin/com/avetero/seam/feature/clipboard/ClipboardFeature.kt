@@ -105,7 +105,7 @@ const val FRESH_MS = 5_000L
 
 /** A clip that arrived from the Mac, and when (unix ms). */
 data class FromMac(val text: String, val at: Long) {
-    /** Home shows it for as long as the relay would have kept it, then stops (SR-11-09). */
+    /** Home shows it for as long as a copy may wait to be sent, then stops (SR-11-09). */
     fun fresh(now: Long): Boolean = now - at in 0 until SHOWN_MS
 
     companion object {

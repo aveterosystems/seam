@@ -50,7 +50,7 @@ class ClipRules(private val maxBytes: Int = MAX_BYTES) {
     private fun fits(text: String?): Boolean = !text.isNullOrEmpty() && text.toByteArray().size <= maxBytes
 
     companion object {
-        /** Fits the relay's 256 KB padding bucket with room for the envelope. */
+        /** Fits the 256 KB padding bucket with room for the envelope. */
         const val MAX_BYTES = 200_000
         const val REPEAT_MS = 2_000L
 

@@ -3,6 +3,8 @@ package com.avetero.seam
 
 import androidx.annotation.DrawableRes
 import com.avetero.seam.crypto.PeerPath
+import com.avetero.seam.crypto.TorBlock
+import com.avetero.seam.crypto.TorState
 import com.avetero.seam.protocol.v1.Transport
 import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
@@ -20,26 +22,41 @@ data class LinkLook(val line: Line, val label: String, val connected: Boolean, @
 
     companion object {
         val SameWifi = LinkLook(Line.Solid, "Same Wi‑Fi", true, R.drawable.ic_wifi)
-        val Relay = LinkLook(Line.Dashed, "Through the relay", true, R.drawable.ic_cloud)
+        val ThroughTor = LinkLook(Line.Dashed, "Through Tor", true, R.drawable.ic_globe)
         val Idle = LinkLook(Line.Broken, "Paired · connects when there's something to sync", false)
         val Reconnecting = LinkLook(Line.Broken, "Reconnecting…", false)
         val WaitingOnWifi = LinkLook(Line.Broken, "Waiting for your Mac on the same Wi‑Fi", false)
+        val ConnectingTor = LinkLook(Line.Broken, "Connecting through Tor…", false)
+        val TorBlocked = LinkLook(Line.Broken, "Tor is blocked on this network", false)
+        val TorClock = LinkLook(Line.Broken, "Tor needs the correct time. Check your clock", false)
+        val TorFailed = LinkLook(Line.Broken, "Tor couldn't start on this phone", false)
         val NoSharedPath = LinkLook(Line.Broken, "Your Mac and this phone share no connection type. Turn on one your Mac allows too", false)
 
         /** Paused on this phone: nothing syncs, nothing connects, until [until]. */
         fun paused(until: Long, now: Long) = LinkLook(Line.Broken, pausedLabel(until, now), false)
 
         /** The one place the session's state becomes a look. */
-        fun of(state: SessionState, route: Transport?, c: ConnectionSettings, now: Long = System.currentTimeMillis()): LinkLook {
+        fun of(
+            state: SessionState,
+            route: Transport?,
+            c: ConnectionSettings,
+            tor: TorState = TorState.Off,
+            now: Long = System.currentTimeMillis(),
+        ): LinkLook {
             if (c.pausedUntil > now) return paused(c.pausedUntil, now)
             val wifi = PeerPath.LAN in c.allowed
-            val relay = PeerPath.RELAY in c.allowed
+            val onion = PeerPath.TOR in c.allowed
             return when {
                 route == Transport.TRANSPORT_LAN -> SameWifi
-                route == Transport.TRANSPORT_RELAY -> Relay
-                !wifi && !relay -> NoSharedPath
+                route == Transport.TRANSPORT_TOR -> ThroughTor
+                !wifi && !onion -> NoSharedPath
+                // Never a silent fallback: when Tor can't connect, say why (decision 0004)
+                onion && tor is TorState.Blocked && tor.reason == TorBlock.CLOCK_SKEWED -> TorClock
+                onion && tor is TorState.Blocked && tor.reason != TorBlock.OFFLINE -> TorBlocked
+                onion && tor is TorState.Failed -> TorFailed
                 state is SessionState.Idle -> Idle
-                wifi && !relay -> WaitingOnWifi
+                wifi && !onion -> WaitingOnWifi
+                onion && tor is TorState.Starting -> ConnectingTor
                 else -> Reconnecting
             }
         }
