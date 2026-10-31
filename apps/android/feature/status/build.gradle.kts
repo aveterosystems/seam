@@ -9,4 +9,5 @@ android {
 
 dependencies {
     implementation(project(":core:session"))
+    testImplementation(libs.junit)
 }

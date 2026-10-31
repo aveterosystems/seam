@@ -6,10 +6,12 @@ package seam.v1;
 option java_multiple_files = true;
 option java_package = "com.avetero.seam.protocol.v1";
 
+// Each device's battery for the other's screen. The phone also sends network and dnd; the Mac
+// sends battery only, and nothing at all without a battery.
 message Status {
   uint32 battery_pct = 1;
   bool charging = 2;
-  string network = 3; // "wifi:Home" | "cellular" | ""
+  string network = 3; // "wifi" | "cellular" | "" (never the Wi‑Fi's name)
   uint32 signal_bars = 4;
-  bool dnd = 5;
+  bool dnd = 5; // Do Not Disturb is on
 }

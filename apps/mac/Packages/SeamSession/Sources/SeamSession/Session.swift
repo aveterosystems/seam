@@ -20,6 +20,8 @@ public actor Session {
         /// Messages not yet delivered.
         public var waiting: Int
         public var status: Seam_V1_Status?
+        /// When the phone sent `status`.
+        public var statusAt: Date?
         /// Clips both ways in the last day, newest first.
         public var clips: [Clip]
         /// The phone's notifications still up, newest first.
@@ -69,7 +71,7 @@ public actor Session {
 
     let clipboard: ClipboardFeature
     let notifications: NotificationsFeature
-    let status = StatusFeature()
+    let status: StatusFeature
     /// Every feature, so forgetting the phone resets them all.
     var features: [any Feature] { [clipboard, notifications, status] }
     var clipTimer: TimerToken?
@@ -98,7 +100,8 @@ public actor Session {
 
     public init(
         device: SeamDevice, storage: SessionStorage, pasteboard: any Pasteboard, notifications: any NotificationCentre,
-        wifi: Bool, tor: Bool, clipboardSync: Bool, appVersion: String, timers: any Timers = SystemTimers()
+        wifi: Bool, tor: Bool, clipboardSync: Bool, appVersion: String, timers: any Timers = SystemTimers(),
+        ownStatus: @escaping @Sendable () -> Seam_V1_Status? = { nil }
     ) {
         self.device = device
         self.storage = storage
@@ -108,6 +111,7 @@ public actor Session {
         torOn = tor
         clipboard = ClipboardFeature(pasteboard: pasteboard, syncOn: clipboardSync)
         self.notifications = NotificationsFeature(centre: notifications)
+        status = StatusFeature(now: { [timers] in timers.now() }, own: ownStatus)
         phone = device.peers().first { $0.confirmed }
         pausedUntil = phone == nil ? nil : storage.pausedUntil()
         (updates, updatesIn) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -117,7 +121,7 @@ public actor Session {
         State(
             phone: phone, route: device.route(enabled: enabledPaths, up: upPaths, hello: false),
             allowed: device.allowedPaths(enabled: enabledPaths),
-            waiting: outbox.waiting.count + outbox.sent.count, status: status.status, clips: clipboard.clips,
+            waiting: outbox.waiting.count + outbox.sent.count, status: status.status, statusAt: status.statusAt, clips: clipboard.clips,
             phoneNotifications: notifications.shown,
             notificationSettings: notifications.settings, appIcons: notifications.icons, pairing: flow.state, warning: warning,
             pausedUntil: paused ? pausedUntil : nil, torServices: torServices, wantsLinks: phone != nil || pairingOpen
@@ -220,6 +224,13 @@ public actor Session {
     }
 
     // MARK: Features
+
+    /// This Mac's battery changed: the phone hears it if it's connected and nothing is paused.
+    /// Otherwise it waits for the next connection, which sends it fresh.
+    public func ownStatusChanged() async {
+        guard phone != nil, !paused, !upPaths.isEmpty else { return }
+        await send(status.ownStatus())
+    }
 
     public func setClipboardSync(_ on: Bool) async {
         await clipboard.setSync(on)

@@ -54,19 +54,41 @@ public protocol NotificationCentre: Sendable {
     func removeAll() async
 }
 
-/// The phone's battery and the like, for the menu bar.
+/// The phone's battery and the like, for the menu bar; and this Mac's battery, for the phone.
 final class StatusFeature: Feature {
     private(set) var status: Seam_V1_Status?
+    /// When the phone last sent it, so a stale level can say how old it is.
+    private(set) var statusAt: Date?
+    private let now: @Sendable () -> Date
+    /// This Mac's battery; nil on a Mac without one, which sends nothing.
+    let own: @Sendable () -> Seam_V1_Status?
+
+    /// Short: an old battery level is worse than none.
+    static let ttl: UInt32 = 120
+
+    init(now: @escaping @Sendable () -> Date, own: @escaping @Sendable () -> Seam_V1_Status?) {
+        self.now = now
+        self.own = own
+    }
 
     nonisolated(nonsending) func receive(_ body: Seam_V1_Payload.OneOf_Body) async -> [Outgoing] {
         if case .status(var s) = body {
             s.batteryPct = min(s.batteryPct, 100) // never nonsense in the menu
             status = s
+            statusAt = now()
         }
         return []
     }
 
+    /// This Mac's status as something to send, if it has one.
+    func ownStatus() -> [Outgoing] {
+        guard var s = own() else { return [] }
+        s.batteryPct = min(s.batteryPct, 100)
+        return [Outgoing(payload: .with { $0.status = s }, ttl: Self.ttl)]
+    }
+
     nonisolated(nonsending) func reset() async {
         status = nil
+        statusAt = nil
     }
 }

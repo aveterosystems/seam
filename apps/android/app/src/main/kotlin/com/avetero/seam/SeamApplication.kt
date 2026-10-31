@@ -29,6 +29,10 @@ class SeamApplication : Application() {
         private set
     lateinit var clipboard: ClipboardFeature
         private set
+
+    /** The phone's status for the Mac, and the Mac's battery for the home screen. */
+    lateinit var status: StatusFeature
+        private set
     lateinit var updater: Updater
         private set
     lateinit var notifications: NotificationsFeature
@@ -60,7 +64,7 @@ class SeamApplication : Application() {
                     CoroutineExceptionHandler { _, _ -> if (::session.isInitialized) session.internalError() },
             ),
         )
-        session.register(StatusFeature(this))
+        status = StatusFeature(this).also(session::register)
         clipboard = ClipboardFeature(this, session).also(session::register)
         notifications = NotificationsFeature(this, session).also(session::register)
         session.start()
