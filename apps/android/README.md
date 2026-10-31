@@ -25,7 +25,7 @@ flowchart TB
 | Module | What |
 |---|---|
 | `app` | The application: the screens, `ConnectionService`, the share sheet, the after-restart reminder, and the `play` / `full` flavours |
-| `core/session` | The phone's link to its Mac: `Session` (pairing, delivery and acks, the features, and when to connect, decision 0005) over two paths, `RelayPath` (relay login, backoff) and `LanPath` (Same Wi‑Fi discovery and handshake). Which path to use comes from the core (decision 0006) |
+| `core/session` | The phone's link to its Mac: `Session` (delivery and acks, the features), with `Outbox` (what waits), `Wakefulness` (when to connect, decision 0005), `Pairing` and `Switches` (switches and Hello), over two paths, `RelayPath` (relay login, backoff) and `LanPath` (Same Wi‑Fi discovery and handshake). Which path to use comes from the core (decision 0006) |
 | `feature/pairing` | The camera view: CameraX frames decoded on the phone by ZXing (no network code, no Google services) |
 | `feature/clipboard` | Clipboard both ways, the share and copy rules, and automatic phone → Mac in the `full` build |
 | `feature/notifications` | The notification listener, the per-app settings (every app starts off; the phone filters before anything is sent), and reply, buttons and dismiss from the Mac |
@@ -78,6 +78,7 @@ cd apps/android
 | `SeamCoreTest` | Kotlin can pin, start a session, encrypt and decrypt through the Rust core; impostors fail with `UntrustedIdentity`; unpaired peers fail with `NotPaired`; file chunks reject reordering |
 | `ProtocolTest` | The golden vector decodes and re-encodes byte for byte; fields from newer apps don't break parsing |
 | `SessionTest` | Pairing, Codes don't match (including just after the Mac accepted), delivery and acks, unpairing, and when the phone connects and goes idle |
+| `OutboxTest` | Only the latest clipboard or status waits, the queue is capped, expired messages drop, and a status alone never wakes the radio |
 | `LanPathTest` | A Same Wi‑Fi handshake that takes too long is given up |
 | `ClipRulesTest` | No echoes or repeats, size limits, the share preview shows hidden characters, a Mac copy stops showing after 10 minutes |
 | `QrDecoderTest` | A QR code is read from a padded camera frame; an empty frame reads nothing |

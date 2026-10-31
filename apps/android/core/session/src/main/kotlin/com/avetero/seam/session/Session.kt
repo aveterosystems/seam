@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam.session
 
-import com.avetero.seam.crypto.AppData
 import com.avetero.seam.crypto.PeerInfo
 import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.SeamDevice
@@ -10,7 +9,6 @@ import com.avetero.seam.protocol.v1.ClientFrame
 import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Delivered
 import com.avetero.seam.protocol.v1.Envelope
-import com.avetero.seam.protocol.v1.GetBundle
 import com.avetero.seam.protocol.v1.Hello
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.RemoveMember
@@ -19,7 +17,6 @@ import com.avetero.seam.protocol.v1.ServerFrame
 import com.avetero.seam.protocol.v1.Transport
 import com.google.protobuf.ByteString
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,10 +61,8 @@ class Session(
     private val _state = MutableStateFlow<SessionState>(SessionState.Unpaired)
     val state: StateFlow<SessionState> = _state
 
-    /** Set from the switches (prefs) and the sealed app data once the device is open (init below). */
-    private val _settings = MutableStateFlow(ConnectionSettings())
     /** The connection switches, and what the Mac allows. */
-    val settings: StateFlow<ConnectionSettings> = _settings
+    val settings: StateFlow<ConnectionSettings> get() = switches.settings
 
     /** Which path messages to the Mac take right now; null while none is up. */
     private val _route = MutableStateFlow<Transport?>(null)
@@ -78,58 +73,26 @@ class Session(
     val notice: StateFlow<String?> = _notice
 
     /** Null before any pairing ends in this run, and while one is in progress. */
-    private val _pairingOutcome = MutableStateFlow<PairingOutcome?>(null)
-    val pairingOutcome: StateFlow<PairingOutcome?> = _pairingOutcome
+    val pairingOutcome: StateFlow<PairingOutcome?> get() = pairing.outcome
 
     /** Set when saved state couldn't be opened for a reason that may pass: nothing is saved over it. */
     private var storageBlocked = false
     private val device: SeamDevice = openDevice()
 
-    init {
-        val prefs = settingsStore.load()
-        val d = device.appData()
-        // One-time move of the Mac-facing state out of the old preferences into the sealed app data
-        val inPrefs = prefs.helloSeq != 0L || prefs.macHelloSeq != 0L || prefs.macAllows != null
-        if (d != null && inPrefs && !storageBlocked) {
-            // Whichever is newer wins, so a move that was cut short can never step a counter back
-            val mac = prefs.macHelloSeq.toULong() > d.helloSeqApplied || (d.peerAllowed == null && prefs.macAllows != null)
-            d.helloSeqSent = maxOf(d.helloSeqSent, prefs.helloSeq.toULong())
-            if (mac) {
-                d.helloSeqApplied = prefs.macHelloSeq.toULong()
-                // An empty list was an older Mac's Hello: everything allowed, as the core reads it now
-                d.peerAllowed = prefs.macAllows?.takeIf { it.isNotEmpty() }?.mapNotNull { it.toPath() }
-            }
-            device.setAppData(d)
-            // The old keys go only once the move is saved; until then the next start tries again
-            if (runCatching { persist() }.isSuccess) runCatching { settingsStore.save(prefs) }
-        }
-        _settings.value = ConnectionSettings(prefs.wifi, prefs.relay)
-        syncPeer()
-    }
+    private val switches = Switches(device, settingsStore, appVersion).apply { load(canSave = !storageBlocked) { persist() } }
 
     private val features = mutableListOf<Feature>()
-    /** Unsealed and bounded: sealed only when it can be sent, right after a durable save. */
-    private val outbox = ArrayDeque<Queued>()
-
-    /**
-     * Sent over the direct link and not yet acked by the Mac (ServerFrame.delivered), oldest first.
-     * Already sealed and saved: resent as they are, never re-sealed (that would move the ratchet).
-     */
-    private val lanUnacked = LinkedHashMap<ByteString, Envelope>()
-    /** From a direct link that dropped before the Mac acked them: sent first on the next allowed path. */
-    private val resend = ArrayDeque<Envelope>()
+    private val outbox = Outbox(pendingStore, now)
 
     init {
-        // Android kills background processes routinely: what the Mac never acked goes again on the next path
-        if (mac != null) resend.addAll(pendingStore.load().filter { !expired(it) }.takeLast(MAX_OUTBOX))
-        if (!storageBlocked) savePending() // drops what expired, or what belongs to no Mac; never while state couldn't be opened
+        if (mac != null) outbox.restore()
+        if (!storageBlocked) outbox.save() // drops what expired, or what belongs to no Mac; never while state couldn't be opened
     }
 
-    /** When it was queued: a Clipboard or Status older than its TTL is dropped, not sent late (SR-4-04). */
-    private class Queued(val payload: Payload, val at: Long)
-    private var pairing: PairingQr? = null
-    /** When the last pairing was confirmed by its Mac, for a "Codes don't match" tap that just missed it (SR-11-07). */
-    private var pairedAt: Long? = null
+    // Decision 0005: the connection is held only while it's cheap or needed
+    private val wake = Wakefulness(scope, now) { reconsider(connect = false) }
+
+    private val pairing = Pairing(device, myName, myModel, now, persist = { persist() }, send = { sendEnvelope(it) }, fail = { fail(it) })
 
     private val events = object : PathEvents {
         override fun onUp(path: Path) = pathUp(path)
@@ -140,23 +103,16 @@ class Session(
     private val relay = RelayPath(
         connector, device, scope, wait, trace,
         account = {
-            pairing?.let { RelayAccount(it.relayUrl, it.groupId, it.token) }
+            pairing.account
                 ?: device.appData()?.let { RelayAccount(it.relayUrl, it.groupId, null) }
         },
-        wanted = { mac != null && _settings.value.relay && wanted() },
+        wanted = { mac != null && switches.relay && wanted() },
         events = events,
     )
     /** Null: relay only. */
     private val direct = lan?.let {
-        LanPath(it, device, scope, now, trace, peer = { mac?.id }, wanted = { pairing == null && _settings.value.wifi && wanted() }, events = events)
+        LanPath(it, device, scope, now, trace, peer = { mac?.id }, wanted = { !pairing.active && switches.wifi && wanted() }, events = events)
     }
-
-    // Decision 0005: the connection is held only while it's cheap or needed
-    private var screenOn = true
-    private var charging = false
-    /** The connection is wanted until then: [IDLE_MS] after the last thing it carried, longer for a reply window. */
-    private var activeUntil = now() + IDLE_MS
-    private var idle: Job? = null
 
     private val mac: PeerInfo? get() = device.peers().firstOrNull { it.confirmed }
 
@@ -196,44 +152,21 @@ class Session(
 
     /** The screen turned on or off. On: connect, so a Mac copy is there before you can paste. */
     fun setScreenOn(on: Boolean) = scope.launch {
-        screenOn = on
-        if (on) touch()
+        wake.setScreenOn(on)
         reconsider(connect = on)
     }
 
     /** Plugged in or unplugged. While charging the connection stays open: power doesn't matter. */
     fun setCharging(on: Boolean) = scope.launch {
-        charging = on
+        wake.setCharging(on)
         reconsider(connect = on)
     }
 
     /**
      * Whether a connection is worth having now: pairing, screen on, charging, something urgent to
-     * send, or activity in the last [IDLE_MS]. Otherwise it costs radio wake-ups for nothing.
+     * send, or recent activity. Otherwise it costs radio wake-ups for nothing.
      */
-    private fun wanted(): Boolean =
-        pairing != null || screenOn || charging || outbox.any { it.payload.bodyCase !in LAZY && !expired(it) } ||
-            resend.any { !expired(it) } ||
-            now() < activeUntil
-
-    /** Past its TTL: dropped at the next flush, and no reason to keep trying to connect (SR-8-01). */
-    private fun expired(q: Queued): Boolean {
-        val ttl = ttlFor(q.payload)
-        return ttl != 0u && now() - q.at > ttl.toLong() * 1000
-    }
-
-    private fun touch(windowMs: Long = IDLE_MS) {
-        activeUntil = maxOf(activeUntil, now() + windowMs)
-        scheduleIdleCheck()
-    }
-
-    private fun scheduleIdleCheck() {
-        idle?.cancel()
-        idle = scope.launch {
-            delay((activeUntil - now()).coerceAtLeast(0))
-            reconsider(connect = false) // the end of an activity window is only ever a reason to close
-        }
-    }
+    private fun wanted(): Boolean = wake.wanted { pairing.active || outbox.wantsConnection() }
 
     /**
      * Close the connection if nothing wants it any more; with [connect], also open it if something
@@ -242,19 +175,17 @@ class Session(
     private fun reconsider(connect: Boolean = true) {
         val m = mac ?: return
         trace?.invoke(
-            "reconsider connect=$connect screen=$screenOn charging=$charging urgent=${outbox.count { it.payload.bodyCase !in LAZY }} " +
-                "activeFor=${activeUntil - now()}ms relay=${relay.active}/${relay.up} lan=${direct?.active}/${direct?.up} pairing=${pairing != null} " +
+            "reconsider connect=$connect screen=${wake.screenOn} charging=${wake.charging} urgent=${outbox.urgentCount()} " +
+                "activeFor=${wake.activeFor()}ms relay=${relay.active}/${relay.up} lan=${direct?.active}/${direct?.up} pairing=${pairing.active} " +
                 "state=${_state.value::class.simpleName}",
         )
-        if (pairing != null || storageBlocked || _state.value is SessionState.Failed) return
+        if (pairing.active || storageBlocked || _state.value is SessionState.Failed) return
         if (wanted()) {
             if (connect) {
                 if (!relay.active && direct?.up != true) _state.value = SessionState.Connecting(m.name)
                 openLinks()
             }
-            // Look again when the activity window ends, if it hasn't. A queued copy that can't go yet is
-            // retried by the reconnect backoff, never by a timer: rescheduling for 0 ms spins (SR-8-01)
-            if (!screenOn && !charging && activeUntil > now()) scheduleIdleCheck()
+            wake.keepWatching()
         } else if (relay.active || direct?.active == true) {
             sleep(m)
         }
@@ -277,12 +208,11 @@ class Session(
     /** Pair with the Mac from its scanned (and user-confirmed) QR code. The current Mac stays until the new one accepts. */
     fun pair(qr: PairingQr) = scope.launch {
         if (storageBlocked) return@launch // pairing would replace the state we couldn't open
-        if (!_settings.value.relay) return@launch run { _notice.value = RELAY_NEEDED_TO_PAIR } // pairing over Wi‑Fi comes later
+        if (!switches.relay) return@launch run { _notice.value = RELAY_NEEDED_TO_PAIR } // pairing over Wi‑Fi comes later
         closeLan() // a direct link to the current Mac would only get in the way
-        outbox.clear() // what the current Mac never acked is kept: it still gets it if this pairing fails
-        pairing = qr
+        outbox.clearUnsent() // what the current Mac never acked is kept: it still gets it if this pairing fails
+        pairing.start(qr)
         _notice.value = null
-        _pairingOutcome.value = null
         _state.value = SessionState.Pairing(qr.macName, null)
         relay.restart()
     }
@@ -294,8 +224,8 @@ class Session(
     fun forgetMac() = scope.launch {
         val m = mac ?: return@launch
         // A farewell, like a Hello: any open path this phone's own switches allow, never one they have off
-        val viaRelay = relay.up && _settings.value.relay
-        val viaLan = direct?.up == true && _settings.value.wifi
+        val viaRelay = relay.up && switches.relay
+        val viaLan = direct?.up == true && switches.wifi
         if ((viaRelay || viaLan) && !storageBlocked) {
             val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(Unpair.getDefaultInstance())).build()
             runCatching {
@@ -318,12 +248,12 @@ class Session(
     private fun forget() {
         relay.stop()
         closeLan()
-        pairing = null
-        clearQueues()
+        pairing.clear()
+        outbox.clearAll()
         device.peers().forEach { device.removePeer(it.id) }
         device.clearAppData()
         features.forEach { runCatching { it.reset() } } // a feature bug never blocks forgetting
-        syncPeer()
+        switches.syncPeer()
         _state.value = if (runCatching { persist() }.isSuccess) SessionState.Unpaired else SessionState.Failed(FORGET_FAILED)
     }
 
@@ -332,11 +262,9 @@ class Session(
      * unconfirmed here until its PairAccept), and an existing Mac stays paired.
      */
     fun abortPairing() = scope.launch {
-        if (pairing != null) return@launch fail(CODES_DONT_MATCH)
+        if (pairing.active) return@launch fail(CODES_DONT_MATCH)
         // The Mac's accept won the race with the tap: the user said the codes differ, so undo it
-        val at = pairedAt ?: return@launch
-        if (now() - at > ABORT_GRACE_MS) return@launch
-        pairedAt = null
+        if (!pairing.undoable()) return@launch
         forgetMac().join()
         _notice.value = UNPAIRED_CODES_DONT_MATCH
     }
@@ -348,52 +276,32 @@ class Session(
 
     override fun send(payload: Payload) {
         scope.launch {
-            if (mac == null || pairing != null) return@launch
-            // Only the latest Status and Clipboard matter; everything else is capped
-            if (payload.bodyCase in LATEST_ONLY) outbox.removeAll { it.payload.bodyCase == payload.bodyCase }
-            if (outbox.size >= MAX_OUTBOX) outbox.removeFirst()
-            outbox.addLast(Queued(payload, now()))
-            if (canSend()) flush() else if (payload.bodyCase !in LAZY) reconsider() // a copy connects; a battery update waits
+            if (mac == null || pairing.active) return@launch
+            outbox.add(payload)
+            if (canSend()) flush() else if (payload.bodyCase !in Outbox.LAZY) reconsider() // a copy connects; a battery update waits
         }
     }
 
     /** A path came up. On the relay while pairing, ask for the new Mac's keys; otherwise the Mac is reachable. */
     private fun pathUp(path: Path) {
-        touch()
-        val p = pairing
-        if (path === relay && p != null) {
-            relay.send(ClientFrame.newBuilder().setGetBundle(GetBundle.newBuilder().setDeviceKey(p.relayKey.bs())).build())
-        } else {
-            becameConnected()
-        }
+        wake.touch()
+        val request = if (path === relay) pairing.request() else null
+        if (request != null) relay.send(request) else becameConnected()
     }
 
     private fun frame(path: Path, frame: ServerFrame) {
         when (frame.frameCase) {
-            ServerFrame.FrameCase.BUNDLE -> if (path === relay) bundleArrived(frame.bundle.bundle.toByteArray())
+            ServerFrame.FrameCase.BUNDLE -> if (path === relay) pairing.keysArrived(frame.bundle.bundle.toByteArray())?.let { _state.value = it }
             ServerFrame.FrameCase.DELIVER -> deliver(frame.deliver, path)
             // Only the Mac sends it, and only on the direct link. An unknown id: nothing to remove, nothing written
-            ServerFrame.FrameCase.DELIVERED -> if (path === direct && lanUnacked.remove(frame.delivered.msgId) != null) savePending()
+            ServerFrame.FrameCase.DELIVERED -> if (path === direct) outbox.acked(frame.delivered.msgId)
             else -> Unit
-        }
-    }
-
-    private fun bundleArrived(bundle: ByteArray) {
-        val p = pairing ?: return
-        if (bundle.isEmpty()) return fail("Your Mac hasn't finished setting up. Try its pairing code again.")
-        try {
-            val start = device.pairWith(p.identityKey, p.relayKey, p.macName, bundle, p.token, myName, myModel)
-            if (runCatching { persist() }.isFailure) return fail(SAVE_FAILED) // SR-2-64: nothing leaves unsaved
-            sendEnvelope(start.envelope)
-            _state.value = SessionState.Pairing(p.macName, device.safetyCode(start.peerId))
-        } catch (_: Exception) {
-            fail("That pairing code didn't work. Show a new one on your Mac and scan again.")
         }
     }
 
     /** [via] is the path it came on: it's acked on that one. */
     private fun deliver(env: Envelope, via: Path) {
-        touch()
+        wake.touch()
         val opened = try {
             device.open(env.toByteArray())
         } catch (_: Exception) {
@@ -403,14 +311,18 @@ class Session(
         val payload = runCatching { Payload.parseFrom(opened.payload) }.getOrNull()
         // A PairAccept switches Macs in memory first, so the one save below holds either the old
         // pairing or the new one, never both (SR-2-63)
-        val accepted = payload != null && acceptPairing(opened.peerId, payload)
+        val accepted = payload != null && pairing.accept(opened.peerId, payload)
+        if (accepted) {
+            outbox.clearAll() // anything unacked was for the old Mac
+            switches.syncPeer()
+        }
         // The Mac's Hello is applied before the save, so its counter and paths are durable before the ack
-        val hello = payload != null && !accepted && payload.isHello() && pairing == null && opened.peerId == mac?.id
+        val hello = payload != null && !accepted && payload.isHello() && !pairing.active && opened.peerId == mac?.id
         if (hello) macHello(payload!!.control.hello)
         val saved = runCatching { persist() }.isSuccess // durable before acking: the relay deletes what we ack
         if (accepted) {
             if (!saved) return fail(SAVE_FAILED)
-            _pairingOutcome.value = PairingOutcome.NewMac // only once it's saved: a restart keeps it
+            pairing.accepted() // only once it's saved: a restart keeps it
             becameConnected()
             return ack(env, via)
         }
@@ -433,28 +345,12 @@ class Session(
     }
 
     private fun handleOpened(peerId: String, payload: Payload) {
-        if (pairing != null) return // nothing but the PairAccept counts until the pairing finishes
+        if (pairing.active) return // nothing but the PairAccept counts until the pairing finishes
         if (peerId != mac?.id) return
         // The Mac forgot this phone: forget it too, and stop
         if (payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.UNPAIR) return forget()
         if (payload.isHello()) return // applied in deliver(), before the save
         features.filter { payload.bodyCase in it.handles }.forEach { it.receive(payload, peerId) }
-    }
-
-    /** True if this was the pairing Mac's PairAccept: the old Mac is dropped and the new relay target set. */
-    private fun acceptPairing(peerId: String, payload: Payload): Boolean {
-        val p = pairing ?: return false
-        val accepted = payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.PAIR_ACCEPT
-        val fromPairingMac = device.peers().firstOrNull { it.id == peerId }?.relayKey?.contentEquals(p.relayKey) == true
-        if (!accepted || !fromPairingMac) return false
-        device.peers().filter { it.id != peerId }.forEach { device.removePeer(it.id) } // the old Mac, now replaced
-        clearQueues() // anything unacked was for the old Mac
-        // A new Mac: fresh app data, nothing heard from it and no Hello sent to it
-        device.setAppData(AppData(p.groupId, p.relayUrl, null, 0u, 0u, null))
-        syncPeer()
-        pairing = null
-        pairedAt = now()
-        return true
     }
 
     /** A path to the Mac came up. Features hear about it only when the first one does. */
@@ -463,59 +359,36 @@ class Session(
         val first = _state.value !is SessionState.Connected
         _state.value = SessionState.Connected(m.name)
         updateRoute()
-        queueHello(_settings.value)
+        queueHello()
         if (first) features.forEach { runCatching { it.onConnected(this) } } // a feature bug never takes the connection down
         flush()
-        if (_settings.value.wifi) direct?.start() // e.g. right after pairing, or the relay came up first
+        if (switches.wifi) direct?.start() // e.g. right after pairing, or the relay came up first
     }
 
     private fun flush() {
         val m = mac ?: return
         // No path both ends allow: only a Hello may go (over our own paths), so the Mac can learn ours
         val shared = canSend()
-        if (!shared) {
-            val hello = outbox.firstOrNull { it.payload.isHello() } ?: return
-            if (!canSendHello()) return
-            outbox.remove(hello)
-            outbox.addFirst(hello)
-        }
+        if (!shared && (!canSendHello() || !outbox.helloFirst())) return
         // What a dropped direct link never confirmed goes first, as it was sealed
-        if (shared && resend.isNotEmpty()) {
-            while (resend.isNotEmpty()) {
-                val e = resend.first()
-                if (expired(e)) {
-                    resend.removeFirst()
-                    continue
-                }
-                if (!sendSealed(e)) break
-                resend.removeFirst()
-            }
-            savePending() // through the relay (which queues them) or recorded again for this link
-            if (resend.isNotEmpty()) return
-        }
-        while (outbox.isNotEmpty()) {
-            if (!shared && !outbox.first().payload.isHello()) return
+        if (shared && !outbox.resendAll { sendSealed(it) }) return
+        while (true) {
+            val next = outbox.next(helloOnly = !shared) ?: return
             val env = try {
-                val next = outbox.first()
-                val ttl = ttlFor(next.payload)
-                if (expired(next)) {
-                    outbox.removeFirst()
-                    continue
-                }
-                val e = device.seal(m.id, next.payload.toByteArray(), ttl)
+                val e = device.seal(m.id, next.toByteArray(), Outbox.ttlFor(next))
                 persist() // the ratchet moved: save before anything leaves, or a crash could reuse a key
                 e
             } catch (e: SeamException) {
-                trace?.invoke("seal failed, dropped: ${outbox.first().payload.bodyCase} $e")
-                outbox.removeFirst()
+                trace?.invoke("seal failed, dropped: ${next.bodyCase} $e")
+                outbox.removeNext()
                 continue
             } catch (_: Exception) {
                 return fail(SAVE_FAILED)
             }
-            val sent = outbox.removeFirst()
-            trace?.invoke("flush: ${sent.payload.bodyCase} ${sent.payload.serializedSize} bytes")
-            if (!sendEnvelope(env, hello = sent.payload.isHello())) return
-            touch(windowFor(sent.payload))
+            outbox.removeNext()
+            trace?.invoke("flush: ${next.bodyCase} ${next.serializedSize} bytes")
+            if (!sendEnvelope(env, hello = next.isHello())) return
+            wake.touchAfter(next)
         }
     }
 
@@ -527,26 +400,23 @@ class Session(
             if (canSend()) flush() // e.g. the relay is up
             return
         }
-        if (pairing != null) return fail("Lost the connection while pairing. Try again.")
+        if (pairing.active) return fail("Lost the connection while pairing. Try again.")
         pathDown()
     }
 
     private fun fail(reason: String) {
         relay.stop() // ignore anything the old socket still delivers
         closeLan()
-        outbox.clear()
-        if (pairing != null) {
-            pairing = null
-            device.peers().filter { !it.confirmed }.forEach { device.removePeer(it.id) }
-            runCatching { persist() }
-            _pairingOutcome.value = if (mac != null) PairingOutcome.StillOnPreviousMac else PairingOutcome.NoMac
-            if (mac != null) { // the existing pairing is untouched: carry on with it
+        outbox.clearUnsent()
+        if (pairing.abandon()) {
+            val m = mac
+            if (m != null) { // the existing pairing is untouched: carry on with it
                 _notice.value = reason
-                _state.value = SessionState.Connecting(mac!!.name)
+                _state.value = SessionState.Connecting(m.name)
                 return openLinks() // its unacked envelopes are kept and go on the next path
             }
         }
-        clearQueues()
+        outbox.clearAll()
         _state.value = SessionState.Failed(reason)
     }
 
@@ -560,33 +430,13 @@ class Session(
     private fun sendSealed(e: Envelope, hello: Boolean = false): Boolean {
         val frame = ClientFrame.newBuilder().setSend(e).build()
         // While pairing only the relay counts, and only this phone's switch: the new Mac's wishes aren't known
-        val via = if (pairing != null) relay.takeIf { _settings.value.relay && it.up } else route(hello)
+        val via = if (pairing.active) relay.takeIf { switches.relay && it.up } else route(hello)
         trace?.invoke("send: ${e.serializedSize} bytes via ${if (via === direct) "lan" else "relay"}")
         if (via == null) return false
         if (via !== direct) return via.send(frame) // the relay queues it: nothing to keep
-        lanUnacked[e.msgId] = e
-        // Same bound as the outbox: the oldest unconfirmed one goes first
-        while (lanUnacked.size + resend.size > MAX_OUTBOX) {
-            if (resend.isNotEmpty()) resend.removeFirst() else lanUnacked.remove(lanUnacked.keys.first())
-        }
-        // Recorded before it's handed to the link. If the disk refuses, it's still kept in memory and
-        // sent: only a process death in that state would lose it
-        if (!savePending()) trace?.invoke("pending: save failed")
+        // Recorded before it's handed to the link
+        if (!outbox.sentDirect(e)) trace?.invoke("pending: save failed")
         return via.send(frame) // a failed write stays recorded, and goes again when the link drops
-    }
-
-    /** What the Mac hasn't acked, oldest first, to the pending file. False if it couldn't be saved. */
-    private fun savePending(): Boolean =
-        runCatching { pendingStore.save((resend + lanUnacked.values).distinctBy { it.msgId }) }.isSuccess
-
-    /** By the envelope's own sent_at and ttl, as the relay would drop it. */
-    private fun expired(e: Envelope) = now() - e.sentAt > e.ttlS.toLong() * 1000
-
-    private fun clearQueues() {
-        outbox.clear()
-        resend.clear()
-        lanUnacked.clear()
-        savePending()
     }
 
     /**
@@ -594,8 +444,8 @@ class Session(
      * or for a [hello] any up path this phone's own switches allow. Null while pairing.
      */
     private fun route(hello: Boolean = false): Path? {
-        if (pairing != null) return null
-        val s = _settings.value
+        if (pairing.active) return null
+        val s = switches.settings.value
         return when (device.route(s.wifi, s.relay, direct?.up == true, relay.up, hello)) {
             PeerPath.LAN -> direct
             PeerPath.RELAY -> relay
@@ -621,7 +471,7 @@ class Session(
     private fun pathDown() {
         val m = mac ?: return
         updateRoute()
-        if (pairing != null || _state.value is SessionState.Failed || _state.value is SessionState.Idle) return
+        if (pairing.active || _state.value is SessionState.Failed || _state.value is SessionState.Idle) return
         if (_route.value != null) return
         _state.value = if (wanted()) SessionState.Connecting(m.name) else SessionState.Idle(m.name)
     }
@@ -631,8 +481,8 @@ class Session(
      * remembered list: a stale one would leave no path for the Hello that updates it.
      */
     private fun openLinks() {
-        if (_settings.value.relay) relay.start()
-        if (pairing == null && _settings.value.wifi) direct?.start()
+        if (switches.relay) relay.start()
+        if (!pairing.active && switches.wifi) direct?.start()
     }
 
     // MARK: switches and Hello
@@ -640,24 +490,20 @@ class Session(
     /** The user's connection switches. At least one stays on; the Mac is told before anything closes. */
     fun setSwitches(wifi: Boolean, relay: Boolean) = scope.launch {
         if (!wifi && !relay) return@launch
-        val old = _settings.value
-        if (old.wifi == wifi && old.relay == relay) return@launch
-        val new = old.copy(wifi = wifi, relay = relay)
-        if (mac != null && pairing == null) {
-            queueHello(new)
+        if (switches.wifi == wifi && switches.relay == relay) return@launch
+        if (mac != null && !pairing.active) {
+            queueHello(wifi, relay)
             if (canSend() || canSendHello()) flush() // over the old paths, so the Mac stops using one we just turned off
         }
-        saveSettings(_settings.value.copy(wifi = wifi, relay = relay)) // not `new`: queueHello moved the counter on
+        switches.save(wifi, relay)
         applySettings()
     }
 
     private fun macHello(h: Hello) {
-        // The relay can hold an old Hello and release it later: the core applies only a higher counter
-        if (!device.applyHello(h.seq.toULong(), h.allowedTransportsValueList)) {
+        if (!switches.macHello(h)) {
             trace?.invoke("hello: not newer than the last one, ignored")
             return
         }
-        syncPeer()
         scope.launch { applySettings() } // after this Hello is acked on the path it came on
     }
 
@@ -666,47 +512,20 @@ class Session(
      * what can go now. The Mac's list only decides what's sent where, never what's open.
      */
     private fun applySettings() {
-        if (pairing != null || mac == null) return
-        if (!_settings.value.relay && relay.active) {
+        if (pairing.active || mac == null) return
+        if (!switches.relay && relay.active) {
             trace?.invoke("relay switched off: closing")
             relay.stop()
         }
-        if (!_settings.value.wifi) closeLan()
+        if (!switches.wifi) closeLan()
         pathDown()
         reconsider(connect = true)
         if (canSend() || canSendHello()) flush()
     }
 
-    /** The switches: user preferences, saved apart from the keys. */
-    private fun saveSettings(s: ConnectionSettings) {
-        _settings.value = s
-        runCatching { settingsStore.save(s) } // only preferences: the switches still apply this run
-    }
-
-    /**
-     * Shows the Mac-facing state the core keeps in the sealed app data (saved with the keys by the
-     * next persist(), never through preferences).
-     */
-    private fun syncPeer() {
-        val d = device.appData()
-        _settings.value = _settings.value.copy(
-            macAllows = d?.peerAllowed?.map { it.toTransport() }?.toSet(),
-            macHelloSeq = d?.helloSeqApplied?.toLong() ?: 0,
-            helloSeq = d?.helloSeqSent?.toLong() ?: 0,
-        )
-    }
-
     /** Only the latest Hello matters: it replaces any still queued. */
-    private fun queueHello(s: ConnectionSettings) {
-        outbox.removeAll { it.payload.isHello() }
-        if (outbox.size >= MAX_OUTBOX) outbox.removeFirst()
-        // Counted up in the app data now; flush() seals it and persists both in one write before anything is sent
-        val next = device.nextHello(s.wifi, s.relay) ?: return
-        syncPeer()
-        val hello = Hello.newBuilder().setAppVersion(appVersion).setPlatform("android").setSeq(next.seq.toLong())
-            .addAllAllowedTransportsValue(next.allowedTransports)
-        outbox.addLast(Queued(Payload.newBuilder().setControl(Control.newBuilder().setHello(hello)).build(), now()))
-    }
+    private fun queueHello(wifi: Boolean = switches.wifi, relay: Boolean = switches.relay) =
+        outbox.replaceHello(switches.nextHello(wifi, relay))
 
     /** Closes the direct link and stops looking for the Mac. */
     private fun closeLan() {
@@ -716,8 +535,7 @@ class Session(
 
     /** Anything the Mac hadn't confirmed may be lost with the direct link: send it again on the next path. */
     private fun lanGone() {
-        resend.addAll(lanUnacked.values)
-        lanUnacked.clear()
+        outbox.linkDropped()
         updateRoute()
     }
 
@@ -727,48 +545,15 @@ class Session(
     }
 
     private companion object {
-        const val MAX_OUTBOX = 100
-        const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
         const val RESET = "Seam's secure storage on this phone was reset. Pair again."
-        /** How long after the Mac confirms a "Codes don't match" tap still undoes the pairing. */
-        const val ABORT_GRACE_MS = 5_000L
         const val UNPAIRED_CODES_DONT_MATCH = "Unpaired: your Mac confirmed just as you said the codes didn't match. Pair again if it's your Mac."
         const val CODES_DONT_MATCH = "Nothing was paired, because the codes didn't match. If you're sure it's your Mac, show a new code on it and scan again."
         const val FORGET_FAILED = "Couldn't finish forgetting your Mac: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
-        val LATEST_ONLY = setOf(Payload.BodyCase.STATUS, Payload.BodyCase.CLIPBOARD, Payload.BodyCase.NOTIFICATION_SETTINGS)
-        /** Sent on the next connection, never worth one of their own (a battery change). */
-        val LAZY = setOf(Payload.BodyCase.STATUS)
-        /** How long a connection stays after the last thing it carried, when nothing else wants it. */
-        const val IDLE_MS = 60_000L
-        /** After a notification you can reply to: long enough that a reply from the Mac needs no push. */
-        const val REPLY_WINDOW_MS = 5 * 60_000L
-
-        fun windowFor(payload: Payload): Long =
-            if (payload.hasNotification() && payload.notification.canReply) REPLY_WINDOW_MS else IDLE_MS
-
-        /** How long the relay may hold it (docs/architecture/protocol.md): a stale clipboard is worse than none. */
-        fun ttlFor(payload: Payload): UInt = when (payload.bodyCase) {
-            Payload.BodyCase.CLIPBOARD -> 600u
-            Payload.BodyCase.STATUS -> 120u
-            Payload.BodyCase.NOTIFICATION_SETTINGS -> 600u // sent again on every connection
-            Payload.BodyCase.NOTIFICATION -> 3600u // a Mac that was away gets the last hour, not a flood
-            Payload.BodyCase.CONTROL -> if (payload.control.hasHello()) 600u else 0u // sent again on every connection
-            else -> 0u // the core's default
-        }
         const val RELAY_NEEDED_TO_PAIR = "Pairing needs the relay for now. Turn on Relay in Settings › Connection, then scan again."
     }
 }
 
+internal const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
+
 private fun ByteArray.bs(): ByteString = ByteString.copyFrom(this)
-
-private fun Payload.isHello() = bodyCase == Payload.BodyCase.CONTROL && control.bodyCase == Control.BodyCase.HELLO
-
-
-private fun Transport.toPath() = when (this) {
-    Transport.TRANSPORT_LAN -> PeerPath.LAN
-    Transport.TRANSPORT_RELAY -> PeerPath.RELAY
-    else -> null
-}
-
-private fun PeerPath.toTransport() = if (this == PeerPath.LAN) Transport.TRANSPORT_LAN else Transport.TRANSPORT_RELAY
