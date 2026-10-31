@@ -63,7 +63,12 @@ class ConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // The alarm from a CpuPlan.WakeAt: the CPU is awake now, so let the session look again
-        if (intent?.action == ACTION_CHECK_IDLE) (application as SeamApplication).session.checkIdle()
+        if (intent?.action == ACTION_CHECK_IDLE) {
+            // The alarm keeps the CPU up only while it's delivered: hold it until the session's
+            // own plan takes over (SR-31-02), which replaces or releases this
+            idleWake.acquire(ALARM_HANDOFF_MS)
+            (application as SeamApplication).session.checkIdle()
+        }
         return START_STICKY
     }
     override fun onBind(intent: Intent?) = null
@@ -84,7 +89,8 @@ class ConnectionService : Service() {
             is CpuPlan.Hold -> idleWake.acquire((plan.until - System.currentTimeMillis()).coerceAtLeast(1_000))
             is CpuPlan.WakeAt -> {
                 if (idleWake.isHeld) idleWake.release()
-                // Inexact but allowed in Doze; no exact-alarm permission needed. Session time is wall-clock time
+                // Inexact but allowed in Doze; no exact-alarm permission needed. Deep Doze can defer it by
+                // minutes, by which time Doze has cut the network anyway (SR-31-04). Session time is wall-clock time
                 alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, plan.at, idleCheckAlarm)
             }
         }
@@ -136,6 +142,8 @@ class ConnectionService : Service() {
     companion object {
         private const val CHANNEL = "connection"
         private const val ACTION_CHECK_IDLE = "com.avetero.seam.CHECK_IDLE"
+        /** Long enough for the session to look again and publish its plan. */
+        private const val ALARM_HANDOFF_MS = 10_000L
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ConnectionService::class.java))
     }

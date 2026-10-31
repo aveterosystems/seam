@@ -146,6 +146,8 @@ public final class Paths {
                     if self?.lan === server { self?.lan = nil }
                     return
                 }
+                // Closed or replaced while starting: never hand a stale listener to the session (SR-31-03)
+                guard !Task.isCancelled, self?.lan === server else { return server.stop() }
                 await session.setLan(server)
                 for await event in server.events { await session.lanEvent(event) }
             }

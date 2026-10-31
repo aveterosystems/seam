@@ -150,7 +150,6 @@ extension Session {
             return
         }
         if case .hello = c.body { await flush() } // a path may have opened
-        print("DEBUG control", c.body as Any)
         if case .unpair = c.body {
             // It leaves the relay group itself, but only best-effort: make sure (SR-7-02)
             let key = removableRelayKey(peerId)
