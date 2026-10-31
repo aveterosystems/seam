@@ -41,7 +41,8 @@ message Hello {
 enum Transport {
   TRANSPORT_UNSPECIFIED = 0;
   TRANSPORT_LAN = 1; // same network, direct
-  TRANSPORT_RELAY = 2; // internet, through a Seam relay (ours or self-hosted)
+  TRANSPORT_RELAY = 2; // retired with the relay (decision 0009); never reused
+  TRANSPORT_TOR = 4; // internet, through Tor to the Mac's private onion service
   TRANSPORT_BLUETOOTH = 3; // direct Bluetooth LE (decision 0006; not built yet)
 }
 

@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Which path may carry a message to the paired device (decision 0006), the Hello state that
-//! decides it, and the app's own saved data (relay, group, Hello state). Plain logic, no I/O: the
-//! apps feed it their switches and which paths are up, and it answers. Written once so the Mac
-//! and Android can't drift apart.
+//! decides it, and the app's own saved data (the Tor details and Hello state). Plain logic, no
+//! I/O: the apps feed it their switches and which paths are up, and it answers. Written once so the
+//! Mac and Android can't drift apart.
 //!
-//! Saved as `version 4 | group id length (u8) | group id | relay URL length (u16 BE) | URL UTF-8 |
-//! owner key length (u16 BE, may be 0) | owner key | Hello seq sent (u64 BE) | Hello seq applied
-//! (u64 BE) | the peer's allowed list: 0xFF (never heard) or a count (u8) | values (u8 each)`.
-//! Also reads what earlier app versions wrote: the Mac's v1–v3 and Android's v1–v2.
+//! Saved as `version 5 | Tor secret (32) | onion address length (u8) | address UTF-8 | peer
+//! discovery key length (u8, 0 or 32) | key | Hello seq sent (u64 BE) | Hello seq applied (u64 BE)
+//! | the peer's allowed list: 0xFF (never heard) or a count (u8) | values (u8 each)`.
+//! Earlier versions held a relay group (decision 0009 replaces relays with Tor): they aren't read,
+//! so those devices pair again.
 
 #[cfg(test)]
 mod tests;
 
-/// The current format. Earlier ones are read, never written.
-pub const VERSION: u8 = 4;
-const GROUP_LEN: usize = 16;
+/// The current format. Earlier (relay) ones aren't read.
+pub const VERSION: u8 = 5;
+const SECRET_LEN: usize = 32;
+/// A v3 onion address is 62 characters; anything near this is wrong.
+const MAX_ADDRESS: usize = 255;
 const NEVER_HEARD: u8 = 0xFF;
 
 /// A way to reach the other device. Numbers match `seam.v1.Transport`.
@@ -22,19 +25,19 @@ const NEVER_HEARD: u8 = 0xFF;
 pub enum Path {
     /// Same Wi-Fi, direct.
     Lan,
-    /// Through the relay (ours or the user's own).
-    Relay,
+    /// Through Tor, to the Mac's private onion service.
+    Tor,
 }
 
 impl Path {
     /// Every path this build knows, in order of preference (decision 0006: Same Wi-Fi first).
     /// The one place that order lives: everything below picks by it, whatever order callers use.
-    pub const ALL: [Path; 2] = [Path::Lan, Path::Relay];
+    pub const ALL: [Path; 2] = [Path::Lan, Path::Tor];
 
     pub fn transport(self) -> i32 {
         match self {
             Path::Lan => 1,
-            Path::Relay => 2,
+            Path::Tor => 4,
         }
     }
 
@@ -59,13 +62,17 @@ pub fn route(allowed: &[Path], up: &[Path]) -> Option<Path> {
         .find(|p| allowed.contains(p) && up.contains(p))
 }
 
-/// The app's saved data for its one pairing: where the relay group is, and the Hello state.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The app's saved data for its one pairing: how to reach the other device over Tor, and the
+/// Hello state. Sealed with the device's keys: the Tor secret never leaves it unsealed.
+#[derive(Clone, PartialEq, Eq)]
 pub struct AppData {
-    pub group_id: Vec<u8>,
-    pub relay_url: String,
-    /// A private relay's owner key (decision 0007); None on Seam's relay. Unused on the phone.
-    pub owner_key: Option<Vec<u8>>,
+    /// Mac: its onion service's secret seed. Phone: its restricted-discovery secret. 32 bytes.
+    pub tor_secret: Vec<u8>,
+    /// Phone: the Mac's onion address. Mac: empty (it follows from `tor_secret`).
+    pub onion_address: String,
+    /// Mac: the paired phone's discovery public key (32 bytes), the one client its service lets
+    /// discover it. Phone: empty.
+    pub peer_discovery: Vec<u8>,
     /// The seq of the last Hello this device sent.
     pub hello_seq_sent: u64,
     /// The seq of the last Hello applied from the peer.
@@ -75,12 +82,26 @@ pub struct AppData {
     pub peer_allowed: Option<Vec<Path>>,
 }
 
+// The secret never prints, even in a panic message
+impl std::fmt::Debug for AppData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppData")
+            .field("tor_secret", &"..")
+            .field("onion_address", &self.onion_address)
+            .field("peer_discovery", &self.peer_discovery.len())
+            .field("hello_seq_sent", &self.hello_seq_sent)
+            .field("hello_seq_applied", &self.hello_seq_applied)
+            .field("peer_allowed", &self.peer_allowed)
+            .finish()
+    }
+}
+
 impl AppData {
-    pub fn new(group_id: Vec<u8>, relay_url: String, owner_key: Option<Vec<u8>>) -> Self {
+    pub fn new(tor_secret: Vec<u8>, onion_address: String, peer_discovery: Vec<u8>) -> Self {
         Self {
-            group_id,
-            relay_url,
-            owner_key: owner_key.filter(|k| !k.is_empty()),
+            tor_secret,
+            onion_address,
+            peer_discovery,
             hello_seq_sent: 0,
             hello_seq_applied: 0,
             peer_allowed: None,
@@ -135,23 +156,23 @@ impl AppData {
         self.peer_allowed = None;
     }
 
-    /// This app data, ready to save: Err for anything that wouldn't read back (a group id that
-    /// isn't 16 bytes, a URL or owner key too long to store whole), with the peer's list sorted
-    /// and without repeats (SR-29-01..03).
+    /// This app data, ready to save: Err for anything that wouldn't read back (a secret that
+    /// isn't 32 bytes, an address too long, a peer key neither empty nor 32 bytes), with the
+    /// peer's list sorted and without repeats (SR-29-01..03).
     pub fn checked(&self) -> crate::Result<Self> {
-        let too_long = |n: usize| n > u16::MAX as usize;
-        if self.group_id.len() != GROUP_LEN {
-            return Err(crate::Error::Malformed("app data: group id isn't 16 bytes"));
+        if self.tor_secret.len() != SECRET_LEN {
+            return Err(crate::Error::Malformed(
+                "app data: Tor secret isn't 32 bytes",
+            ));
         }
-        if too_long(self.relay_url.len())
-            || self.owner_key.as_ref().is_some_and(|k| too_long(k.len()))
+        if self.onion_address.len() > MAX_ADDRESS
+            || !matches!(self.peer_discovery.len(), 0 | SECRET_LEN)
         {
             return Err(crate::Error::Malformed(
-                "app data: relay URL or owner key too long",
+                "app data: address or peer key the wrong size",
             ));
         }
         let mut out = self.clone();
-        out.owner_key = out.owner_key.filter(|k| !k.is_empty());
         out.peer_allowed = out
             .peer_allowed
             .map(|l| known(l.into_iter().map(Path::transport)));
@@ -159,16 +180,14 @@ impl AppData {
     }
 
     pub fn encode(&self) -> Vec<u8> {
-        let group = &self.group_id[..self.group_id.len().min(255)];
-        let url = &self.relay_url.as_bytes()[..self.relay_url.len().min(u16::MAX as usize)];
-        let key = self.owner_key.as_deref().unwrap_or_default();
-        let key = &key[..key.len().min(u16::MAX as usize)];
-        let mut out = vec![VERSION, group.len() as u8];
-        out.extend(group);
-        out.extend((url.len() as u16).to_be_bytes());
-        out.extend(url);
-        out.extend((key.len() as u16).to_be_bytes());
-        out.extend(key);
+        let address = &self.onion_address.as_bytes()[..self.onion_address.len().min(MAX_ADDRESS)];
+        let peer = &self.peer_discovery[..self.peer_discovery.len().min(SECRET_LEN)];
+        let mut out = vec![VERSION];
+        out.extend(&self.tor_secret[..self.tor_secret.len().min(SECRET_LEN)]);
+        out.push(address.len() as u8);
+        out.extend(address);
+        out.push(peer.len() as u8);
+        out.extend(peer);
         out.extend(self.hello_seq_sent.to_be_bytes());
         out.extend(self.hello_seq_applied.to_be_bytes());
         match &self.peer_allowed {
@@ -181,14 +200,28 @@ impl AppData {
         out
     }
 
-    /// None for anything that isn't a complete encoding with a 16-byte group id, in this format
-    /// or one an earlier Mac or Android version wrote.
+    /// None for anything that isn't a complete v5 encoding. Earlier (relay) versions aren't read:
+    /// those devices pair again.
     pub fn decode(bytes: &[u8]) -> Option<Self> {
-        match bytes.first()? {
-            &VERSION => mac_layout(bytes),
-            1..=3 => mac_layout(bytes).or_else(|| android_layout(bytes)),
-            _ => None,
+        let mut r = Reader(bytes);
+        if r.u8()? != VERSION {
+            return None;
         }
+        let secret = r.take(SECRET_LEN)?.to_vec();
+        let n = r.u8()? as usize;
+        let address = String::from_utf8(r.take(n)?.to_vec()).ok()?;
+        let k = r.u8()? as usize;
+        if !matches!(k, 0 | SECRET_LEN) {
+            return None;
+        }
+        let mut data = AppData::new(secret, address, r.take(k)?.to_vec());
+        data.hello_seq_sent = r.u64()?;
+        data.hello_seq_applied = r.u64()?;
+        let count = r.u8()?;
+        if count != NEVER_HEARD {
+            data.peer_allowed = Some(known(r.take(count as usize)?.iter().map(|&b| b as i32)));
+        }
+        r.0.is_empty().then_some(data)
     }
 }
 
@@ -197,66 +230,6 @@ fn known(values: impl Iterator<Item = i32>) -> Vec<Path> {
     out.sort();
     out.dedup();
     out
-}
-
-/// This format and the Mac's earlier ones, which it extends:
-/// `v | group | url`, then v2 `| key (> 0)`, v3 and v4 `| key | seqs | list`.
-fn mac_layout(bytes: &[u8]) -> Option<AppData> {
-    let mut r = Reader(bytes);
-    let v = r.u8()?;
-    let g = r.u8()? as usize;
-    if g != GROUP_LEN {
-        return None;
-    }
-    let group = r.take(g)?.to_vec();
-    let n = r.u16()? as usize;
-    let url = String::from_utf8(r.take(n)?.to_vec()).ok()?;
-    let mut data = AppData::new(group, url, None);
-    if v >= 2 {
-        let k = r.u16()? as usize;
-        if v == 2 && k == 0 {
-            return None;
-        }
-        data.owner_key = Some(r.take(k)?.to_vec()).filter(|k| !k.is_empty());
-    }
-    if v >= 3 {
-        data.hello_seq_sent = r.u64()?;
-        data.hello_seq_applied = r.u64()?;
-        let count = r.u8()?;
-        // v3 kept an older phone's empty Hello as count 0, meaning everything; v4's count 0 is
-        // nothing in common. v3 stored values it didn't know as unspecified: nothing in common too.
-        let everything = count == NEVER_HEARD || (v == 3 && count == 0);
-        if !everything {
-            data.peer_allowed = Some(known(r.take(count as usize)?.iter().map(|&b| b as i32)));
-        }
-    }
-    r.0.is_empty().then_some(data)
-}
-
-/// Android's earlier format: `v | url | group`, then v2 `| seqs | known (0/1) | count | values`.
-fn android_layout(bytes: &[u8]) -> Option<AppData> {
-    let mut r = Reader(bytes);
-    let v = r.u8()?;
-    let n = r.u16()? as usize;
-    let url = String::from_utf8(r.take(n)?.to_vec()).ok()?;
-    let mut data = AppData::new(r.take(GROUP_LEN)?.to_vec(), url, None);
-    if v == 2 {
-        data.hello_seq_sent = r.u64()?;
-        data.hello_seq_applied = r.u64()?;
-        let heard = r.u8()?;
-        let count = r.u8()? as usize;
-        let values = r.take(count)?;
-        data.peer_allowed = match heard {
-            0 => None,
-            // Android kept a Mac's empty Hello as "nothing"; an empty list means an older Mac
-            1 if values.is_empty() => None,
-            1 => Some(known(values.iter().map(|&b| b as i32))),
-            _ => return None,
-        };
-    } else if v != 1 {
-        return None;
-    }
-    r.0.is_empty().then_some(data)
 }
 
 struct Reader<'a>(&'a [u8]);
@@ -272,9 +245,6 @@ impl<'a> Reader<'a> {
     }
     fn u8(&mut self) -> Option<u8> {
         self.take(1).map(|b| b[0])
-    }
-    fn u16(&mut self) -> Option<u16> {
-        self.take(2).map(|b| u16::from_be_bytes([b[0], b[1]]))
     }
     fn u64(&mut self) -> Option<u64> {
         self.take(8)

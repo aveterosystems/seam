@@ -121,7 +121,7 @@ fn two_exports_never_reuse_a_nonce() {
 fn app_data_is_sealed_with_the_keys() {
     let (mut mac, ..) = linked();
     assert_eq!(mac.app_data(), None, "nothing saved yet");
-    let mut data = crate::links::AppData::new(vec![5; 16], "wss://relay.example.com".into(), None);
+    let mut data = crate::links::AppData::new(vec![5; 32], String::new(), vec![6; 32]);
     data.apply_hello(3, &[1]);
     mac.set_app_data(&data).unwrap();
     let back = Device::restore(&mac.export_state(&KEY).unwrap(), &KEY).unwrap();
@@ -132,13 +132,13 @@ fn app_data_is_sealed_with_the_keys() {
 fn app_data_edits_save_only_when_there_is_some() {
     let (mut mac, ..) = linked();
     assert_eq!(
-        mac.edit_app_data(|d| d.next_hello(&[crate::links::Path::Lan, crate::links::Path::Relay])),
+        mac.edit_app_data(|d| d.next_hello(&[crate::links::Path::Lan, crate::links::Path::Tor])),
         None
     );
     mac.set_app_data(&crate::links::AppData::new(
-        vec![5; 16],
-        "wss://r".into(),
-        None,
+        vec![5; 32],
+        String::new(),
+        vec![],
     ))
     .unwrap();
     assert_eq!(
@@ -154,9 +154,9 @@ fn app_data_edits_save_only_when_there_is_some() {
 #[test]
 fn app_data_that_cant_be_read_back_is_refused_and_nothing_changes() {
     let (mut mac, ..) = linked();
-    let good = crate::links::AppData::new(vec![5; 16], "wss://r".into(), None);
+    let good = crate::links::AppData::new(vec![5; 32], String::new(), vec![]);
     mac.set_app_data(&good).unwrap();
-    let bad = crate::links::AppData::new(vec![5; 3], "wss://r".into(), None);
+    let bad = crate::links::AppData::new(vec![5; 3], String::new(), vec![]);
     assert!(mac.set_app_data(&bad).is_err());
     assert_eq!(mac.app_data(), Some(good));
 }
