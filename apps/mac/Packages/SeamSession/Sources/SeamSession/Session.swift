@@ -20,7 +20,10 @@ public actor Session {
         /// Messages not yet delivered.
         public var waiting: Int
         public var status: Seam_V1_Status?
-        public var recentFromPhone: [FromPhone]
+        /// Clips both ways in the last day, newest first.
+        public var clips: [Clip]
+        /// The phone's notifications still up, newest first.
+        public var phoneNotifications: [Seam_V1_Notification]
         public var notificationSettings: Seam_V1_NotificationSettings?
         public var appIcons: [String: Data]
         public var pairing: PairingState
@@ -114,7 +117,8 @@ public actor Session {
         State(
             phone: phone, route: device.route(enabled: enabledPaths, up: upPaths, hello: false),
             allowed: device.allowedPaths(enabled: enabledPaths),
-            waiting: outbox.waiting.count + outbox.sent.count, status: status.status, recentFromPhone: clipboard.recent,
+            waiting: outbox.waiting.count + outbox.sent.count, status: status.status, clips: clipboard.clips,
+            phoneNotifications: notifications.shown,
             notificationSettings: notifications.settings, appIcons: notifications.icons, pairing: flow.state, warning: warning,
             pausedUntil: paused ? pausedUntil : nil, torServices: torServices, wantsLinks: phone != nil || pairingOpen
         )
@@ -233,9 +237,23 @@ public actor Session {
         await send([out])
     }
 
+    public func clearClips() {
+        clipboard.clearClips()
+        publish()
+    }
+
     /// What the user did to a phone notification's banner here.
     public func notificationAction(_ action: Seam_V1_NotificationAction) async {
-        await send(notifications.action(action).map { [$0] } ?? [])
+        let out = notifications.action(action)
+        publish()
+        await send(out.map { [$0] } ?? [])
+    }
+
+    /// The main window's dismiss of one of the phone's notifications.
+    public func dismissNotification(key: String) async {
+        let out = await notifications.dismiss(key)
+        publish()
+        await send(out.map { [$0] } ?? [])
     }
 
     // MARK: Private

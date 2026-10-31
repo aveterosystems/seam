@@ -17,23 +17,13 @@ struct SettingsView: View {
     enum Pane: Hashable { case general, phone, connection, notifications, clipboard, privacy, about }
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(.system(size: 15, weight: .bold))
-                    .frame(height: 52)
-                    .padding(.leading, 24)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) { content }
-                        .padding(.horizontal, 24).padding(.bottom, 24)
-                }
+        SidebarWindow(title: title) { sidebar } content: {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) { content }
+                    .padding(.horizontal, 24).padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: 800, height: 560)
-        .tint(SeamStyle.teal)
-        .toggleStyle(.switch)
-        .ignoresSafeArea()
         .onAppear {
             NSApp.activate()
             openRequestedPane()
@@ -49,46 +39,20 @@ struct SettingsView: View {
 
     // MARK: Sidebar
 
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Spacer().frame(height: 30) // room for the traffic lights
-            nav(.general, "General", "gearshape")
-            nav(.phone, controller.phone?.name ?? "Phone", "iphone")
-            nav(.connection, "Connection", "network")
-            section("Features")
-            nav(.notifications, "Notifications", "bell.badge")
-            nav(.clipboard, "Clipboard", "doc.on.clipboard")
-            section("Seam")
-            nav(.privacy, "Privacy & Security", "checkmark.shield")
-            nav(.about, "About", "info.circle")
-            Spacer()
-        }
-        .padding(8)
-        .frame(width: 220)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.09), lineWidth: 0.5))
-        .padding(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 0))
+    @ViewBuilder private var sidebar: some View {
+        nav(.general, "General", "gearshape")
+        nav(.phone, controller.phone?.name ?? "Phone", "iphone")
+        nav(.connection, "Connection", "network")
+        SidebarSection("Features")
+        nav(.notifications, "Notifications", "bell.badge")
+        nav(.clipboard, "Clipboard", "doc.on.clipboard")
+        SidebarSection("Seam")
+        nav(.privacy, "Privacy & Security", "checkmark.shield")
+        nav(.about, "About", "info.circle")
     }
 
     private func nav(_ p: Pane, _ title: String, _ symbol: String) -> some View {
-        Button { pane = p } label: {
-            HStack(spacing: 8) {
-                Image(systemName: symbol).foregroundStyle(SeamStyle.teal).frame(width: 18)
-                Text(title).lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8)
-            .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 8).fill(pane == p ? Color.primary.opacity(0.08) : .clear))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(pane == p ? .isSelected : [])
-    }
-
-    private func section(_ title: String) -> some View {
-        Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
-            .padding(EdgeInsets(top: 12, leading: 8, bottom: 4, trailing: 8))
+        SidebarItem(title: title, symbol: symbol, selected: pane == p) { pane = p }
     }
 
     // MARK: Panes

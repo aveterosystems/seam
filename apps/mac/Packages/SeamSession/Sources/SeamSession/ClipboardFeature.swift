@@ -2,11 +2,12 @@
 import Foundation
 import SeamProtocol
 
-/// One clip that arrived from the phone.
-public struct FromPhone: Identifiable, Sendable {
+/// One clip that crossed between the Mac and the phone.
+public struct Clip: Identifiable, Sendable {
     public let id = UUID()
     public let text: String
     public let at: Date
+    public let fromPhone: Bool
 
     public var openableURL: URL? { ClipRules.openableURL(text) }
 }
@@ -26,8 +27,10 @@ final class ClipboardFeature: Feature {
     /// The latest copy made while the phone was unreachable (SR-4-03).
     private var held = ClipQueue<Seam_V1_Payload>()
     private(set) var syncOn: Bool
-    /// The last two clips from the phone, for the popover (memory only).
-    private(set) var recent: [FromPhone] = []
+    /// Clips that crossed either way in the last day, newest first, for the main window (memory
+    /// only: gone when Seam quits).
+    private(set) var clips: [Clip] = []
+    static let maxClips = 100
 
     init(pasteboard: any Pasteboard, syncOn: Bool) {
         self.pasteboard = pasteboard
@@ -44,7 +47,7 @@ final class ClipboardFeature: Feature {
         lastChange = await pasteboard.changeCount() // turning it on never sends what was copied while off
         if !on {
             held.clear() // nor does turning it off let a held copy go later
-            recent = [] // and it takes the phone's clips off the screen (SR-10-04)
+            clips = [] // and it takes the clips off the screen (SR-10-04)
         }
     }
 
@@ -66,6 +69,7 @@ final class ClipboardFeature: Feature {
                 $0.copiedAt = Int64(now.timeIntervalSince1970 * 1000)
             }
         }
+        remember(Clip(text: text, at: now, fromPhone: false))
         guard connected else {
             held.hold(payload, at: now)
             return nil
@@ -81,8 +85,15 @@ final class ClipboardFeature: Feature {
     nonisolated(nonsending) func receive(_ body: Seam_V1_Payload.OneOf_Body) async -> [Outgoing] {
         guard case .clipboard(let clip) = body, syncOn, let text = rules.incoming(clip.text) else { return [] }
         lastChange = await pasteboard.write(text) // our own write isn't a new copy
-        recent = Array(([FromPhone(text: text, at: Date())] + recent).prefix(2))
+        remember(Clip(text: text, at: Date(), fromPhone: true))
         return []
+    }
+
+    func clearClips() { clips = [] }
+
+    private func remember(_ clip: Clip) {
+        let dayAgo = clip.at.addingTimeInterval(-86400)
+        clips = Array(([clip] + clips.filter { $0.at > dayAgo }).prefix(Self.maxClips))
     }
 
     /// `now` decides whether a held copy is too old to send.
@@ -92,6 +103,6 @@ final class ClipboardFeature: Feature {
 
     nonisolated(nonsending) func reset() async {
         held.clear()
-        recent = []
+        clips = []
     }
 }

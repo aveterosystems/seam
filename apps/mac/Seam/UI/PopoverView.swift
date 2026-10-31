@@ -21,6 +21,10 @@ struct PopoverView: View {
                 header(phone)
                 Stitch(line: controller.link.line).padding(.horizontal, 14)
                 modules
+                if let latest = controller.phoneNotifications.first {
+                    Divider()
+                    notificationsSummary(latest)
+                }
                 if !controller.recentFromPhone.isEmpty {
                     Divider()
                     fromPhone
@@ -64,7 +68,7 @@ struct PopoverView: View {
                 LinkStatus(look: controller.link).font(.caption)
             }
             Spacer(minLength: 0)
-            if let s = controller.status { battery(s) }
+            if let s = controller.status { BatteryPill(status: s) }
             Button { open() } label: { Image(systemName: "slider.horizontal.3").frame(width: 18, height: 16) }
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.capsule)
@@ -73,24 +77,9 @@ struct PopoverView: View {
         .padding(EdgeInsets(top: 14, leading: 14, bottom: 12, trailing: 14))
     }
 
-    /// Neutral, like the board; amber at 15% or below while not charging.
-    private func battery(_ s: Seam_V1_Status) -> some View {
-        let low = s.batteryPct <= 15 && !s.charging
-        return HStack(spacing: 3) {
-            if s.charging { Image(systemName: "bolt.fill") }
-            Text("\(s.batteryPct)%").monospacedDigit()
-        }
-        .font(.caption.weight(.medium))
-        .padding(.horizontal, 8)
-        .frame(height: 20)
-        .background(Capsule().fill(low ? SeamStyle.warn.opacity(0.18) : Color.primary.opacity(0.08)))
-        .foregroundStyle(low ? SeamStyle.warn : .secondary)
-        .accessibilityLabel("Phone battery \(s.batteryPct) percent\(s.charging ? ", charging" : "")")
-    }
-
     /// Control Centre-style round modules on a four-column grid.
     private var modules: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: 4), spacing: 8) {
             ModuleButton(title: "Clipboard sync", symbol: "doc.on.clipboard", on: controller.clipboardSync) {
                 controller.setClipboardSync(!controller.clipboardSync)
             }
@@ -141,9 +130,14 @@ struct PopoverView: View {
 
     private var fromPhone: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("From your phone's clipboard")
-                .font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
-                .padding(EdgeInsets(top: 10, leading: 14, bottom: 4, trailing: 14))
+            HStack {
+                Text("From your phone's clipboard")
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
+                Spacer()
+                Button("History") { openMain(.clipboard) }
+                    .buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundStyle(SeamStyle.tealInk)
+            }
+            .padding(EdgeInsets(top: 10, leading: 14, bottom: 4, trailing: 14))
             ForEach(controller.recentFromPhone) { clip in
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -163,6 +157,34 @@ struct PopoverView: View {
         .padding(.bottom, 6)
     }
 
+    /// How many of the phone's notifications are up, and the newest; the window has the rest.
+    private func notificationsSummary(_ latest: Seam_V1_Notification) -> some View {
+        Button { openMain(.notifications) } label: {
+            HStack(spacing: 10) {
+                AppIcon(image: controller.appIcons[latest.appID], size: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(latest.title.isEmpty ? latest.appName : "\(latest.appName) · \(latest.title)")
+                        .font(.system(size: 12)).lineLimit(1)
+                    let more = controller.phoneNotifications.count - 1
+                    Text(more > 0 ? "and \(more) more notification\(more == 1 ? "" : "s")" : "1 notification")
+                        .font(.system(size: 11)).foregroundStyle(.tertiary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(controller.phoneNotifications.count) notifications from your phone. Open Seam to see them.")
+    }
+
+    private func openMain(_ pane: MainWindow.Pane? = nil) {
+        controller.requestedMainPane = pane
+        NSApp.activate()
+        openWindow(id: "main")
+    }
+
     private var notPaired: some View {
         VStack(spacing: 10) {
             Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 56, height: 56)
@@ -180,6 +202,13 @@ struct PopoverView: View {
             Image(systemName: "checkmark.shield").font(.caption).foregroundStyle(.secondary)
             Text("End-to-end encrypted").font(.system(size: 11)).foregroundStyle(.secondary)
             Spacer()
+            if controller.phone != nil {
+                Button("Open Seam") { openMain() }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(SeamStyle.tealInk)
+                .padding(.trailing, 6)
+            }
             Button("Settings") { open() }
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .semibold))

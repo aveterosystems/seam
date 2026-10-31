@@ -21,7 +21,8 @@ struct SessionFeatureTests {
         await rig.torUp()
         #expect(await rig.session.received(try rig.fromPhone(clip("from the phone"))))
         #expect(rig.pasteboard.text == "from the phone")
-        #expect(await rig.session.state.recentFromPhone.map(\.text) == ["from the phone"])
+        #expect(await rig.session.state.clips.map(\.text) == ["from the phone"])
+        #expect(await rig.session.state.clips.allSatisfy(\.fromPhone))
         await rig.timers.advance(1)
         #expect(try clips(rig).isEmpty)
     }
@@ -38,6 +39,7 @@ struct SessionFeatureTests {
         await rig.session.setClipboardSync(true)
         await rig.timers.advance(1)
         #expect(try clips(rig) == ["one"], "nothing copied while off goes, even after it's back on")
+        #expect(await rig.session.state.clips.isEmpty, "turning sync off takes the history off the screen (SR-10-04)")
     }
 
     @Test func sr_29_05_turningSyncOffMidReadStopsThatCopy() async throws {
@@ -121,6 +123,31 @@ struct SessionFeatureTests {
         #expect(try actions() == 1)
     }
 
+    @Test func aCopyHereIsInTheHistoryUntilCleared() async throws {
+        let rig = try await Rig()
+        await rig.torUp()
+        rig.pasteboard.copy("mine")
+        await rig.timers.advance(1)
+        #expect(await rig.session.state.clips.map { "\($0.text) \($0.fromPhone)" } == ["mine false"])
+        await rig.session.clearClips()
+        #expect(await rig.session.state.clips.isEmpty)
+    }
+
+    @Test func theMainWindowListsThePhonesNotificationsUntilDismissed() async throws {
+        let rig = try await Rig()
+        await rig.torUp()
+        let note = { (key: String, title: String) in Seam_V1_Payload.with { $0.notification = .with { $0.key = key; $0.title = title } } }
+        _ = await rig.session.received(try rig.fromPhone(note("a", "first")))
+        _ = await rig.session.received(try rig.fromPhone(note("b", "second")))
+        _ = await rig.session.received(try rig.fromPhone(note("a", "first, updated")))
+        #expect(await rig.session.state.phoneNotifications.map(\.title) == ["first, updated", "second"], "an update replaces it, newest first")
+        await rig.session.dismissNotification(key: "a")
+        #expect(await rig.session.state.phoneNotifications.map(\.key) == ["b"])
+        #expect(rig.centre.dismissed == ["a"], "its banner goes too")
+        _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationAction = .with { $0.key = "b"; $0.dismissed = true } }))
+        #expect(await rig.session.state.phoneNotifications.isEmpty, "dismissed on the phone")
+    }
+
     @Test func theBatteryNeverShowsMoreThanAHundred() async throws {
         let rig = try await Rig()
         _ = await rig.session.received(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 250 } }))
@@ -137,7 +164,7 @@ struct SessionFeatureTests {
         _ = await rig.session.received(try rig.fromPhone(.with { $0.control = .with { $0.unpair = .init() } }))
         let state = await rig.session.state
         #expect(state.phone == nil)
-        #expect(state.status == nil && state.recentFromPhone.isEmpty && state.notificationSettings == nil)
+        #expect(state.status == nil && state.clips.isEmpty && state.phoneNotifications.isEmpty && state.notificationSettings == nil)
         #expect(rig.centre.shown.isEmpty)
         #expect(rig.mac.peers().isEmpty)
         #expect(state.torServices.isEmpty && rig.mac.appData() == nil, "its onion service goes too")
