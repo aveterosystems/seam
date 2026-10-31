@@ -851,11 +851,11 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_torstatelistener_on_state(
     ): Int
-    external fun uniffi_seam_ffi_checksum_method_torstream_close(
-    ): Int
     external fun uniffi_seam_ffi_checksum_method_torstream_listen(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_torstream_send(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_torstream_shutdown(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_torstreamlistener_on_bytes(
     ): Int
@@ -1046,12 +1046,12 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_seam_ffi_fn_free_torstream(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_seam_ffi_fn_method_torstream_close(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
     external fun uniffi_seam_ffi_fn_method_torstream_listen(`ptr`: Long,`listener`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_seam_ffi_fn_method_torstream_send(`ptr`: Long,`bytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
+    external fun uniffi_seam_ffi_fn_method_torstream_shutdown(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_seam_ffi_fn_clone_torstreamlistener(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun uniffi_seam_ffi_fn_free_torstreamlistener(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1321,7 +1321,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_tor_state() and 0xFFFF) != 48875) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_torconnectlistener_on_open() and 0xFFFF) != 10956) {
+    if ((lib.uniffi_seam_ffi_checksum_method_torconnectlistener_on_open() and 0xFFFF) != 35223) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_torconnectlistener_on_failed() and 0xFFFF) != 27702) {
@@ -1336,13 +1336,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_torstatelistener_on_state() and 0xFFFF) != 7167) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_torstream_close() and 0xFFFF) != 41517) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
     if ((lib.uniffi_seam_ffi_checksum_method_torstream_listen() and 0xFFFF) != 12116) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_torstream_send() and 0xFFFF) != 32431) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_torstream_shutdown() and 0xFFFF) != 19247) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_torstreamlistener_on_bytes() and 0xFFFF) != 27000) {
@@ -4071,7 +4071,7 @@ public object FfiConverterTypeTor: FfiConverter<Tor, Long> {
 public interface TorConnectListener {
     
     /**
-     * Connected: call `stream.listen` to start receiving.
+     * Connected: call `stream.listen` to start receiving, `stream.shutdown` to end it.
      */
     fun `onOpen`(`stream`: TorStream)
     
@@ -4190,7 +4190,7 @@ open class TorConnectListenerImpl: Disposable, AutoCloseable, TorConnectListener
 
     
     /**
-     * Connected: call `stream.listen` to start receiving.
+     * Connected: call `stream.listen` to start receiving, `stream.shutdown` to end it.
      */override fun `onOpen`(`stream`: TorStream)
         = 
     callWithHandle {
@@ -5026,11 +5026,6 @@ public object FfiConverterTypeTorStateListener: FfiConverter<TorStateListener, L
 public interface TorStreamInterface {
     
     /**
-     * Closes both directions; `on_closed` follows.
-     */
-    fun `close`()
-    
-    /**
      * Starts reading: every chunk to `listener.on_bytes`, then `on_closed` once. Only the first
      * call does anything.
      */
@@ -5040,6 +5035,12 @@ public interface TorStreamInterface {
      * False once the stream is closed (the bytes won't go).
      */
     fun `send`(`bytes`: kotlin.ByteArray): kotlin.Boolean
+    
+    /**
+     * Closes both directions; `on_closed` follows. (Not `close`: Kotlin's `AutoCloseable.close`
+     * on every UniFFI object frees it.)
+     */
+    fun `shutdown`()
     
     companion object
 }
@@ -5150,21 +5151,6 @@ open class TorStream: Disposable, AutoCloseable, TorStreamInterface
 
     
     /**
-     * Closes both directions; `on_closed` follows.
-     */override fun `close`()
-        = 
-    callWithHandle {
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_torstream_close(
-        it,
-        _status)
-}
-    }
-    
-    
-
-    
-    /**
      * Starts reading: every chunk to `listener.on_bytes`, then `on_closed` once. Only the first
      * call does anything.
      */override fun `listen`(`listener`: TorStreamListener)
@@ -5195,6 +5181,22 @@ open class TorStream: Disposable, AutoCloseable, TorStreamInterface
     }
     )
     }
+    
+
+    
+    /**
+     * Closes both directions; `on_closed` follows. (Not `close`: Kotlin's `AutoCloseable.close`
+     * on every UniFFI object frees it.)
+     */override fun `shutdown`()
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_torstream_shutdown(
+        it,
+        _status)
+}
+    }
+    
     
 
     

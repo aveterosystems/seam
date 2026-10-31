@@ -60,7 +60,7 @@ pub trait TorStreamListener: Send + Sync {
 /// Told about a connection attempt (phone) or an incoming stream (Mac).
 #[uniffi::export(with_foreign)]
 pub trait TorConnectListener: Send + Sync {
-    /// Connected: call `stream.listen` to start receiving.
+    /// Connected: call `stream.listen` to start receiving, `stream.shutdown` to end it.
     fn on_open(&self, stream: Arc<TorStream>);
     /// Couldn't connect (or, for a service, it stopped). Never called after `on_open` for the
     /// same attempt.
@@ -317,8 +317,9 @@ impl TorStream {
         });
     }
 
-    /// Closes both directions; `on_closed` follows.
-    pub fn close(&self) {
+    /// Closes both directions; `on_closed` follows. (Not `close`: Kotlin's `AutoCloseable.close`
+    /// on every UniFFI object frees it.)
+    pub fn shutdown(&self) {
         self.closed.store(true, Ordering::SeqCst);
         self.stop.send_replace(true);
     }
@@ -401,7 +402,7 @@ mod tests {
         }
         assert_eq!(&all[..3], b"one");
         assert_eq!(&all[all.len() - 5..], b"three");
-        a.close();
+        a.shutdown();
         assert_eq!(
             got.recv_timeout(Duration::from_secs(5)).unwrap(),
             None,
@@ -418,7 +419,7 @@ mod tests {
         let rt = rt();
         let (a, _b) = stream_pair(&rt);
         let mine = collect(&a);
-        a.close();
+        a.shutdown();
         assert_eq!(mine.recv_timeout(Duration::from_secs(5)).unwrap(), None);
         assert!(!a.send(b"late".to_vec()));
     }

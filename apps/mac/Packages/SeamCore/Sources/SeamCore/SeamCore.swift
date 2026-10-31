@@ -1973,7 +1973,7 @@ public func FfiConverterTypeTor_lower(_ value: Tor) -> UInt64 {
 public protocol TorConnectListener: AnyObject, Sendable {
     
     /**
-     * Connected: call `stream.listen` to start receiving.
+     * Connected: call `stream.listen` to start receiving, `stream.shutdown` to end it.
      */
     func onOpen(stream: TorStream) 
     
@@ -2041,7 +2041,7 @@ open class TorConnectListenerImpl: TorConnectListener, @unchecked Sendable {
 
     
     /**
-     * Connected: call `stream.listen` to start receiving.
+     * Connected: call `stream.listen` to start receiving, `stream.shutdown` to end it.
      */
 open func onOpen(stream: TorStream)  {try! rustCall() {
         uniffiCallStatus in
@@ -2566,11 +2566,6 @@ public func FfiConverterTypeTorStateListener_lower(_ value: TorStateListener) ->
 public protocol TorStreamProtocol: AnyObject, Sendable {
     
     /**
-     * Closes both directions; `on_closed` follows.
-     */
-    func close() 
-    
-    /**
      * Starts reading: every chunk to `listener.on_bytes`, then `on_closed` once. Only the first
      * call does anything.
      */
@@ -2580,6 +2575,12 @@ public protocol TorStreamProtocol: AnyObject, Sendable {
      * False once the stream is closed (the bytes won't go).
      */
     func send(bytes: Data)  -> Bool
+    
+    /**
+     * Closes both directions; `on_closed` follows. (Not `close`: Kotlin's `AutoCloseable.close`
+     * on every UniFFI object frees it.)
+     */
+    func shutdown() 
     
 }
 /**
@@ -2639,17 +2640,6 @@ open class TorStream: TorStreamProtocol, @unchecked Sendable {
 
     
     /**
-     * Closes both directions; `on_closed` follows.
-     */
-open func close()  {try! rustCall() {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_torstream_close(
-            self.uniffiCloneHandle(),uniffiCallStatus
-    )
-}
-}
-    
-    /**
      * Starts reading: every chunk to `listener.on_bytes`, then `on_closed` once. Only the first
      * call does anything.
      */
@@ -2673,6 +2663,18 @@ open func send(bytes: Data) -> Bool  {
         FfiConverterData.lower(bytes),uniffiCallStatus
     )
 })
+}
+    
+    /**
+     * Closes both directions; `on_closed` follows. (Not `close`: Kotlin's `AutoCloseable.close`
+     * on every UniFFI object frees it.)
+     */
+open func shutdown()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_torstream_shutdown(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
 }
     
 
@@ -4336,7 +4338,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_tor_state() != 48875) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_torconnectlistener_on_open() != 10956) {
+    if (uniffi_seam_ffi_checksum_method_torconnectlistener_on_open() != 35223) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_torconnectlistener_on_failed() != 27702) {
@@ -4351,13 +4353,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_torstatelistener_on_state() != 7167) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_torstream_close() != 41517) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_seam_ffi_checksum_method_torstream_listen() != 12116) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_torstream_send() != 32431) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_torstream_shutdown() != 19247) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_torstreamlistener_on_bytes() != 27000) {

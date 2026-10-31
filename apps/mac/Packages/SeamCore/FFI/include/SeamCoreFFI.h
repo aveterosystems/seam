@@ -674,11 +674,6 @@ uint64_t uniffi_seam_ffi_fn_clone_torstream(uint64_t handle, RustCallStatus *_No
 void uniffi_seam_ffi_fn_free_torstream(uint64_t handle, RustCallStatus *_Nonnull out_status
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_CLOSE
-#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_CLOSE
-void uniffi_seam_ffi_fn_method_torstream_close(uint64_t ptr, RustCallStatus *_Nonnull out_status
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_LISTEN
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_LISTEN
 void uniffi_seam_ffi_fn_method_torstream_listen(uint64_t ptr, uint64_t listener, RustCallStatus *_Nonnull out_status
@@ -687,6 +682,11 @@ void uniffi_seam_ffi_fn_method_torstream_listen(uint64_t ptr, uint64_t listener,
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SEND
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SEND
 int8_t uniffi_seam_ffi_fn_method_torstream_send(uint64_t ptr, RustBuffer bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SHUTDOWN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TORSTREAM_SHUTDOWN
+void uniffi_seam_ffi_fn_method_torstream_shutdown(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TORSTREAMLISTENER
@@ -1290,12 +1290,6 @@ uint16_t uniffi_seam_ffi_checksum_method_torstatelistener_on_state(void
     
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_CLOSE
-#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_CLOSE
-uint16_t uniffi_seam_ffi_checksum_method_torstream_close(void
-    
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_LISTEN
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_LISTEN
 uint16_t uniffi_seam_ffi_checksum_method_torstream_listen(void
@@ -1305,6 +1299,12 @@ uint16_t uniffi_seam_ffi_checksum_method_torstream_listen(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SEND
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SEND
 uint16_t uniffi_seam_ffi_checksum_method_torstream_send(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SHUTDOWN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TORSTREAM_SHUTDOWN
+uint16_t uniffi_seam_ffi_checksum_method_torstream_shutdown(void
     
 );
 #endif
