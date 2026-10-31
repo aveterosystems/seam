@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file seam/v1/control.proto.
  */
 export const file_seam_v1_control: GenFile = /*@__PURE__*/
-  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5IpoBCgVIZWxsbxITCgthcHBfdmVyc2lvbhgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxjYXBhYmlsaXRpZXMYAyADKAkSLgoSYWxsb3dlZF90cmFuc3BvcnRzGAQgAygOMhIuc2VhbS52MS5UcmFuc3BvcnQSCwoDc2VxGAUgASgEEhcKD3BhdXNlZF91bnRpbF9tcxgGIAEoAyIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiWwoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCRIRCglyZWxheV9rZXkYBCABKAwiDAoKUGFpckFjY2VwdCpnCglUcmFuc3BvcnQSGQoVVFJBTlNQT1JUX1VOU1BFQ0lGSUVEEAASEQoNVFJBTlNQT1JUX0xBThABEhMKD1RSQU5TUE9SVF9SRUxBWRACEhcKE1RSQU5TUE9SVF9CTFVFVE9PVEgQA0IgChxjb20uYXZldGVyby5zZWFtLnByb3RvY29sLnYxUAFiBnByb3RvMw");
+  fileDesc("ChVzZWFtL3YxL2NvbnRyb2wucHJvdG8SB3NlYW0udjEi6wEKB0NvbnRyb2wSHwoFaGVsbG8YASABKAsyDi5zZWFtLnYxLkhlbGxvSAASGwoDYWNrGAIgASgLMgwuc2VhbS52MS5BY2tIABIdCgRwaW5nGAMgASgLMg0uc2VhbS52MS5QaW5nSAASIQoGdW5wYWlyGAQgASgLMg8uc2VhbS52MS5VbnBhaXJIABIsCgxwYWlyX3JlcXVlc3QYBSABKAsyFC5zZWFtLnYxLlBhaXJSZXF1ZXN0SAASKgoLcGFpcl9hY2NlcHQYBiABKAsyEy5zZWFtLnYxLlBhaXJBY2NlcHRIAEIGCgRib2R5IpoBCgVIZWxsbxITCgthcHBfdmVyc2lvbhgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxjYXBhYmlsaXRpZXMYAyADKAkSLgoSYWxsb3dlZF90cmFuc3BvcnRzGAQgAygOMhIuc2VhbS52MS5UcmFuc3BvcnQSCwoDc2VxGAUgASgEEhcKD3BhdXNlZF91bnRpbF9tcxgGIAEoAyIVCgNBY2sSDgoGbXNnX2lkGAEgASgMIhcKBFBpbmcSDwoHc2VudF9hdBgBIAEoAyIICgZVbnBhaXIiWwoLUGFpclJlcXVlc3QSFQoNcGFpcmluZ190b2tlbhgBIAEoDBITCgtkZXZpY2VfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCRIRCglyZWxheV9rZXkYBCABKAwiDAoKUGFpckFjY2VwdCp6CglUcmFuc3BvcnQSGQoVVFJBTlNQT1JUX1VOU1BFQ0lGSUVEEAASEQoNVFJBTlNQT1JUX0xBThABEhMKD1RSQU5TUE9SVF9SRUxBWRACEhEKDVRSQU5TUE9SVF9UT1IQBBIXChNUUkFOU1BPUlRfQkxVRVRPT1RIEANCIAocY29tLmF2ZXRlcm8uc2VhbS5wcm90b2NvbC52MVABYgZwcm90bzM");
 
 /**
  * @generated from message seam.v1.Control
@@ -252,11 +252,18 @@ export enum Transport {
   LAN = 1,
 
   /**
-   * internet, through a Seam relay (ours or self-hosted)
+   * retired with the relay (decision 0009); never reused
    *
    * @generated from enum value: TRANSPORT_RELAY = 2;
    */
   RELAY = 2,
+
+  /**
+   * internet, through Tor to the Mac's private onion service
+   *
+   * @generated from enum value: TRANSPORT_TOR = 4;
+   */
+  TOR = 4,
 
   /**
    * direct Bluetooth LE (decision 0006; not built yet)
