@@ -1,7 +1,9 @@
-# Planning docs and mockups are kept local, not published
-docs/
+# Planning docs and mockups are kept local, not published, except the design docs
+docs/*
 design/
 specs/
+!docs/design/
+docs/design/prototypes/
 # Throwaway experiments (benchmarks, prototypes) stay local
 spikes/
 
