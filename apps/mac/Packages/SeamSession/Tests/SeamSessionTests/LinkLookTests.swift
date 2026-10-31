@@ -25,6 +25,14 @@ import Testing
         #expect(LinkLook.sameWifi.sentence == "Connected · Same Wi‑Fi")
     }
 
+    // Every reason the phone isn't there can be clicked for why and what happens next
+    @Test func notConnectedExplainsItselfConnectedDoesNot() {
+        for look in [LinkLook.noSharedPath, .waitingOnWifi, .away, .torBlocked, .torClock, .paused(until: .distantFuture, now: Date())] {
+            #expect(look.detail?.isEmpty == false, "\(look.label)")
+        }
+        #expect(LinkLook.sameWifi.detail == nil && LinkLook.throughTor.detail == nil)
+    }
+
     // Decision 0004: never a silent wait. Tor's own trouble is said, not shown as "offline"
     @Test func torsStateSaysWhyThePhoneCantComeThroughTor() {
         let tor: [PeerPath] = [.lan, .tor]
