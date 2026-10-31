@@ -5,10 +5,11 @@ on:
     paths: ["protocol/**", ".github/workflows/protocol.yml", "!**/*.md"]
   pull_request:
 
-# A newer push to the same branch or PR cancels this run; it's been superseded
+# A newer push to the same PR cancels this run; it's been superseded. Runs on main finish, so
+# each one saves the build cache that PRs start from
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Which parts changed. Skipped jobs count as passed, so required checks never block an unrelated PR.
