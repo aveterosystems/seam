@@ -49,7 +49,15 @@ class TorLan(private val tor: TorInterface) : TorDialer {
             tor.start(object : TorStateListener {
                 override fun onState(state: TorState) {
                     _state.value = state
-                    if (state is TorState.Ready) announce()
+                    when (state) {
+                        is TorState.Ready -> {
+                            // Tor ignores dormancy until it's ready: tell it again now
+                            synchronized(lock) { dormant = null; updateDormant() }
+                            announce()
+                        }
+                        is TorState.Failed, is TorState.Blocked -> synchronized(lock) { started = false } // the next look tries again
+                        else -> Unit
+                    }
                 }
             })
         } else if (_state.value is TorState.Ready) {
@@ -102,7 +110,7 @@ class TorLan(private val tor: TorInterface) : TorDialer {
 
         fun opened(s: TorStream) {
             synchronized(this) {
-                if (!accepting) return s.shutdown() // closed while connecting
+                if (!accepting) return s.shutdown().also { s.close() } // closed while connecting: free it now, not at GC
                 stream = s
                 waiting.forEach { s.send(it) }
                 waiting.clear()

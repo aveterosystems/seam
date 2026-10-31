@@ -81,8 +81,15 @@ extension Session {
     func sendBundle(on path: PeerPath) {
         guard path == pairingPath, case .waiting = flow.state else { return }
         do {
-            guard let bundle = try device.prekeyBundles(count: 1).first else { return }
-            try storage.saveState()
+            let bundle: Data
+            if let sent = pairingBundle {
+                bundle = sent
+            } else {
+                guard let fresh = try device.prekeyBundles(count: 1).first else { return }
+                try storage.saveState()
+                pairingBundle = fresh
+                bundle = fresh
+            }
             let key = device.relayKey()
             _ = links[path]?.send(.with { $0.bundle = .with { $0.deviceKey = key; $0.bundle = bundle } }, to: LanServer.pairingPeer)
         } catch {
@@ -202,5 +209,6 @@ extension Session {
         pairingService = nil
         if let path = pairingPath { links[path]?.close(peerId: LanServer.pairingPeer) }
         pairingPath = nil
+        pairingBundle = nil
     }
 }

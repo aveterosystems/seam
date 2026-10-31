@@ -84,6 +84,8 @@ public actor Session {
     var pairingService: TorServiceSpec?
     /// The link the pairing phone is on (the first to authenticate wins).
     var pairingPath: PeerPath?
+    /// The bundle this code's phone was given: asking again gets the same one, never more saved keys.
+    var pairingBundle: Data?
     /// The PairAccept on its way, until the phone acks it, with the app data from before it.
     var pendingAccept: PendingAccept?
 

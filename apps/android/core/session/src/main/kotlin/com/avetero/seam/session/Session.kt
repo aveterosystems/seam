@@ -312,7 +312,9 @@ class Session(
     fun forgetMac() = scope.launch {
         val m = mac ?: return@launch
         // A farewell, like a Hello: any open path this phone's own switches allow, never one they have off
+        // Never on a pairing channel: only the pairing exchange travels there
         val via = listOfNotNull(direct?.takeIf { it.up && switches.wifi }, onion?.takeIf { it.up && switches.tor })
+            .filter { it !== pairingVia && it !== closingPairing }
         val farewell = mutableListOf<Pair<Path, ClientFrame>>()
         if (via.isNotEmpty() && !storageBlocked) {
             val unpair = Payload.newBuilder().setControl(Control.newBuilder().setUnpair(Unpair.getDefaultInstance())).build()
@@ -389,6 +391,7 @@ class Session(
     }
 
     private fun frame(path: Path, frame: ServerFrame) {
+        if (path === closingPairing) return // the pairing exchange is over: nothing more is taken from that channel
         when (frame.frameCase) {
             ServerFrame.FrameCase.BUNDLE -> if (pairing.active && path === pairingVia) pairing.keysArrived(frame.bundle.bundle.toByteArray())?.let { _state.value = it }
             // While pairing, only the pairing channel speaks for the new Mac

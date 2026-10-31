@@ -74,7 +74,7 @@ pub struct Tor {
     app_dir: PathBuf,
     node: Arc<Mutex<Option<Arc<TorNode>>>>,
     state: Arc<Mutex<TorState>>,
-    started: AtomicBool,
+    started: Arc<AtomicBool>,
 }
 
 #[uniffi::export]
@@ -93,7 +93,7 @@ impl Tor {
             app_dir: PathBuf::from(app_dir),
             node: Arc::default(),
             state: Arc::new(Mutex::new(TorState::Off)),
-            started: AtomicBool::new(false),
+            started: Arc::default(),
         })
     }
 
@@ -103,6 +103,7 @@ impl Tor {
             return listener.on_state(self.state());
         }
         let (dir, node, state) = (self.app_dir.clone(), self.node.clone(), self.state.clone());
+        let started = self.started.clone();
         let set = move |s: TorState| {
             *state.lock().unwrap_or_else(|p| p.into_inner()) = s.clone();
             listener.on_state(s);
@@ -114,10 +115,15 @@ impl Tor {
                     *node.lock().unwrap_or_else(|p| p.into_inner()) = Some(Arc::new(started));
                     set(TorState::Ready);
                 }
-                Err(seam_tor::Error::Timeout) => set(TorState::Blocked {
-                    reason: TorBlock::Filtered,
-                }),
-                Err(_) => set(TorState::Failed),
+                Err(e) => {
+                    started.store(false, Ordering::SeqCst); // a later start tries again, e.g. on another network
+                    set(match e {
+                        seam_tor::Error::Timeout => TorState::Blocked {
+                            reason: TorBlock::Filtered,
+                        },
+                        _ => TorState::Failed,
+                    })
+                }
             }
         });
     }
@@ -262,6 +268,7 @@ impl TorStream {
         handle.spawn(async move {
             loop {
                 tokio::select! {
+                    biased; // what was queued before a shutdown still goes, e.g. an Unpair goodbye
                     next = queued.recv() => match next {
                         Some(bytes) if write.write_all(&bytes).await.is_ok() && write.flush().await.is_ok() => {}
                         _ => break,
@@ -422,6 +429,20 @@ mod tests {
         a.shutdown();
         assert_eq!(mine.recv_timeout(Duration::from_secs(5)).unwrap(), None);
         assert!(!a.send(b"late".to_vec()));
+    }
+
+    #[test]
+    fn bytes_sent_just_before_a_shutdown_still_go() {
+        let rt = rt();
+        let (a, b) = stream_pair(&rt);
+        let got = collect(&b);
+        assert!(a.send(b"bye".to_vec()));
+        a.shutdown();
+        assert_eq!(
+            got.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Some(b"bye".to_vec())
+        );
+        assert_eq!(got.recv_timeout(Duration::from_secs(5)).unwrap(), None);
     }
 
     #[test]

@@ -165,6 +165,19 @@ struct SessionPairingTests {
         #expect(rig.lan.frames.isEmpty, "nothing on the losing link")
     }
 
+    @Test func askingForTheKeysAgainGetsTheSameOnesNotMoreSaved() async throws {
+        let rig = try await Rig(paired: false)
+        _ = try await showCode(rig)
+        await rig.session.setLink(rig.tor, for: .tor)
+        await rig.session.linkEvent(.authenticated(peerId: pairing), on: .tor)
+        await rig.session.linkEvent(.bundleRequest(peerId: pairing), on: .tor)
+        let saved = try rig.mac.exportState(storageKey: Data(repeating: 1, count: 32)).count
+        for _ in 0..<5 { await rig.session.linkEvent(.bundleRequest(peerId: pairing), on: .tor) }
+        let bundles = rig.tor.frames.compactMap { if case .bundle(let b)? = $0.frame { b.bundle } else { nil } }
+        #expect(bundles.count == 6 && Set(bundles).count == 1)
+        #expect(try rig.mac.exportState(storageKey: Data(repeating: 1, count: 32)).count == saved, "no new keys kept")
+    }
+
     @Test func noServiceWithTorSwitchedOffButSameWifiStillPairs() async throws {
         let rig = try await Rig(paired: false, tor: false)
         let qr = try await showCode(rig)

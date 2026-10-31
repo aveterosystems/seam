@@ -69,6 +69,22 @@ class TorLanTest {
         assertEquals("ready already: reported at once", 2, found.size)
     }
 
+    @Test fun sleepAskedWhileStartingIsSentAgainOnceReady() {
+        lookForTheMac()
+        tor.stopDiscovery() // e.g. the screen went off while Tor was starting: Arti ignores this
+        val before = arti.dormant.size
+        arti.state!!.onState(TorState.Ready)
+        assertEquals("told again once it counts", listOf(true), arti.dormant.drop(before))
+    }
+
+    @Test fun aFailedStartIsTriedAgainOnTheNextLook() {
+        lookForTheMac()
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED))
+        tor.stopDiscovery()
+        lookForTheMac()
+        assertEquals(2, arti.starts)
+    }
+
     @Test fun dormantWheneverNoStreamIsOpenAndNothingIsLooking() {
         lookForTheMac()
         arti.state!!.onState(TorState.Ready)
