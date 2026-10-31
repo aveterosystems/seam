@@ -13,6 +13,8 @@ rust-version.workspace = true
 arti-client = { version = "=0.47.0", default-features = false, features = [
     "tokio", "rustls", "compression", "static-sqlite",
     "onion-service-client", "onion-service-service", "keymgr", "experimental-api", "ephemeral-keystore",
+    # Guards for a long-running onion service's own circuits (lite by default), as Tor advises
+    "vanguards",
 ] }
 # Arti's own crates, same exact version, for the key and onion-service types arti-client exposes
 tor-cell = "=0.47.0"

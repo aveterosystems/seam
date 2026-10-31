@@ -12,7 +12,6 @@ use tor_keymgr::config::ArtiKeystoreKind;
 use tor_rtcompat::PreferredRuntime;
 
 use crate::Error;
-use crate::keys::OnionAddress;
 
 /// How long Tor may take to bootstrap before [`TorNode::start`] gives up.
 pub const START_TIMEOUT: Duration = Duration::from_secs(120);
@@ -38,9 +37,9 @@ fn check_private(app_dir: &Path) -> Result<(), Error> {
 /// Tor's public directory and guard choices only.
 pub struct TorNode {
     pub(crate) client: Arc<TorClient<PreferredRuntime>>,
-    /// The service key loaded into Arti's keystore, once [`TorNode::host`] has run. Arti keeps it
-    /// for the node's lifetime, so every later launch must use the same key.
-    pub(crate) service_address: Mutex<Option<OnionAddress>>,
+    /// The services whose keys are loaded into Arti's keystore (by address). Arti keeps a key for
+    /// the node's lifetime, so a relaunch of the same service reuses it.
+    pub(crate) service_keys: Mutex<std::collections::HashSet<String>>,
 }
 
 /// Where Tor is, for the app's status line.
@@ -101,12 +100,13 @@ impl TorNode {
             .map_err(|e| Error::Tor(e.kind()))?;
         Ok(Self {
             client,
-            service_address: Mutex::new(None),
+            service_keys: Mutex::default(),
         })
     }
 
-    /// Dormant: no background traffic until the next connection. Seam goes dormant whenever it
-    /// has no Tor connection open (decision 0005: the phone holds nothing it doesn't need).
+    /// Dormant: no background traffic until the next connection. Only the phone sleeps Tor,
+    /// whenever it has no Tor connection open (decision 0005). Never the Mac: a dormant client
+    /// stops republishing its onion service, so the phone couldn't reach it.
     pub fn set_dormant(&self, dormant: bool) {
         self.client.set_dormant(if dormant {
             DormantMode::Soft

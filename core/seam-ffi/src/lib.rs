@@ -10,6 +10,9 @@ use seam_core::{Device, SignalProtocolError, bundle, file, lan, links};
 
 uniffi::setup_scaffolding!();
 
+mod tor;
+pub use tor::*;
+
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum SeamError {
     /// The other device isn't paired (or was unpaired).
@@ -508,7 +511,7 @@ pub struct LanOutput {
     pub send: Vec<u8>,
     /// seam.v1 ClientFrame (Mac side) or ServerFrame (phone side) bytes, from the authenticated peer.
     pub frames: Vec<Vec<u8>>,
-    /// Set once, on the call that finished authentication: the paired peer's id.
+    /// Set once, on the call that finished authentication: the paired peer's id, or "pairing".
     pub authenticated: Option<String>,
 }
 
@@ -530,7 +533,28 @@ impl LanChannel {
         }))
     }
 
-    /// The Mac's side, for one incoming connection. Fails while no phone is paired.
+    /// The phone's side while pairing: the Mac pinned from its QR code (`relay_key`), the phone
+    /// proving it scanned it with the QR's `token`. Write `start()` as soon as the stream connects.
+    #[uniffi::constructor]
+    pub fn pairing_initiator(
+        device: &SeamDevice,
+        relay_key: Vec<u8>,
+        token: Vec<u8>,
+    ) -> Result<Arc<Self>> {
+        let key: [u8; 32] = relay_key.try_into().map_err(|_| SeamError::Invalid {
+            detail: "relay key".into(),
+        })?;
+        Ok(Arc::new(Self {
+            inner: Mutex::new(lan::LanChannel::pairing_initiator(
+                &device.lock(),
+                key,
+                &token,
+            )?),
+        }))
+    }
+
+    /// The Mac's side, for one incoming connection: a paired phone, or while a pairing is open, a
+    /// phone that proves it scanned the code. Fails when neither could authenticate.
     #[uniffi::constructor]
     pub fn responder(device: &SeamDevice) -> Result<Arc<Self>> {
         Ok(Arc::new(Self {
@@ -559,6 +583,12 @@ impl LanChannel {
 
     pub fn peer_id(&self) -> Option<String> {
         self.lock().peer_id().map(str::to_owned)
+    }
+
+    /// A pairing channel: a phone that proved it scanned the code, not a paired peer. Only the
+    /// pairing exchange (the Mac's bundle, the PairRequest, the PairAccept) may travel over it.
+    pub fn is_pairing(&self) -> bool {
+        self.lock().is_pairing()
     }
 }
 

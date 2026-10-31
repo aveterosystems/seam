@@ -12,6 +12,7 @@ Seam is licensed under [AGPL-3.0-only](LICENSE) and builds on the open-source wo
 | [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek) | X25519 and signatures | BSD-3-Clause |
 | [RustCrypto `aes-gcm`](https://github.com/RustCrypto/AEADs) | File chunk encryption | Apache-2.0 OR MIT |
 | [UniFFI](https://github.com/mozilla/uniffi-rs) | Swift and Kotlin bindings for the Rust core | MPL-2.0 |
+| [Arti](https://arti.torproject.org) (`arti-client` and its `tor-*` crates), by the Tor Project | Connecting to the Tor® network: the Mac's private onion service and the phone's connection to it | MIT OR Apache-2.0 |
 | [hpke-rs](https://github.com/cryspen/hpke-rs) | Pulled in by libsignal | MPL-2.0 |
 | [SwiftProtobuf](https://github.com/apple/swift-protobuf) | Message encoding on the Mac | Apache-2.0 |
 | [Sparkle](https://github.com/sparkle-project/Sparkle) | In-app updates on the Mac | MIT |
@@ -23,6 +24,8 @@ Seam is licensed under [AGPL-3.0-only](LICENSE) and builds on the open-source wo
 | [ZXing core](https://github.com/zxing/zxing) | Reads the pairing QR code on the phone | Apache-2.0 |
 | [OkHttp](https://github.com/square/okhttp) | The phone's WebSocket to the relay | Apache-2.0 |
 | [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | The phone's session and timers | Apache-2.0 |
+
+Tor® is a trademark of The Tor Project, Inc.; all rights reserved. Seam isn't endorsed or sponsored by, or affiliated with, the Tor Project. See [torproject.org](https://www.torproject.org).
 
 The Rust core pulls in around 200 crates (the exact count depends on the platform). Most are `MIT OR Apache-2.0`; the rest are Apache-2.0, MIT, BSD, MPL-2.0 (UniFFI, hpke-rs) or AGPL-3.0 (libsignal). To list them yourself:
 

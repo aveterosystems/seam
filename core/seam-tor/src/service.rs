@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use arti_client::config::onion_service::OnionServiceConfigBuilder;
 use futures::{Stream, StreamExt};
-use tor_cell::relaycell::msg::{Connected, End, EndReason};
+use tor_cell::relaycell::msg::Connected;
 use tor_hsservice::config::TokenBucketConfig;
 use tor_hsservice::config::restricted_discovery::HsClientNickname;
 use tor_hsservice::{
@@ -22,7 +22,6 @@ use arti_client::HasKind;
 use crate::keys::{DiscoveryPublic, OnionAddress, ServiceKey};
 use crate::{DataStream, Error, SEAM_PORT, TorNode};
 
-const SERVICE_NICKNAME: &str = "seam";
 const MAX_STREAMS_PER_CIRCUIT: u32 = 2;
 /// Introductions per second, and in one burst.
 const INTRO_RATE: u32 = 1;
@@ -37,7 +36,7 @@ pub struct HostedService {
 }
 
 impl TorNode {
-    /// Publishes the Mac's onion service, discoverable only by `clients` (one entry per paired
+    /// Publishes an onion service for `key`, discoverable only by `clients` (one entry per paired
     /// phone). To add or remove a phone, drop the service and host it again: Arti reads the
     /// client list only at launch.
     pub fn host(
@@ -50,7 +49,12 @@ impl TorNode {
             return Err(Error::NoClients);
         }
         let mut builder = OnionServiceConfigBuilder::default();
-        builder.nickname(HsNickname::new(SERVICE_NICKNAME.into()).map_err(|_| Error::Config)?);
+        let expected = key.address();
+        // One service per key: the Mac hosts the old address and the one it's pairing at once
+        let address = expected.to_string();
+        builder.nickname(
+            HsNickname::new(format!("seam-{}", &address[..16])).map_err(|_| Error::Config)?,
+        );
         // A phone needs one stream at a time and introduces itself rarely: anything more is a
         // flood, refused before it costs circuits (SR-33-02)
         builder.max_concurrent_streams_per_circuit(MAX_STREAMS_PER_CIRCUIT);
@@ -68,35 +72,26 @@ impl TorNode {
         }
         let config = builder.build().map_err(|_| Error::Config)?;
 
-        let expected = key.address();
         type Launched = (
             Arc<RunningOnionService>,
             Pin<Box<dyn Stream<Item = RendRequest> + Send>>,
         );
         let launched: Option<Launched> = {
-            let mut loaded = self.service_address.lock().map_err(|_| Error::Config)?;
-            match *loaded {
-                // First launch on this node: load the key into the in-memory keystore
-                None => {
-                    let launched = self
-                        .client
-                        .launch_onion_service_with_hsid(config, key.keypair());
-                    // The key goes in before the launch, so it stays even if the launch fails: a
-                    // retry must take the relaunch path (SR-33-05). Were the insert itself to fail,
-                    // the address check below refuses whatever launched instead
-                    *loaded = Some(expected);
-                    launched
-                        .map_err(|e| Error::Tor(e.kind()))?
-                        .map(|(running, requests)| (running, Box::pin(requests) as _))
-                }
-                // Relaunch (the phone list changed): Arti still holds the same key
-                Some(address) if address == expected => self
-                    .client
+            let mut loaded = self.service_keys.lock().map_err(|_| Error::Config)?;
+            if loaded.insert(address) {
+                // First launch of this key: load it into the in-memory keystore. It goes in before
+                // the launch, so a retry after a failed launch takes the relaunch path (SR-33-05);
+                // were the insert itself to fail, the address check below refuses what launched
+                self.client
+                    .launch_onion_service_with_hsid(config, key.keypair())
+                    .map_err(|e| Error::Tor(e.kind()))?
+                    .map(|(running, requests)| (running, Box::pin(requests) as _))
+            } else {
+                // Relaunch (the phone list changed): Arti still holds this key under this name
+                self.client
                     .launch_onion_service(config)
                     .map_err(|e| Error::Tor(e.kind()))?
-                    .map(|(running, requests)| (running, Box::pin(requests) as _)),
-                // A different key would need a fresh node; never launch under it here
-                Some(_) => return Err(Error::WrongServiceKey),
+                    .map(|(running, requests)| (running, Box::pin(requests) as _))
             }
         };
         let (running, requests) = launched.ok_or(Error::Config)?;
@@ -123,10 +118,9 @@ impl HostedService {
         while let Some(request) = self.requests.next().await {
             let wanted = matches!(request.request(), IncomingStreamRequest::Begin(begin) if begin.port() == SEAM_PORT);
             if !wanted {
-                // The refusal is best effort: a failure only means the circuit is already gone
-                let _ = request
-                    .reject(End::new_with_reason(EndReason::EXITPOLICY))
-                    .await;
+                // Not Seam: close the whole circuit, not just this stream, as Tor advises for
+                // unexpected requests. Best effort: a failure means it's already gone
+                let _ = request.shutdown_circuit();
                 continue;
             }
             if let Ok(stream) = request.accept(Connected::new_empty()).await {

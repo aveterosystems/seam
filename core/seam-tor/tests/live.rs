@@ -44,11 +44,15 @@ async fn only_the_paired_phone_reaches_the_mac() {
         .host(&service_key, &[phone_key.public()])
         .expect("service launches");
     let address = service.address();
-    // The node holds one service key for life; another key is refused before anything launches
-    assert!(matches!(
-        mac.host(&ServiceKey::generate().unwrap(), &[phone_key.public()]),
-        Err(Error::WrongServiceKey)
-    ));
+    // A second key is a second service under its own address (the Mac pairs a new phone while
+    // the old address still runs); each serves only under its own address
+    let second = ServiceKey::generate().unwrap();
+    let other = mac
+        .host(&second, &[stranger_key.public()])
+        .expect("a second service");
+    assert_eq!(other.address(), second.address());
+    assert_ne!(other.address(), address);
+    drop(other);
     // The Mac echoes whatever arrives, like a login challenge and reply
     tokio::spawn(async move {
         while let Some(mut stream) = service.accept().await {

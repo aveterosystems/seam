@@ -36,7 +36,7 @@ pub enum Error {
     Config,
     #[error("no paired phone may discover this service")]
     NoClients,
-    #[error("this Tor node already hosts a service under another key")]
+    #[error("the launched service's address doesn't match its key")]
     WrongServiceKey,
     #[error("Tor timed out")]
     Timeout,
