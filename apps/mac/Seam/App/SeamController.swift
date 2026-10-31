@@ -23,12 +23,16 @@ final class SeamController {
     /// Something the user should see in the menu (a refused login, a save that failed).
     private(set) var warning: String?
     private(set) var pairing: PairingState = .idle
-    /// The last two things that came from the phone's clipboard, for the popover (memory only).
-    private(set) var recentFromPhone: [FromPhone] = []
+    /// Clips that crossed either way in the last day, newest first, for the main window (memory only).
+    private(set) var clips: [Clip] = []
+    /// The phone's notifications that are still up, newest first, for the main window (memory only).
+    private(set) var phoneNotifications: [Seam_V1_Notification] = []
     /// The phone's notification settings as it last sent them (the phone owns them). Memory only.
     private(set) var notificationSettings: Seam_V1_NotificationSettings?
     /// Set to open Settings at a pane (the popover's "Notification Settings…"); Settings clears it.
     var requestedSettingsPane: SettingsView.Pane?
+    /// Set to open the main window at a pane (the popover's links); the window clears it.
+    var requestedMainPane: MainWindow.Pane?
     /// Phone apps' icons, from the phone when asked for. Memory only.
     private(set) var appIcons: [String: NSImage] = [:]
     /// Clipboard both ways (menu toggle, on by default).
@@ -131,7 +135,8 @@ final class SeamController {
     private func show(_ s: Session.State) {
         phone = s.phone
         status = s.status
-        recentFromPhone = s.recentFromPhone
+        clips = s.clips
+        phoneNotifications = s.phoneNotifications
         notificationSettings = s.notificationSettings
         if s.appIcons.isEmpty { iconPNGs = [:]; appIcons = [:] }
         for (id, png) in s.appIcons where iconPNGs[id] != png {
@@ -186,6 +191,13 @@ final class SeamController {
         Task { await session?.setClipboardSync(on) }
     }
 
+    /// The last two clips from the phone, for the popover.
+    var recentFromPhone: [Clip] { Array(clips.filter(\.fromPhone).prefix(2)) }
+
+    func clearClips() {
+        Task { await session?.clearClips() }
+    }
+
     /// Puts an earlier clip from the phone back on this Mac's clipboard (popover "Copy").
     func copyAgain(_ text: String) {
         Task { await session?.copyAgain(text) }
@@ -208,6 +220,16 @@ final class SeamController {
     }
 
     // MARK: Notifications
+
+    /// A button or reply on one of the phone's notifications, in the main window.
+    func act(_ action: Seam_V1_NotificationAction) {
+        Task { await session?.notificationAction(action) }
+    }
+
+    /// The main window's dismiss: the banner goes too.
+    func dismiss(_ n: Seam_V1_Notification) {
+        Task { await session?.dismissNotification(key: n.key) }
+    }
 
     func setNotifications(enabled: Bool) {
         changeNotificationSettings(.with { $0.enabled = enabled })

@@ -3,7 +3,8 @@ import AppKit
 import SeamSession
 import SwiftUI
 
-/// A menu bar app (no Dock icon): the popover (board M01) and Settings (board M03, ⌘,).
+/// A menu bar app (no Dock icon): the popover (board M01), the main window (⌘O) and Settings
+/// (board M03, ⌘,).
 @main
 struct SeamApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -16,6 +17,12 @@ struct SeamApp: App {
         }
         .menuBarExtraStyle(.window)
 
+        Window("Seam", id: "main") {
+            MainWindow(controller: appDelegate.controller)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 900, height: 620)
+
         // Board M03 draws its own title and sidebar, so this is a plain window with a hidden title
         // bar rather than the system Settings window (which centres a title and adds a toolbar)
         Window("Seam Settings", id: "settings") {
@@ -26,6 +33,9 @@ struct SeamApp: App {
         .commands {
             CommandGroup(replacing: .appSettings) {
                 SettingsCommand()
+            }
+            CommandGroup(replacing: .newItem) {
+                OpenMainCommand()
             }
         }
     }
@@ -78,6 +88,19 @@ enum UnpairPrompt {
         NSApp.activate()
         guard alert.runModal() == .alertSecondButtonReturn else { return }
         controller.unpairPhone()
+    }
+}
+
+/// ⌘O opens the main window.
+private struct OpenMainCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Open Seam") {
+            NSApp.activate()
+            openWindow(id: "main")
+        }
+        .keyboardShortcut("o")
     }
 }
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamProtocol
 import SeamSession
 import SwiftUI
 
@@ -23,7 +24,10 @@ struct ModuleButton: View {
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(on ? SeamStyle.teal : Color.primary.opacity(0.08)))
                     .foregroundStyle(on ? Color.white : Color.primary)
+                // Two lines' room whatever the label, so every circle sits on the same line
                 Text(title).font(.system(size: 11, weight: .medium)).multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(height: 28, alignment: .top)
             }
         }
         .buttonStyle(.plain)
@@ -147,5 +151,24 @@ struct LinkStatus: View {
             .frame(width: 260, alignment: .leading)
             .padding(14)
         }
+    }
+}
+
+/// The phone's battery: neutral, like the board; amber at 15% or below while not charging.
+struct BatteryPill: View {
+    let status: Seam_V1_Status
+
+    var body: some View {
+        let low = status.batteryPct <= 15 && !status.charging
+        HStack(spacing: 3) {
+            if status.charging { Image(systemName: "bolt.fill") }
+            Text("\(status.batteryPct)%").monospacedDigit()
+        }
+        .font(.caption.weight(.medium))
+        .padding(.horizontal, 8)
+        .frame(height: 20)
+        .background(Capsule().fill(low ? SeamStyle.warn.opacity(0.18) : Color.primary.opacity(0.08)))
+        .foregroundStyle(low ? SeamStyle.warn : .secondary)
+        .accessibilityLabel("Phone battery \(status.batteryPct) percent\(status.charging ? ", charging" : "")")
     }
 }
