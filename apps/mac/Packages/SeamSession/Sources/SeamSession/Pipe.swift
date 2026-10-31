@@ -72,7 +72,7 @@ final class TorPipe: Pipe, @unchecked Sendable {
     }
 
     func cancel() {
-        stream.close()
+        stream.shutdown()
     }
 
     private final class Listener: TorStreamListener, @unchecked Sendable {

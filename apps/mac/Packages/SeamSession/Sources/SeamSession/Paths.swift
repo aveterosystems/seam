@@ -174,7 +174,7 @@ public final class Paths {
         guard torState == .ready, let carrier = carriers[.tor]?.runner else { return }
         for spec in want where hosted[spec] == nil {
             hosted[spec] = tor.host(spec) { [weak carrier] stream in
-                guard let carrier else { return stream.close() }
+                guard let carrier else { return stream.shutdown() }
                 carrier.adopt(stream)
             }
         }

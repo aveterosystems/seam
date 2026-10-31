@@ -226,7 +226,7 @@ public final class LanServer: @unchecked Sendable {
     /// the channel still has to authenticate it.
     public func adopt(_ stream: TorStream) {
         queue.async {
-            guard !self.stopped, let channel = try? LanChannel.responder(device: self.device) else { return stream.close() }
+            guard !self.stopped, let channel = try? LanChannel.responder(device: self.device) else { return stream.shutdown() }
             // Tor streams carry no address to bucket by: each is its own bucket, so only the overall limit applies
             self.take(TorPipe(stream, queue: self.queue), channel: channel, address: UUID().uuidString)
         }
