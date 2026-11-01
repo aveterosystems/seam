@@ -61,7 +61,9 @@ class NotificationsFeature(context: Context, private val session: SessionApi) : 
     }
 
     init {
-        instance = this
+        // The app's own (SeamApplication's) is the first and only one; a later one, such as the debug
+        // gallery's sample, must never receive the phone's real notifications or app list
+        if (instance == null) instance = this
     }
 
     /**

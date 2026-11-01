@@ -14,7 +14,14 @@ import com.avetero.seam.session.SessionState
  * stitch"). The line, the icon and the words always come from here, together, so no screen
  * decides any of them on its own.
  */
-data class LinkLook(val line: Line, val label: String, val connected: Boolean, @DrawableRes val icon: Int? = null) {
+data class LinkLook(
+    val line: Line,
+    val label: String,
+    val connected: Boolean,
+    @DrawableRes val icon: Int? = null,
+    /** Paused on this phone: the hero and the status chip turn tertiary, and say until when. */
+    val paused: Boolean = false,
+) {
     enum class Line { Solid, Dashed, Dotted, Broken }
 
     /** The whole line in words, for TalkBack and wherever there's no room for the icon. */
@@ -24,16 +31,17 @@ data class LinkLook(val line: Line, val label: String, val connected: Boolean, @
         val SameWifi = LinkLook(Line.Solid, "Same Wi‑Fi", true, R.drawable.ic_wifi)
         val ThroughTor = LinkLook(Line.Dashed, "Through Tor", true, R.drawable.ic_globe)
         val Idle = LinkLook(Line.Broken, "Paired · connects when there's something to sync", false)
-        val Reconnecting = LinkLook(Line.Broken, "Reconnecting…", false)
+        val Reconnecting = LinkLook(Line.Broken, "Offline · will send when it's back", false)
         val WaitingOnWifi = LinkLook(Line.Broken, "Waiting for your Mac on the same Wi‑Fi", false)
-        val ConnectingTor = LinkLook(Line.Broken, "Connecting through Tor…", false)
+        val ConnectingTor = LinkLook(Line.Broken, "Connecting through Tor", false)
         val TorBlocked = LinkLook(Line.Broken, "Tor is blocked on this network", false)
         val TorClock = LinkLook(Line.Broken, "Tor needs the correct time. Check your clock", false)
         val TorFailed = LinkLook(Line.Broken, "Tor couldn't start on this phone", false)
         val NoSharedPath = LinkLook(Line.Broken, "Your Mac and this phone share no connection type. Turn on one your Mac allows too", false)
 
         /** Paused on this phone: nothing syncs, nothing connects, until [until]. */
-        fun paused(until: Long, now: Long) = LinkLook(Line.Broken, pausedLabel(until, now), false)
+        // The chip's wording: "Paused · until 14:44"
+        fun paused(until: Long, now: Long) = LinkLook(Line.Broken, pausedLabel(until, now).replaceFirst("Paused ", "Paused · "), false, paused = true)
 
         /** The one place the session's state becomes a look. */
         fun of(

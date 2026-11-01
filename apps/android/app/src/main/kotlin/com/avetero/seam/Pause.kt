@@ -8,12 +8,14 @@ import java.time.format.DateTimeFormatter
 
 /** The ways to pause Seam. Only the phone pauses; the Mac is told and waits. */
 enum class PauseFor(val label: String) {
-    HOUR("For 1 hour"),
+    HALF_HOUR("30 minutes"),
+    HOUR("1 hour"),
     MORNING("Until tomorrow morning"),
     RESUME("Until I resume");
 
     /** When a pause chosen at [now] ends (unix ms); Long.MAX_VALUE: until resumed. */
     fun until(now: Long, zone: ZoneId = ZoneId.systemDefault()): Long = when (this) {
+        HALF_HOUR -> now + 30 * 60_000L
         HOUR -> now + 60 * 60_000L
         MORNING -> Instant.ofEpochMilli(now).atZone(zone).toLocalDate().plusDays(1)
             .atTime(MORNING_AT).atZone(zone).toInstant().toEpochMilli()

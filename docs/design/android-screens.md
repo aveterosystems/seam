@@ -4,30 +4,27 @@ Boards A01–A08 on the [canvas](https://claude.ai/artifact/L2EffY2kHu6PjJy6Nkoi
 
 The app is deliberately small. Most of Seam on Android is system surfaces (A07): share sheet, Quick Settings, notifications, the copy pop-up. The app itself is for status, set-up and settings.
 
-## A01 Home (`AndHome.dc.html`)
+## A01 Home (built)
 
-**Purpose:** "my Mac is connected". Calm and nearly empty.
+**Purpose:** "my Mac is connected", and the two things to do about it. Built to the approved prototype (`docs/design/prototypes/android-app.html`, kept locally), light and dark.
 
-**Layout:**
-- A top bar: Seam mark and wordmark, with **Activity** and **Settings** icon buttons. There's no bottom nav.
-- The **cookie hero**: a large version of the Seam icon (Mac and phone joined by stitches) on the scalloped `primaryContainer` shape.
-- The device name as a 36 sp hero headline, with "● Connected · Same Wi‑Fi" and "Encrypted · Mac battery 64%" under it.
-- **Four round actions:** Clipboard (primary, rounded-square shape), Files, Photos, Lock Mac.
-- A bottom card: "Copied on your Mac · 1 min ago", with the item and **Paste** (copies it into the phone clipboard).
+**Layout, top to bottom:**
+- A 56 dp bar: the Seam mark and wordmark, and **Settings**.
+- The update card when a newer Seam is out (GitHub build, tertiaryContainer, "Seam 0.3 is ready to install", **Update**), or the once-only "Check for updates automatically?" card.
+- The **cookie hero** (196 dp): the Mac and this phone joined by three stitches, on the 9-scallop cookie. Connected, it's primaryContainer and turns once every 40 s; paused, it springs to a softer tertiaryContainer cookie and stops; otherwise it's a still grey circle. The shape morphs on the prototype's bouncy curve (0.8 s).
+- The Mac's name (30 sp), the status chip ("● Connected · Same Wi‑Fi"; the dot sends out a ring every 2.4 s while connected; tertiary while paused, "Paused · until 14:44"), and "Encrypted   Mac battery 64%" ("—" while the Mac is out of reach, hidden until it has ever sent its battery).
+- A button group: **Send clipboard** (primary) and **Pause** (tonal), 4 : 1. Pressing one widens it and tightens its corners. Paused, Pause folds away and the main button becomes **Resume**.
+- "Copied on your Mac · just now" with **Paste**, while a Mac copy is fresh. Paste turns green and says "✓ Pasted", then the card folds away.
+- A grouped list: **Notifications on Mac ›** ("On · 6 apps") and **Automatic clipboard**, highlighted in primaryContainer while on.
 
 **Behaviour:**
-- Clipboard sends the current clip. This uses the app's foreground focus, so it always works.
-- Files and Photos open the system pickers.
-- Lock Mac locks the Mac at once.
-- The hero's stitches follow the stitch rules (solid, dashed, dotted, broken).
+- Send clipboard says "✓ Sent to Mac" on the button for 1.3 s when it went, "Sending" when the connection is still starting (it doesn't claim it was sent, SR-8-04), and "Will send when MacBook Pro is back" in a snackbar when the Mac is out of reach.
+- Pause opens the Pause sheet: 30 minutes, 1 hour, until tomorrow morning, until I resume. The notification's Pause button opens the same sheet. Resume says "Seam is back on".
+- Automatic clipboard can't be switched from the phone alone: the row and its switch explain how (on the Mac, or through Accessibility).
 
-**States:**
-- **Offline:** the stitches break, the status reads "Offline · will send when your Mac is back", and the actions still queue.
-- **Not paired:** the hero shows the Mac outline only, with a large **Pair with a Mac** button (opens A02).
+**States:** connected (Same Wi‑Fi: solid stitches that draw themselves in; Tor: dashes flowing along), offline ("Offline · will send when it's back", broken grey stitches, still), paused, idle ("Paired · connects when there's something to sync"), and Tor's own problems in words. Not paired: the pairing intro.
 
-**Done when:** the screen fits without scrolling on a 360 dp-wide phone, at 1.3× font scale.
-
-## A02 Pairing (`AndPairing.dc.html`)
+## A02 Pairing (`AndPairing.dc.html`, restyled with the same parts; follows the light or dark theme)
 
 **Purpose:** scan and confirm.
 
@@ -39,7 +36,7 @@ The app is deliberately small. Most of Seam on Android is system surfaces (A07):
 
 **Done when:** scan to paired takes under 10 s, including the companion dialog.
 
-## A03 Set-up checklist (`AndPermissions.dc.html`)
+## A03 Set-up checklist (`AndPermissions.dc.html`, restyled with the same parts)
 
 **Purpose:** one guided pass for the permissions, all optional.
 
@@ -81,22 +78,29 @@ A footnote explains the clipboard: "Mac → phone is automatic. Phone → Mac is
 
 **Done when:** the list stays smooth at 500 rows and entries older than 7 days are deleted.
 
-## A06 Settings (`AndSettings.dc.html`)
+## A06 Settings (built)
 
-**Purpose:** per-feature switches, privacy, the paired Mac.
+**Layout:** back, and a 34 sp title that shrinks to 0.6 and fades over the first 60 dp of scroll while a 20 sp title fades in beside the arrow. Then grouped sections:
+- **On your Mac:** Notifications ›, Automatic clipboard, Never send passwords (always on: tapping says so).
+- **Connection:** Same Wi‑Fi, Internet through Tor. The last one on can't be turned off, and the footnote says what the pair means.
+- **Privacy & security:** End-to-end encrypted, with the pairing code blurred until tapped.
+- **Updates** (GitHub build): "Check daily" (or how often it's set to), How often (a sheet), and the version row that checks now ("Checking", "✓ Up to date"), with the note about Install unknown apps (SR-17-14).
+- **Your Mac:** its name, "Paired 14 September 2026" (saved when pairing finishes, cleared when it's forgotten, hidden when unknown), and **Forget** in the error colour, which asks first.
+- **About:** the version (Play build) and the source.
 
-**Layout:** a back button, the "Settings" hero headline, then three grouped sections.
-- **On your Mac:**
-  - Notifications ("23 apps · sensitive ones title only", which opens the per-app list)
-  - Texts
-  - **Automatic clipboard**, highlighted in `primaryContainer` when on. It reads "On · set up from your Mac", or "Off · set up from your Mac" with an explainer.
-  - Files (save location)
-- **Privacy & security:** "End-to-end encrypted · keys verified when you paired · 482 913" (tap to re-verify) and "Never sync passwords".
-- **Mac:** the device row with **Forget** in error colour.
+## Notifications (built)
 
-**Behaviour:** the automatic clipboard switch can't be turned on from the phone alone. If the adb grant is missing, tapping it shows a sheet: "Open Seam on your Mac › Settings › Clipboard › Turn on automatic clipboard". Forget removes the keys on both devices.
+Settings › Notifications, also opened from Home.
+- **Show on your Mac**, a big primaryContainer card with its switch; off, the rest dims and can't be changed.
+- Dismiss on both, and Quiet while I'm using this phone.
+- A search field, then the apps, each with a mode chip (On, Title only, Off). Tapping one opens a sheet of radio cards; long-pressing one, or **Select**, starts picking several, with a floating toolbar to set them all at once and a snackbar saying what changed.
+- The access row ("Allow") shows only while notification access is off.
 
-**Done when:** every switch syncs to the Mac's matching setting within 2 s.
+## Moving between screens (built)
+
+Forward, the new screen slides in from 30% to the right while the old drifts 18% left. Back, by gesture (predictive back) or the arrow, the screen first shrinks to 0.9, leans right and rounds its corners, then leaves. Sheets rise from below on the prototype's spring, dialogs scale up from 0.85, and confirmations of things that happened elsewhere are snackbars. With animations off, these become crossfades and the loops stop.
+
+**Checking against the prototype:** debug builds have a screen gallery (`GalleryActivity`, debug only) that shows the real screens with the prototype's sample data, and `./gradlew :app:testFullDebugUnitTest --tests '*ScreensTest*' -Pscreens` renders every state, light and dark, to `app/build/screens/`.
 
 ## A07 System surfaces (`AndSystem.dc.html`)
 

@@ -55,7 +55,7 @@ If the user has set a system accent colour, controls follow it. Seam teal is the
 
 ## Android
 
-**Material 3 Expressive** in Compose. Dynamic colour (Material You) is on by default. Seam teal is the fallback scheme and the seed for Settings › Appearance › "Seam colours".
+**Material 3 Expressive** in Compose (`MaterialExpressiveTheme`, material3 1.5). The colours are Seam's own fixed teal scheme, never wallpaper (dynamic) colours, so the phone and the Mac look the same. The app follows the system's light or dark theme, and when it changes every colour eases from one theme to the other over 0.4 s. The roles are the approved prototype's (`docs/design/prototypes/android-app.html`, its `.scr` and `.scr.dark` variables) and live in `Theme.kt`:
 
 | Role | Light | Dark |
 |---|---|---|
@@ -63,18 +63,22 @@ If the user has set a system accent colour, controls follow it. Seam teal is the
 | `primaryContainer` / `on…` | `#9FF2E0` / `#00201B` | `#005047` / `#9FF2E0` |
 | `secondaryContainer` / `on…` | `#CCE8E1` / `#06201B` | `#334B46` / `#CCE8E1` |
 | `tertiaryContainer` / `on…` | `#CFE5FF` / `#001D33` | `#2E4A63` / `#CFE5FF` |
-| `surface` | `#F4FBF8` | `#0E1513` |
-| `surfaceContainerLow` / `…` / `High` / `Highest` | `#EEF5F2` / `#E8EFEC` / `#E2EAE7` / `#DCE4E1` | `#161D1B` / `#1A211F` / `#252B2A` / `#2F3634` |
-| `onSurface` / `onSurfaceVariant` | `#161D1B` / `#3F4946` | `#DDE4E1` / `#BEC9C5` |
-| `outline` / `outlineVariant` | `#6F7976` / `#BEC9C5` | `#89938F` / `#3F4946` |
+| `surface` | `#F8F9FA` | `#111214` |
+| `surfaceContainerLow` / `…` / `High` / `Highest` | `#F0F2F4` / `#EAECEE` / `#E4E6E8` / `#DEE0E2` | `#1B1C1E` / `#1F2022` / `#292A2C` / `#343537` |
+| `onSurface` / `onSurfaceVariant` | `#1A1C1E` / `#44474A` | `#E3E3E6` / `#C4C7CA` |
+| `outline` / `outlineVariant` | `#74777A` / `#C4C7CA` | `#8E9194` / `#44474A` |
+| `inverseSurface` / `inverseOnSurface` | `#2F3133` / `#F1F0F4` | `#E3E3E6` / `#2F3133` |
+| `error` | `#BA1A1A` | `#FFB4AB` |
+| `ok` (not a Material role) | `#1C7C3A` | `#7BD88F` |
+| scrim behind sheets and dialogs | black 32% | black 50% |
 
 ### Android shapes
 
 | Part | Shape |
 |---|---|
 | Grouped lists (the Android 16 Settings style) | Each row is its own surface. The group's outer corners are 24 dp, inner corners 4 dp, with 2 dp gaps between rows |
-| Home hero | The Expressive "cookie": a circle with 9 soft scallops, filled `primaryContainer` |
-| Main round actions | 68 dp circles. The selected or primary one morphs to a 22 dp rounded square |
+| Home hero | The Expressive "cookie": a circle with 9 soft scallops, filled `primaryContainer`, turning once every 40 s while connected; a softer tertiary cookie while paused; a still grey circle otherwise |
+| Home actions | A button group, 60 dp tall: Send clipboard and Pause at 4 : 1, pill-shaped, corners tightening to 16 dp while pressed |
 | Cards, sheets | 24–28 dp |
 | Buttons | Full pill: 40 dp normal, 56 dp large |
 | Quick Settings tile (the system's own) | 64 dp pill |
@@ -148,6 +152,6 @@ How every screen moves, and the finish it needs before it's done, is in [motion.
 | Platform | Where | Contents |
 |---|---|---|
 | Mac | `apps/mac/Packages/SeamDesign` | `Color` assets for the tokens (light/dark in the asset catalogue), `SeamStitch` view, the app icon, symbol constants. No custom button or toggle styles. |
-| Android | `apps/android/core/designsystem` | `SeamTheme` (dynamic colour with teal fallback), `SeamShapes` (cookie, grouped list corners), Roboto Flex `FontFamily` with variation settings, `Stitch` composable, icon set as vector drawables |
+| Android | `apps/android/app/.../Theme.kt`, `Components.kt` (planned: `core/designsystem`) | `SeamTheme` (the fixed teal scheme, light and dark, crossfading), the shared rows, sheets, pills and snackbar, the cookie hero with its stitches, and the icon set as vector drawables. Fonts are the system's for now; Roboto Flex isn't bundled yet |
 
 Roboto Flex and JetBrains Mono are bundled (OFL licence). The Mac uses the system fonts only.

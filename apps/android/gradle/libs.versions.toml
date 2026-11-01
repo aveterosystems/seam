@@ -6,7 +6,6 @@ composeBom = "2026.09.00"
 # The BOM's material3 is 1.4.0, which lacks the Expressive parts (MaterialExpressiveTheme,
 # ButtonGroup, floating toolbars, flexible app bars). 1.5.0 is the first with them; pinned here
 material3 = "1.5.0-beta02"
-graphicsShapes = "1.1.0"
 activityCompose = "1.13.0"
 protobuf = "4.29.3"
 protobufPlugin = "0.10.0"
@@ -18,13 +17,14 @@ camerax = "1.4.1"
 zxing = "3.5.3"
 lifecycle = "2.11.0"
 json = "20240303"
+robolectric = "4.17"
+roborazzi = "1.77.0"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 compose-ui = { group = "androidx.compose.ui", name = "ui" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 compose-material-icons = { group = "androidx.compose.material", name = "material-icons-core" }
-graphics-shapes = { group = "androidx.graphics", name = "graphics-shapes", version.ref = "graphicsShapes" }
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 protobuf-kotlin-lite = { group = "com.google.protobuf", name = "protobuf-kotlin-lite", version.ref = "protobuf" }
 protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
@@ -39,6 +39,11 @@ camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", versi
 camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 json = { group = "org.json", name = "json", version.ref = "json" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
+compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 
 # Used by build-logic's convention plugins

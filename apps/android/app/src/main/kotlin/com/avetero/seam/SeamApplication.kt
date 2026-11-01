@@ -8,6 +8,9 @@ import com.avetero.seam.feature.StatusFeature
 import com.avetero.seam.feature.clipboard.ClipboardFeature
 import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.session.SessionState
+import com.avetero.seam.session.PairingOutcome
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import com.avetero.seam.session.FilePendingStore
 import com.avetero.seam.session.KeystoreStateStore
@@ -37,6 +40,10 @@ class SeamApplication : Application() {
         private set
     lateinit var notifications: NotificationsFeature
         private set
+    /** When pairing with this Mac finished (unix ms), for Settings; null when unknown or unpaired. */
+    val pairedAt: StateFlow<Long?> get() = _pairedAt
+    private val _pairedAt = MutableStateFlow<Long?>(null)
+
     /** Tor, one per process: started on first use, dormant while there's nothing to send. */
     lateinit var tor: TorLan
         private set
@@ -70,9 +77,27 @@ class SeamApplication : Application() {
         session.start()
         // Checks only once paired and the user has answered the updates question (SR-17-04)
         updater = Updater(this) { session.paired }.also { it.start() }
-        // Forgetting the Mac forgets its last copy too (SR-11-09)
+        val ui = getSharedPreferences("ui", MODE_PRIVATE)
+        _pairedAt.value = ui.getLong(PAIRED_AT, 0).takeIf { it > 0 }
         CoroutineScope(Dispatchers.Main).launch {
-            session.state.collect { if (it == SessionState.Unpaired) clipboard.clearFromMac() }
+            session.pairingOutcome.collect {
+                if (it != PairingOutcome.NewMac) return@collect
+                _pairedAt.value = System.currentTimeMillis()
+                ui.edit().putLong(PAIRED_AT, _pairedAt.value!!).apply()
+            }
         }
+        // Forgetting the Mac forgets its last copy too (SR-11-09), and when it was paired
+        CoroutineScope(Dispatchers.Main).launch {
+            session.state.collect {
+                if (it != SessionState.Unpaired) return@collect
+                clipboard.clearFromMac()
+                _pairedAt.value = null
+                ui.edit().remove(PAIRED_AT).apply()
+            }
+        }
+    }
+
+    private companion object {
+        const val PAIRED_AT = "paired_at"
     }
 }
