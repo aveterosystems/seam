@@ -39,7 +39,7 @@ class ConnectionService : Service() {
         super.onCreate()
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Connection to your Mac", NotificationManager.IMPORTANCE_MIN))
-        startForeground(1, notification("Starting…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+        startForeground(1, notification("Starting"), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         val app = application as SeamApplication
         val session = app.session
         AutoClipboard.start(this, app.clipboard) // full builds, once the Mac has granted log access
@@ -65,7 +65,7 @@ class ConnectionService : Service() {
                         val text = when {
                             paused -> pausedLabel(pausedUntil, now)
                             state is SessionState.Connected -> "Connected to $name"
-                            state is SessionState.Connecting -> "Reconnecting to $name…"
+                            state is SessionState.Connecting -> "Reconnecting to $name"
                             else -> "Paired with $name"
                         }
                         nm.notify(1, notification(text, *if (paused) arrayOf(resumeAction, settingsAction) else running))
@@ -76,7 +76,7 @@ class ConnectionService : Service() {
                             SeamTile.refresh(this@ConnectionService)
                         }
                     }
-                    is SessionState.Pairing -> nm.notify(1, notification("Pairing with ${state.macName}…"))
+                    is SessionState.Pairing -> nm.notify(1, notification("Pairing with ${state.macName}"))
                     SessionState.Unpaired, is SessionState.Failed -> stopSelf()
                 }
             }
@@ -84,7 +84,7 @@ class ConnectionService : Service() {
     }
 
     // Android shows at most three. Paused, a clipboard send would go nowhere, so it's not offered
-    private val running by lazy { arrayOf(screenAction("Send clipboard", NotificationActionActivity.ACTION_SEND_CLIPBOARD), screenAction("Pause…", NotificationActionActivity.ACTION_PAUSE), settingsAction) }
+    private val running by lazy { arrayOf(screenAction("Send clipboard", NotificationActionActivity.ACTION_SEND_CLIPBOARD), screenAction("Pause", NotificationActionActivity.ACTION_PAUSE), settingsAction) }
     private val resumeAction by lazy { action("Resume", ACTION_RESUME) }
     private val settingsAction by lazy {
         val open = Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_SETTINGS, true)

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,24 +15,20 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.avetero.seam.feature.QrViewfinder
 import com.avetero.seam.feature.ScanResult
@@ -56,7 +54,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SeamTheme {
+              val snacks = remember { Snacks() }
+              CompositionLocalProvider(LocalSnacks provides snacks) {
               Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+              Box(Modifier.fillMaxSize()) {
               Box(Modifier.safeDrawingPadding()) {
                 val state by session.state.collectAsStateWithLifecycle()
                 val notice by session.notice.collectAsStateWithLifecycle()
@@ -73,6 +74,8 @@ class MainActivity : ComponentActivity() {
                 val tor by app.tor.state.collectAsStateWithLifecycle()
                 val look = LinkLook.of(state, route, connection, tor, now)
                 val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
+                val macStatus by app.status.mac.collectAsStateWithLifecycle()
+                val pairedAt by app.pairedAt.collectAsStateWithLifecycle()
                 val updateOffer by app.updater.offer.collectAsStateWithLifecycle()
                 val updateStatus by app.updater.status.collectAsStateWithLifecycle()
                 val updatesAsked by app.updater.asked.collectAsStateWithLifecycle()
@@ -83,8 +86,9 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(if (BuildConfig.DEBUG) intent?.dataString?.let { PairingQr.parse(it) } else null)
                 }
                 // The notification's Settings button opens straight there
-                var settings by remember { mutableStateOf(intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true) }
-                var notificationSettings by remember { mutableStateOf(false) }
+                var pages by remember {
+                    mutableStateOf(listOf(Page.Home) + if (intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true) listOf(Page.Settings) else emptyList())
+                }
                 var scanning by remember { mutableStateOf(false) }
                 if (state is SessionState.Pairing) scanned = null
                 fun granted() = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -120,36 +124,34 @@ class MainActivity : ComponentActivity() {
                 val macName = (state as? SessionState.Connected)?.macName ?: (state as? SessionState.Idle)?.macName
                     ?: (state as? SessionState.Connecting)?.macName
                 // Screenshots, recordings and casting go blank while a Mac copy or a safety code shows (SR-11-04)
-                val sensitive = settings || scanned != null || state is SessionState.Pairing ||
+                val sensitive = pages.last() != Page.Home || scanned != null || state is SessionState.Pairing ||
                     (macName != null && fromMac?.fresh(System.currentTimeMillis()) == true)
                 SideEffect {
                     if (sensitive) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 }
                 if (setup && macName != null) return@Box SetupScreen(macName, clipboardStatus) { setup = false }
-                if (settings && notificationSettings) {
-                    return@Box NotificationsScreen(app.notifications) { notificationSettings = false }
-                }
-                if (settings) {
-                    return@Box SettingsScreen(
-                        macName = macName,
-                        clipboard = clipboardStatus,
-                        code = session.macCode(),
-                        version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR})",
-                        onForgetMac = {
-                            settings = false
-                            session.forgetMac()
-                        },
-                        onBack = { settings = false },
-                        updater = app.updater,
-                        notifications = app.notifications,
-                        onOpenNotifications = { notificationSettings = true },
-                        connection = connection,
-                        look = look,
-                        onSwitches = { wifi, tor -> session.setSwitches(wifi, tor) },
-                    )
-                }
-                SeamScreen(
+                Pages(pages, onPop = { pages = pages.dropLast(1) }) { page, back ->
+                when (page) {
+                Page.Notifications -> NotificationsScreen(app.notifications, onBack = back)
+                Page.Settings -> SettingsScreen(
+                    macName = macName,
+                    clipboard = clipboardStatus,
+                    code = session.macCode(),
+                    version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR})",
+                    onForgetMac = {
+                        pages = listOf(Page.Home)
+                        session.forgetMac()
+                    },
+                    onBack = back,
+                    updater = app.updater,
+                    notifications = app.notifications,
+                    onOpenNotifications = { pages = pages + Page.Notifications },
+                    connection = connection,
+                    onSwitches = { wifi, tor -> session.setSwitches(wifi, tor) },
+                    pairedAt = pairedAt,
+                )
+                Page.Home ->                 SeamScreen(
                     state = state,
                     scanError = scanError ?: notice,
                     toConfirm = scanned,
@@ -164,11 +166,12 @@ class MainActivity : ComponentActivity() {
                         scanning = false
                     },
                     fromMac = fromMac,
-                    onPasteFromMac = { text ->
-                        val put = app.clipboard.putBack(text)
-                        Toast.makeText(this@MainActivity, if (put) "On this phone's clipboard" else "Couldn't put it on the clipboard", Toast.LENGTH_SHORT).show()
-                    },
-                    onOpenSettings = { settings = true },
+                    onPasteFromMac = { text -> app.clipboard.putBack(text) },
+                    onOpenSettings = { pages = pages + Page.Settings },
+                    onOpenNotifications = { pages = pages + Page.Notifications },
+                    mac = macStatus,
+                    notifications = app.notifications,
+                    clipboard = clipboardStatus,
                     onCodesDontMatch = { session.abortPairing() },
                     update = updateOffer,
                     updateStatus = updateStatus,
@@ -176,13 +179,10 @@ class MainActivity : ComponentActivity() {
                     askUpdates = app.updater.available && !updatesAsked,
                     onAnswerUpdates = { app.updater.answer(it) },
                     look = look,
-                    paused = connection.pausedUntil > now,
                     onPause = { session.pause(it.until(System.currentTimeMillis())) },
                     onResume = { session.resume() },
-                    onSendClipboard = {
-                        // Seam has focus here, so Android allows the read
-                        Toast.makeText(this@MainActivity, sentMessage(app, app.clipboard.sendCurrent()), Toast.LENGTH_SHORT).show()
-                    },
+                    // Seam has focus here, so Android allows the read
+                    onSendClipboard = { sendFeedback(app.clipboard.sendCurrent(), session.state.value, macName ?: "your Mac") },
                     onScan = {
                         scanError = null
                         scanning = true
@@ -216,6 +216,11 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                 )
+                }
+                }
+              }
+              SnackHost(snacks, Modifier.align(Alignment.BottomCenter).safeDrawingPadding())
+              }
               }
               }
             }

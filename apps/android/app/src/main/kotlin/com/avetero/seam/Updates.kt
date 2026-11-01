@@ -145,7 +145,7 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
     }
 
     private suspend fun check(notify: Boolean) {
-        _status.value = "Checking…"
+        _status.value = "Checking"
         val json = runCatching { withContext(Dispatchers.IO) { getText(UpdateFeed.LATEST, github = true) } }.getOrNull()
         if (json == null) {
             _status.value = "Couldn't reach GitHub. Seam will try again later."
@@ -176,7 +176,7 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
         installing = true
         scope.launch {
             try {
-                _status.value = "Downloading Seam ${release.version}…"
+                _status.value = "Downloading Seam ${release.version}"
                 val dir = File(app.cacheDir, "updates")
                 val problem = withContext(Dispatchers.IO) {
                     dir.deleteRecursively(); dir.mkdirs()
@@ -185,7 +185,7 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
                 if (problem != null) {
                     _status.value = problem
                 } else {
-                    _status.value = "Installing…"
+                    _status.value = "Installing"
                     val started = withContext(Dispatchers.IO) { runCatching { commit(File(dir, release.apkName)) }.isSuccess }
                     if (!started) _status.value = "Android couldn't start the update."
                 }

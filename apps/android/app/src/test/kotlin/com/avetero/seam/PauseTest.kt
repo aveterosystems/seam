@@ -8,6 +8,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PauseTest {
@@ -16,6 +17,7 @@ class PauseTest {
 
     @Test fun eachChoiceEndsWhenItSays() {
         val now = at("2026-10-31T22:15:00")
+        assertEquals(now + 1_800_000, PauseFor.HALF_HOUR.until(now, london))
         assertEquals(now + 3_600_000, PauseFor.HOUR.until(now, london))
         assertEquals(at("2026-11-01T08:00:00"), PauseFor.MORNING.until(now, london))
         assertEquals(Long.MAX_VALUE, PauseFor.RESUME.until(now, london))
@@ -39,7 +41,12 @@ class PauseTest {
         val paused = LinkLook.of(SessionState.Idle("Mac"), null, c, now = now)
         assertEquals(LinkLook.Line.Broken, paused.line)
         assertFalse(paused.connected)
-        assertEquals(pausedLabel(now + 60_000, now), paused.label)
+        assertEquals(pausedLabel(now + 60_000, now).replace("Paused until", "Paused · until"), paused.label)
+        assertTrue(paused.paused)
         assertEquals("over: back to normal", LinkLook.Idle, LinkLook.of(SessionState.Idle("Mac"), null, c, now = now + 60_000))
+    }
+
+    @Test fun theSheetOffersThePrototypesFourChoicesInItsWords() {
+        assertEquals(listOf("30 minutes", "1 hour", "Until tomorrow morning", "Until I resume"), PauseFor.entries.map { it.label })
     }
 }

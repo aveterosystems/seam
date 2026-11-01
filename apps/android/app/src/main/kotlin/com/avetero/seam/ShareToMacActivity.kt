@@ -103,6 +103,6 @@ fun sentMessage(app: SeamApplication, sent: Boolean): String = when {
     !sent -> "Nothing to send: the clipboard is empty, too big, or holds something private"
     app.session.state.value is SessionState.Connected -> "Sent to your Mac's clipboard"
     // Queued and a connection starting, not sent yet (SR-8-04)
-    app.session.state.value is SessionState.Idle -> "Sending to your Mac's clipboard…"
+    app.session.state.value is SessionState.Idle -> "Sending to your Mac's clipboard"
     else -> "It'll go to your Mac when your phone reconnects (within 10 minutes)"
 }

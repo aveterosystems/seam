@@ -1,70 +1,95 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.text.DateFormat
-import java.util.Date
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.avetero.seam.feature.notifications.AppEntry
 import com.avetero.seam.feature.notifications.AppMode
 import com.avetero.seam.feature.notifications.NotificationsFeature
+import java.text.DateFormat
+import java.util.Date
 
-/** Settings › Notifications (board A06): what reaches the Mac, app by app. The Mac's pane edits the same settings. */
+/** Home's line: "On · 6 apps", or "Off". */
+fun notificationsShort(enabled: Boolean, apps: List<AppEntry>): String =
+    if (enabled) "On · ${apps.count { it.mode != AppMode.Off }} apps" else "Off"
+
+/** Settings' line: "6 of 10 apps · Title only for Monzo", the apps named when there are one or two. */
+fun notificationsLong(enabled: Boolean, apps: List<AppEntry>): String {
+    val titleOnly = apps.filter { it.mode == AppMode.TitleOnly }.map { it.name }
+    val names = when (titleOnly.size) {
+        0 -> null
+        1, 2 -> "Title only for " + titleOnly.joinToString(" and ")
+        else -> "Title only for ${titleOnly.size} apps"
+    }
+    return listOfNotNull("Off".takeIf { !enabled }, appCount(apps), names).joinToString(" · ")
+}
+
+/** "6 of 10 apps": the master card's line. */
+fun appCount(apps: List<AppEntry>) = "${apps.count { it.mode != AppMode.Off }} of ${apps.size} apps"
+
+internal val AppMode.label get() = when (this) {
+    AppMode.On -> "On"
+    AppMode.TitleOnly -> "Title only"
+    AppMode.Off -> "Off"
+}
+
+/** Settings › Notifications: what reaches the Mac, app by app. The Mac's pane edits the same settings. */
 @Composable
 fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
     val prefs by feature.prefs.collectAsStateWithLifecycle()
+    val snack = rememberSnack()
     var query by remember { mutableStateOf("") }
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<String>()) }
-    val shown = prefs.apps.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+    var open by remember { mutableStateOf<String?>(null) }
+    val access = rememberNotificationAccess()
+    fun matches(a: AppEntry) = query.isBlank() || a.name.contains(query.trim(), ignoreCase = true)
     fun stopSelecting() {
         selecting = false
         selected = emptySet()
@@ -72,139 +97,148 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
     BackHandler(enabled = selecting, onBack = ::stopSelecting)
     SubScreen(
         "Notifications", onBack,
+        actions = {
+            if (prefs.apps.isNotEmpty()) {
+                if (selecting) {
+                    val shown = prefs.apps.filter(::matches).map { it.id }.toSet()
+                    val all = shown.isNotEmpty() && selected.containsAll(shown)
+                    Pill(if (all) "None" else "All", { selected = if (all) selected - shown else selected + shown }, PillKind.Text)
+                }
+                Pill(if (selecting) "Done" else "Select", { if (selecting) stopSelecting() else selecting = true }, PillKind.Text, modifier = Modifier.padding(end = 6.dp))
+            }
+        },
         overlay = {
-            if (selecting) {
-                BulkBar(
-                    count = selected.size,
-                    allSelected = shown.isNotEmpty() && shown.all { it.id in selected },
-                    onSelectAll = { all -> selected = if (all) selected + shown.map { it.id } else selected - shown.map { it.id }.toSet() },
-                    onMode = { mode ->
-                        feature.setMode(selected, mode)
-                        stopSelecting()
-                    },
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
+            BulkToolbar(selecting, selected.size, Modifier.align(Alignment.BottomCenter), onClose = ::stopSelecting) { mode ->
+                if (selected.isEmpty()) return@BulkToolbar snack("Tap apps to select them")
+                feature.setMode(selected, mode)
+                snack("${selected.size} ${if (selected.size == 1) "app" else "apps"} set to ${mode.label}")
+                stopSelecting()
             }
         },
     ) {
-        Section("Access") { NotificationAccessItem() }
-        Section("On your Mac") {
-            if (prefs.enabled && prefs.paused(System.currentTimeMillis())) {
+        if (!access) Section(null) { NotificationAccessItem(access) }
+        Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        MasterCard(prefs.enabled, appCount(prefs.apps), feature::setEnabled)
+        // Off, the rest stays visible but can't be changed; the card's switch says why
+        val dim by animateFloatAsState(if (prefs.enabled) 1f else 0.4f, Motion.ease(400), label = "dim")
+        Column(Modifier.alpha(dim), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            val on = prefs.enabled
+            if (on && prefs.paused(System.currentTimeMillis())) {
                 val until = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(prefs.pausedUntil))
-                Item("Paused until $until", "Paused from your Mac. Nothing goes over until then") {
-                    TextButton(onClick = { feature.pause(0) }) { Text("Resume") }
-                }
-            }
-            SwitchItem("Show on your Mac", "Apps that are off never send anything", prefs.enabled, feature::setEnabled, highlightWhenOn = true)
-            SwitchItem("Quiet while using this phone", "Nothing goes to the Mac while this phone is unlocked and on", prefs.quietWhileUsingPhone, feature::setQuietWhileUsingPhone)
-            SwitchItem("Dismiss on both devices", "Clearing a notification on one clears it on the other", prefs.dismissBoth, feature::setDismissBoth)
-        }
-        Section(
-            "Apps",
-            subtitle = "${prefs.apps.count { it.mode != AppMode.Off }} of ${prefs.apps.size} on · each starts off",
-            action = if (prefs.apps.isEmpty()) null else {
-                { TextButton(onClick = { if (selecting) stopSelecting() else selecting = true }) { Text(if (selecting) "Done" else "Select") } }
-            },
-            above = if (prefs.apps.size <= 8) null else {
-                {
-                    OutlinedTextField(
-                        value = query, onValueChange = { query = it }, singleLine = true,
-                        placeholder = { Text("Search apps") },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                        shape = RoundedCornerShape(28.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            },
-        ) {
-            if (prefs.apps.isEmpty()) Item("No apps yet", "Apps that can notify show here once notification access is on")
-            shown.forEach { a ->
-                if (selecting) {
-                    val on = a.id in selected
-                    val toggle = { selected = if (on) selected - a.id else selected + a.id }
-                    Item(a.name, a.mode.label, lead = appIcon(a.id), leadIsImage = true, highlighted = on, onClick = toggle) {
-                        Checkbox(checked = on, onCheckedChange = { toggle() })
+                Section(null) {
+                    Item("Paused until $until", "Paused from your Mac. Nothing goes over until then") {
+                        Pill("Resume", { feature.pause(0) })
                     }
-                } else {
-                    AppRow(a) { feature.setMode(setOf(a.id), it) }
                 }
             }
+            Section(null) {
+                SwitchItem("Dismiss on both", "Clear one here or there, it's gone from both", prefs.dismissBoth, feature::setDismissBoth, enabled = on)
+                SwitchItem("Quiet while I'm using this phone", "Your Mac stays quiet while it's unlocked in your hand", prefs.quietWhileUsingPhone, feature::setQuietWhileUsingPhone, enabled = on)
+            }
+            Section(
+                null, footnote = "Title only shows who it's from, never what it says. New apps start off.",
+                above = if (prefs.apps.isEmpty()) null else ({ SearchField(query) { query = it } }),
+            ) {
+                if (prefs.apps.isEmpty()) Item("No apps yet", "Apps that can notify show here once notification access is on")
+                prefs.apps.forEach { a ->
+                    AnimatedVisibility(
+                        matches(a),
+                        enter = expandVertically(Motion.spring(400)) + fadeIn(Motion.ease(250)),
+                        exit = shrinkVertically(Motion.spring(400)) + fadeOut(Motion.ease(250)),
+                    ) {
+                        val picked = a.id in selected
+                        val toggle = { selected = if (picked) selected - a.id else selected + a.id }
+                        Item(
+                            a.name, lead = appIcon(a.id), leadIsImage = true, selected = picked, vertical = 10.dp,
+                            onClick = if (!on) null else ({ if (selecting) toggle() else open = a.id }),
+                            onLongClick = if (!on) null else ({ selecting = true; toggle() }),
+                        ) { ModeChip(a.mode) }
+                    }
+                }
+            }
+            Spacer(Modifier.height(60.dp)) // room to scroll the last rows above the toolbar
         }
-        Footnote("Messaging apps can be answered from the Mac. Title only sends who it's from, never what it says.")
-        if (selecting) Spacer(Modifier.height(140.dp)) // room to scroll the last rows above the bar
+        }
+    }
+    prefs.apps.firstOrNull { it.id == open }?.let { a ->
+        SeamSheet(a.name, "What reaches your Mac", onDismiss = { open = null }) { close ->
+            Choices(AppMode.entries, a.mode, { it.label }, { it.explain(a.canReply) }) {
+                feature.setMode(setOf(a.id), it)
+                close()
+            }
+        }
     }
 }
 
-/** While selecting: how many, select all (of what the search shows), and the three settings for all of them at once. */
+/** "Show on your Mac": the feature's main switch, a big primaryContainer card while on. */
 @Composable
-private fun BulkBar(count: Int, allSelected: Boolean, onSelectAll: (Boolean) -> Unit, onMode: (AppMode) -> Unit, modifier: Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp),
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 6.dp,
+private fun MasterCard(on: Boolean, summary: String, onChange: (Boolean) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val bg = pick(on, scheme.surfaceContainerHigh, scheme.primaryContainer, Motion.ease(400))
+    val ink = pick(on, scheme.onSurface, scheme.onPrimaryContainer, Motion.ease(400))
+    Row(
+        Modifier.fillMaxWidth().background(bg, RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(28.dp)).toggleable(on, role = Role.Switch, onValueChange = onChange)
+            .padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (count == 0) "Select apps" else "$count selected", fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { onSelectAll(!allSelected) }) { Text(if (allSelected) "Select none" else "Select all") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppMode.entries.forEach { m ->
-                    FilledTonalButton(onClick = { onMode(m) }, enabled = count > 0, modifier = Modifier.weight(1f)) { Text(m.label, maxLines = 1) }
-                }
+        Column(Modifier.weight(1f)) {
+            Text("Show on your Mac", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = ink)
+            Swap(summary) {
+                Text(it, fontSize = 13.5.sp, color = ink.copy(alpha = 0.8f), style = TextStyle(fontFeatureSettings = "tnum"))
             }
         }
+        SeamSwitch(on, null, scale = 1.1f)
     }
 }
 
 @Composable
-private fun AppRow(app: AppEntry, onMode: (AppMode) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    val icon = appIcon(app.id)
-    val subtitle = listOfNotNull(app.mode.label, "Reply on Mac".takeIf { app.canReply && app.mode == AppMode.On }).joinToString(" · ")
-    Item(app.name, subtitle, lead = icon, leadIsImage = true, onClick = { open = true })
-    if (open) ModeSheet(app, icon, onDismiss = { open = false }) {
-        open = false
-        onMode(it)
-    }
+private fun ModeChip(mode: AppMode) {
+    val s = MaterialTheme.colorScheme
+    val spec = Motion.ease<Float>(300)
+    val on = mode == AppMode.On
+    val title = mode == AppMode.TitleOnly
+    Chip(
+        mode.label,
+        pick(title, pick(on, s.surfaceContainerHighest, s.primaryContainer, spec), s.tertiaryContainer, spec),
+        pick(title, pick(on, s.onSurfaceVariant, s.onPrimaryContainer, spec), s.onTertiaryContainer, spec),
+    )
 }
 
-/** What reaches the Mac from one app: a sheet in the same grouped style as Settings. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** The app list's filter: a filled pill that draws a teal ring while typing. */
 @Composable
-private fun ModeSheet(app: AppEntry, icon: Painter, onDismiss: () -> Unit, onMode: (AppMode) -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Image(icon, contentDescription = null, modifier = Modifier.size(48.dp))
-                Spacer(Modifier.size(16.dp))
-                Column {
-                    Text(app.name, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold)
-                    Text("What reaches your Mac", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun SearchField(query: String, onChange: (String) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val source = remember { MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
+    val ring = pick(focused, scheme.surfaceContainerHigh, scheme.primary, Motion.ease(200))
+    BasicTextField(
+        query, onChange, singleLine = true, interactionSource = source,
+        textStyle = TextStyle(fontSize = 15.sp, color = scheme.onSurface),
+        cursorBrush = SolidColor(scheme.primary),
+        modifier = Modifier.fillMaxWidth(),
+        decorationBox = { field ->
+            Row(
+                Modifier.fillMaxWidth().height(52.dp).background(scheme.surfaceContainerHigh, RoundedCornerShape(26.dp))
+                    .border(2.dp, ring, RoundedCornerShape(26.dp)).padding(horizontal = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(R.drawable.ic_search), contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
+                    if (query.isEmpty()) Text("Search apps", fontSize = 15.sp, color = scheme.onSurfaceVariant)
+                    field()
                 }
             }
-            Section("Show") {
-                AppMode.entries.forEach { m ->
-                    Item(m.label, m.explain(app.canReply), highlighted = m == app.mode, onClick = { onMode(m) }) {
-                        if (m == app.mode) Icon(Icons.Filled.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
-            }
-        }
-    }
+        },
+    )
 }
 
 private fun AppMode.explain(canReply: Boolean) = when (this) {
-    AppMode.On -> if (canReply) "The whole notification, and you can reply from the Mac" else "The whole notification"
+    AppMode.On -> if (canReply) "Everything, and reply from the Mac" else "Everything"
     AppMode.TitleOnly -> "Who it's from, never what it says"
-    AppMode.Off -> "Nothing from this app leaves your phone"
-}
-
-private val AppMode.label get() = when (this) {
-    AppMode.On -> "On"
-    AppMode.TitleOnly -> "Title only"
-    AppMode.Off -> "Off"
+    AppMode.Off -> "Stays on this phone"
 }
 
 @Composable
@@ -216,20 +250,12 @@ private fun appIcon(pkg: String): Painter {
     } ?: fallback
 }
 
-/** Settings' row for this screen: a summary of what reaches the Mac. */
+/** The row that opens this screen, on Home and in Settings: what reaches the Mac, in one line. */
 @Composable
-internal fun NotificationsItem(feature: NotificationsFeature, onOpen: () -> Unit) {
+internal fun NotificationsItem(feature: NotificationsFeature, title: String, home: Boolean, onOpen: () -> Unit) {
     val prefs by feature.prefs.collectAsStateWithLifecycle()
-    val titleOnly = prefs.apps.count { it.mode == AppMode.TitleOnly }
-    val on = prefs.apps.count { it.mode != AppMode.Off }
-    Item(
-        title = "Notifications",
-        subtitle = when {
-            !prefs.enabled -> "Off"
-            prefs.apps.isEmpty() -> "On · apps show here after they post"
-            else -> "$on apps" + if (titleOnly > 0) " · $titleOnly title only" else ""
-        },
-        lead = painterResource(R.drawable.ic_laptop),
-        onClick = onOpen,
-    )
+    val line = if (home) notificationsShort(prefs.enabled, prefs.apps) else notificationsLong(prefs.enabled, prefs.apps)
+    Item(title, line, lead = painterResource(R.drawable.ic_bell), onClick = onOpen) {
+        Text("›", fontSize = 14.sp, color = MaterialTheme.colorScheme.outline)
+    }
 }

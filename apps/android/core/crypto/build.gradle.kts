@@ -13,7 +13,7 @@ val cargo = System.getenv("CARGO")
 android {
     namespace = "com.avetero.seam.crypto"
     ndkVersion = "29.0.14206865"
-    sourceSets["main"].jniLibs.srcDir(jniOut)
+    sourceSets["main"].jniLibs.directories.add(jniOut.get().asFile.path) // the merge task depends on cargoNdk below
 }
 
 fun Exec.rustInputs() {
@@ -25,10 +25,10 @@ fun Exec.rustInputs() {
 }
 
 // libseam_ffi.so for each ABI the app ships (needs the NDK, cargo-ndk and the rustup Android targets)
-val cargoNdk by tasks.registering(Exec::class) {
+val cargoNdk = tasks.register<Exec>("cargoNdk") {
     rustInputs()
     outputs.dir(jniOut)
-    environment("ANDROID_NDK_HOME", android.ndkDirectory.path)
+    environment("ANDROID_NDK_HOME", androidComponents.sdkComponents.ndkDirectory.get().asFile.path)
     commandLine(
         cargo, "ndk", "-t", "arm64-v8a", "-t", "armeabi-v7a", "-t", "x86_64",
         "-o", jniOut.get().asFile.path, "build", "--release", "-p", "seam-ffi",
@@ -36,7 +36,7 @@ val cargoNdk by tasks.registering(Exec::class) {
 }
 
 // A Mac/Linux build of the same library, so JVM unit tests exercise the real Rust code
-val cargoHost by tasks.registering(Exec::class) {
+val cargoHost = tasks.register<Exec>("cargoHost") {
     rustInputs()
     outputs.dir(coreDir.resolve("target/debug"))
     commandLine(cargo, "build", "-p", "seam-ffi")
