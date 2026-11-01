@@ -44,7 +44,7 @@ struct PopoverNotifications: View {
     @State private var replied: Set<String> = []
 
     var body: some View {
-        let showing = controller.phoneNotifications.filter { !replied.contains($0.key) }
+        let showing = controller.notifications.shown.filter { !replied.contains($0.key) }
         let latest = Array(showing.prefix(3))
         VStack(alignment: .leading, spacing: 0) {
             SectionHeading(title: "Notifications", link: "All \(showing.count) ›") { openMain(.notifications) }
@@ -92,7 +92,7 @@ private struct NotificationRow: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Group {
-                    AppIcon(image: controller.appIcons[n.appID], size: 24, name: n.appName).clipShape(RoundedRectangle(cornerRadius: 6)).scaleEffect(icon)
+                    AppIcon(image: controller.notifications.images[n.appID], size: 24, name: n.appName).clipShape(RoundedRectangle(cornerRadius: 6)).scaleEffect(icon)
                     VStack(alignment: .leading, spacing: 1) {
                         (Text(n.title.isEmpty ? n.appName : n.title).fontWeight(.semibold) + Text(n.text.isEmpty ? "" : " — " + n.text))
                             .font(.system(size: 12)).lineLimit(1).frame(height: 15)
@@ -109,7 +109,7 @@ private struct NotificationRow: View {
                     Button(n.canReply ? "Reply" : "Open") { n.canReply ? toggleReply() : open() }
                         .buttonStyle(ActionStyle())
                         .focused($focus, equals: .action)
-                    Button("✕") { controller.dismiss(n) }
+                    Button("✕") { controller.notifications.dismiss(n) }
                         .buttonStyle(ActionStyle(quiet: true))
                         .focused($focus, equals: .dismiss)
                         .help("Dismiss")
@@ -174,7 +174,7 @@ private struct NotificationRow: View {
     private func send() {
         let text = reply.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        controller.act(.with { $0.key = n.key; $0.replyText = text })
+        controller.notifications.send(.with { $0.key = n.key; $0.replyText = text })
         reply = ""
         withAnimation(Motion.fade) { done = true }
         // Catalogue 8: "✓ Sent" for 1.1 s, then the row leaves
@@ -219,7 +219,7 @@ struct PopoverClips: View {
     @Environment(\.accessibilityReduceMotion) private var reduce
 
     var body: some View {
-        let recent = controller.recentFromPhone
+        let recent = Array(controller.clipboard.clips.filter(\.fromPhone).prefix(2))
         VStack(alignment: .leading, spacing: 0) {
             SectionHeading(title: "Clipboard from phone", link: "History ›") { openMain(.clipboard) }
                 .rise(5, appeared)
@@ -254,7 +254,7 @@ private struct ClipRow: View {
                 NSWorkspace.shared.open(url)
                 toast("Opened in your browser")
             } else {
-                controller.copyAgain(clip.text)
+                Task { await controller.clipboard.copyAgain(clip.text) }
                 copied = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { copied = false }
             }

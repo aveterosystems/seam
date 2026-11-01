@@ -15,6 +15,7 @@ import android.content.pm.ServiceInfo
 import android.os.BatteryManager
 import android.os.PowerManager
 import com.avetero.seam.feature.clipboard.AutoClipboard
+import com.avetero.seam.feature.clipboard.ClipboardFeature
 import com.avetero.seam.session.CpuPlan
 import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.CoroutineScope
@@ -42,7 +43,7 @@ class ConnectionService : Service() {
         startForeground(1, notification("Starting"), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         val app = application as SeamApplication
         val session = app.session
-        AutoClipboard.start(this, app.clipboard) // full builds, once the Mac has granted log access
+        AutoClipboard.start(this, session.feature<ClipboardFeature>()) // full builds, once the Mac has granted log access
         // The session connects on screen on and stays connected while charging
         session.setScreenOn(getSystemService(PowerManager::class.java).isInteractive)
         session.setCharging(getSystemService(BatteryManager::class.java).isCharging)

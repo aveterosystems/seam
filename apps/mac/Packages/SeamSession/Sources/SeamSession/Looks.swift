@@ -133,10 +133,4 @@ public enum Arrival {
     public static func notification(old: [Seam_V1_Notification], new: [Seam_V1_Notification]) -> Seam_V1_Notification? {
         new.first { n in !old.contains { $0.key == n.key && $0.postedAt == n.postedAt } }
     }
-
-    /// A clip from the phone that wasn't there before.
-    public static func clip(old: [Clip], new: [Clip]) -> Clip? {
-        guard let newest = new.first(where: \.fromPhone), !old.contains(where: { $0.id == newest.id }) else { return nil }
-        return newest
-    }
 }

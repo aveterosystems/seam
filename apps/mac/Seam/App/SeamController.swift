@@ -6,8 +6,10 @@ import SeamCore
 import SeamProtocol
 import SeamSession
 
-/// The app's one live object: opens the store, runs the connections to the phone, and shows what
-/// the session (SeamSession's `Session`, which owns delivery, features and pairing) reports.
+/// The app's one live object: opens the store, builds the session (SeamSession's `Session`, which
+/// owns delivery, the pause, paths and pairing) and its features, keeps the settings, and shows
+/// the session's state. The screens watch the features (`clipboard`, `notifications`, `status`)
+/// directly.
 @MainActor @Observable
 final class SeamController {
     /// The connection switches (Settings › Connection). At least one stays on.
@@ -16,39 +18,31 @@ final class SeamController {
     /// Tor's own state, for the link's words (connecting, blocked, clock).
     private(set) var torState: TorState = .off
     private(set) var phone: PeerInfo?
-    private(set) var status: Seam_V1_Status?
     private(set) var startupError: String?
     /// Saved data exists but can't be opened: the menu offers a reset instead of pairing.
     private(set) var needsReset = false
     /// Something the user should see in the menu (a refused login, a save that failed).
     private(set) var warning: String?
     private(set) var pairing: PairingState = .idle
-    /// Clips that crossed either way in the last day, newest first, for the main window (memory only).
-    private(set) var clips: [Clip] = []
-    /// The phone's notifications that are still up, newest first, for the main window (memory only).
-    private(set) var phoneNotifications: [Seam_V1_Notification] = []
-    /// The phone's notification settings as it last sent them (the phone owns them). Memory only.
-    private(set) var notificationSettings: Seam_V1_NotificationSettings?
+    /// The features, new with each session: until one starts they're empty (and in SEAM_DEMO, made up).
+    private(set) var clipboard: ClipboardFeature
+    private(set) var notifications: NotificationsFeature
+    private(set) var status: StatusFeature
+    /// Clipboard both ways (menu toggle, on by default).
+    private(set) var clipboardSync = SeamController.savedClipboardSync
+    private static var savedClipboardSync: Bool { UserDefaults.standard.object(forKey: "clipboardSync") as? Bool ?? true }
     /// Set to open Settings at a pane (the popover's "Notification settings"); Settings clears it.
     var requestedSettingsPane: SettingsView.Pane?
     /// Set to open the main window at a pane (the popover's links); the window clears it.
     var requestedMainPane: MainWindow.Pane?
-    /// Phone apps' icons, from the phone when asked for. Memory only.
-    private(set) var appIcons: [String: NSImage] = [:]
-    /// Clipboard both ways (menu toggle, on by default).
-    private(set) var clipboardSync = UserDefaults.standard.object(forKey: "clipboardSync") as? Bool ?? true
     /// How the link looks everywhere it's shown: the stitch, the icon and the words.
     private(set) var link = LinkLook.away
     /// Paused on the phone (only the phone pauses and resumes); the link says until when.
     private(set) var paused = false
     /// When the link last went from connected to not, for "Last seen 12 min ago". This run only.
     private(set) var lastSeen: Date?
-    /// When the phone's status arrived, for "as of 14:02" once it's gone.
-    private(set) var statusAt: Date?
     /// Envelopes for the phone not yet delivered, for the popover's queue bar.
     private(set) var waiting = 0
-    /// Counts notifications arriving from the phone, so the bell rings once for each.
-    private(set) var notificationArrivals = 0
     /// When this phone was paired, if it was paired since Seam started keeping the date (a preference, not a secret).
     private(set) var pairedAt = UserDefaults.standard.object(forKey: "pairedAt") as? Date {
         didSet { UserDefaults.standard.set(pairedAt, forKey: "pairedAt") }
@@ -61,8 +55,8 @@ final class SeamController {
     @ObservationIgnored private(set) var paths: Paths?
     /// Tor, once per app run: started when first needed and never put to sleep (the phone reaches the Mac).
     @ObservationIgnored private var tor: SeamTor?
-    @ObservationIgnored private let notifications = PhoneNotifications()
-    @ObservationIgnored private var iconPNGs: [String: Data] = [:]
+    /// The phone's notifications as banners: one for the app's life.
+    @ObservationIgnored private let banners = PhoneNotifications()
     /// A pairing from before Tor was dropped on opening: shown until the phone pairs again.
     @ObservationIgnored private var pairAgainWarning: String?
     @ObservationIgnored private var lastState: Session.State?
@@ -70,6 +64,15 @@ final class SeamController {
     /// Tells the phone when this Mac's battery changes (once per app run).
     @ObservationIgnored private var batteryWatch: CFRunLoopSource?
     private let log = Logger(subsystem: "com.avetero.seam", category: "session")
+
+    init() {
+        (clipboard, notifications, status) = Self.features(banners: banners, sync: Self.savedClipboardSync)
+    }
+
+    private static func features(banners: PhoneNotifications, sync: Bool) -> (ClipboardFeature, NotificationsFeature, StatusFeature) {
+        (ClipboardFeature(pasteboard: SystemPasteboard(), syncOn: sync), NotificationsFeature(centre: banners),
+         StatusFeature(timers: SystemTimers(), own: MacBattery.read))
+    }
 
     /// The phone can be reached now, on a path both ends allow.
     var connected: Bool { link.connected }
@@ -106,6 +109,9 @@ final class SeamController {
         pairAgainWarning = store.pairAgain ? "Seam now connects through Tor. Pair your phone again." : nil
         paths?.stop()
         if let old = session { Task { await old.stop() } }
+        (clipboard, notifications, status) = Self.features(banners: banners, sync: clipboardSync)
+        clipboard.onArrival = { [weak self] in self?.announce($0) }
+        notifications.onArrival = { [weak self] in self?.announce($0) }
         let session = Session(
             device: store.device,
             storage: SessionStorage(
@@ -117,10 +123,9 @@ final class SeamController {
                 },
                 setPausedUntil: { UserDefaults.standard.set($0?.timeIntervalSince1970 ?? 0, forKey: "pausedUntil") }
             ),
-            pasteboard: SystemPasteboard(), notifications: notifications,
-            wifi: wifiOn, tor: torOn, clipboardSync: clipboardSync,
-            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
-            ownStatus: MacBattery.read
+            features: [clipboard, notifications, status],
+            wifi: wifiOn, tor: torOn,
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         )
         self.session = session
         phone = store.device.peers().first { $0.confirmed }
@@ -140,7 +145,10 @@ final class SeamController {
         updatesTask = Task { [weak self] in
             for await state in session.updates { self?.show(state) }
         }
-        notifications.start { action in Task { await session.notificationAction(action) } }
+        banners.start { [weak self] action in
+            guard let notifications = self?.notifications else { return }
+            Task { await notifications.act(action) }
+        }
         Task {
             await session.start() // what waited from before, ahead of any path
             let s = await session.state
@@ -151,19 +159,8 @@ final class SeamController {
     private func show(_ s: Session.State) {
         if s.phone == nil, phone != nil { pairedAt = nil } // unpaired, here or by the phone
         if case .paired = s.pairing, pairing != s.pairing { pairedAt = Date() }
-        if let old = lastState { announceArrivals(old: old, new: s) }
         phone = s.phone
-        status = s.status
-        statusAt = s.statusAt
         waiting = s.waiting
-        clips = s.clips
-        phoneNotifications = s.phoneNotifications
-        notificationSettings = s.notificationSettings
-        if s.appIcons.isEmpty { iconPNGs = [:]; appIcons = [:] }
-        for (id, png) in s.appIcons where iconPNGs[id] != png {
-            iconPNGs[id] = png
-            appIcons[id] = NSImage(data: png)
-        }
         paused = s.pausedUntil != nil
         lastState = s
         setLink(LinkLook.of(route: s.route, allowed: s.allowed, tor: torState, pausedUntil: s.pausedUntil))
@@ -186,16 +183,7 @@ final class SeamController {
     }
 
     /// Something new from the phone: the menu bar icon pops once and VoiceOver says what (catalogue 5).
-    private func announceArrivals(old: Session.State, new: Session.State) {
-        let what: String
-        if let n = Arrival.notification(old: old.phoneNotifications, new: new.phoneNotifications) {
-            notificationArrivals += 1
-            what = "Notification from \(n.appName)"
-        } else if Arrival.clip(old: old.clips, new: new.clips) != nil {
-            what = "Copied from your phone"
-        } else {
-            return
-        }
+    private func announce(_ what: String) {
         MenuBarPing.ping()
         NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
                              userInfo: [.announcement: what, .priority: NSAccessibilityPriorityLevel.high.rawValue])
@@ -205,8 +193,8 @@ final class SeamController {
     private func watchWake() {
         if batteryWatch == nil {
             batteryWatch = MacBattery.watch { [weak self] in
-                guard let session = self?.session else { return }
-                Task { await session.ownStatusChanged() }
+                guard let status = self?.status else { return }
+                Task { await status.ownChanged() }
             }
         }
         guard wakeObserver == nil else { return }
@@ -239,19 +227,8 @@ final class SeamController {
     func setClipboardSync(_ on: Bool) {
         clipboardSync = on
         UserDefaults.standard.set(on, forKey: "clipboardSync")
-        Task { await session?.setClipboardSync(on) }
-    }
-
-    /// The last two clips from the phone, for the popover.
-    var recentFromPhone: [Clip] { Array(clips.filter(\.fromPhone).prefix(2)) }
-
-    func clearClips() {
-        Task { await session?.clearClips() }
-    }
-
-    /// Puts an earlier clip from the phone back on this Mac's clipboard (popover "Copy").
-    func copyAgain(_ text: String) {
-        Task { await session?.copyAgain(text) }
+        let clipboard = clipboard
+        Task { await clipboard.setSync(on) }
     }
 
     // MARK: Connection
@@ -278,13 +255,11 @@ final class SeamController {
     func showDemo(phone: PeerInfo, status: Seam_V1_Status, look: LinkLook, waiting: Int, settings: Seam_V1_NotificationSettings,
                   notifications: [Seam_V1_Notification], clips: [Clip]) {
         self.phone = phone
-        self.status = status
-        statusAt = Date().addingTimeInterval(-12 * 60)
+        self.status.showDemo(status, at: Date().addingTimeInterval(-12 * 60))
         setLink(look)
         self.waiting = waiting
-        notificationSettings = settings
-        phoneNotifications = notifications
-        self.clips = clips
+        self.notifications.showDemo(settings: settings, shown: notifications)
+        clipboard.showDemo(clips: clips)
         demoCode = "482 913"
         pairedAt = Calendar.current.date(from: DateComponents(year: 2026, month: 9, day: 14))
     }

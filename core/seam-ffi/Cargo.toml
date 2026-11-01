@@ -22,6 +22,7 @@ bindgen = ["uniffi/cli"]
 
 [dependencies]
 seam-core = { path = "../seam-core" }
+prost = "0.14"
 seam-tor = { path = "../seam-tor" }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "io-util", "time"] }
 thiserror = "2"

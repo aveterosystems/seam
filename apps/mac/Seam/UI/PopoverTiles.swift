@@ -13,7 +13,7 @@ struct PopoverTiles: View {
 
     var body: some View {
         let sync = controller.clipboardSync
-        let n = NotificationsLook(controller.notificationSettings, showing: controller.phoneNotifications.count)
+        let n = NotificationsLook(controller.notifications.settings, showing: controller.notifications.shown.count)
         HStack(spacing: 8) {
             Tile(title: "Clipboard", subtitle: ClipboardLook.subtitle(syncOn: sync, connected: controller.connected),
                  symbol: "doc.on.doc", tint: sync ? .on : .off, bounce: clipBounce) {
@@ -24,7 +24,7 @@ struct PopoverTiles: View {
             // The phone holds the setting, so until it has sent it the tile waits, and says so
             Tile(title: "Notifications", subtitle: n.subtitle, symbol: n.symbol,
                  tint: n.mode == .on ? .on : n.mode == .paused ? .paused : .off,
-                 ring: bellRing + controller.notificationArrivals, bounce: bellBounce) {
+                 ring: bellRing + controller.notifications.arrivals, bounce: bellBounce) {
                 toggle(n.mode)
             } accessory: {
                 menu(n.mode)
@@ -39,13 +39,13 @@ struct PopoverTiles: View {
     private func toggle(_ mode: NotificationsLook.Mode) {
         switch mode {
         case .on:
-            controller.setNotifications(enabled: false)
+            controller.notifications.setEnabled(false)
             bellBounce += 1
         case .off:
-            controller.setNotifications(enabled: true)
+            controller.notifications.setEnabled(true)
             bellRing += 1
         case .paused:
-            controller.pauseNotifications(until: nil)
+            controller.notifications.pause(until: nil)
             bellRing += 1
         case .waiting:
             break
@@ -66,7 +66,7 @@ struct PopoverTiles: View {
                 Button("Turn on") { toggle(.off) }
             } else {
                 Button("Turn off") {
-                    controller.setNotifications(enabled: false)
+                    controller.notifications.setEnabled(false)
                     bellBounce += 1
                 }
                 .disabled(mode == .waiting)
@@ -85,7 +85,7 @@ struct PopoverTiles: View {
     }
 
     private func pause(until: Date) {
-        controller.pauseNotifications(until: until)
+        controller.notifications.pause(until: until)
         bellBounce += 1
     }
 

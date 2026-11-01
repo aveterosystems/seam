@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.avetero.seam.feature.clipboard.ClipboardFeature
 
 /**
  * The notification buttons that need a screen. Not exported: only Seam's own notification starts it.
@@ -39,7 +40,7 @@ class NotificationActionActivity : ComponentActivity() {
         if (!hasFocus || sent || intent.action != ACTION_SEND_CLIPBOARD || isFinishing) return
         sent = true // once, even if focus comes and goes
         val app = application as SeamApplication
-        done(sentMessage(app, app.clipboard.sendCurrent()))
+        done(sentMessage(app, app.session.feature<ClipboardFeature>().sendCurrent()))
     }
 
     private fun done(message: String) {

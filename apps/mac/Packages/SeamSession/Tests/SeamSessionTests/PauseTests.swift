@@ -39,8 +39,22 @@ struct PauseTests {
         await rig.torUp()
         _ = await rig.session.received(try pause(rig, .max))
         rig.saved.ownStatus = .with { $0.batteryPct = 50 }
-        await rig.session.ownStatusChanged()
+        await rig.status.ownChanged()
         #expect(try rig.onTor().allSatisfy { if case .status? = $0.body { false } else { true } })
+    }
+
+    /// Enforced once, in delivery: nothing but control goes while paused, and it isn't kept for later.
+    @Test func notificationActionsAndSettingsChangesAreDroppedWhilePaused() async throws {
+        let rig = try await Rig()
+        await rig.torUp()
+        _ = await rig.session.received(try pause(rig, .max))
+        await rig.notifications.act(.with { $0.key = "k"; $0.replyText = "on my way" })
+        await rig.sendSomething(1)
+        _ = await rig.session.received(try pause(rig, 0))
+        await rig.timers.advance(1)
+        #expect(try rig.onTor().messages.isEmpty)
+        await rig.sendSomething(2)
+        #expect(try rig.onTor().numbers == [2], "after the resume they go")
     }
 
     @Test func untilResumedHasNoEndTime() async throws {

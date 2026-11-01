@@ -5,12 +5,12 @@ import com.avetero.seam.crypto.PeerInfo
 import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.SeamDevice
 import com.avetero.seam.crypto.SeamException
+import com.avetero.seam.crypto.payloadRules
 import com.avetero.seam.protocol.v1.ClientFrame
 import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Delivered
 import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.Hello
-import com.avetero.seam.protocol.v1.OpenLinks
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.ServerFrame
 import com.avetero.seam.protocol.v1.Transport
@@ -86,7 +86,7 @@ class Session(
 
     private val switches = Switches(device, settingsStore, appVersion).apply { load() }
 
-    private val features = mutableListOf<Feature>()
+    @PublishedApi internal val features = mutableListOf<Feature>()
     private val outbox = Outbox(pendingStore, now)
 
     init {
@@ -174,9 +174,13 @@ class Session(
         return SeamDevice.generate().also { d -> runCatching { store.save(d.exportState(store.storageKey())) } }
     }
 
+    /** Registered once at startup, before [start]. */
     fun register(feature: Feature) {
         features += feature
     }
+
+    /** The registered feature of type [T]: screens find a feature by its type, not by a field per feature. */
+    inline fun <reified T : Feature> feature(): T = features.filterIsInstance<T>().single()
 
     fun start() = scope.launch {
         val m = mac ?: return@launch
@@ -373,9 +377,10 @@ class Session(
     override fun send(payload: Payload) {
         scope.launch {
             if (mac == null || pairing.active) return@launch
-            if (paused() && payload.bodyCase != Payload.BodyCase.CONTROL) return@launch // nothing is captured while paused
-            outbox.add(payload)
-            if (canSend()) flush() else if (payload.bodyCase !in Outbox.LAZY) reconsider() // a copy connects; a battery update waits
+            val rules = payloadRules(payload.toByteArray())
+            if (paused() && rules.paused) return@launch // nothing is captured while paused
+            outbox.add(payload, rules)
+            if (canSend()) flush() else if (!rules.lazy) reconsider() // a copy connects; a battery update waits
         }
     }
 
@@ -511,7 +516,8 @@ class Session(
         while (true) {
             val next = outbox.next(helloOnly = !shared) ?: return
             val env = try {
-                val e = device.seal(m.id, next.toByteArray(), Outbox.ttlFor(next))
+                val bytes = next.toByteArray()
+                val e = device.seal(m.id, bytes, payloadRules(bytes).ttlS)
                 persist() // the ratchet moved: save before anything leaves, or a crash could reuse a key
                 e
             } catch (e: SeamException) {
@@ -601,16 +607,13 @@ class Session(
     }
 
     /** The Mac's Hello lists the links it has open; one of ours it doesn't list is dead on its side. */
-    private fun closeLinksMissingFrom(open: OpenLinks) {
-        val listed = open.transportsList.toSet()
-        upPaths.filter { transportOf(it) !in listed }.forEach {
+    private fun closeLinksMissingFrom(open: List<PeerPath>) {
+        upPaths.filter { pathOf(it) !in open }.forEach {
             trace?.invoke("the Mac no longer has this link: closing")
             it.stop()
             pathClosed(it)
         }
     }
-
-    private fun transportOf(p: Path): Transport = if (p === direct) Transport.TRANSPORT_LAN else Transport.TRANSPORT_TOR
 
     /**
      * The path to the Mac now, by the core's rules: one up and allowed at both ends,
@@ -685,12 +688,13 @@ class Session(
     }
 
     private fun macHello(h: Hello) {
-        if (!switches.macHello(h)) {
+        val peer = switches.macHello(h)
+        if (peer == null) {
             trace?.invoke("hello: not newer than the last one, ignored")
             return
         }
         scope.launch {
-            if (h.hasOpenLinks()) closeLinksMissingFrom(h.openLinks)
+            peer.openLinks?.let { closeLinksMissingFrom(it) } // an older Mac that doesn't say: nothing to close
             applySettings()
         } // after this Hello is acked on the path it came on
     }
@@ -713,7 +717,7 @@ class Session(
 
     /** Only the latest Hello matters: it replaces any still queued. */
     private fun queueHello(wifi: Boolean = switches.wifi, tor: Boolean = switches.tor) =
-        outbox.replaceHello(switches.nextHello(wifi, tor, upPaths.map(::transportOf)))
+        outbox.replaceHello(switches.nextHello(wifi, tor, upPaths.map(::pathOf)))
 
     /** Closes both paths and stops looking for the Mac. */
     private fun closePaths() = paths.forEach { stopPath(it) }

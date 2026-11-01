@@ -22,7 +22,7 @@ flowchart LR
 |---|---|
 | **`seam-core`** | A device's identity and Signal sessions, plus Seam's own layer on top: pairing and identity pinning, sealing envelopes, padding, the prekey bundle byte format, file chunk sealing, the encrypted direct link (`LanChannel`), which path a message may take, and the sealed saved state |
 | **`seam-tor`** | Seam's Tor path on Arti: the Mac's private onion service (restricted discovery, so only the paired phone can find it), the phone's connection to it, and the two 32-byte secrets behind them. Keys live only in memory (Arti's in-memory keystore); the apps keep them in their sealed state. Arti is pinned to one exact version because restricted discovery and the in-memory keystore are behind its experimental features. Nothing here logs |
-| **`seam-ffi`** | The API the apps see: `SeamDevice` (identity, pairing, sealing, Hello and routing, saved state), `LanChannel` (the direct link), `Tor` and `TorStream` (Tor as a byte pipe), and `FileSealer` / `FileReceiver`. Plain bytes and strings in and out. UniFFI generates the Swift and Kotlin code from it |
+| **`seam-ffi`** | The API the apps see: `SeamDevice` (identity, pairing, sealing, Hello and routing, saved state), the feature catalogue, the clipboard rules, `LanChannel` (the direct link), `Tor` and `TorStream` (Tor as a byte pipe), and `FileSealer` / `FileReceiver`. Plain bytes and strings in and out. UniFFI generates the Swift and Kotlin code from it |
 
 ### `seam-core` modules
 
@@ -40,10 +40,13 @@ flowchart LR
 | `file.rs` | AES-256-GCM file chunks, bound to the file id, the chunk index and a last-chunk flag |
 | `proto.rs` | The Protobuf messages the core reads and writes, generated from `protocol/`, and its own saved-state format (`proto/state.proto`) |
 | `error.rs` | One error type; the apps see `NotPaired`, `UntrustedIdentity`, `NotConfirmed`, `Duplicate`, `PairingFailed`, `BadState` or `Invalid` |
+| `hello.rs` | Builds and applies the Hello: switches, open links, the pause and capabilities. The peer's capabilities are kept in the app data |
+| `catalogue.rs` | Each feature's delivery rules (time limit, latest only, lazy, stopped by a pause), the one table both outboxes ask |
+| `features/` | Each feature's own rules, one module per feature: `clipboard` today |
 
-### Features (planned)
+### Features
 
-Feature logic, such as the clipboard and notification rules, lives in each app today. The plan is to move each feature's messages, rules and states into `seam-core/src/features/<feature>/`, named like its `protocol/seam/v1/<feature>.proto`, with a matching `seam-ffi/src/<feature>.rs` and app module. The rules for that code:
+Each feature's shared rules live in `seam-core/src/features/<feature>/` (the clipboard so far), named like its `protocol/seam/v1/<feature>.proto`, with a matching `seam-ffi/src/<feature>.rs` and app module. Delivery rules for every feature are one table in `catalogue.rs`. The rules for this code:
 
 - A feature with no rules to share (a single message) has no folder here, only its `.proto`.
 - A feature uses only the core's public sealing and link code.

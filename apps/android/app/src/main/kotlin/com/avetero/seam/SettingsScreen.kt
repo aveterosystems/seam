@@ -58,7 +58,7 @@ fun SettingsScreen(
         Section("On your Mac") {
             if (notifications != null) NotificationsItem(notifications, "Notifications", home = false, onOpen = onOpenNotifications)
             AutoClipboardItem(clipboard)
-            // ClipRules always skips copies apps mark sensitive: nothing to switch off, so a tap says so
+            // Copies apps mark sensitive are always skipped (readClip): nothing to switch off, so a tap says so
             SwitchItem(
                 "Never send passwords", "Password-manager copies stay on this phone",
                 checked = true, onChange = { snack("Always on: copies apps mark as sensitive never leave this phone") },

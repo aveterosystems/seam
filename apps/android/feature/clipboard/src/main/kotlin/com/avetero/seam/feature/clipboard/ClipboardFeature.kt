@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PersistableBundle
+import com.avetero.seam.crypto.ClipRules
 import com.avetero.seam.protocol.v1.Clipboard
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.session.Feature
@@ -27,6 +28,7 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
     private val app = context.applicationContext
     private val clipboard = app.getSystemService(ClipboardManager::class.java)
     private val main = Handler(Looper.getMainLooper())
+    /** The core's rules: no echoes, no quick repeats, nothing empty or oversized. */
     private val rules = ClipRules()
 
     /** The last clip from the Mac, for the home screen: Android's own "Copied" pop-up can't say where it came from. */
@@ -43,11 +45,11 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
 
     /** Something new was copied on the phone (from [AutoClipboard]). */
     fun copied(text: String?) {
-        rules.outgoing(text)?.let(::send)
+        rules.outgoing(text, System.currentTimeMillis())?.let(::send)
     }
 
     /** The user asked to send this (share sheet). False if there's nothing sendable. */
-    fun sendNow(text: String?): Boolean = rules.forced(text)?.also(::send) != null
+    fun sendNow(text: String?): Boolean = rules.forced(text, System.currentTimeMillis())?.also(::send) != null
 
     /** Send what's on the clipboard now. Only works while Seam has focus (Android 10+). */
     fun sendCurrent(): Boolean = sendNow(readClip())

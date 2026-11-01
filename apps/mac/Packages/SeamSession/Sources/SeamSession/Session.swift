@@ -7,7 +7,8 @@ import SeamProtocol
 /// Everything between this Mac and its phone, the Mac counterpart of Android's Session: delivery
 /// (sealed, saved, then sent on a path the core's connection rules allow; resent if a path drops
 /// before the phone acknowledged it), what arrives (to the features), forgetting the phone, and
-/// pairing. Same Wi‑Fi and Tor each reach it through a `LanSender` (the same channel over either
+/// pairing. The features (`Feature`) own their state and actions; the session only hosts them.
+/// Same Wi‑Fi and Tor each reach it through a `LanSender` (the same channel over either
 /// carrier); `Paths` starts and stops those, and the app shows `state`.
 public actor Session {
     /// What the app shows.
@@ -19,15 +20,6 @@ public actor Session {
         public var allowed: [PeerPath]
         /// Messages not yet delivered.
         public var waiting: Int
-        public var status: Seam_V1_Status?
-        /// When the phone sent `status`.
-        public var statusAt: Date?
-        /// Clips both ways in the last day, newest first.
-        public var clips: [Clip]
-        /// The phone's notifications still up, newest first.
-        public var phoneNotifications: [Seam_V1_Notification]
-        public var notificationSettings: Seam_V1_NotificationSettings?
-        public var appIcons: [String: Data]
         public var pairing: PairingState
         /// Something the user should see in the menu (a refused login, a save that failed).
         public var warning: String?
@@ -39,7 +31,6 @@ public actor Session {
         public var wantsLinks: Bool
     }
 
-    static let settingsTTL: UInt32 = 600
     static let saveFailedWarning = "Seam couldn't save to disk. Check there's free space; messages wait until it can."
 
     let device: SeamDevice
@@ -74,13 +65,8 @@ public actor Session {
     /// (a network that went away without closing it): it's closed and the envelope goes on the other.
     static let ackTimeout: TimeInterval = 8
 
-    let clipboard: ClipboardFeature
-    let notifications: NotificationsFeature
-    let status: StatusFeature
-    /// Every feature, so forgetting the phone resets them all.
-    var features: [any Feature] { [clipboard, notifications, status] }
-    var clipTimer: TimerToken?
-    var stopped = false
+    /// Every feature, in the order each hears of a new path.
+    let features: [any Feature]
 
     /// The phone paused Seam until then (only the phone pauses). Nothing is captured or sent
     /// meanwhile; the paths stay open so the phone can resume from anywhere.
@@ -104,9 +90,8 @@ public actor Session {
     private let updatesIn: AsyncStream<State>.Continuation
 
     public init(
-        device: SeamDevice, storage: SessionStorage, pasteboard: any Pasteboard, notifications: any NotificationCentre,
-        wifi: Bool, tor: Bool, clipboardSync: Bool, appVersion: String, timers: any Timers = SystemTimers(),
-        ownStatus: @escaping @Sendable () -> Seam_V1_Status? = { nil }
+        device: SeamDevice, storage: SessionStorage, features: [any Feature],
+        wifi: Bool, tor: Bool, appVersion: String, timers: any Timers = SystemTimers()
     ) {
         self.device = device
         self.storage = storage
@@ -114,9 +99,7 @@ public actor Session {
         self.appVersion = appVersion
         self.wifi = wifi
         torOn = tor
-        clipboard = ClipboardFeature(pasteboard: pasteboard, syncOn: clipboardSync)
-        self.notifications = NotificationsFeature(centre: notifications)
-        status = StatusFeature(now: { [timers] in timers.now() }, own: ownStatus)
+        self.features = features
         phone = device.peers().first { $0.confirmed }
         pausedUntil = phone == nil ? nil : storage.pausedUntil()
         (updates, updatesIn) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -126,9 +109,7 @@ public actor Session {
         State(
             phone: phone, route: device.route(enabled: enabledPaths, up: upPaths, hello: false),
             allowed: device.allowedPaths(enabled: enabledPaths),
-            waiting: outbox.waiting.count + outbox.sent.count, status: status.status, statusAt: status.statusAt, clips: clipboard.clips,
-            phoneNotifications: notifications.shown,
-            notificationSettings: notifications.settings, appIcons: notifications.icons, pairing: flow.state, warning: warning,
+            waiting: outbox.waiting.count + outbox.sent.count, pairing: flow.state, warning: warning,
             pausedUntil: paused ? pausedUntil : nil, torServices: torServices, wantsLinks: phone != nil || pairingOpen
         )
     }
@@ -144,7 +125,7 @@ public actor Session {
         return out
     }
 
-    /// Loads what waited from before a restart and starts watching the pasteboard.
+    /// Loads what waited from before a restart and starts the features.
     public func start() async {
         if phone != nil {
             outbox = storage.outbox.load(now: timers.now())
@@ -152,16 +133,14 @@ public actor Session {
         } else {
             storage.outbox.delete() // a reset, or the phone went while Seam was closed
         }
-        await clipboard.start()
-        pollClipboardLater()
+        for feature in features { await feature.start(host: self) }
         if let until = pausedUntil { setPause(until: until) } // its end, timed from now
         publish()
     }
 
     /// Timers off, for a session being replaced.
-    public func stop() {
-        stopped = true
-        clipTimer?.cancel()
+    public func stop() async {
+        for feature in features { await feature.stop() }
         expiry?.cancel()
         updatesIn.finish()
     }
@@ -229,65 +208,7 @@ public actor Session {
         }
     }
 
-    // MARK: Features
-
-    /// This Mac's battery changed: the phone hears it if it's connected and nothing is paused.
-    /// Otherwise it waits for the next connection, which sends it fresh.
-    public func ownStatusChanged() async {
-        guard phone != nil, !paused, !upPaths.isEmpty else { return }
-        await send(status.ownStatus())
-    }
-
-    public func setClipboardSync(_ on: Bool) async {
-        await clipboard.setSync(on)
-        publish()
-    }
-
-    public func copyAgain(_ text: String) async {
-        await clipboard.copyAgain(text)
-    }
-
-    /// The phone owns its notification settings: this asks it to change them.
-    public func changeNotificationSettings(_ change: Seam_V1_NotificationSettingsChange) async {
-        let out = notifications.change(change)
-        publish()
-        await send([out])
-    }
-
-    public func clearClips() {
-        clipboard.clearClips()
-        publish()
-    }
-
-    /// What the user did to a phone notification's banner here.
-    public func notificationAction(_ action: Seam_V1_NotificationAction) async {
-        let out = notifications.action(action)
-        publish()
-        await send(out.map { [$0] } ?? [])
-    }
-
-    /// The main window's dismiss of one of the phone's notifications.
-    public func dismissNotification(key: String) async {
-        let out = await notifications.dismiss(key)
-        publish()
-        await send(out.map { [$0] } ?? [])
-    }
-
     // MARK: Private
-
-    private func pollClipboardLater() {
-        guard !stopped else { return }
-        clipTimer = timers.after(ClipboardFeature.pollInterval) { [weak self] in await self?.pollClipboard() }
-    }
-
-    private func pollClipboard() async {
-        let connected = device.route(enabled: enabledPaths, up: upPaths, hello: false) != nil
-        // Paused: a copy is seen and let go, so it never goes later either
-        if let out = await clipboard.poll(paired: phone != nil && !paused, connected: connected, now: timers.now()) {
-            await send([out])
-        }
-        pollClipboardLater()
-    }
 
     func saveFailed() {
         warning = Self.saveFailedWarning

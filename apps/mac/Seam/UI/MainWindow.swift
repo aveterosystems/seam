@@ -16,7 +16,7 @@ struct MainWindow: View {
 
     var body: some View {
         SidebarWindow(title: pane == .notifications ? "Notifications" : "Clipboard") {
-            SidebarItem(title: "Notifications", symbol: "bell.badge", selected: pane == .notifications, count: controller.phoneNotifications.count) {
+            SidebarItem(title: "Notifications", symbol: "bell.badge", selected: pane == .notifications, count: controller.notifications.shown.count) {
                 pane = .notifications
             }
             SidebarItem(title: "Clipboard", symbol: "doc.on.clipboard", selected: pane == .clipboard) { pane = .clipboard }
@@ -25,13 +25,13 @@ struct MainWindow: View {
         } toolbar: {
             switch pane {
             case .notifications:
-                if !controller.phoneNotifications.isEmpty {
-                    Button("Clear All") { controller.phoneNotifications.forEach(controller.dismiss) }
+                if !controller.notifications.shown.isEmpty {
+                    Button("Clear All") { controller.notifications.shown.forEach { controller.notifications.dismiss($0) } }
                         .buttonStyle(CapButtonStyle())
                 }
             case .clipboard:
-                if !controller.clips.isEmpty {
-                    Button("Clear History") { controller.clearClips() }.buttonStyle(CapButtonStyle())
+                if !controller.clipboard.clips.isEmpty {
+                    Button("Clear History") { controller.clipboard.clearClips() }.buttonStyle(CapButtonStyle())
                 }
             }
         } content: {
@@ -71,7 +71,7 @@ struct MainWindow: View {
                 Image(systemName: "iphone").foregroundStyle(SeamStyle.teal)
                 Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 0)
-                if let s = controller.status { BatteryPill(look: PhoneStatusLook(s, connected: controller.connected, at: controller.statusAt)) }
+                if let s = controller.status.status { BatteryPill(look: PhoneStatusLook(s, connected: controller.connected, at: controller.status.statusAt)) }
             }
             Stitch(line: controller.link.line)
             LinkStatus(look: controller.link)
@@ -93,13 +93,13 @@ private struct NotificationsPane: View {
                     Button("Pair") { PairingWindow.show(controller) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                 }
             }
-        } else if controller.notificationSettings?.enabled == false {
+        } else if controller.notifications.settings?.enabled == false {
             SettingsGroup {
                 SettingsRow("Notifications are off", "Your phone isn't sending notifications to this Mac") {
-                    Button("Turn On") { controller.setNotifications(enabled: true) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    Button("Turn On") { controller.notifications.setEnabled(true) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                 }
             }
-        } else if controller.phoneNotifications.isEmpty {
+        } else if controller.notifications.shown.isEmpty {
             SettingsGroup {
                 SettingsRow("No notifications from \(phoneName)", "New ones from the apps you chose show here and in Notification Centre. Choose apps in Settings › Notifications.") { EmptyView() }
             }
@@ -108,7 +108,7 @@ private struct NotificationsPane: View {
             ForEach(groups, id: \.appID) { group in
                 SettingsGroup {
                     HStack(spacing: 8) {
-                        AppIcon(image: controller.appIcons[group.appID], size: 20, name: group.items[0].appName)
+                        AppIcon(image: controller.notifications.images[group.appID], size: 20, name: group.items[0].appName)
                         Text(group.items[0].appName).font(.system(size: 12, weight: .semibold))
                         Spacer()
                         if group.items.count > 1 {
@@ -119,7 +119,7 @@ private struct NotificationsPane: View {
                     ForEach(group.items, id: \.key) { NotificationRow(notification: $0, controller: controller) }
                 }
             }
-            Text(controller.notificationSettings?.dismissBoth == false
+            Text(controller.notifications.settings?.dismissBoth == false
                 ? "Notifications you clear here stay on your phone."
                 : "Notifications you clear here are also cleared on your phone.")
                 .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
@@ -136,7 +136,7 @@ private struct NotificationsPane: View {
     private var groups: [(appID: String, items: [Seam_V1_Notification])] {
         var order: [String] = []
         var byApp: [String: [Seam_V1_Notification]] = [:]
-        for n in controller.phoneNotifications {
+        for n in controller.notifications.shown {
             if byApp[n.appID] == nil { order.append(n.appID) }
             byApp[n.appID, default: []].append(n)
         }
@@ -158,7 +158,7 @@ private struct NotificationRow: View {
                     Text(Date(timeIntervalSince1970: TimeInterval(n.postedAt) / 1000), style: .time)
                         .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
                 }
-                Button { controller.dismiss(n) } label: {
+                Button { controller.notifications.dismiss(n) } label: {
                     Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(SeamStyle.Win.fg2).frame(width: 14, height: 14)
                 }
                 .buttonStyle(.bordered).buttonBorderShape(.circle).tint(SeamStyle.Win.fg2)
@@ -177,7 +177,7 @@ private struct NotificationRow: View {
                         .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 ForEach(n.buttons, id: \.id) { b in
-                    Button(b.title) { controller.act(.with { $0.key = n.key; $0.buttonID = b.id }) }
+                    Button(b.title) { controller.notifications.send(.with { $0.key = n.key; $0.buttonID = b.id }) }
                         .buttonStyle(.bordered).buttonBorderShape(.capsule)
                 }
                 if !n.canReply { Spacer(minLength: 0) }
@@ -189,7 +189,7 @@ private struct NotificationRow: View {
     private func send() {
         let text = reply.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        controller.act(.with { $0.key = notification.key; $0.replyText = text })
+        controller.notifications.send(.with { $0.key = notification.key; $0.replyText = text })
         reply = ""
     }
 }
@@ -208,11 +208,11 @@ private struct ClipboardPane: View {
         }
         if controller.phone == nil {
             SettingsGroup { SettingsRow("No phone is paired with this Mac", "Pair your phone to share the clipboard") { EmptyView() } }
-        } else if controller.clips.isEmpty {
+        } else if controller.clipboard.clips.isEmpty {
             SettingsGroup { SettingsRow("Nothing copied yet", "Copies to and from your phone show here for a day") { EmptyView() } }
         } else {
             SettingsGroup {
-                ForEach(controller.clips) { clip in
+                ForEach(controller.clipboard.clips) { clip in
                     SettingsRow(Self.preview(clip.text), nil, leading: {
                         Image(systemName: clip.fromPhone ? "iphone" : "laptopcomputer")
                             .foregroundStyle(SeamStyle.Win.fg2).frame(width: 18)
@@ -223,7 +223,7 @@ private struct ClipboardPane: View {
                             if let url = clip.openableURL {
                                 Button("Open") { NSWorkspace.shared.open(url) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                             }
-                            Button("Copy") { controller.copyAgain(clip.text) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                            Button("Copy") { Task { await controller.clipboard.copyAgain(clip.text) } }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                         }
                     }
                 }

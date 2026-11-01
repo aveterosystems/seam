@@ -33,7 +33,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.avetero.seam.feature.clipboard.ClipRules
+import com.avetero.seam.feature.clipboard.ClipPreview
+import com.avetero.seam.feature.clipboard.ClipboardFeature
 import com.avetero.seam.session.SessionState
 
 /**
@@ -65,10 +66,10 @@ class ShareToMacActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Text(
-                            ClipRules.preview(text!!), maxLines = 8, overflow = TextOverflow.Ellipsis,
+                            ClipPreview.preview(text!!), maxLines = 8, overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        val more = ClipRules.notShown(text)
+                        val more = ClipPreview.notShown(text)
                         if (more > 0) Text("And %,d more characters, not shown".format(more), fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
                         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
                             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -84,7 +85,7 @@ class ShareToMacActivity : ComponentActivity() {
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                             TextButton(onClick = { finish() }) { Text("Cancel") }
-                            Button(onClick = { done(sentMessage(app, app.clipboard.sendNow(text))) }, enabled = armed) { Text(if (more > 0) "Send all" else "Send") }
+                            Button(onClick = { done(sentMessage(app, app.session.feature<ClipboardFeature>().sendNow(text))) }, enabled = armed) { Text(if (more > 0) "Send all" else "Send") }
                         }
                     }
                 }

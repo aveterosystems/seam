@@ -187,8 +187,8 @@ extension Session {
     }
 
     /// A phone confirmed here whose PairAccept never got out: forgotten, the app data put back.
+    /// It never became `phone`, so no feature holds anything of it.
     private func undoPairing(_ peerId: String, previous: AppData?) async {
-        await clipboard.reset()
         device.removePeer(peerId: peerId)
         if let previous { try? device.setAppData(data: previous) } else { device.clearAppData() }
         do { try storage.saveState() } catch { saveFailed() }
