@@ -2,6 +2,18 @@
 
 What changed in each release. `scripts/release.sh` drafts the next section from the merged PR titles and opens it for you to edit; the release, the Mac update window and the Android update card show that section.
 
+## 0.2.4
+
+- Docs: a glossary, and where each feature's core code lives
+- README: show only what Seam does today
+- Mac: the popover and Settings redesigned to the approved prototypes
+- Android: the approved redesign, to the prototype, in light and dark
+- Give up a dead link in seconds: Hellos list the open links, unacked messages fail over
+- Status both ways: Mac battery to the phone; Wi‑Fi or mobile data and Do Not Disturb to the Mac
+- Design docs in the repo, with a motion standard every screen follows
+- CI and release: reuse main's Rust cache, compile the core once, test only what's built
+- Mac: a main window with the phone's notifications and the clipboard history
+
 ## 0.2.3
 
 - Mac: click the connection status to see why the phone is offline
