@@ -68,6 +68,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.draw.shadow
 
 // Seam's shared building blocks, drawn and timed as the approved prototype
 // (docs/design/prototypes/android-app.html) draws them. Screens compose these; a new control
@@ -100,6 +104,19 @@ fun rememberSnack(): (String) -> Unit {
     return remember(snacks) { { snacks.show(it) } }
 }
 
+/**
+ * Seam's one floating surface, for anything that hovers over a screen: the snackbar, the selection
+ * toolbar, the camera caption. The theme's own colours (dark in dark mode, never Material's inverse)
+ * and one lift, so they always match. A new floating bar uses this rather than drawing its own.
+ */
+@Composable
+fun FloatingSurface(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(12.dp), content: @Composable () -> Unit) {
+    Box(
+        modifier.shadow(12.dp, shape, ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.3f))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest, shape),
+    ) { CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface, content = content) }
+}
+
 /** The prototype's snackbar: rises 90 dp on the spring (0.45 s), stays 2.2 s, and TalkBack reads it. */
 @Composable
 fun SnackHost(snacks: Snacks, modifier: Modifier) {
@@ -110,11 +127,12 @@ fun SnackHost(snacks: Snacks, modifier: Modifier) {
         enter = slideInVertically(Motion.spring(450)) { rise } + fadeIn(tween(250, easing = Motion.Ease)),
         exit = slideOutVertically(Motion.spring(450)) { rise } + fadeOut(tween(250, easing = Motion.Ease)),
     ) {
-        Text(
-            snacks.text.orEmpty(), fontSize = 14.sp, color = MaterialTheme.colorScheme.inverseOnSurface,
-            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.inverseSurface, RoundedCornerShape(12.dp))
-                .padding(horizontal = 16.dp, vertical = 14.dp).semantics { liveRegion = LiveRegionMode.Polite },
-        )
+        FloatingSurface(Modifier.fillMaxWidth()) {
+            Text(
+                snacks.text.orEmpty(), fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
     }
 }
 

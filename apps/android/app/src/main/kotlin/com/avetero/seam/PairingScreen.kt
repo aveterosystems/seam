@@ -102,12 +102,10 @@ internal fun PairScreen(
             if (camera != null) Box(Modifier.matchParentSize()) { camera() }
             Box(Modifier.align(Alignment.Center)) { Frame() }
             if (sheet == null && caption != null) {
-                Text(
-                    // A snackbar-style pill, so it reads over whatever the camera sees, in either theme
-                    caption, color = MaterialTheme.colorScheme.inverseOnSurface, textAlign = TextAlign.Center, fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                        .background(MaterialTheme.colorScheme.inverseSurface, RoundedCornerShape(12.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
-                )
+                // On the shared floating surface, so it reads over whatever the camera sees, in either theme
+                FloatingSurface(Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
+                    Text(caption, textAlign = TextAlign.Center, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp))
+                }
             }
             androidx.compose.animation.AnimatedVisibility(
                 visibleState = shown,
