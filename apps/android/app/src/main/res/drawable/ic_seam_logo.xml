@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- The home bar's mark, as the prototype draws it: a rounded frame with a dashed stitch -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="22dp" android:height="16dp" android:viewportWidth="22" android:viewportHeight="16">
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.2"
-        android:pathData="M5,1.5h12a3.5,3.5 0,0 1,3.5 3.5v6a3.5,3.5 0,0 1,-3.5 3.5h-12a3.5,3.5 0,0 1,-3.5 -3.5v-6a3.5,3.5 0,0 1,3.5 -3.5z" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.2"
-        android:pathData="M6,8h2.5M10.5,8h2.5M15,8h1" />
-</vector>

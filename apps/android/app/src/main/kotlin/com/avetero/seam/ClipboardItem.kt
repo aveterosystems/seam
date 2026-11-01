@@ -61,7 +61,7 @@ private fun ClipboardDialog(clipboard: ClipboardStatus, viaAccessibility: Boolea
                 "What you copy here goes to your Mac by itself. To turn it off, choose Clipboard Sync off in Seam on your Mac."
             }
             ClipboardStatus.NeedsSetup -> "Optional. Turn on Seam in Android's Accessibility settings, and what you copy goes to your Mac by itself. " +
-                "Android warns that accessibility apps can see your screen: Seam only notices when you copy something, and skips anything apps mark as sensitive.\n\n" +
+                "Android warns that accessibility apps can see your screen: Seam only notices when you copy something, and skips anything apps mark as sensitive unless you allow it in Settings.\n\n" +
                 "If Android says Restricted setting: App info › ⋮ › Allow restricted settings, then try again.\n\n" +
                 "Without it, tap Send clipboard on the home screen, or share text to Send to Mac."
             ClipboardStatus.Manual -> "The Play Store build can't send copies by itself. Tap Send clipboard on the home screen, or share text to Send to Mac."

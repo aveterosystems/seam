@@ -30,6 +30,12 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
     private val main = Handler(Looper.getMainLooper())
     /** The core's rules: no echoes, no quick repeats, nothing empty or oversized. */
     private val rules = ClipRules()
+    private val prefs = app.getSharedPreferences("clipboard", Context.MODE_PRIVATE)
+
+    /** Send copies apps mark sensitive (passwords, card numbers, codes). Off unless the user turns it on in Settings. */
+    var sendSensitive: Boolean
+        get() = prefs.getBoolean("send_sensitive", false)
+        set(value) = prefs.edit().putBoolean("send_sensitive", value).apply()
 
     /** The last clip from the Mac, for the home screen: Android's own "Copied" pop-up can't say where it came from. */
     private val _fromMac = MutableStateFlow<FromMac?>(null)
@@ -55,7 +61,8 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
     fun sendCurrent(): Boolean = sendNow(readClip())
 
     /**
-     * The clipboard's text, unless an app marked it sensitive (a password manager, a one-time code).
+     * The clipboard's text, unless an app marked it sensitive (a password manager, a one-time code)
+     * and the user hasn't chosen [sendSensitive].
      * Plain text only: a URI clip (a copied file) is never opened (SR-4-07).
      */
     fun readClip(): String? = readClip(fresh = false)
@@ -65,7 +72,7 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         val clip = clipboard.primaryClip ?: return null
         if (clip.itemCount == 0) return null
         if (fresh && System.currentTimeMillis() - clip.description.timestamp !in 0..FRESH_MS) return null
-        if (clip.description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE) == true) return null
+        if (clip.description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE) == true && !sendSensitive) return null
         clip.getItemAt(0).text?.toString()
     }.getOrNull()
 
