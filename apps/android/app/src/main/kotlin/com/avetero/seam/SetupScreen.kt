@@ -65,6 +65,7 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
                     ClipboardStatus.Automatic -> "On"
                     ClipboardStatus.NeedsSetup -> "Optional: what you copy goes to your Mac by itself. Turn on Seam in Accessibility. If Android says Restricted setting: App info › ⋮ › Allow restricted settings"
                     ClipboardStatus.Manual -> "Not in this build. Tap Send clipboard, or share to Send to Mac"
+                    ClipboardStatus.OffOnMac -> "Off on your Mac · turn on Sync the clipboard there"
                 },
                 lead = painterResource(R.drawable.ic_send),
                 highlighted = clipboard == ClipboardStatus.Automatic,
@@ -72,7 +73,7 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
                 when (clipboard) {
                     ClipboardStatus.Automatic -> Done()
                     ClipboardStatus.NeedsSetup -> AllowButton { openCopyWatcherSettings(context) }
-                    ClipboardStatus.Manual -> {}
+                    ClipboardStatus.Manual, ClipboardStatus.OffOnMac -> {}
                 }
             }
         }

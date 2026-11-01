@@ -374,6 +374,8 @@ class Session(
         scope.launch { fail("Something went wrong. Reopen Seam to reconnect.") }
     }
 
+    override fun macTakes(capability: String): Boolean = settings.value.macTakes(capability)
+
     override fun send(payload: Payload) {
         scope.launch {
             if (mac == null || pairing.active) return@launch

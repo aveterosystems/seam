@@ -19,11 +19,14 @@ public protocol Feature: AnyObject, Sendable {
     func reset() async
     /// The session is being replaced: timers off.
     func stop()
+    /// Capabilities this feature has turned off now, left out of the Hello so the phone stops sending.
+    var withheld: [String] { get }
 }
 
 extension Feature {
     public func connected() async {}
     public func stop() {}
+    public var withheld: [String] { [] }
 }
 
 /// What a feature can ask of the session hosting it.
@@ -31,6 +34,8 @@ public protocol FeatureHost: Actor {
     /// Sealed, saved, then sent; dropped with no phone, or while it has Seam paused (except control).
     func send(_ payload: Seam_V1_Payload) async
     func reach() -> Reach
+    /// Something a feature says in the Hello changed (see `Feature.withheld`): the phone hears now.
+    func sendHello() async
 }
 
 /// Whether what happens here now can go to the phone.

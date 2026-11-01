@@ -7,6 +7,9 @@ import com.avetero.seam.protocol.v1.Payload
 interface SessionApi {
     /** Seal a payload for the paired Mac and send it (or hold it until connected). */
     fun send(payload: Payload)
+
+    /** Whether the Mac's latest Hello says it takes [capability] now (true if it never said). */
+    fun macTakes(capability: String): Boolean = true
 }
 
 /** A self-contained capability (docs: architecture/app-internals.md). Registered once at startup. */

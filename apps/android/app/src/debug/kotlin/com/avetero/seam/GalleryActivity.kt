@@ -57,6 +57,7 @@ class GalleryActivity : ComponentActivity() {
         sandbox.getSharedPreferences("notifications", MODE_PRIVATE).edit().putString("prefs", SAMPLE_APPS).commit()
         val notifications = NotificationsFeature(sandbox, object : SessionApi { override fun send(payload: Payload) {} })
         val now = System.currentTimeMillis()
+        val clipboard = intent.getStringExtra("clipboard")?.let(ClipboardStatus::valueOf) ?: ClipboardStatus.Automatic
         val start = when (intent.getStringExtra("page")) {
             "settings" -> listOf(Page.Home, Page.Settings)
             "notifications" -> listOf(Page.Home, Page.Notifications)
@@ -83,7 +84,7 @@ class GalleryActivity : ComponentActivity() {
                                     when (page) {
                                         Page.Notifications -> NotificationsScreen(notifications, back)
                                         Page.Settings -> SettingsScreen(
-                                            "MacBook Pro", ClipboardStatus.Automatic, "482913", "0.2.3 (7, full)", {}, back,
+                                            "MacBook Pro", clipboard, "482913", "0.2.3 (7, full)", {}, back,
                                             app.updater, notifications, { pages = pages + Page.Notifications },
                                             ConnectionSettings(wifi = wifi, tor = tor), { w, t -> wifi = w; tor = t },
                                             pairedAt = 1_789_380_000_000L,
@@ -97,7 +98,7 @@ class GalleryActivity : ComponentActivity() {
                                             onOpenSettings = { pages = pages + Page.Settings },
                                             onOpenNotifications = { pages = pages + Page.Notifications },
                                             mac = MacStatus(64, false, now), notifications = notifications,
-                                            clipboard = ClipboardStatus.Automatic,
+                                            clipboard = clipboard,
                                             update = if (intent.getBooleanExtra("update", false)) Release("0.3", "", "", "") else null,
                                             look = look, onPause = { link = "paused" }, onResume = { link = "wifi" },
                                         )

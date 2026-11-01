@@ -34,6 +34,7 @@ import com.avetero.seam.feature.QrViewfinder
 import com.avetero.seam.feature.ScanResult
 import com.avetero.seam.feature.StatusFeature
 import com.avetero.seam.feature.clipboard.ClipboardFeature
+import com.avetero.seam.feature.clipboard.CLIPBOARD_CAPABILITY
 import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.feature.clipboard.AutoClipboard
 import com.avetero.seam.session.PairingQr
@@ -123,6 +124,7 @@ class MainActivity : ComponentActivity() {
                     setup = session.pairingOutcome.value == PairingOutcome.NewMac
                 }
                 val clipboardStatus = resumed.let { when {
+                    !connection.macTakes(CLIPBOARD_CAPABILITY) -> ClipboardStatus.OffOnMac
                     AutoClipboard.available(this@MainActivity) -> ClipboardStatus.Automatic
                     BuildConfig.FLAVOR == "full" -> ClipboardStatus.NeedsSetup
                     else -> ClipboardStatus.Manual
@@ -190,7 +192,7 @@ class MainActivity : ComponentActivity() {
                     onPause = { session.pause(it.until(System.currentTimeMillis())) },
                     onResume = { session.resume() },
                     // Seam has focus here, so Android allows the read
-                    onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your Mac") },
+                    onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your Mac", clipboard.offOnMac) },
                     onScan = {
                         scanError = null
                         scanning = true

@@ -63,7 +63,8 @@ import kotlinx.coroutines.delay
 /** What Home says after Send clipboard: on the button when it went, in a snackbar when it waits or can't. */
 data class SendFeedback(val label: String? = null, val snack: String? = null)
 
-fun sendFeedback(sent: Boolean, state: SessionState, macName: String): SendFeedback = when {
+fun sendFeedback(sent: Boolean, state: SessionState, macName: String, offOnMac: Boolean = false): SendFeedback = when {
+    offOnMac -> SendFeedback(snack = "Your Mac has Sync the clipboard turned off")
     !sent -> SendFeedback(snack = "Nothing to send: the clipboard is empty, too big, or holds something private")
     state is SessionState.Connected -> SendFeedback(label = "✓ Sent to Mac")
     // Queued, and the connection is starting: not sent yet, so it doesn't say so (SR-8-04)

@@ -113,10 +113,12 @@ extension Session: FeatureHost {
 
     /// Its seq is counted in the core's app data and saved with the seal, before it leaves: a
     /// Hello never goes with a seq a restart could hand out again.
-    func sendHello() async {
+    public func sendHello() async {
+        var off: Set<String> = []
+        for feature in features { off.formUnion(await feature.withheld) }
         // The Mac never pauses: only the phone does
         let facts = HelloFacts(appVersion: appVersion, platform: "macos", enabled: enabledPaths, open: upPaths,
-                               pausedUntilMs: 0, capabilities: coreCapabilities())
+                               pausedUntilMs: 0, capabilities: coreCapabilities().filter { !off.contains($0) })
         guard phone != nil, let bytes = device.nextHello(facts: facts),
               let hello = try? Seam_V1_Payload(serializedBytes: bytes) else { return }
         await sendToPhone(hello, hello: true)

@@ -32,6 +32,7 @@ class LookTest {
         assertEquals(SendFeedback(label = "Sending"), sendFeedback(true, SessionState.Idle("MacBook Pro"), "MacBook Pro"))
         assertEquals(SendFeedback(snack = "Will send when MacBook Pro is back"), sendFeedback(true, SessionState.Connecting("MacBook Pro"), "MacBook Pro"))
         assertNull(sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro").label)
+        assertEquals(SendFeedback(snack = "Your Mac has Sync the clipboard turned off"), sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro", offOnMac = true))
     }
 
     @Test fun theMacsBatteryShowsWhileReachableADashWhenNotAndNothingBeforeItsKnown() {
@@ -71,6 +72,7 @@ class LookTest {
         assertEquals("Copies reach your Mac by themselves", ClipboardStatus.Automatic.subtitle(viaAccessibility = false, home = true))
         assertEquals("On · set up from your Mac", ClipboardStatus.Automatic.subtitle(viaAccessibility = false, home = false))
         assertEquals("Off · tap Send clipboard after copying", ClipboardStatus.NeedsSetup.subtitle(viaAccessibility = false, home = true))
+        assertEquals("Off on your Mac · turn on Sync the clipboard there", ClipboardStatus.OffOnMac.subtitle(viaAccessibility = false, home = true))
     }
 
     @Test fun cssLinearFollowsTheStopsAndSpreadsTheUnplacedOnes() {

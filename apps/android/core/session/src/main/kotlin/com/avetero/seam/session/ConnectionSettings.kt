@@ -23,7 +23,12 @@ data class ConnectionSettings(
     val pausedUntil: Long = 0,
     /** Paths on at both ends, as the core decides from the switches and the Mac's Hello. Never saved. */
     val allowed: Set<PeerPath> = setOf(PeerPath.LAN, PeerPath.TOR),
-)
+    /** What the Mac's latest Hello says it takes now. Null: everything (never heard, or an older Mac that lists none). */
+    val macCapabilities: Set<String>? = null,
+) {
+    /** Whether the Mac takes [capability] now, e.g. "clipboard.v1" drops out while its clipboard sync is off. */
+    fun macTakes(capability: String): Boolean = macCapabilities?.contains(capability) ?: true
+}
 
 interface SettingsStore {
     fun load(): ConnectionSettings
