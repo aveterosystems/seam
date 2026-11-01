@@ -22,7 +22,7 @@ struct PhonePane: View {
                 }
                 .rise(0, shown, pane: true)
             }
-            // Which paths may reach the phone (decision 0006). The last one on can't be turned off,
+            // Which paths may reach the phone. The last one on can't be turned off,
             // and the footnote says why.
             GroupTitle("Connections").rise(1, shown, pane: true)
             SettingsGroup {

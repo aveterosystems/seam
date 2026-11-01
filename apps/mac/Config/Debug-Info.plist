@@ -1,16 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Debug builds only (project.yml): merged with the generated keys. Local networking lets a
-     dev build reach `wrangler dev` over plain ws:// on this Mac or the LAN. Release builds get
-     no ATS exception at all, and RelayPolicy refuses anything but wss:// there. -->
+<!-- Debug builds only (project.yml): merged with the generated keys. -->
 <plist version="1.0">
 <dict>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<!-- Same Wi‑Fi (decision 0006): the phone connects to this Mac directly. macOS asks once. -->
+	<!-- Same Wi‑Fi: the phone connects to this Mac directly. macOS asks once. -->
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Seam connects straight to your phone when it's on the same Wi‑Fi. It's end-to-end encrypted, and nothing leaves your network.</string>
 	<key>NSBonjourServices</key>

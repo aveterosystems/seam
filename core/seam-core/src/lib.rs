@@ -8,7 +8,7 @@
 //! - [`state`]: saving and restoring a device, sealed under the app's storage key.
 //! - [`relay`]: the Ed25519 key a device logs in to the relay with.
 //! - [`lan`]: the encrypted, mutually authenticated direct link (same Wi-Fi).
-//! - [`links`]: which path may carry a message (decision 0006), Hello state, the app's saved data.
+//! - [`links`]: which path may carry a message, Hello state, the app's saved data.
 //! - [`padding`], [`bundle`], [`file`]: size buckets, prekey bundle bytes, file chunks.
 
 pub mod bundle;

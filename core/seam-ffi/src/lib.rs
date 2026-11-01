@@ -294,7 +294,7 @@ impl SeamDevice {
         self.lock().clear_app_data();
     }
 
-    /// Paths switched on at both ends (decision 0006), in order of preference: this device's
+    /// Paths switched on at both ends, in order of preference: this device's
     /// switches (`enabled`, any order) and the peer's last applied Hello.
     pub fn allowed_paths(&self, enabled: Vec<PeerPath>) -> Vec<PeerPath> {
         let enabled = paths(enabled);

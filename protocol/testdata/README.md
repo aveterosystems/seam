@@ -1,6 +1,6 @@
 # Golden vectors
 
-Binary messages encoded by `protoc` itself, independently of any of our code. The Kotlin, Swift and server tests each decode them and check the same fields, so all three codebases provably agree on the wire format.
+Binary messages encoded by `protoc` itself, independently of any of our code. The Kotlin and Swift tests each decode them and check the same fields, so both apps provably agree on the wire format.
 
 Regenerate one after editing its `.txtpb`:
 

@@ -1234,7 +1234,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() and 0xFFFF) != 62568) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() and 0xFFFF) != 6953) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() and 0xFFFF) != 47526) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_app_data() and 0xFFFF) != 29712) {
@@ -2893,7 +2893,7 @@ public interface SeamDeviceInterface {
     fun `acceptPairing`(`envelope`: kotlin.ByteArray): PairingRequest
     
     /**
-     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * Paths switched on at both ends, in order of preference: this device's
      * switches (`enabled`, any order) and the peer's last applied Hello.
      */
     fun `allowedPaths`(`enabled`: List<PeerPath>): List<PeerPath>
@@ -3132,7 +3132,7 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
 
     
     /**
-     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * Paths switched on at both ends, in order of preference: this device's
      * switches (`enabled`, any order) and the peer's last applied Hello.
      */override fun `allowedPaths`(`enabled`: List<PeerPath>): List<PeerPath> {
             return FfiConverterSequenceTypePeerPath.lift(
@@ -6274,7 +6274,7 @@ sealed class TorState {
     
     
     /**
-     * The network or device stops Tor: say why (decision 0004: never a silent fallback).
+     * The network or device stops Tor: say why (never a silent fallback).
      */
     data class Blocked(
         val `reason`: com.avetero.seam.crypto.TorBlock) : TorState()

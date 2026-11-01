@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * The user's connection switches (decision 0006), what the Mac allows, and the Hello counters both
+ * The user's connection switches, what the Mac allows, and the Hello counters both
  * ways. The switches are preferences in [store]; the Mac-facing state is the core's, kept in the
  * sealed app data. The session decides which paths to open and what to send where.
  */

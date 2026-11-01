@@ -6,7 +6,7 @@ import com.avetero.seam.protocol.v1.ServerFrame
 
 /**
  * One way to reach the Mac (Same Wi‑Fi, or Tor). The path owns connecting, proving the Mac,
- * backing off and giving up; Session owns when a connection is wanted (decision 0005) and what
+ * backing off and giving up; Session owns when a connection is wanted and what
  * goes over it. Runs on Session's single-threaded scope.
  */
 internal interface Path {

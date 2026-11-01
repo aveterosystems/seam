@@ -23,7 +23,7 @@
 	<false/>
 	<key>SUEnableSystemProfiling</key>
 	<false/>
-	<!-- Same Wi‑Fi (decision 0006): the phone connects to this Mac directly. macOS asks once. -->
+	<!-- Same Wi‑Fi: the phone connects to this Mac directly. macOS asks once. -->
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Seam connects straight to your phone when it's on the same Wi‑Fi. It's end-to-end encrypted, and nothing leaves your network.</string>
 	<key>NSBonjourServices</key>

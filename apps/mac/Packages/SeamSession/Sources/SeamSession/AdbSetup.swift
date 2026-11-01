@@ -37,7 +37,7 @@ public enum AdbSetup {
 
     /// In order. The first one fails if the full build isn't installed. The restart at the end
     /// is needed: Android only hands a new log permission to a freshly started process. No battery
-    /// exemption: the phone holds no connection it doesn't need (decision 0005), so it doesn't need one.
+    /// exemption: the phone holds no connection it doesn't need, so it doesn't need one.
     public static func steps(serial: String) -> [Step] {
         let shell = ["-s", serial, "shell"]
         return [

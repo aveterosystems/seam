@@ -100,7 +100,7 @@ struct PairingView: View {
         }
     }
 
-    /// While Tor isn't ready the phone can still pair on the same Wi‑Fi: say why Tor waits (decision 0004).
+    /// While Tor isn't ready the phone can still pair on the same Wi‑Fi: say why Tor waits.
     private var torNote: String? {
         guard controller.torOn, controller.torState != .ready else { return nil }
         return LinkLook.of(route: nil, allowed: [.tor], tor: controller.torState).label

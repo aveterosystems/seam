@@ -446,7 +446,7 @@ class SessionTest {
         assertTrue(SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
     }
 
-    // MARK: decision 0005: the connection is held only while it's cheap or needed
+    // MARK: the connection is held only while it's cheap or needed
 
     @Test fun d0005_screenOffAndIdleClosesTheConnection() = runTest {
         val s = paired()
@@ -825,7 +825,7 @@ class SessionTest {
         assertEquals(SessionState.Unpaired, restarted.state.value)
     }
 
-    // MARK: same Wi‑Fi and the switches (decision 0006)
+    // MARK: same Wi‑Fi and the switches
 
     private val home = LanAddress("192.168.1.20", 50001)
     private val neighbour = LanAddress("192.168.1.30", 50002)

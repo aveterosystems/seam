@@ -10,7 +10,7 @@ import SeamSession
 /// the session (SeamSession's `Session`, which owns delivery, features and pairing) reports.
 @MainActor @Observable
 final class SeamController {
-    /// The connection switches (Settings › Connection; decision 0006). At least one stays on.
+    /// The connection switches (Settings › Connection). At least one stays on.
     private(set) var wifiOn = UserDefaults.standard.object(forKey: "transport.wifi") as? Bool ?? true
     private(set) var torOn = UserDefaults.standard.object(forKey: "transport.tor") as? Bool ?? true
     /// Tor's own state, for the link's words (connecting, blocked, clock).

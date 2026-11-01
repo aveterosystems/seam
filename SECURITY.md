@@ -19,8 +19,8 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 ## In scope
 
 - The crypto core (`core/`): key handling, pairing and identity pinning, session setup, message and file encryption, padding
-- The protocol (`protocol/`): anything that lets the relay or a network attacker learn, alter, replay or forge content
-- The relay (`server/`): authentication, routing, queueing, logging of anything it shouldn't
+- The protocol (`protocol/`): anything that lets a network attacker, someone on your Wi‑Fi or a Tor relay learn, alter, replay or forge content, or pair with your Mac
+- The direct link and Tor path (`core/seam-core/src/lan.rs`, `core/seam-tor`): who can connect or find the Mac's onion service, and anything that leaks keys or addresses
 - The apps (`apps/`): key storage, anything that sends content outside the end-to-end encryption, never-sync rules (passwords, sensitive notifications)
 - Releases (`.github/workflows/release.yml`, `scripts/`, `release/`): anything that could get an unreviewed build signed or published
 - Updates (Sparkle on the Mac, `Updates.kt` on Android): anything that could get an update installed that Seam's release workflow didn't sign
@@ -28,7 +28,7 @@ Include what you found, how to reproduce it, and what an attacker could do with 
 ## Out of scope
 
 - Attacks that need a device that's already compromised (malware running as the user, a rooted phone with the attacker in control)
-- Denial of service against the relay, unless it also breaks confidentiality or integrity
+- Blocking or slowing a connection (jamming the Wi‑Fi, a network that blocks Tor), unless it also breaks confidentiality or integrity
 - Vulnerabilities in libsignal itself: please report those to Signal at security@signal.org. Tell us too, so we can pin a fixed version.
 - Vulnerabilities in Arti or the Tor network: please report those to the Tor Project (https://support.torproject.org/misc/bug-or-feedback/). Tell us too, so we can update Arti.
 
@@ -45,6 +45,8 @@ Each release is built by `.github/workflows/release.yml` from a tag on `main`, s
 - End-to-end encryption with the Signal Protocol, through Signal's own libsignal (pinned release): PQXDH post-quantum session setup and the triple ratchet
 - One shared Rust core for both apps: no crypto is implemented twice, and none is home-made
 - Peer keys pinned at pairing by QR code: never trusted on first use
-- Fixed-size padding, envelopes bound to their ciphertext, a relay that logs no IPs or contents (its host, Cloudflare, still sees IPs at its edge; pushes, when added, carry nothing)
+- Fixed-size padding and envelopes bound to their ciphertext
+- No server carries your messages: on the same Wi‑Fi the devices talk directly; elsewhere the phone reaches the Mac's private onion service through Tor, which only the paired phone can find, and which hides where both devices are
+- Every connection, on Wi‑Fi or through Tor, is a second encrypted, mutually authenticated channel (Noise, then each side signs with the key pinned at pairing)
 - Security properties are tested in `core/seam-core`, the Swift and Kotlin bindings and the apps; the threat model lists what isn't covered yet
 - An independent audit is planned before 1.0

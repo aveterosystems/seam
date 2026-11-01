@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <!-- One of the permissions Android 14+ requires for a connectedDevice foreground service -->
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
-    <!-- About a minute after the screen goes off, so the idle connection actually closes (decision 0005) -->
+    <!-- About a minute after the screen goes off, so the idle connection actually closes -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Start again after a restart, and remind about automatic clipboard (BootReceiver) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

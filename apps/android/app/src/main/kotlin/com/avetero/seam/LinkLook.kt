@@ -58,7 +58,7 @@ data class LinkLook(
                 route == Transport.TRANSPORT_LAN -> SameWifi
                 route == Transport.TRANSPORT_TOR -> ThroughTor
                 !wifi && !onion -> NoSharedPath
-                // Never a silent fallback: when Tor can't connect, say why (decision 0004)
+                // Never a silent fallback: when Tor can't connect, say why
                 onion && tor is TorState.Blocked && tor.reason == TorBlock.CLOCK_SKEWED -> TorClock
                 onion && tor is TorState.Blocked && tor.reason != TorBlock.OFFLINE -> TorBlocked
                 onion && tor is TorState.Failed -> TorFailed

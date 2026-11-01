@@ -34,13 +34,13 @@ public nonisolated enum Seam_V1_Transport: SwiftProtobuf.Enum, Swift.CaseIterabl
   /// same network, direct
   case lan // = 1
 
-  /// retired with the relay (decision 0009); never reused
+  /// retired with the relay; never reused
   case relay // = 2
 
   /// internet, through Tor to the Mac's private onion service
   case tor // = 4
 
-  /// direct Bluetooth LE (decision 0006; not built yet)
+  /// direct Bluetooth LE (not built yet)
   case bluetooth // = 3
   case UNRECOGNIZED(Int)
 
@@ -168,7 +168,7 @@ public nonisolated struct Seam_V1_Hello: Sendable {
   public var capabilities: [String] = []
 
   /// The connection switches on this device. The peer never sends over a transport missing
-  /// here (only paths allowed at both ends are used; decision 0006). Sent whenever a path to the
+  /// here (only paths allowed at both ends are used). Sent whenever a path to the
   /// peer comes up and whenever the switches change.
   public var allowedTransports: [Seam_V1_Transport] = []
 

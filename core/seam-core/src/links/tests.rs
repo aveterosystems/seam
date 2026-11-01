@@ -28,7 +28,7 @@ fn heard(list: &[i32]) -> AppData {
     d
 }
 
-// Decision 0006: only paths switched on at both ends, as one table both apps share.
+// Only paths switched on at both ends, as one table both apps share.
 #[test]
 fn allowed_paths_table() {
     type Case<'a> = (bool, bool, Option<&'a [i32]>, &'a [Path]);
@@ -204,7 +204,7 @@ fn rejects_damaged_bytes() {
 
 #[test]
 fn earlier_relay_formats_are_not_read_so_the_devices_pair_again() {
-    // v1-v4 held a relay group (decision 0009 replaces relays with Tor)
+    // v1-v4 held a relay group (Tor replaced relays)
     for v in 1..=4u8 {
         let mut bytes = vec![v, 16];
         bytes.extend([7; 16]);

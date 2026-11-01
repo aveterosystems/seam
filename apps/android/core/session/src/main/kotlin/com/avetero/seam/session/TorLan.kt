@@ -23,7 +23,7 @@ interface TorDialer : Lan {
  * The Tor path's plumbing, as a [Lan] so [LanPath] drives it like Same Wi‑Fi: "discovery" reports
  * the Mac's one onion address once Tor is ready, and a connection is a stream through Tor (Arti,
  * in process). Tor starts once, on first use, and is dormant whenever it has no stream open and
- * isn't looking for the Mac (decision 0005: no background traffic while Seam has nothing to say).
+ * isn't looking for the Mac (no background traffic while Seam has nothing to say).
  * Callbacks come on Tor's threads.
  */
 class TorLan(private val tor: TorInterface) : TorDialer {

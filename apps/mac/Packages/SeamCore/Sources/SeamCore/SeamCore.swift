@@ -1198,7 +1198,7 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     func acceptPairing(envelope: Data) throws  -> PairingRequest
     
     /**
-     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * Paths switched on at both ends, in order of preference: this device's
      * switches (`enabled`, any order) and the peer's last applied Hello.
      */
     func allowedPaths(enabled: [PeerPath])  -> [PeerPath]
@@ -1405,7 +1405,7 @@ open func acceptPairing(envelope: Data)throws  -> PairingRequest  {
 }
     
     /**
-     * Paths switched on at both ends (decision 0006), in order of preference: this device's
+     * Paths switched on at both ends, in order of preference: this device's
      * switches (`enabled`, any order) and the peer's last applied Hello.
      */
 open func allowedPaths(enabled: [PeerPath]) -> [PeerPath]  {
@@ -3817,7 +3817,7 @@ public enum TorState: Equatable, Hashable {
     )
     case ready
     /**
-     * The network or device stops Tor: say why (decision 0004: never a silent fallback).
+     * The network or device stops Tor: say why (never a silent fallback).
      */
     case blocked(reason: TorBlock
     )
@@ -4251,7 +4251,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() != 62568) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() != 6953) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() != 47526) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 29712) {

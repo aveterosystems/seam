@@ -192,7 +192,7 @@ public struct LinkLook: Equatable, Sendable {
     }
 
     /// The one place a path becomes a look. With no route, Tor's own state says why when Tor is
-    /// the way the phone would come (never a silent wait on a blocked network, decision 0004).
+    /// the way the phone would come (never a silent wait on a blocked network).
     public static func of(route: Seam_V1_Transport?, allowed: Set<Seam_V1_Transport>, tor: TorState = .ready) -> LinkLook {
         switch route {
         case .lan?: return .sameWifi

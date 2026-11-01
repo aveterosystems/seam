@@ -24,7 +24,7 @@ message Hello {
   string platform = 2; // "macos" | "android"
   repeated string capabilities = 3; // "clipboard.v1", "files.v1", "notifications.reply", "messages.sms", ...
   // The connection switches on this device. The peer never sends over a transport missing
-  // here (only paths allowed at both ends are used; decision 0006). Sent whenever a path to the
+  // here (only paths allowed at both ends are used). Sent whenever a path to the
   // peer comes up and whenever the switches change.
   repeated Transport allowed_transports = 4;
   // Counts up by one with every Hello this device sends to this peer (persisted; restarts at 1
@@ -50,9 +50,9 @@ message OpenLinks {
 enum Transport {
   TRANSPORT_UNSPECIFIED = 0;
   TRANSPORT_LAN = 1; // same network, direct
-  TRANSPORT_RELAY = 2; // retired with the relay (decision 0009); never reused
+  TRANSPORT_RELAY = 2; // retired with the relay; never reused
   TRANSPORT_TOR = 4; // internet, through Tor to the Mac's private onion service
-  TRANSPORT_BLUETOOTH = 3; // direct Bluetooth LE (decision 0006; not built yet)
+  TRANSPORT_BLUETOOTH = 3; // direct Bluetooth LE (not built yet)
 }
 
 // Sent once a payload is handled. Every payload except Ack and Ping gets one.

@@ -70,7 +70,7 @@ jobs:
       - name: Rust core → SeamCoreFFI.xcframework
         run: PROFILE=debug scripts/build-mac-core.sh
 
-      - name: Swift tests (core bindings, protocol golden vector, relay session)
+      - name: Swift tests (core bindings, protocol golden vector, session)
         run: |
           swift test --package-path apps/mac/Packages/SeamCore
           swift test --package-path apps/mac/Packages/SeamProtocol
