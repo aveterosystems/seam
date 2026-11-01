@@ -111,7 +111,7 @@ class ScreensTest(private val dark: Boolean) {
 
     @Test fun homeWifi() { show { home(LinkLook.SameWifi) }; shot("home-wifi") }
     @Test fun homeTor() { show { home(LinkLook.ThroughTor) }; shot("home-tor") }
-    @Test fun homeOffline() { show { home(LinkLook.Reconnecting) }; shot("home-offline") }
+    @Test fun homeOffline() { show { home(LinkLook.Offline) }; shot("home-offline") }
     @Test fun homePaused() { show { home(LinkLook.paused(now + 30 * 60_000L, now)) }; shot("home-paused") }
     @Test fun homeClip() { show { home(LinkLook.SameWifi, clip = true) }; shot("home-clip") }
     @Test fun homeUpdate() { show { home(LinkLook.SameWifi, update = true) }; shot("home-update") }

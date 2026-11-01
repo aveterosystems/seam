@@ -60,6 +60,9 @@ final class SeamController {
     /// A pairing from before Tor was dropped on opening: shown until the phone pairs again.
     @ObservationIgnored private var pairAgainWarning: String?
     @ObservationIgnored private var lastState: Session.State?
+    /// A Reconnect under way, until the phone is back or it gives up.
+    @ObservationIgnored private var reconnecting: LinkLook.Reconnect?
+    @ObservationIgnored private var reconnectEnd: Task<Void, Never>?
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
     /// Tells the phone when this Mac's battery changes (once per app run).
     @ObservationIgnored private var batteryWatch: CFRunLoopSource?
@@ -163,7 +166,7 @@ final class SeamController {
         waiting = s.waiting
         paused = s.pausedUntil != nil
         lastState = s
-        setLink(LinkLook.of(route: s.route, allowed: s.allowed, tor: torState, pausedUntil: s.pausedUntil))
+        refreshLink()
         if case .confirm = s.pairing, pairing != s.pairing { NSApp.activate() } // the safety code needs the user's eyes now
         pairing = s.pairing
         if s.phone != nil { pairAgainWarning = nil }
@@ -174,12 +177,40 @@ final class SeamController {
 
     private func torChanged(_ state: TorState) {
         torState = state
-        if let s = lastState { setLink(LinkLook.of(route: s.route, allowed: s.allowed, tor: state, pausedUntil: s.pausedUntil)) }
+        refreshLink()
     }
 
-    private func setLink(_ new: LinkLook) {
+    private func refreshLink() {
+        guard let s = lastState else { return }
+        let new = LinkLook.of(route: s.route, allowed: s.allowed, tor: torState, pausedUntil: s.pausedUntil, reconnect: reconnecting)
+        if new.connected { endReconnect() }
         if link.connected, !new.connected { lastSeen = Date() }
         link = new
+    }
+
+    /// "Reconnect" in the popover's ⓘ: the phone is asked to dial again; out of reach, this Mac's
+    /// own side starts again and the line says to wake the phone. Shows for the usual connect time.
+    func reconnect() {
+        Task {
+            guard let session else { return }
+            let asked = await session.reconnect()
+            if !asked { paths?.restart() }
+            reconnecting = asked ? .asked : .phoneOffline
+            refreshLink()
+            reconnectEnd?.cancel()
+            reconnectEnd = Task { [weak self, tor = torOn] in
+                try? await Task.sleep(for: .seconds(tor ? 60 : 15))
+                guard !Task.isCancelled else { return }
+                self?.endReconnect()
+                self?.refreshLink()
+            }
+        }
+    }
+
+    private func endReconnect() {
+        reconnecting = nil
+        reconnectEnd?.cancel()
+        reconnectEnd = nil
     }
 
     /// Something new from the phone: the menu bar icon pops once and VoiceOver says what (catalogue 5).
@@ -256,7 +287,7 @@ final class SeamController {
                   notifications: [Seam_V1_Notification], clips: [Clip]) {
         self.phone = phone
         self.status.showDemo(status, at: Date().addingTimeInterval(-12 * 60))
-        setLink(look)
+        link = look
         self.waiting = waiting
         self.notifications.showDemo(settings: settings, shown: notifications)
         clipboard.showDemo(clips: clips)

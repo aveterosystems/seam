@@ -171,6 +171,14 @@ public struct LinkLook: Equatable, Sendable {
     public static let away = LinkLook.offline("Offline · will send when your phone is back",
         detail: "To save battery, your phone disconnects about a minute after its screen goes off. It's back when you unlock it or it has something to send. Copies from this Mac wait up to 10 minutes.")
 
+    /// What a Reconnect on this Mac is doing, until the phone is back or it gives up.
+    public enum Reconnect: Sendable { case asked, phoneOffline }
+    /// The phone was asked to dial again: dots travel along the line until it's back.
+    public static let reconnecting = LinkLook(line: .dotted, symbol: nil, label: "Reconnecting", connected: false)
+    /// The phone was out of reach, so only this Mac's side started again.
+    public static let wakePhone = LinkLook.offline("Turn on your phone's screen to connect",
+        detail: "This Mac started its side again. Your phone can't be reached from here: it connects when its screen is on, or when it has something to send.")
+
     public static func offline(_ why: String, detail: String? = nil) -> LinkLook {
         LinkLook(line: .broken, symbol: nil, label: why, connected: false, detail: detail)
     }
@@ -209,10 +217,14 @@ public struct LinkLook: Equatable, Sendable {
         }
     }
 
-    /// The same, from the core's connection rules. A pause on the phone comes first.
-    public static func of(route: PeerPath?, allowed: [PeerPath], tor: TorState = .ready, pausedUntil: Date? = nil, now: Date = Date()) -> LinkLook {
+    /// The same, from the core's connection rules. A pause on the phone comes first; a Reconnect
+    /// under way shows until a path is up, but never hides why one can't be (Tor blocked, no shared path).
+    public static func of(route: PeerPath?, allowed: [PeerPath], tor: TorState = .ready, pausedUntil: Date? = nil, now: Date = Date(),
+                          reconnect: Reconnect? = nil) -> LinkLook {
         if let pausedUntil, pausedUntil > now { return .paused(until: pausedUntil, now: now) }
-        return of(route: route?.transport, allowed: Set(allowed.map(\.transport)), tor: tor)
+        let look = of(route: route?.transport, allowed: Set(allowed.map(\.transport)), tor: tor)
+        guard let reconnect, !look.connected, ![LinkLook.torBlocked, .torClock, .noSharedPath].contains(look) else { return look }
+        return reconnect == .asked ? .reconnecting : .wakePhone
     }
 
     /// The whole line in words, for VoiceOver and anywhere there's no room for the icon.

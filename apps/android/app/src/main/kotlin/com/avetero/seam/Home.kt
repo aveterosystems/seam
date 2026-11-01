@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -40,10 +41,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -99,8 +102,10 @@ internal fun Home(
     clipboard: ClipboardStatus,
     onPause: (PauseFor) -> Unit,
     onResume: () -> Unit,
+    onReconnect: () -> Unit,
     banner: @Composable () -> Unit,
 ) {
+    var details by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 40.dp)) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_seam_mark), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
@@ -117,7 +122,13 @@ internal fun Home(
                 macName, fontSize = 30.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp,
                 textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
             )
-            StatusChip(look)
+            StatusChip(look, open = details) { details = !details }
+            // The chip's details: Reconnect, for when you know it's stuck. Folds away once tapped
+            Unfold(details) {
+                Card("Connection", "Seems stuck? Try again now", MaterialTheme.colorScheme.surfaceContainerHigh, kicker = MaterialTheme.colorScheme.outline) {
+                    Pill("Reconnect", { details = false; onReconnect() })
+                }
+            }
             Meta(macBattery(look, mac), mac?.let { it.batteryPct <= 15 && !it.charging } == true && look.connected)
             if (notice != null) Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 12.dp))
         }
@@ -131,11 +142,12 @@ internal fun Home(
 }
 
 /**
- * "● Connected · Same Wi‑Fi" in a 32 dp chip, tertiary while paused. While connected the dot
- * sends out a ring: 1 → 2.8× while fading from 60%, ease-out over the first 70% of 2.4 s.
+ * "● Connected · Same Wi‑Fi ⓘ" in a 32 dp chip, tertiary while paused. While connected the dot
+ * sends out a ring: 1 → 2.8× while fading from 60%, ease-out over the first 70% of 2.4 s. A tap
+ * unfolds the connection's details underneath.
  */
 @Composable
-private fun StatusChip(look: LinkLook) {
+private fun StatusChip(look: LinkLook, open: Boolean, onToggle: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val bg = pick(look.paused, scheme.surfaceContainerLow, scheme.tertiaryContainer, Motion.ease(400))
     val ink = pick(look.paused, scheme.onSurfaceVariant, scheme.onTertiaryContainer, Motion.ease(400))
@@ -149,7 +161,9 @@ private fun StatusChip(look: LinkLook) {
         }
     } else LaunchedEffect(Unit) { ring.snapTo(0f) }
     Row(
-        Modifier.height(32.dp).background(bg, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp)
+        Modifier.height(32.dp).clip(RoundedCornerShape(16.dp)).background(bg)
+            .clickable(onClickLabel = if (open) "Hide connection details" else "Show connection details", role = Role.Button, onClick = onToggle)
+            .padding(horizontal = 14.dp)
             // TalkBack reads the whole line, and again when it changes
             .semantics(mergeDescendants = true) { contentDescription = look.sentence; liveRegion = LiveRegionMode.Polite },
         verticalAlignment = Alignment.CenterVertically,
@@ -161,6 +175,8 @@ private fun StatusChip(look: LinkLook) {
         })
         Spacer(Modifier.width(7.dp))
         Swap(look.sentence) { Text(it, fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = ink, maxLines = 1) }
+        Spacer(Modifier.width(6.dp))
+        Icon(painterResource(R.drawable.ic_info), contentDescription = null, tint = ink, modifier = Modifier.size(16.dp))
     }
 }
 

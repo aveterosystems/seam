@@ -88,6 +88,13 @@ internal class LanPath(
         refused.clear()
     }
 
+    // Only ever from the user (or our proven Mac asking): a stranger can't make us skip the backoff
+    override fun restart() {
+        stop()
+        backoff.reset()
+        start()
+    }
+
     override fun send(frame: ClientFrame): Boolean {
         val ch = channel ?: return false
         if (!authed) return false

@@ -51,7 +51,8 @@ fun LinkLook.cookie(): CookieLook = when {
 /**
  * Board A01's hero: the cookie with the Mac and this phone joined by stitches
  * (design-system.md, "The stitch"; motion.md entry 10): solid lines that draw themselves in on
- * the same Wi‑Fi, dashes flowing along through Tor, broken grey and still when not connected.
+ * the same Wi‑Fi, dashes flowing along through Tor, grey dots travelling to the Mac while
+ * connecting, broken grey and still when not connected.
  */
 @Composable
 fun Hero(macName: String, look: LinkLook, size: Dp = 196.dp) {
@@ -91,9 +92,9 @@ private fun Stitches(line: LinkLook.Line, size: Dp, reduced: Boolean, teal: Colo
     if (line == LinkLook.Line.Solid && !reduced) {
         drawn.forEachIndexed { i, a -> LaunchedEffect(a) { a.animateTo(1f, Motion.emphasized(700, 80 * i)) } }
     }
-    // Tor's dashes flow along, 11 units every 0.9 s
+    // Tor's dashes flow along, 11 units every 0.9 s; connecting, the dots travel from this phone to the Mac at the same pace
     val phase = remember { Animatable(0f) }
-    if (line == LinkLook.Line.Dashed && !reduced) LaunchedEffect(Unit) {
+    if ((line == LinkLook.Line.Dashed || line == LinkLook.Line.Dotted) && !reduced) LaunchedEffect(line) {
         while (true) { phase.snapTo(0f); phase.animateTo(11f, tween(Motion.DASH_FLOW_MS, easing = LinearEasing)) }
     }
     Canvas(Modifier.size(size)) {
@@ -103,7 +104,8 @@ private fun Stitches(line: LinkLook.Line, size: Dp, reduced: Boolean, teal: Colo
                 val (color, effect, to) = when (line) {
                     LinkLook.Line.Solid -> Triple(teal, null, 122f + 24f * drawn[i].value)
                     LinkLook.Line.Dashed -> Triple(teal, PathEffect.dashPathEffect(floatArrayOf(5 * k, 6 * k), -phase.value * k), 146f)
-                    LinkLook.Line.Dotted -> Triple(grey, PathEffect.dashPathEffect(floatArrayOf(0.1f * k, 6 * k)), 146f)
+                    // A 5.5-unit period, so the 11-unit loop repeats seamlessly
+                    LinkLook.Line.Dotted -> Triple(grey, PathEffect.dashPathEffect(floatArrayOf(0.1f * k, 5.4f * k), phase.value * k), 146f)
                     LinkLook.Line.Broken -> Triple(grey, PathEffect.dashPathEffect(floatArrayOf(4 * k, 7 * k)), 146f)
                 }
                 drawLine(color, Offset(122 * k, y * k), Offset(to * k, y * k), 5 * k, StrokeCap.Round, effect)

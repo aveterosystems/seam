@@ -3,9 +3,10 @@ import SeamCore
 import SeamSession
 import SwiftUI
 
-/// The popover's device header: the phone, its link in words, its battery and network. Offline,
-/// ⓘ unfolds why underneath (catalogue 7). VoiceOver reads it as one line: "Pixel 9, connected,
-/// same Wi‑Fi, battery 82 percent".
+/// The popover's device header: the phone, its link in words, its battery and network. ⓘ unfolds
+/// the connection's details underneath (catalogue 7): why, when it's offline, and Reconnect, for
+/// when you know it's stuck. VoiceOver reads it as one line: "Pixel 9, connected, same Wi‑Fi,
+/// battery 82 percent".
 struct PopoverHeader: View {
     let controller: SeamController
     let phone: PeerInfo
@@ -31,7 +32,7 @@ struct PopoverHeader: View {
                         HStack(spacing: 5) {
                             StatusDot(on: look.connected)
                             SwapText(line)
-                            if look.detail != nil { InfoButton(open: $why, label: "Why", turns: false) }
+                            InfoButton(open: $why, label: "Connection details", turns: false)
                         }
                         .font(.system(size: 11.5))
                         .foregroundStyle(SeamStyle.Pop.fg2)
@@ -43,20 +44,29 @@ struct PopoverHeader: View {
                 .padding(EdgeInsets(top: 14, leading: 14, bottom: 10, trailing: 14))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel([name, line.replacingOccurrences(of: " · ", with: ", "), battery?.spoken].compactMap { $0 }.joined(separator: ", "))
-                .accessibilityAction(named: "Why") { why.toggle() }
+                .accessibilityAction(named: "Connection details") { why.toggle() }
             }
             .rise(rise.0, rise.1)
-            if why, let detail = look.detail {
-                Text(detail)
-                    .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)
-                    .lineSpacing(11 * 0.45 - 2) // line-height 1.45
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(SeamStyle.Pop.fill2))
-                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
-                    .padding(EdgeInsets(top: 0, leading: 14, bottom: 2, trailing: 14))
-                    .transition(.unfold(reduce))
+            if why {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let detail = look.detail {
+                        Text(detail)
+                            .lineSpacing(11 * 0.45 - 2) // line-height 1.45
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    HStack(spacing: 8) {
+                        Text("Seems stuck? Try again now")
+                        Spacer(minLength: 0)
+                        Button("Reconnect") { controller.reconnect() }.buttonStyle(PillButtonStyle())
+                    }
+                }
+                .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 9).fill(SeamStyle.Pop.fill2))
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
+                .padding(EdgeInsets(top: 0, leading: 14, bottom: 2, trailing: 14))
+                .transition(.unfold(reduce))
             }
         }
         .clipped()

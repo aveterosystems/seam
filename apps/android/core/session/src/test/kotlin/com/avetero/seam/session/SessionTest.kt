@@ -446,6 +446,86 @@ class SessionTest {
         assertTrue(SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
     }
 
+    // MARK: Reconnect (specs/feature-parity/01-small-items.md, 1)
+
+    private val reconnect = Payload.newBuilder().setControl(Control.newBuilder().setReconnect(com.avetero.seam.protocol.v1.Reconnect.getDefaultInstance())).build()
+
+    @Test fun reconnectClosesTheLinkAndDialsAgainAtOnce() = runTest {
+        val s = paired()
+        val old = tor.open!!
+        val opened = tor.opened
+        s.reconnect()
+        runCurrent() // no time passes: no backoff
+        assertTrue("the old link is closed", old.closed)
+        assertEquals(opened + 1, tor.opened)
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+        assertEquals("never pairs again", 1, tor.pairings)
+    }
+
+    @Test fun reconnectForgetsAMacItGaveUpOn() = runTest {
+        val lan = FakeLan(mapOf(home to strangerMac())) // someone else's Mac answers first: skipped for 10 minutes
+        val s = pairedWithLan(lan)
+        lan.announce(home)
+        advanceUntilIdle()
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
+        lan.macs = mapOf(home to mac)
+        s.reconnect()
+        runCurrent()
+        lan.announce(home) // found again by the fresh discovery
+        advanceUntilIdle()
+        assertEquals(Transport.TRANSPORT_LAN, s.route.value)
+    }
+
+    @Test fun theMacsReconnectMakesThePhoneDialAgain() = runTest {
+        val s = paired()
+        val old = tor.open!!
+        val opened = tor.opened
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u))
+        runCurrent()
+        assertTrue(old.closed)
+        assertEquals(opened + 1, tor.opened)
+        advanceUntilIdle()
+        assertEquals(SessionState.Connected("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun aMacThatKeepsAskingCantMakeThePhoneRedialWithoutAPause() = runTest {
+        paired()
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u))
+        advanceTimeBy(1_000)
+        runCurrent()
+        val opened = tor.opened
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u)) // again, on the new link
+        runCurrent()
+        assertEquals("ignored so soon after the last", opened, tor.opened)
+        advanceTimeBy(15_000)
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u))
+        runCurrent()
+        assertEquals("heard again later", opened + 1, tor.opened)
+    }
+
+    @Test fun pausedReconnectConnectsNothing() = runTest {
+        val s = paired()
+        s.pause(testScheduler.currentTime + 3_600_000)
+        advanceUntilIdle()
+        val opened = tor.opened
+        s.reconnect()
+        advanceTimeBy(60_000)
+        assertEquals(opened, tor.opened)
+        assertEquals(SessionState.Idle("MacBook Pro"), s.state.value)
+    }
+
+    @Test fun reconnectingShowsUntilItGivesUp() = runTest {
+        val s = paired()
+        tor.ready = false // Tor can't connect now
+        s.reconnect()
+        advanceTimeBy(1_000)
+        assertEquals(SessionState.Connecting("MacBook Pro", reconnecting = true), s.state.value)
+        advanceTimeBy(60_000)
+        assertEquals("the usual words again, still trying", SessionState.Connecting("MacBook Pro"), s.state.value)
+        scopes.forEach { it.cancel() }
+    }
+
     // MARK: the connection is held only while it's cheap or needed
 
     @Test fun d0005_screenOffAndIdleClosesTheConnection() = runTest {

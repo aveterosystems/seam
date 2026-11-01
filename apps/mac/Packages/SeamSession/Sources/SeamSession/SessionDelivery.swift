@@ -124,6 +124,34 @@ extension Session: FeatureHost {
         await sendToPhone(hello, hello: true)
     }
 
+    // MARK: Reconnect
+
+    /// "Reconnect" on this Mac. With a link to the phone up, the phone is asked (sealed, on every
+    /// open link, never queued: a late one would cut a fresh link) and this Mac closes its end, so
+    /// the phone dials again at once. False when no link is up: the phone can't be reached from
+    /// here, so only this Mac's own side can start again (`Paths.restart()`).
+    public func reconnect() async -> Bool {
+        guard let phone, !upPaths.isEmpty else { return false }
+        let via = upPaths
+        let ask = Seam_V1_Payload.with { $0.control = .with { $0.reconnect = .init() } }
+        if let sealed = try? device.seal(peerId: phone.id, payload: ask.serializedData(), ttlS: 0),
+           let envelope = try? Seam_V1_Envelope(serializedBytes: sealed) {
+            // Saved before it leaves: a restart must never seal again with the same key (SR-2-11)
+            do {
+                try storage.saveState()
+                for path in via { _ = links[path]?.send(.with { $0.deliver = envelope }, to: phone.id) }
+            } catch {
+                saveFailed()
+            }
+        }
+        for path in via {
+            links[path]?.close(peerId: phone.id) // gracefully: the ask is written first
+            await pathClosed(path)
+        }
+        publish()
+        return true
+    }
+
     // MARK: Receiving
 
     func received(_ envelope: Seam_V1_Envelope) async -> Bool {

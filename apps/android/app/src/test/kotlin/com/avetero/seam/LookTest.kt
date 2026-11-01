@@ -18,12 +18,12 @@ class LookTest {
         assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), LinkLook.SameWifi.cookie())
         assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), LinkLook.ThroughTor.cookie())
         assertEquals(CookieLook(104f, 5f, CookieLook.Fill.Paused, turning = false), LinkLook.paused(Long.MAX_VALUE, 0).cookie())
-        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), LinkLook.Reconnecting.cookie())
+        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), LinkLook.Offline.cookie())
         assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), LinkLook.Idle.cookie())
     }
 
     @Test fun offlineSaysItWillSendWhenTheMacIsBack() {
-        assertEquals("Offline · will send when it's back", LinkLook.Reconnecting.sentence)
+        assertEquals("Offline · will send when it's back", LinkLook.Offline.sentence)
         assertEquals("Paused · until you resume", LinkLook.paused(Long.MAX_VALUE, 0).sentence)
     }
 
@@ -39,7 +39,7 @@ class LookTest {
         val mac = MacStatus(64, false, 0)
         assertEquals("64%", macBattery(LinkLook.SameWifi, mac))
         assertEquals("64%", macBattery(LinkLook.paused(Long.MAX_VALUE, 0), mac))
-        assertEquals("—", macBattery(LinkLook.Reconnecting, mac))
+        assertEquals("—", macBattery(LinkLook.Offline, mac))
         assertNull(macBattery(LinkLook.SameWifi, null))
     }
 

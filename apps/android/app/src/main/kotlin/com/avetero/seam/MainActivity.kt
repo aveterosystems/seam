@@ -191,6 +191,7 @@ class MainActivity : ComponentActivity() {
                     look = look,
                     onPause = { session.pause(it.until(System.currentTimeMillis())) },
                     onResume = { session.resume() },
+                    onReconnect = { session.reconnect() },
                     // Seam has focus here, so Android allows the read
                     onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your Mac", clipboard.offOnMac) },
                     onScan = {

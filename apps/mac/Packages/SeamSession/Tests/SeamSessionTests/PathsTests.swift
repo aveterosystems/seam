@@ -247,6 +247,21 @@ final class FakeTor: TorRunner, @unchecked Sendable {
         #expect(log.all.filter { $0 == "lan starts" }.count == 1)
     }
 
+    @Test func restartStartsTheListenersAgainAndRepublishes() async throws {
+        let rig = try await Rig()
+        let p = paths(rig)
+        p.start(linksWanted: true, services: [a])
+        tor.become(.ready)
+        await settle(p)
+        #expect(tor.hosts == 1)
+        p.restart() // Reconnect with the phone out of reach
+        await settle(p)
+        #expect(log.all.filter { $0 == "lan starts" }.count == 2 && log.all.filter { $0 == "tor starts" }.count == 2)
+        #expect(log.all.contains("lan stops") && log.all.contains("tor stops"))
+        #expect(tor.live == [a] && tor.hosts == 2, "published again")
+        #expect(p.wifiOn && p.torOn, "never a switch")
+    }
+
     @Test func sr_31_03_aListenerClosedWhileStartingIsNeverHandedOver() async throws {
         let rig = try await Rig()
         var made: [FakeLanRunner] = []

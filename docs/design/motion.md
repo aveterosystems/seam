@@ -91,6 +91,7 @@ Each entry gives the event, what moves, and how it's built.
 | Connected | The status dot sends out a soft ring: scale 1 → 2.8 while fading, every 2.4 s |
 | Same Wi‑Fi | Solid stitch, drawn left to right on `settle` when the connection forms or the surface opens |
 | Through Tor | Dashed stitch whose dashes flow along continuously, 11 pt per second |
+| Connecting | Grey dots travel along the stitch at the Tor dashes' pace (11 pt per second): while Tor starts, and after Reconnect ("Reconnecting"). On the phone they travel from the phone to the computer. It ends by crossfading into the connected stitch, or into still, broken grey with the reason |
 | Offline | Broken grey stitch, completely still. The device glyph fades from teal to grey (500 ms) |
 | Items waiting | The clock icon in the queue bar turns once every 6 s |
 

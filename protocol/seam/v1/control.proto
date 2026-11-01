@@ -14,6 +14,7 @@ message Control {
     Unpair unpair = 4;
     PairRequest pair_request = 5;
     PairAccept pair_accept = 6;
+    Reconnect reconnect = 7;
   }
 }
 
@@ -77,3 +78,7 @@ message PairRequest {
 
 // The user confirmed the code on the Mac.
 message PairAccept {}
+
+// "Reconnect" on the Mac: the phone closes every link, forgets its waits and refusals, and dials
+// again at once. Sent only on a link that's up, never queued: a late one would cut a fresh link.
+message Reconnect {}

@@ -27,7 +27,8 @@ sealed interface SessionState {
     data object Unpaired : SessionState
     /** Scanned; `safetyCode` appears once the request is sent, for the user to compare with the Mac. */
     data class Pairing(val macName: String, val safetyCode: String?) : SessionState
-    data class Connecting(val macName: String) : SessionState
+    /** [reconnecting]: the user asked ("Reconnect"), until it connects or gives up. */
+    data class Connecting(val macName: String, val reconnecting: Boolean = false) : SessionState
     data class Connected(val macName: String) : SessionState
     /** Paired, connection closed to save battery: it connects again to send, on screen on, or when charging. */
     data class Idle(val macName: String) : SessionState
@@ -127,6 +128,8 @@ class Session(
     /** The pairing channel after our PairAccept ack: the Mac closes it once the ack is in (or the grace ends). */
     private var closingPairing: Path? = null
     private var pairingDeadline: Job? = null
+    private var reconnectEnd: Job? = null
+    private var lastReconnect = Long.MIN_VALUE / 2
     /** Paths that authenticated and haven't gone down since: only their drop can lose an unacked envelope. */
     private val upPaths = mutableSetOf<Path>()
     /** Each envelope sent and not yet acked, timing the link it went on (see [watchAck]). */
@@ -253,7 +256,7 @@ class Session(
         if (pairing.active || storageBlocked || _state.value is SessionState.Failed) return
         if (wanted()) {
             if (connect) {
-                if (paths.none { it.up }) _state.value = SessionState.Connecting(m.name)
+                if (paths.none { it.up }) _state.value = connecting(m)
                 openLinks()
             }
             wake.keepWatching()
@@ -278,6 +281,42 @@ class Session(
             at == null || !open -> CpuPlan.None
             at - now() <= Wakefulness.CPU_WAKE_BEFORE_MS -> CpuPlan.Hold(maxOf(at, now()) + Wakefulness.CPU_HOLD_MS - Wakefulness.CPU_WAKE_BEFORE_MS)
             else -> CpuPlan.WakeAt(at - Wakefulness.CPU_WAKE_BEFORE_MS)
+        }
+    }
+
+    /** Connecting, keeping a Reconnect's look while one is under way. */
+    private fun connecting(m: PeerInfo): SessionState =
+        (_state.value as? SessionState.Connecting)?.takeIf { it.macName == m.name } ?: SessionState.Connecting(m.name)
+
+    /**
+     * "Reconnect": the user knows the connection is stuck (here, or on the Mac, which asks). Every
+     * link closes, its waits and refusals are forgotten, and every path this phone's switches allow
+     * dials at once; the usual activity window keeps it wanted with the screen off. Never re-pairs
+     * and never changes a setting. A tap is a user action, so connecting is allowed (rule 8);
+     * paused, nothing connects.
+     */
+    fun reconnect() = scope.launch { reconnectNow() }
+
+    /** [byMac]: asked by the Mac, at most once per [RECONNECT_WIFI_MS], so no Mac can make this phone redial without a pause (cf. SR-8-01). */
+    private fun reconnectNow(byMac: Boolean = false) {
+        val m = mac ?: return
+        if (pairing.active || storageBlocked || paused() || _state.value == SessionState.Failed(RESET)) return
+        if (byMac && now() - lastReconnect < RECONNECT_WIFI_MS) return
+        lastReconnect = now()
+        trace?.invoke("reconnect")
+        wake.touch()
+        _state.value = SessionState.Connecting(m.name, reconnecting = true)
+        for (p in paths) {
+            if (upPaths.remove(p)) outbox.linkDropped() // what it never confirmed goes on the new link
+            if (if (p === direct) switches.wifi else switches.tor) p.restart() else p.stop()
+        }
+        updateRoute()
+        // Gives up the "Reconnecting" look after the usual connect time; the paths keep trying while wanted
+        reconnectEnd?.cancel()
+        reconnectEnd = scope.launch {
+            delay(if (switches.tor) RECONNECT_TOR_MS else RECONNECT_WIFI_MS)
+            val now = _state.value
+            if (now is SessionState.Connecting && now.reconnecting) _state.value = SessionState.Connecting(now.macName)
         }
     }
 
@@ -475,6 +514,11 @@ class Session(
         if (peerId != mac?.id) return
         // The Mac forgot this phone: forget it too, and stop
         if (payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.UNPAIR) return forget()
+        // Reconnect on the Mac: after this is acked on the link it came on, which then closes
+        if (payload.bodyCase == Payload.BodyCase.CONTROL && payload.control.bodyCase == Control.BodyCase.RECONNECT) {
+            scope.launch { reconnectNow(byMac = true) }
+            return
+        }
         if (payload.isHello()) return // applied in deliver(), before the save
         features.filter { payload.bodyCase in it.handles }.forEach { it.receive(payload, peerId) }
     }
@@ -651,7 +695,7 @@ class Session(
         updateRoute()
         if (pairing.active || _state.value is SessionState.Failed || _state.value is SessionState.Idle) return
         if (_route.value != null) return
-        _state.value = if (wanted()) SessionState.Connecting(m.name) else SessionState.Idle(m.name)
+        _state.value = if (wanted()) connecting(m) else SessionState.Idle(m.name)
     }
 
     /**
@@ -746,6 +790,9 @@ class Session(
         const val PAIR_AGAIN = "Seam now connects through Tor instead of its relay. Update Seam on your Mac, then pair again."
         /** After acking the PairAccept: time for the ack to get through before we close ourselves. */
         const val PAIRED_GRACE_MS = 3_000L
+        /** How long "Reconnecting" shows before the usual words: a local connect, or one through Tor. */
+        const val RECONNECT_WIFI_MS = 15_000L
+        const val RECONNECT_TOR_MS = 60_000L
         /** Contract: Tor retries for up to 3 minutes while a fresh address publishes. */
         const val PAIRING_MS = 3 * 60_000L
     }
