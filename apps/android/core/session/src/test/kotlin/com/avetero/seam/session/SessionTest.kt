@@ -481,8 +481,10 @@ class SessionTest {
         val s = paired()
         val old = tor.open!!
         val opened = tor.opened
+        val acks = tor.delivered
         tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u))
         runCurrent()
+        assertEquals("acked on the link it came on, before that closes", acks + 1, tor.delivered)
         assertTrue(old.closed)
         assertEquals(opened + 1, tor.opened)
         advanceUntilIdle()
@@ -498,10 +500,37 @@ class SessionTest {
         tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u)) // again, on the new link
         runCurrent()
         assertEquals("ignored so soon after the last", opened, tor.opened)
-        advanceTimeBy(15_000)
+        advanceTimeBy(30_000)
         tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u))
         runCurrent()
-        assertEquals("heard again later", opened + 1, tor.opened)
+        assertEquals("not within a minute either (SR-55-04)", opened, tor.opened)
+        advanceTimeBy(30_000)
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u))
+        runCurrent()
+        assertEquals("heard again after the backoff's cap", opened + 1, tor.opened)
+    }
+
+    @Test fun sr_55_02_aMacsReconnectLeavesAFailedSessionAlone() = runTest {
+        val s = paired()
+        store.failSaves = true
+        tor.deliverToPhone(mac.seal(mac.peers().single().id, reconnect.toByteArray(), 0u))
+        runCurrent()
+        assertEquals(SessionState.Failed(SAVE_FAILED), s.state.value)
+        val opened = tor.opened
+        advanceTimeBy(30_000)
+        assertEquals("nothing dials until the user acts", opened, tor.opened)
+        scopes.forEach { it.cancel() }
+    }
+
+    @Test fun sr_55_01_aSaveThatFailsOnConnectDoesntRedialInALoop() = runTest {
+        val s = paired()
+        store.failSaves = true
+        val before = tor.opened
+        tor.drop()
+        advanceTimeBy(30_000)
+        assertEquals(SessionState.Failed(SAVE_FAILED), s.state.value)
+        assertTrue("one reconnect, then it stops (was hundreds)", tor.opened - before <= 1)
+        scopes.forEach { it.cancel() }
     }
 
     @Test fun pausedReconnectConnectsNothing() = runTest {

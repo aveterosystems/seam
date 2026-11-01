@@ -124,7 +124,8 @@ internal fun Home(
             )
             StatusChip(look, open = details) { details = !details }
             // The chip's details: Reconnect, for when you know it's stuck. Folds away once tapped
-            Unfold(details) {
+            // Not while paused: nothing connects then, so Reconnect would do nothing
+            Unfold(details && !look.paused) {
                 Card("Connection", "Seems stuck? Try again now", MaterialTheme.colorScheme.surfaceContainerHigh, kicker = MaterialTheme.colorScheme.outline) {
                     Pill("Reconnect", { details = false; onReconnect() })
                 }

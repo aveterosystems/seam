@@ -58,6 +58,7 @@ struct PopoverHeader: View {
                         Text("Seems stuck? Try again now")
                         Spacer(minLength: 0)
                         Button("Reconnect") { controller.reconnect() }.buttonStyle(PillButtonStyle())
+                            .disabled(controller.reconnecting != nil)
                     }
                 }
                 .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)

@@ -131,8 +131,9 @@ extension Session: FeatureHost {
     /// the phone dials again at once. False when no link is up: the phone can't be reached from
     /// here, so only this Mac's own side can start again (`Paths.restart()`).
     public func reconnect() async -> Bool {
-        guard let phone, !upPaths.isEmpty else { return false }
-        let via = upPaths
+        // Never a path this Mac's switches have off, like Unpair (SR-55-09)
+        let via = upPaths.filter { enabledPaths.contains($0) }
+        guard let phone, !via.isEmpty else { return false }
         let ask = Seam_V1_Payload.with { $0.control = .with { $0.reconnect = .init() } }
         if let sealed = try? device.seal(peerId: phone.id, payload: ask.serializedData(), ttlS: 0),
            let envelope = try? Seam_V1_Envelope(serializedBytes: sealed) {

@@ -297,11 +297,15 @@ class Session(
      */
     fun reconnect() = scope.launch { reconnectNow() }
 
-    /** [byMac]: asked by the Mac, at most once per [RECONNECT_WIFI_MS], so no Mac can make this phone redial without a pause (cf. SR-8-01). */
+    /**
+     * [byMac]: asked by the Mac, at most once per [MAC_RECONNECT_GAP_MS], so no Mac can make this
+     * phone redial more often than the backoff's cap would (SR-55-04, cf. SR-8-01). A failed
+     * session stays as it is: the user sees why and acts (SR-55-02).
+     */
     private fun reconnectNow(byMac: Boolean = false) {
         val m = mac ?: return
-        if (pairing.active || storageBlocked || paused() || _state.value == SessionState.Failed(RESET)) return
-        if (byMac && now() - lastReconnect < RECONNECT_WIFI_MS) return
+        if (pairing.active || storageBlocked || paused() || _state.value is SessionState.Failed) return
+        if (byMac && now() - lastReconnect < MAC_RECONNECT_GAP_MS) return
         lastReconnect = now()
         trace?.invoke("reconnect")
         wake.touch()
@@ -532,7 +536,7 @@ class Session(
         queueHello()
         if (first) features.forEach { runCatching { it.onConnected(this) } } // a feature bug never takes the connection down
         flush()
-        openLinks() // e.g. Tor came up first: Same Wi‑Fi, if it's here, is preferred
+        openLinks() // e.g. Tor came up first: Same Wi‑Fi, if it's here, is preferred (not if the flush failed)
     }
 
     /** The PairAccept is saved and acked: the pairing channel closes, and the Mac is dialled as usual. */
@@ -703,6 +707,8 @@ class Session(
      * remembered list: a stale one would leave no path for the Hello that updates it.
      */
     private fun openLinks() {
+        // Failed (a save, the storage): nothing dials until the user acts, or a failed save would redial at once, forever (SR-55-01)
+        if (_state.value is SessionState.Failed) return
         if (switches.wifi) direct?.start()
         if (switches.tor) onion?.start()
     }
@@ -793,6 +799,8 @@ class Session(
         /** How long "Reconnecting" shows before the usual words: a local connect, or one through Tor. */
         const val RECONNECT_WIFI_MS = 15_000L
         const val RECONNECT_TOR_MS = 60_000L
+        /** The least time between two Reconnects the Mac asks for: the backoff's own cap. */
+        const val MAC_RECONNECT_GAP_MS = 60_000L
         /** Contract: Tor retries for up to 3 minutes while a fresh address publishes. */
         const val PAIRING_MS = 3 * 60_000L
     }

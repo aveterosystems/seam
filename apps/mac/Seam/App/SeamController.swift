@@ -60,8 +60,8 @@ final class SeamController {
     /// A pairing from before Tor was dropped on opening: shown until the phone pairs again.
     @ObservationIgnored private var pairAgainWarning: String?
     @ObservationIgnored private var lastState: Session.State?
-    /// A Reconnect under way, until the phone is back or it gives up.
-    @ObservationIgnored private var reconnecting: LinkLook.Reconnect?
+    /// A Reconnect under way, until the phone is back or it gives up. The button waits for it (SR-55-03).
+    private(set) var reconnecting: LinkLook.Reconnect?
     @ObservationIgnored private var reconnectEnd: Task<Void, Never>?
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
     /// Tells the phone when this Mac's battery changes (once per app run).
@@ -191,11 +191,15 @@ final class SeamController {
     /// "Reconnect" in the popover's ⓘ: the phone is asked to dial again; out of reach, this Mac's
     /// own side starts again and the line says to wake the phone. Shows for the usual connect time.
     func reconnect() {
+        guard reconnecting == nil else { return } // a second tap would restart this Mac's side as the phone dials back (SR-55-03)
+        reconnecting = .asked
         Task {
-            guard let session else { return }
+            guard let session else { return endReconnect() }
             let asked = await session.reconnect()
-            if !asked { paths?.restart() }
+            // Never under a pairing in progress: its channel would close with the carrier (SR-55-10)
+            if !asked, !pairingInProgress { paths?.restart() }
             reconnecting = asked ? .asked : .phoneOffline
+            lastState = await session.state // not the update still on its way, or "connected" would end it at once (SR-55-05)
             refreshLink()
             reconnectEnd?.cancel()
             reconnectEnd = Task { [weak self, tor = torOn] in
@@ -204,6 +208,13 @@ final class SeamController {
                 self?.endReconnect()
                 self?.refreshLink()
             }
+        }
+    }
+
+    private var pairingInProgress: Bool {
+        switch pairing {
+        case .waiting, .confirm, .confirming: true
+        default: false
         }
     }
 
