@@ -4,6 +4,8 @@ What changed in each release. `scripts/release.sh` drafts the next section from 
 
 ## 0.2.4
 
+- Android: a switch in Settings to send copies apps mark sensitive (passwords, card numbers), off by default
+- Android: the home screen shows the app's own mark
 - While the phone has Seam paused, the Mac holds back everything it would send, not only the clipboard
 - The phone and Mac tell each other what they can do when they connect, ready for features only one side supports
 - Shared rules move into the core: message time limits, the clipboard rules and the Hello are written once for both apps
