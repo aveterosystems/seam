@@ -85,5 +85,5 @@ jobs:
           xcodebuild -project Seam.xcodeproj -scheme Seam -configuration Debug \
             -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution \
             -destination "platform=macOS,arch=$(uname -m)" CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 \
-            || { grep -E "error:" build.log | sort -u | head -40; tail -20 build.log; exit 1; }
+            || { grep -E -A12 "error:|Stack dump|PLEASE submit a bug report|Assertion failed" build.log | head -120; tail -20 build.log; exit 1; }
           tail -20 build.log
