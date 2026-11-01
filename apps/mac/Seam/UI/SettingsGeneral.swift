@@ -19,7 +19,7 @@ struct GeneralPane: View {
         PaneScroll {
             SettingsGroup {
                 SettingsRow("Open at login", loginDetail) {
-                    Toggle("Open at login", isOn: Binding(get: { login == .enabled || login == .requiresApproval }, set: setLogin)).labelsHidden()
+                    Toggle("Open at login", isOn: Binding(get: { login == .enabled || login == .requiresApproval }, set: { setLogin($0) })).labelsHidden() // a closure, not the method: Xcode 26.6's compiler crashes on that thunk
                 }
                 if login == .requiresApproval {
                     SettingsRow("Seam needs your OK in Login Items", nil) {
