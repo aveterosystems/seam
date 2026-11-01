@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam.session
 
+import com.avetero.seam.crypto.PayloadRules
+import com.avetero.seam.crypto.payloadRules
 import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.Payload
@@ -25,19 +27,22 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
     /** From a direct link that dropped before the Mac acked them: sent first on the next allowed path. */
     private val resend = ArrayDeque<Envelope>()
 
-    /** When it was queued: a Clipboard or Status older than its TTL is dropped, not sent late (SR-4-04). */
-    private class Queued(val payload: Payload, val at: Long)
+    /**
+     * When it was queued: a Clipboard or Status older than its TTL is dropped, not sent late (SR-4-04).
+     * Its [rules] come from the core's catalogue once, not on every look at the queue.
+     */
+    private class Queued(val payload: Payload, val at: Long, val rules: PayloadRules = payloadRules(payload.toByteArray()))
 
     /** Android kills background processes routinely: what the Mac never acked goes again on the next path. */
     fun restore() {
         resend.addAll(store.load().filter { !expired(it) }.takeLast(MAX_OUTBOX))
     }
 
-    /** Only the latest Status and Clipboard matter; everything else is capped. */
-    fun add(payload: Payload) {
-        if (payload.bodyCase in LATEST_ONLY) queue.removeAll { it.payload.bodyCase == payload.bodyCase }
+    /** Only the latest of a latest-only kind (Status, Clipboard) matters; everything else is capped. */
+    fun add(payload: Payload, rules: PayloadRules = payloadRules(payload.toByteArray())) {
+        if (rules.latestOnly) queue.removeAll { it.payload.bodyCase == payload.bodyCase }
         if (queue.size >= MAX_OUTBOX) queue.removeFirst()
-        queue.addLast(Queued(payload, now()))
+        queue.addLast(Queued(payload, now(), rules))
     }
 
     /** Only the latest Hello matters: it replaces any still queued. Null: just drops the old one. */
@@ -74,13 +79,13 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
 
     /** Whether anything waiting is worth a connection of its own. */
     fun wantsConnection(): Boolean =
-        queue.any { it.payload.bodyCase !in LAZY && !expired(it) } || resend.any { !expired(it) }
+        queue.any { !it.rules.lazy && !expired(it) } || resend.any { !expired(it) }
 
     /** Sent over the direct link and not yet confirmed by the Mac. */
     fun awaitingAck(): Boolean = lanUnacked.isNotEmpty()
 
     /** Queued payloads that would connect, expired or not: for the trace only. */
-    fun urgentCount(): Int = queue.count { it.payload.bodyCase !in LAZY }
+    fun urgentCount(): Int = queue.count { !it.rules.lazy }
 
     /**
      * What a dropped direct link never confirmed goes first, as it was sealed, through [send] until
@@ -145,7 +150,7 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
 
     /** Past its TTL: dropped at the next flush, and no reason to keep trying to connect (SR-8-01). */
     private fun expired(q: Queued): Boolean {
-        val ttl = ttlFor(q.payload)
+        val ttl = q.rules.ttlS
         return ttl != 0u && now() - q.at > ttl.toLong() * 1000
     }
 
@@ -154,19 +159,6 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
 
     companion object {
         const val MAX_OUTBOX = 100
-        val LATEST_ONLY = setOf(Payload.BodyCase.STATUS, Payload.BodyCase.CLIPBOARD, Payload.BodyCase.NOTIFICATION_SETTINGS)
-        /** Sent on the next connection, never worth one of their own (a battery change). */
-        val LAZY = setOf(Payload.BodyCase.STATUS)
-
-        /** How long it may wait to be delivered (docs/architecture/protocol.md): a stale clipboard is worse than none. */
-        fun ttlFor(payload: Payload): UInt = when (payload.bodyCase) {
-            Payload.BodyCase.CLIPBOARD -> 600u
-            Payload.BodyCase.STATUS -> 120u
-            Payload.BodyCase.NOTIFICATION_SETTINGS -> 600u // sent again on every connection
-            Payload.BodyCase.NOTIFICATION -> 3600u // a Mac that was away gets the last hour, not a flood
-            Payload.BodyCase.CONTROL -> if (payload.control.hasHello()) 600u else 0u // sent again on every connection
-            else -> 0u // the core's default
-        }
     }
 }
 

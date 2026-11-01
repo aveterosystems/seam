@@ -32,6 +32,9 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.avetero.seam.feature.QrViewfinder
 import com.avetero.seam.feature.ScanResult
+import com.avetero.seam.feature.StatusFeature
+import com.avetero.seam.feature.clipboard.ClipboardFeature
+import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.feature.clipboard.AutoClipboard
 import com.avetero.seam.session.PairingQr
 import com.avetero.seam.session.PairingOutcome
@@ -49,6 +52,9 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(false)
         val app = application as SeamApplication
         val session = app.session
+        val clipboard = session.feature<ClipboardFeature>()
+        val notifications = session.feature<NotificationsFeature>()
+        val status = session.feature<StatusFeature>()
         if (session.paired) ConnectionService.start(this)
         BootReceiver.dismiss(this)
 
@@ -73,8 +79,8 @@ class MainActivity : ComponentActivity() {
                 }
                 val tor by app.tor.state.collectAsStateWithLifecycle()
                 val look = LinkLook.of(state, route, connection, tor, now)
-                val fromMac by app.clipboard.fromMac.collectAsStateWithLifecycle()
-                val macStatus by app.status.mac.collectAsStateWithLifecycle()
+                val fromMac by clipboard.fromMac.collectAsStateWithLifecycle()
+                val macStatus by status.mac.collectAsStateWithLifecycle()
                 val pairedAt by app.pairedAt.collectAsStateWithLifecycle()
                 val updateOffer by app.updater.offer.collectAsStateWithLifecycle()
                 val updateStatus by app.updater.status.collectAsStateWithLifecycle()
@@ -133,7 +139,7 @@ class MainActivity : ComponentActivity() {
                 if (setup && macName != null) return@Box SetupScreen(macName, clipboardStatus) { setup = false }
                 Pages(pages, onPop = { pages = pages.dropLast(1) }) { page, back ->
                 when (page) {
-                Page.Notifications -> NotificationsScreen(app.notifications, onBack = back)
+                Page.Notifications -> NotificationsScreen(notifications, onBack = back)
                 Page.Settings -> SettingsScreen(
                     macName = macName,
                     clipboard = clipboardStatus,
@@ -145,7 +151,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onBack = back,
                     updater = app.updater,
-                    notifications = app.notifications,
+                    notifications = notifications,
                     onOpenNotifications = { pages = pages + Page.Notifications },
                     connection = connection,
                     onSwitches = { wifi, tor -> session.setSwitches(wifi, tor) },
@@ -166,11 +172,11 @@ class MainActivity : ComponentActivity() {
                         scanning = false
                     },
                     fromMac = fromMac,
-                    onPasteFromMac = { text -> app.clipboard.putBack(text) },
+                    onPasteFromMac = { text -> clipboard.putBack(text) },
                     onOpenSettings = { pages = pages + Page.Settings },
                     onOpenNotifications = { pages = pages + Page.Notifications },
                     mac = macStatus,
-                    notifications = app.notifications,
+                    notifications = notifications,
                     clipboard = clipboardStatus,
                     onCodesDontMatch = { session.abortPairing() },
                     update = updateOffer,
@@ -182,7 +188,7 @@ class MainActivity : ComponentActivity() {
                     onPause = { session.pause(it.until(System.currentTimeMillis())) },
                     onResume = { session.resume() },
                     // Seam has focus here, so Android allows the read
-                    onSendClipboard = { sendFeedback(app.clipboard.sendCurrent(), session.state.value, macName ?: "your Mac") },
+                    onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your Mac") },
                     onScan = {
                         scanError = null
                         scanning = true

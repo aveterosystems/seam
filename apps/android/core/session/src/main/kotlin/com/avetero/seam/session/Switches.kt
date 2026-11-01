@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam.session
 
+import com.avetero.seam.crypto.HelloFacts
+import com.avetero.seam.crypto.PeerHello
 import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.SeamDevice
-import com.avetero.seam.protocol.v1.Control
+import com.avetero.seam.crypto.coreCapabilities
 import com.avetero.seam.protocol.v1.Hello
-import com.avetero.seam.protocol.v1.OpenLinks
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.Transport
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,22 +56,16 @@ internal class Switches(
      * seals it and persists both in one write before anything is sent. Null if there's no Mac to tell.
      */
     /** [open]: the links this phone has open to the Mac now, so the Mac can close any it holds that died. */
-    fun nextHello(wifi: Boolean = this.wifi, tor: Boolean = this.tor, open: List<Transport> = emptyList()): Payload? {
-        val next = device.nextHello(enabled(wifi, tor)) ?: return null
+    fun nextHello(wifi: Boolean = this.wifi, tor: Boolean = this.tor, open: List<PeerPath> = emptyList()): Payload? {
+        // The pause goes in the Hello, so the Mac learns it in order (SR-32-01)
+        val facts = HelloFacts(appVersion, "android", enabled(wifi, tor), open, _settings.value.pausedUntil, coreCapabilities())
+        val next = device.nextHello(facts) ?: return null
         syncPeer()
-        val hello = Hello.newBuilder().setAppVersion(appVersion).setPlatform("android").setSeq(next.seq.toLong())
-            .addAllAllowedTransportsValue(next.allowedTransports)
-            .setPausedUntilMs(_settings.value.pausedUntil) // the Mac learns the pause in order (SR-32-01)
-            .setOpenLinks(OpenLinks.newBuilder().addAllTransports(open))
-        return Payload.newBuilder().setControl(Control.newBuilder().setHello(hello)).build()
+        return Payload.parseFrom(next)
     }
 
-    /** The Mac's Hello. A path can deliver an old one late: the core applies only a higher counter. False if ignored. */
-    fun macHello(h: Hello): Boolean {
-        if (!device.applyHello(h.seq.toULong(), h.allowedTransportsValueList)) return false
-        syncPeer()
-        return true
-    }
+    /** The Mac's Hello. A path can deliver an old one late: the core applies only a higher counter. Null if ignored. */
+    fun macHello(h: Hello): PeerHello? = device.applyHello(h.toByteArray())?.also { syncPeer() }
 
     /**
      * Shows the Mac-facing state the core keeps in the sealed app data (saved with the keys by the

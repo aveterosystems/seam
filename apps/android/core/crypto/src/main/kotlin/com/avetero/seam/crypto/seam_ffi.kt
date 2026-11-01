@@ -755,6 +755,12 @@ internal object IntegrityCheckingUniffiLib {
     internal fun ensureInitialized() = Unit
     external fun uniffi_seam_ffi_checksum_func_chunk_data_size(
     ): Int
+    external fun uniffi_seam_ffi_checksum_func_core_capabilities(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_payload_rules(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_clip_max_bytes(
+    ): Int
     external fun uniffi_seam_ffi_checksum_func_tor_discovery_public(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_tor_new_secret(
@@ -787,8 +793,6 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_app_data(
     ): Int
-    external fun uniffi_seam_ffi_checksum_method_seamdevice_apply_hello(
-    ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_clear_app_data(
@@ -802,8 +806,6 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_seam_ffi_checksum_method_seamdevice_id(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_identity_key(
-    ): Int
-    external fun uniffi_seam_ffi_checksum_method_seamdevice_next_hello(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_open(
     ): Int
@@ -830,6 +832,20 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_seamdevice_start_pairing(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_apply_hello(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_next_hello(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_seamdevice_peer_supports(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_cliprules_forced(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_cliprules_incoming(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_cliprules_outgoing(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_cliprules_reset(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_tor_connect(
     ): Int
@@ -874,6 +890,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_seam_ffi_checksum_constructor_seamdevice_generate(
     ): Int
     external fun uniffi_seam_ffi_checksum_constructor_seamdevice_restore(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_constructor_cliprules_new(
     ): Int
     external fun uniffi_seam_ffi_checksum_constructor_tor_new(
     ): Int
@@ -956,8 +974,6 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_app_data(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_method_seamdevice_apply_hello(`ptr`: Long,`seq`: Long,`allowedTransports`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Byte
     external fun uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_seam_ffi_fn_method_seamdevice_clear_app_data(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -971,8 +987,6 @@ internal object UniffiLib {
     external fun uniffi_seam_ffi_fn_method_seamdevice_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_identity_key(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_seam_ffi_fn_method_seamdevice_next_hello(`ptr`: Long,`enabled`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_open(`ptr`: Long,`envelope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1000,6 +1014,26 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_seamdevice_start_pairing(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_apply_hello(`ptr`: Long,`hello`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_next_hello(`ptr`: Long,`facts`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_seamdevice_peer_supports(`ptr`: Long,`capability`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
+    external fun uniffi_seam_ffi_fn_clone_cliprules(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_free_cliprules(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_seam_ffi_fn_constructor_cliprules_new(uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_method_cliprules_forced(`ptr`: Long,`text`: RustBuffer.ByValue,`nowMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_cliprules_incoming(`ptr`: Long,`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_cliprules_outgoing(`ptr`: Long,`text`: RustBuffer.ByValue,`nowMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_cliprules_reset(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_seam_ffi_fn_clone_tor(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun uniffi_seam_ffi_fn_free_tor(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1063,6 +1097,12 @@ internal object UniffiLib {
     external fun uniffi_seam_ffi_fn_method_torstreamlistener_on_closed(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_seam_ffi_fn_func_chunk_data_size(uniffi_out_err: UniffiRustCallStatus, 
+    ): Int
+    external fun uniffi_seam_ffi_fn_func_core_capabilities(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_payload_rules(`payload`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_clip_max_bytes(uniffi_out_err: UniffiRustCallStatus, 
     ): Int
     external fun uniffi_seam_ffi_fn_func_tor_discovery_public(`discoverySecret`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1192,6 +1232,15 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_func_chunk_data_size() and 0xFFFF) != 5213) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_seam_ffi_checksum_func_core_capabilities() and 0xFFFF) != 15994) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_payload_rules() and 0xFFFF) != 30398) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_clip_max_bytes() and 0xFFFF) != 30606) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_seam_ffi_checksum_func_tor_discovery_public() and 0xFFFF) != 59638) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1240,9 +1289,6 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_app_data() and 0xFFFF) != 29712) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_apply_hello() and 0xFFFF) != 62351) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() and 0xFFFF) != 4348) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1262,9 +1308,6 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_identity_key() and 0xFFFF) != 47370) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_next_hello() and 0xFFFF) != 17158) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_open() and 0xFFFF) != 5951) {
@@ -1304,6 +1347,27 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_start_pairing() and 0xFFFF) != 54107) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_apply_hello() and 0xFFFF) != 65394) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_next_hello() and 0xFFFF) != 9879) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_peer_supports() and 0xFFFF) != 26466) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_cliprules_forced() and 0xFFFF) != 31478) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_cliprules_incoming() and 0xFFFF) != 62169) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_cliprules_outgoing() and 0xFFFF) != 64418) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_cliprules_reset() and 0xFFFF) != 35432) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_tor_connect() and 0xFFFF) != 49519) {
@@ -1370,6 +1434,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_constructor_seamdevice_restore() and 0xFFFF) != 15264) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_constructor_cliprules_new() and 0xFFFF) != 65485) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_constructor_tor_new() and 0xFFFF) != 24386) {
@@ -1616,29 +1683,6 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 /**
  * @suppress
  */
-public object FfiConverterInt: FfiConverter<Int, Int> {
-    override fun lift(value: Int): Int {
-        return value
-    }
-
-    override fun read(buf: ByteBuffer): Int {
-        return buf.getInt()
-    }
-
-    override fun lower(value: Int): Int {
-        return value
-    }
-
-    override fun allocationSize(value: Int) = 4UL
-
-    override fun write(value: Int, buf: ByteBuffer) {
-        buf.putInt(value)
-    }
-}
-
-/**
- * @suppress
- */
 public object FfiConverterULong: FfiConverter<ULong, Long> {
     override fun lift(value: Long): ULong {
         return value.toULong()
@@ -1778,6 +1822,348 @@ public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
     override fun write(value: ByteArray, buf: ByteBuffer) {
         buf.putInt(value.size)
         buf.put(value)
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a handle
+// to the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its handle should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the handle, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+/**
+ * What crosses between the two clipboards: nothing empty or oversized, no quick repeats, no echoes.
+ */
+public interface ClipRulesInterface {
+    
+    /**
+     * Something the user explicitly sent: only the size rules apply.
+     */
+    fun `forced`(`text`: kotlin.String?, `nowMs`: kotlin.Long): kotlin.String?
+    
+    /**
+     * Text from the other side to put on this clipboard, or None to ignore it.
+     */
+    fun `incoming`(`text`: kotlin.String): kotlin.String?
+    
+    /**
+     * The text to send for something copied here, or None to skip it.
+     */
+    fun `outgoing`(`text`: kotlin.String?, `nowMs`: kotlin.Long): kotlin.String?
+    
+    /**
+     * The peer was forgotten.
+     */
+    fun `reset`()
+    
+    companion object
+}
+
+/**
+ * What crosses between the two clipboards: nothing empty or oversized, no quick repeats, no echoes.
+ */
+open class ClipRules: Disposable, AutoCloseable, ClipRulesInterface
+{
+
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
+    }
+
+    /**
+     * @suppress
+     *
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
+    }
+    constructor() :
+        this(UniffiWithHandle, 
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_constructor_cliprules_new(
+    
+        _status)
+}
+    )
+
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    /**
+     * Whether the current object has been destroyed and its reference is gone in the Rust side.
+     */
+    val uniffiIsDestroyed: Boolean get() = wasDestroyed.get()
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the handle being freed concurrently.
+        try {
+            return block(this.uniffiCloneHandle())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
+        override fun run() {
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_seam_ffi_fn_free_cliprules(handle, status)
+            }
+        }
+    }
+
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
+        return uniffiRustCall() { status ->
+            UniffiLib.uniffi_seam_ffi_fn_clone_cliprules(handle, status)
+        }
+    }
+
+    
+    /**
+     * Something the user explicitly sent: only the size rules apply.
+     */override fun `forced`(`text`: kotlin.String?, `nowMs`: kotlin.Long): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_cliprules_forced(
+        it,
+        
+        FfiConverterOptionalString.lower(`text`),
+        FfiConverterLong.lower(`nowMs`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Text from the other side to put on this clipboard, or None to ignore it.
+     */override fun `incoming`(`text`: kotlin.String): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_cliprules_incoming(
+        it,
+        
+        FfiConverterString.lower(`text`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The text to send for something copied here, or None to skip it.
+     */override fun `outgoing`(`text`: kotlin.String?, `nowMs`: kotlin.Long): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_cliprules_outgoing(
+        it,
+        
+        FfiConverterOptionalString.lower(`text`),
+        FfiConverterLong.lower(`nowMs`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The peer was forgotten.
+     */override fun `reset`()
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_cliprules_reset(
+        it,
+        _status)
+}
+    }
+    
+    
+
+    
+
+    
+
+
+    
+    
+    /**
+     * @suppress
+     */
+    companion object
+    
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeClipRules: FfiConverter<ClipRules, Long> {
+    override fun lower(value: ClipRules): Long {
+        return value.uniffiCloneHandle()
+    }
+
+    override fun lift(value: Long): ClipRules {
+        return ClipRules(UniffiWithHandle, value)
+    }
+
+    override fun read(buf: ByteBuffer): ClipRules {
+        return lift(buf.getLong())
+    }
+
+    override fun allocationSize(value: ClipRules) = 8UL
+
+    override fun write(value: ClipRules, buf: ByteBuffer) {
+        buf.putLong(lower(value))
     }
 }
 
@@ -2905,12 +3291,6 @@ public interface SeamDeviceInterface {
     fun `appData`(): AppData?
     
     /**
-     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
-     * save `export_state` then.
-     */
-    fun `applyHello`(`seq`: kotlin.ULong, `allowedTransports`: List<kotlin.Int>): kotlin.Boolean
-    
-    /**
      * Mac: close the pairing slot early (window closed, QR expired).
      */
     fun `cancelPairing`()
@@ -2939,12 +3319,6 @@ public interface SeamDeviceInterface {
     fun `id`(): kotlin.String
     
     fun `identityKey`(): kotlin.ByteArray
-    
-    /**
-     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
-     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
-     */
-    fun `nextHello`(`enabled`: List<PeerPath>): HelloOut?
     
     /**
      * Open an Envelope from a paired peer.
@@ -3004,6 +3378,23 @@ public interface SeamDeviceInterface {
      * Mac: open a 5-minute pairing slot.
      */
     fun `startPairing`(): PairingOffer
+    
+    /**
+     * Applies the peer's Hello (`seam.v1.Hello` bytes) if its seq is newer than any before;
+     * save `export_state` then. None: old, replayed, or no app data, and nothing changed.
+     */
+    fun `applyHello`(`hello`: kotlin.ByteArray): PeerHello?
+    
+    /**
+     * The next Hello, as `seam.v1.Payload` bytes ready to seal. Counts up in the app data: save
+     * `export_state` before it leaves. None without app data.
+     */
+    fun `nextHello`(`facts`: HelloFacts): kotlin.ByteArray?
+    
+    /**
+     * Whether the peer said it can do `capability` in its last Hello.
+     */
+    fun `peerSupports`(`capability`: kotlin.String): kotlin.Boolean
     
     companion object
 }
@@ -3167,25 +3558,6 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
 
     
     /**
-     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
-     * save `export_state` then.
-     */override fun `applyHello`(`seq`: kotlin.ULong, `allowedTransports`: List<kotlin.Int>): kotlin.Boolean {
-            return FfiConverterBoolean.lift(
-    callWithHandle {
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_apply_hello(
-        it,
-        
-        FfiConverterULong.lower(`seq`),
-        FfiConverterSequenceInt.lower(`allowedTransports`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
      * Mac: close the pairing slot early (window closed, QR expired).
      */override fun `cancelPairing`()
         = 
@@ -3285,24 +3657,6 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_identity_key(
         it,
         _status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
-     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
-     */override fun `nextHello`(`enabled`: List<PeerPath>): HelloOut? {
-            return FfiConverterOptionalTypeHelloOut.lift(
-    callWithHandle {
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_next_hello(
-        it,
-        
-        FfiConverterSequenceTypePeerPath.lower(`enabled`),_status)
 }
     }
     )
@@ -3529,6 +3883,60 @@ open class SeamDevice: Disposable, AutoCloseable, SeamDeviceInterface
     UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_start_pairing(
         it,
         _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Applies the peer's Hello (`seam.v1.Hello` bytes) if its seq is newer than any before;
+     * save `export_state` then. None: old, replayed, or no app data, and nothing changed.
+     */
+    @Throws(SeamException::class)override fun `applyHello`(`hello`: kotlin.ByteArray): PeerHello? {
+            return FfiConverterOptionalTypePeerHello.lift(
+    callWithHandle {
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_apply_hello(
+        it,
+        
+        FfiConverterByteArray.lower(`hello`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The next Hello, as `seam.v1.Payload` bytes ready to seal. Counts up in the app data: save
+     * `export_state` before it leaves. None without app data.
+     */override fun `nextHello`(`facts`: HelloFacts): kotlin.ByteArray? {
+            return FfiConverterOptionalByteArray.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_next_hello(
+        it,
+        
+        FfiConverterTypeHelloFacts.lower(`facts`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Whether the peer said it can do `capability` in its last Hello.
+     */override fun `peerSupports`(`capability`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_seamdevice_peer_supports(
+        it,
+        
+        FfiConverterString.lower(`capability`),_status)
 }
     }
     )
@@ -5609,6 +6017,11 @@ data class AppData (
      * The peer's paths from its last Hello. None: everything (never heard, or an older version).
      */
     var `peerAllowed`: List<PeerPath>?
+    , 
+    /**
+     * The peer's capabilities from its last Hello, sorted.
+     */
+    var `peerCapabilities`: List<kotlin.String> = listOf() 
     
 ){
     
@@ -5631,6 +6044,7 @@ public object FfiConverterTypeAppData: FfiConverterRustBuffer<AppData> {
             FfiConverterULong.read(buf),
             FfiConverterULong.read(buf),
             FfiConverterOptionalSequenceTypePeerPath.read(buf),
+            FfiConverterSequenceString.read(buf),
         )
     }
 
@@ -5640,7 +6054,8 @@ public object FfiConverterTypeAppData: FfiConverterRustBuffer<AppData> {
             FfiConverterByteArray.allocationSize(value.`peerDiscovery`) +
             FfiConverterULong.allocationSize(value.`helloSeqSent`) +
             FfiConverterULong.allocationSize(value.`helloSeqApplied`) +
-            FfiConverterOptionalSequenceTypePeerPath.allocationSize(value.`peerAllowed`)
+            FfiConverterOptionalSequenceTypePeerPath.allocationSize(value.`peerAllowed`) +
+            FfiConverterSequenceString.allocationSize(value.`peerCapabilities`)
     )
 
     override fun write(value: AppData, buf: ByteBuffer) {
@@ -5650,21 +6065,42 @@ public object FfiConverterTypeAppData: FfiConverterRustBuffer<AppData> {
             FfiConverterULong.write(value.`helloSeqSent`, buf)
             FfiConverterULong.write(value.`helloSeqApplied`, buf)
             FfiConverterOptionalSequenceTypePeerPath.write(value.`peerAllowed`, buf)
+            FfiConverterSequenceString.write(value.`peerCapabilities`, buf)
     }
 }
 
 
 
 /**
- * A Hello's ordering and switches, for `seam.v1.Hello`.
+ * What this device says about itself in its next Hello.
  */
-data class HelloOut (
-    var `seq`: kotlin.ULong
+data class HelloFacts (
+    var `appVersion`: kotlin.String
     , 
     /**
-     * seam.v1.Transport numbers.
+     * "macos" | "android".
      */
-    var `allowedTransports`: List<kotlin.Int>
+    var `platform`: kotlin.String
+    , 
+    /**
+     * This device's connection switches, any order.
+     */
+    var `enabled`: List<PeerPath>
+    , 
+    /**
+     * The links open to the peer now, any order.
+     */
+    var `open`: List<PeerPath>
+    , 
+    /**
+     * Phone: paused until then (unix ms, 0: not paused). A computer sends 0.
+     */
+    var `pausedUntilMs`: kotlin.Long
+    , 
+    /**
+     * What this device can do now: `core_capabilities()` plus the app's own.
+     */
+    var `capabilities`: List<kotlin.String>
     
 ){
     
@@ -5678,22 +6114,34 @@ data class HelloOut (
 /**
  * @suppress
  */
-public object FfiConverterTypeHelloOut: FfiConverterRustBuffer<HelloOut> {
-    override fun read(buf: ByteBuffer): HelloOut {
-        return HelloOut(
-            FfiConverterULong.read(buf),
-            FfiConverterSequenceInt.read(buf),
+public object FfiConverterTypeHelloFacts: FfiConverterRustBuffer<HelloFacts> {
+    override fun read(buf: ByteBuffer): HelloFacts {
+        return HelloFacts(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterSequenceTypePeerPath.read(buf),
+            FfiConverterSequenceTypePeerPath.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterSequenceString.read(buf),
         )
     }
 
-    override fun allocationSize(value: HelloOut) = (
-            FfiConverterULong.allocationSize(value.`seq`) +
-            FfiConverterSequenceInt.allocationSize(value.`allowedTransports`)
+    override fun allocationSize(value: HelloFacts) = (
+            FfiConverterString.allocationSize(value.`appVersion`) +
+            FfiConverterString.allocationSize(value.`platform`) +
+            FfiConverterSequenceTypePeerPath.allocationSize(value.`enabled`) +
+            FfiConverterSequenceTypePeerPath.allocationSize(value.`open`) +
+            FfiConverterLong.allocationSize(value.`pausedUntilMs`) +
+            FfiConverterSequenceString.allocationSize(value.`capabilities`)
     )
 
-    override fun write(value: HelloOut, buf: ByteBuffer) {
-            FfiConverterULong.write(value.`seq`, buf)
-            FfiConverterSequenceInt.write(value.`allowedTransports`, buf)
+    override fun write(value: HelloFacts, buf: ByteBuffer) {
+            FfiConverterString.write(value.`appVersion`, buf)
+            FfiConverterString.write(value.`platform`, buf)
+            FfiConverterSequenceTypePeerPath.write(value.`enabled`, buf)
+            FfiConverterSequenceTypePeerPath.write(value.`open`, buf)
+            FfiConverterLong.write(value.`pausedUntilMs`, buf)
+            FfiConverterSequenceString.write(value.`capabilities`, buf)
     }
 }
 
@@ -5930,6 +6378,121 @@ public object FfiConverterTypePairingStart: FfiConverterRustBuffer<PairingStart>
     override fun write(value: PairingStart, buf: ByteBuffer) {
             FfiConverterString.write(value.`peerId`, buf)
             FfiConverterByteArray.write(value.`envelope`, buf)
+    }
+}
+
+
+
+/**
+ * How a payload is delivered.
+ */
+data class PayloadRules (
+    /**
+     * Seconds it may wait; 0: the core's default (24 h). Pass to `seal`.
+     */
+    var `ttlS`: kotlin.UInt
+    , 
+    /**
+     * A newer one of the same kind replaces a queued one.
+     */
+    var `latestOnly`: kotlin.Boolean
+    , 
+    /**
+     * Waits for the next connection rather than making one.
+     */
+    var `lazy`: kotlin.Boolean
+    , 
+    /**
+     * Not captured or sent while the phone has Seam paused.
+     */
+    var `paused`: kotlin.Boolean
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePayloadRules: FfiConverterRustBuffer<PayloadRules> {
+    override fun read(buf: ByteBuffer): PayloadRules {
+        return PayloadRules(
+            FfiConverterUInt.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PayloadRules) = (
+            FfiConverterUInt.allocationSize(value.`ttlS`) +
+            FfiConverterBoolean.allocationSize(value.`latestOnly`) +
+            FfiConverterBoolean.allocationSize(value.`lazy`) +
+            FfiConverterBoolean.allocationSize(value.`paused`)
+    )
+
+    override fun write(value: PayloadRules, buf: ByteBuffer) {
+            FfiConverterUInt.write(value.`ttlS`, buf)
+            FfiConverterBoolean.write(value.`latestOnly`, buf)
+            FfiConverterBoolean.write(value.`lazy`, buf)
+            FfiConverterBoolean.write(value.`paused`, buf)
+    }
+}
+
+
+
+/**
+ * What a newer Hello from the peer says.
+ */
+data class PeerHello (
+    /**
+     * The phone's pause end (unix ms); 0: not paused.
+     */
+    var `pausedUntilMs`: kotlin.Long
+    , 
+    /**
+     * The links the peer has open now; None from an older peer that doesn't say.
+     */
+    var `openLinks`: List<PeerPath>?
+    , 
+    var `capabilities`: List<kotlin.String>
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePeerHello: FfiConverterRustBuffer<PeerHello> {
+    override fun read(buf: ByteBuffer): PeerHello {
+        return PeerHello(
+            FfiConverterLong.read(buf),
+            FfiConverterOptionalSequenceTypePeerPath.read(buf),
+            FfiConverterSequenceString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PeerHello) = (
+            FfiConverterLong.allocationSize(value.`pausedUntilMs`) +
+            FfiConverterOptionalSequenceTypePeerPath.allocationSize(value.`openLinks`) +
+            FfiConverterSequenceString.allocationSize(value.`capabilities`)
+    )
+
+    override fun write(value: PeerHello, buf: ByteBuffer) {
+            FfiConverterLong.write(value.`pausedUntilMs`, buf)
+            FfiConverterOptionalSequenceTypePeerPath.write(value.`openLinks`, buf)
+            FfiConverterSequenceString.write(value.`capabilities`, buf)
     }
 }
 
@@ -6420,6 +6983,38 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeTorService: FfiConverterRustBuffer<TorService?> {
     override fun read(buf: ByteBuffer): TorService? {
         if (buf.get().toInt() == 0) {
@@ -6484,28 +7079,28 @@ public object FfiConverterOptionalTypeAppData: FfiConverterRustBuffer<AppData?> 
 /**
  * @suppress
  */
-public object FfiConverterOptionalTypeHelloOut: FfiConverterRustBuffer<HelloOut?> {
-    override fun read(buf: ByteBuffer): HelloOut? {
+public object FfiConverterOptionalTypePeerHello: FfiConverterRustBuffer<PeerHello?> {
+    override fun read(buf: ByteBuffer): PeerHello? {
         if (buf.get().toInt() == 0) {
             return null
         }
-        return FfiConverterTypeHelloOut.read(buf)
+        return FfiConverterTypePeerHello.read(buf)
     }
 
-    override fun allocationSize(value: HelloOut?): ULong {
+    override fun allocationSize(value: PeerHello?): ULong {
         if (value == null) {
             return 1UL
         } else {
-            return 1UL + FfiConverterTypeHelloOut.allocationSize(value)
+            return 1UL + FfiConverterTypePeerHello.allocationSize(value)
         }
     }
 
-    override fun write(value: HelloOut?, buf: ByteBuffer) {
+    override fun write(value: PeerHello?, buf: ByteBuffer) {
         if (value == null) {
             buf.put(0)
         } else {
             buf.put(1)
-            FfiConverterTypeHelloOut.write(value, buf)
+            FfiConverterTypePeerHello.write(value, buf)
         }
     }
 }
@@ -6580,24 +7175,24 @@ public object FfiConverterOptionalSequenceTypePeerPath: FfiConverterRustBuffer<L
 /**
  * @suppress
  */
-public object FfiConverterSequenceInt: FfiConverterRustBuffer<List<kotlin.Int>> {
-    override fun read(buf: ByteBuffer): List<kotlin.Int> {
+public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
+    override fun read(buf: ByteBuffer): List<kotlin.String> {
         val len = buf.getInt()
-        return List<kotlin.Int>(len) {
-            FfiConverterInt.read(buf)
+        return List<kotlin.String>(len) {
+            FfiConverterString.read(buf)
         }
     }
 
-    override fun allocationSize(value: List<kotlin.Int>): ULong {
+    override fun allocationSize(value: List<kotlin.String>): ULong {
         val sizeForLength = 4UL
-        val sizeForItems = value.map { FfiConverterInt.allocationSize(it) }.sum()
+        val sizeForItems = value.map { FfiConverterString.allocationSize(it) }.sum()
         return sizeForLength + sizeForItems
     }
 
-    override fun write(value: List<kotlin.Int>, buf: ByteBuffer) {
+    override fun write(value: List<kotlin.String>, buf: ByteBuffer) {
         buf.putInt(value.size)
         value.iterator().forEach {
-            FfiConverterInt.write(it, buf)
+            FfiConverterString.write(it, buf)
         }
     }
 }
@@ -6691,6 +7286,47 @@ public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<Peer
             return FfiConverterUInt.lift(
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_seam_ffi_fn_func_chunk_data_size(
+    
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * The capabilities every build supports; an app adds its platform's own.
+         */ fun `coreCapabilities`(): List<kotlin.String> {
+            return FfiConverterSequenceString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_core_capabilities(
+    
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * The rules for a `seam.v1.Payload`.
+         */
+    @Throws(SeamException::class) fun `payloadRules`(`payload`: kotlin.ByteArray): PayloadRules {
+            return FfiConverterTypePayloadRules.lift(
+    uniffiRustCallWithError(SeamException) { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_payload_rules(
+    
+        
+        FfiConverterByteArray.lower(`payload`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * The largest clip, in UTF-8 bytes.
+         */ fun `clipMaxBytes`(): kotlin.UInt {
+            return FfiConverterUInt.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_clip_max_bytes(
     
         _status)
 }

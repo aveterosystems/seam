@@ -82,7 +82,7 @@ cd apps/android
 | `LanPathTest` | A handshake that takes too long is given up and tried again later; the phone never looks for the Mac when no connection is wanted |
 | `TorLanTest` | Tor starts once, is dormant whenever no stream is open and nothing is looking, dials only the current onion address, and shows why it's blocked |
 | `SmallTests` | The saved list of what the Mac hasn't acked, a frame sent just before close, local-only addresses, the pairing code (a relay-era code is refused), and backoff |
-| `ClipRulesTest`, `CopyMatchTest`, `LogMatchTest` | No echoes or repeats, size limits, the share preview shows hidden characters, a Mac copy stops showing after 10 minutes; what counts as a copy for the automatic clipboard |
+| `ClipPreviewTest`, `CopyMatchTest`, `LogMatchTest` | The share preview shows hidden characters (the clipboard rules themselves are tested in the core), a Mac copy stops showing after 10 minutes; what counts as a copy for the automatic clipboard |
 | `NotificationRulesTest`, `NotificationPrefsTest` | What's mirrored and once; lock-screen secrets are title only; the Mac can act only on what it was sent; apps start off; settings survive saving |
 | `PauseTest`, `LookTest`, `LinkLookTest`, `AgoTest` | Pause choices end when they say; the status lines and words |
 | `ScreensTest` | Renders every screen state, light and dark, to compare with the design prototype (only with `-Pscreens`) |

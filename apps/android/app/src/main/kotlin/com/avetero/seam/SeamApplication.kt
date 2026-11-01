@@ -30,15 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 class SeamApplication : Application() {
     lateinit var session: Session
         private set
-    lateinit var clipboard: ClipboardFeature
-        private set
-
-    /** The phone's status for the Mac, and the Mac's battery for the home screen. */
-    lateinit var status: StatusFeature
-        private set
     lateinit var updater: Updater
-        private set
-    lateinit var notifications: NotificationsFeature
         private set
     /** When pairing with this Mac finished (unix ms), for Settings; null when unknown or unpaired. */
     val pairedAt: StateFlow<Long?> get() = _pairedAt
@@ -71,9 +63,8 @@ class SeamApplication : Application() {
                     CoroutineExceptionHandler { _, _ -> if (::session.isInitialized) session.internalError() },
             ),
         )
-        status = StatusFeature(this).also(session::register)
-        clipboard = ClipboardFeature(this, session).also(session::register)
-        notifications = NotificationsFeature(this, session).also(session::register)
+        // Screens find each one by type (session.feature<T>()): a new feature is one line here
+        listOf(StatusFeature(this), ClipboardFeature(this, session), NotificationsFeature(this, session)).forEach(session::register)
         session.start()
         // Checks only once paired and the user has answered the updates question (SR-17-04)
         updater = Updater(this) { session.paired }.also { it.start() }
@@ -90,7 +81,7 @@ class SeamApplication : Application() {
         CoroutineScope(Dispatchers.Main).launch {
             session.state.collect {
                 if (it != SessionState.Unpaired) return@collect
-                clipboard.clearFromMac()
+                session.feature<ClipboardFeature>().clearFromMac()
                 _pairedAt.value = null
                 ui.edit().remove(PAIRED_AT).apply()
             }
