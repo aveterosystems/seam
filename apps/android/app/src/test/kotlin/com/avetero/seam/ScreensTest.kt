@@ -28,6 +28,7 @@ import com.avetero.seam.session.SessionState
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,6 +49,9 @@ class ScreensTest(private val dark: Boolean) {
         @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "dark={0}")
         fun themes() = listOf(arrayOf<Any>(false), arrayOf<Any>(true))
 
+        // Skips before the compose rule starts its activity, which only debug builds declare
+        @JvmStatic @BeforeClass fun onlyWithScreens() = assumeTrue(System.getProperty("seam.screens") != null)
+
         /** The prototype's ten apps and their modes. */
         val SAMPLE_APPS = """{"enabled":true,"dismissBoth":true,"quiet":false,"pausedUntil":0,"apps":[""" +
             listOf("Calendar" to "On", "Duolingo" to "Off", "Gmail" to "TitleOnly", "Instagram" to "Off", "Messages" to "On",
@@ -61,7 +65,6 @@ class ScreensTest(private val dark: Boolean) {
     private lateinit var notifications: NotificationsFeature
 
     @Before fun setUp() {
-        assumeTrue(out != null)
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("notifications", Context.MODE_PRIVATE).edit().putString("prefs", SAMPLE_APPS).commit()
         notifications = NotificationsFeature(context, object : com.avetero.seam.session.SessionApi { override fun send(payload: com.avetero.seam.protocol.v1.Payload) {} })
