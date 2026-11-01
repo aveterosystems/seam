@@ -52,6 +52,9 @@ fun SettingsScreen(
     pairedAt: Long? = null,
     sendSensitive: Boolean = false,
     onSendSensitive: (Boolean) -> Unit = {},
+    /** Null: no Mac to reconnect to. */
+    onReconnect: (() -> Unit)? = null,
+    reconnecting: Boolean = false,
 ) {
     var confirmForget by remember { mutableStateOf(false) }
     var neverSendSensitive by remember { mutableStateOf(!sendSensitive) }
@@ -78,6 +81,11 @@ fun SettingsScreen(
                 "Internet, through Tor", "Reaches your Mac anywhere, hides where you are",
                 checked = connection.tor, onChange = { onSwitches(connection.wifi, it) },
                 lead = painterResource(R.drawable.ic_globe), enabled = !connection.tor || connection.wifi,
+            )
+            // For when you know it's stuck. Not while paused: nothing connects then
+            if (onReconnect != null && connection.pausedUntil <= System.currentTimeMillis()) Item(
+                "Reconnect", if (reconnecting) "Reconnecting" else "If Seam seems stuck, try again now",
+                lead = painterResource(R.drawable.ic_refresh), onClick = onReconnect,
             )
         }
         Section("Privacy & security") { EncryptedItem(code) }

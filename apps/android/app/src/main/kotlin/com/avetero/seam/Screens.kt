@@ -62,7 +62,6 @@ fun SeamScreen(
     look: LinkLook = LinkLook.Offline,
     onPause: (PauseFor) -> Unit = {},
     onResume: () -> Unit = {},
-    onReconnect: () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         // One call site, so the sheet slides up once and then changes in place (confirm, then the code)
@@ -91,7 +90,7 @@ fun SeamScreen(
                 ?: (state as SessionState.Connecting).macName
             return@Surface Home(
                 name, look, scanError, mac, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, onOpenNotifications,
-                notifications, clipboard, onPause, onResume, onReconnect,
+                notifications, clipboard, onPause, onResume,
                 banner = {
                     Unfold(askUpdates) { AskUpdatesCard(onAnswerUpdates) }
                     val last = remember { mutableStateOf(update) }

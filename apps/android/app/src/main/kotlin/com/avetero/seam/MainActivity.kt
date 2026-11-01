@@ -160,6 +160,8 @@ class MainActivity : ComponentActivity() {
                     pairedAt = pairedAt,
                     sendSensitive = clipboard.sendSensitive,
                     onSendSensitive = { clipboard.sendSensitive = it },
+                    onReconnect = if (macName != null) ({ session.reconnect() }) else null,
+                    reconnecting = (state as? SessionState.Connecting)?.reconnecting == true,
                 )
                 Page.Home ->                 SeamScreen(
                     state = state,
@@ -191,7 +193,6 @@ class MainActivity : ComponentActivity() {
                     look = look,
                     onPause = { session.pause(it.until(System.currentTimeMillis())) },
                     onResume = { session.resume() },
-                    onReconnect = { session.reconnect() },
                     // Seam has focus here, so Android allows the read
                     onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your Mac", clipboard.offOnMac) },
                     onScan = {

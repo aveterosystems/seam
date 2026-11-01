@@ -34,6 +34,13 @@ struct PhonePane: View {
                     Toggle("Internet, through Tor", isOn: Binding(get: { controller.torOn }, set: { controller.setTor($0) })).labelsHidden()
                         .disabled(controller.torOn && !controller.wifiOn)
                 }
+                // For when you know it's stuck; a second press waits for the first (SR-55-03)
+                if controller.phone != nil {
+                    SettingsRow("Reconnect", controller.reconnecting == nil ? "If Seam seems stuck, try again now" : controller.link.label) {
+                        Button("Reconnect") { controller.reconnect() }.buttonStyle(CapButtonStyle())
+                            .disabled(controller.reconnecting != nil)
+                    }
+                }
             }
             .rise(2, shown, pane: true)
             GroupFootnote { SwapText(Words.connectionsFootnote(wifi: controller.wifiOn, tor: controller.torOn), lines: nil, pane: true) }
