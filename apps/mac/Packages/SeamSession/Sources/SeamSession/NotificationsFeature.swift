@@ -1,54 +1,76 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import Observation
 import SeamProtocol
+
+/// The Mac's notification centre, as the notifications feature sees it.
+public protocol NotificationCentre: Sendable {
+    /// `icon`: the phone app's icon PNG.
+    func show(_ notification: Seam_V1_Notification, icon: Data?) async
+    func dismiss(key: String) async
+    /// Every banner from the phone.
+    func removeAll() async
+}
 
 /// The phone's notifications as banners here, what's done to them sent back, and the phone's
 /// notification settings (the phone owns them; the Mac asks it to change them).
-final class NotificationsFeature: Feature {
-    /// A settings change, reply or dismiss is worth little once the phone has moved on.
-    static let ttl: UInt32 = 600
+@MainActor @Observable
+public final class NotificationsFeature: Feature {
     /// Matches the phone's limit per message (NotificationsFeature.MAX_ICONS).
     static let iconBatch = 40
     /// From the phone, but still checked: a small, real image or nothing.
     static let maxIcon = 256 * 1024
 
-    private let centre: any NotificationCentre
+    @ObservationIgnored private let centre: any NotificationCentre
+    @ObservationIgnored private weak var host: (any FeatureHost)?
     /// As the phone last sent them, without icons. Memory only.
-    private(set) var settings: Seam_V1_NotificationSettings?
+    public internal(set) var settings: Seam_V1_NotificationSettings?
     /// Phone apps' icon PNGs, from the phone when asked for. Memory only.
-    private(set) var icons: [String: Data] = [:]
+    public private(set) var icons: [String: Data] = [:]
+    /// The same icons, ready to draw.
+    public private(set) var images: [String: NSImage] = [:]
     /// The phone's notifications that are still up, newest first, for the main window (memory only).
-    private(set) var shown: [Seam_V1_Notification] = []
+    public internal(set) var shown: [Seam_V1_Notification] = []
     static let maxShown = 200
+    /// Counts notifications arriving from the phone, so the bell rings once for each.
+    public private(set) var arrivals = 0
+    /// Something new from the phone, for the app to announce (the menu bar ping, VoiceOver).
+    @ObservationIgnored public var onArrival: ((String) -> Void)?
     /// Asked once per launch each, so an app whose icon the phone can't draw isn't asked for forever.
-    private var asked: Set<String> = []
+    @ObservationIgnored private var asked: Set<String> = []
 
-    init(centre: any NotificationCentre) {
+    public nonisolated init(centre: any NotificationCentre) {
         self.centre = centre
     }
 
-    nonisolated(nonsending) func receive(_ body: Seam_V1_Payload.OneOf_Body) async -> [Outgoing] {
+    public func start(host: any FeatureHost) async { self.host = host }
+
+    public func receive(_ body: Seam_V1_Payload.OneOf_Body) async {
         switch body {
         case .notification(let n):
             await centre.show(n, icon: icons[n.appID])
             // An update to one that's up (a new message in a chat) replaces it
+            let old = shown
             shown = Array(([n] + shown.filter { $0.key != n.key }).prefix(Self.maxShown))
+            if Arrival.notification(old: old, new: shown) != nil {
+                arrivals += 1
+                onArrival?("Notification from \(n.appName)")
+            }
         case .notificationAction(let a):
             if a.dismissed {
                 await centre.dismiss(key: a.key)
                 shown.removeAll { $0.key == a.key }
             }
         case .notificationSettings(let s):
-            return received(s)
+            await received(s)
         default:
             break
         }
-        return []
     }
 
     /// Asks the phone to change its settings, showing the change here at once; the phone's
     /// answer confirms it.
-    func change(_ change: Seam_V1_NotificationSettingsChange) -> Outgoing {
+    public func change(_ change: Seam_V1_NotificationSettingsChange) async {
         if var s = settings {
             if change.hasEnabled { s.enabled = change.enabled }
             if change.hasDismissBoth { s.dismissBoth = change.dismissBoth }
@@ -58,46 +80,50 @@ final class NotificationsFeature: Feature {
             for i in s.apps.indices { if let mode = modes[s.apps[i].appID] { s.apps[i].mode = mode } }
             settings = s
         }
-        return Outgoing(payload: .with { $0.notificationSettingsChange = change }, ttl: Self.ttl)
+        await host?.send(.with { $0.notificationSettingsChange = change })
     }
 
-    /// What the user did to a banner or the main window here, for the phone.
-    func action(_ a: Seam_V1_NotificationAction) -> Outgoing? {
+    /// What the user did to a banner or the main window here, for the phone. A typed reply waits
+    /// for the phone like any message; a stale dismiss or button press could hit a later
+    /// notification that reuses the key, so it expires sooner (the core's catalogue, SR-19-03).
+    public func act(_ a: Seam_V1_NotificationAction) async {
         if a.dismissed {
             shown.removeAll { $0.key == a.key }
-            if settings?.dismissBoth == false { return nil }
+            if settings?.dismissBoth == false { return }
         }
-        // A typed reply waits for the phone like any message; a stale dismiss or button press
-        // could hit a later notification that reuses the key (SR-19-03)
-        return Outgoing(payload: .with { $0.notificationAction = a }, ttl: a.replyText.isEmpty ? Self.ttl : 0)
+        await host?.send(.with { $0.notificationAction = a })
     }
 
     /// The main window's dismiss: the banner goes too.
-    nonisolated(nonsending) func dismiss(_ key: String) async -> Outgoing? {
+    public func dismiss(key: String) async {
         await centre.dismiss(key: key)
-        return action(.with { $0.key = key; $0.dismissed = true })
+        await act(.with { $0.key = key; $0.dismissed = true })
     }
 
-    nonisolated(nonsending) func reset() async {
+    public func reset() async {
         await centre.removeAll()
         shown = []
         settings = nil
         icons = [:]
+        images = [:]
         asked = []
     }
 
-    private func received(_ received: Seam_V1_NotificationSettings) -> [Outgoing] {
+    private func received(_ received: Seam_V1_NotificationSettings) async {
         var s = received
         for i in s.apps.indices where !s.apps[i].iconPng.isEmpty {
             let png = s.apps[i].iconPng
-            if png.count <= Self.maxIcon, NSImage(data: png) != nil { icons[s.apps[i].appID] = png }
+            if png.count <= Self.maxIcon, icons[s.apps[i].appID] != png, let image = NSImage(data: png) {
+                icons[s.apps[i].appID] = png
+                images[s.apps[i].appID] = image
+            }
             s.apps[i].iconPng = Data()
         }
         settings = s
         // In batches the phone answers in one message; each answer brings the next request
         let missing = Array(s.apps.map(\.appID).filter { icons[$0] == nil && !asked.contains($0) }.prefix(Self.iconBatch))
-        guard !missing.isEmpty else { return [] }
+        guard !missing.isEmpty else { return }
         asked.formUnion(missing)
-        return [Outgoing(payload: .with { $0.notificationSettingsChange = .with { $0.needIcons = missing } }, ttl: Self.ttl)]
+        await host?.send(.with { $0.notificationSettingsChange = .with { $0.needIcons = missing } })
     }
 }

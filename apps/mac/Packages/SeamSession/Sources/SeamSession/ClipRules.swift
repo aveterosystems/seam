@@ -1,16 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Foundation
+import SeamCore
 
-/// What crosses between the two clipboards. The same rules run on the phone (ClipRules.kt):
-/// nothing empty or oversized, the same copy not sent twice in quick succession, and never an echo
-/// of what the other side just sent, so a copy can't bounce back and forth.
-public struct ClipRules: Sendable {
-    /// Fits the 256 KB padding bucket with room for the envelope.
-    public static let maxBytes = 200_000
-    /// A repeat counts as a duplicate only this soon after, so a copy that failed to send goes if
-    /// it's copied again (SR-4-10).
-    public static let repeatWindow: TimeInterval = 2
-
+/// The Mac's side of the clipboard rules. What crosses between the two clipboards (nothing empty
+/// or oversized, no quick repeat, never an echo) is the core's `ClipRules`, shared with the phone;
+/// which pasteboard items may be read at all is the Mac's to say.
+extension SeamCore.ClipRules {
     /// Types password managers and similar apps mark their items with (nspasteboard.org).
     /// An item carrying any of them is never sent (threat model, "Never synced").
     public static let privateTypes: Set<String> = [
@@ -22,15 +17,6 @@ public struct ClipRules: Sendable {
     /// A copied file: Finder adds its name as plain text, which isn't the user's text to send (SR-4-06).
     public static let fileTypes: Set<String> = ["public.file-url", "NSFilenamesPboardType"]
 
-    private let maxBytes: Int
-    private var lastSent: String?
-    private var lastSentAt = Date.distantPast
-    private var lastReceived: String?
-
-    public init(maxBytes: Int = ClipRules.maxBytes) {
-        self.maxBytes = maxBytes
-    }
-
     public static func isPrivate(types: [String]) -> Bool {
         types.contains(where: privateTypes.contains)
     }
@@ -40,24 +26,6 @@ public struct ClipRules: Sendable {
         !isPrivate(types: types) && !types.contains(where: fileTypes.contains)
     }
 
-    /// The text to send for something copied here, or nil to skip it.
-    public mutating func outgoing(_ text: String?, now: Date = Date()) -> String? {
-        guard let text, fits(text), text != lastReceived else { return nil }
-        if text == lastSent, now.timeIntervalSince(lastSentAt) < Self.repeatWindow { return nil }
-        lastSent = text
-        lastSentAt = now
-        lastReceived = nil
-        return text
-    }
-
-    /// Text from the other side to put on this clipboard, or nil to ignore it.
-    public mutating func incoming(_ text: String) -> String? {
-        guard fits(text) else { return nil }
-        lastReceived = text
-        lastSent = nil
-        return text
-    }
-
     /// The web address a clip may be opened as, only when the whole clip is one: a single http(s)
     /// URL with a host and nothing around it, so what opens is what's shown (SR-10-03).
     public static func openableURL(_ text: String) -> URL? {
@@ -65,10 +33,6 @@ public struct ClipRules: Sendable {
               url.scheme == "https" || url.scheme == "http", url.host?.isEmpty == false
         else { return nil }
         return url
-    }
-
-    private func fits(_ text: String) -> Bool {
-        !text.isEmpty && text.utf8.count <= maxBytes
     }
 }
 

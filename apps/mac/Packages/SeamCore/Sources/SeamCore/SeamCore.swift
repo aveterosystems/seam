@@ -503,22 +503,6 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
-    typealias FfiType = Int32
-    typealias SwiftType = Int32
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int32 {
-        return try lift(readInt(&buf))
-    }
-
-    public static func write(_ value: Int32, into buf: inout [UInt8]) {
-        writeInt(&buf, lower(value))
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
     typealias FfiType = UInt64
     typealias SwiftType = UInt64
@@ -635,6 +619,198 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
         writeBytes(&buf, value)
     }
 }
+
+
+
+
+/**
+ * What crosses between the two clipboards: nothing empty or oversized, no quick repeats, no echoes.
+ */
+public protocol ClipRulesProtocol: AnyObject, Sendable {
+    
+    /**
+     * Something the user explicitly sent: only the size rules apply.
+     */
+    func forced(text: String?, nowMs: Int64)  -> String?
+    
+    /**
+     * Text from the other side to put on this clipboard, or None to ignore it.
+     */
+    func incoming(text: String)  -> String?
+    
+    /**
+     * The text to send for something copied here, or None to skip it.
+     */
+    func outgoing(text: String?, nowMs: Int64)  -> String?
+    
+    /**
+     * The peer was forgotten.
+     */
+    func reset() 
+    
+}
+/**
+ * What crosses between the two clipboards: nothing empty or oversized, no quick repeats, no echoes.
+ */
+open class ClipRules: ClipRulesProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_cliprules(self.handle, $0) }
+    }
+public convenience init() {
+    let handle =
+        try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_constructor_cliprules_new(uniffiCallStatus
+    )
+}
+    self.init(unsafeFromHandle: handle)
+}
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_cliprules(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Something the user explicitly sent: only the size rules apply.
+     */
+open func forced(text: String?, nowMs: Int64) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_cliprules_forced(
+            self.uniffiCloneHandle(),
+        FfiConverterOptionString.lower(text),
+        FfiConverterInt64.lower(nowMs),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Text from the other side to put on this clipboard, or None to ignore it.
+     */
+open func incoming(text: String) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_cliprules_incoming(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(text),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The text to send for something copied here, or None to skip it.
+     */
+open func outgoing(text: String?, nowMs: Int64) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_cliprules_outgoing(
+            self.uniffiCloneHandle(),
+        FfiConverterOptionString.lower(text),
+        FfiConverterInt64.lower(nowMs),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The peer was forgotten.
+     */
+open func reset()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_cliprules_reset(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeClipRules: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = ClipRules
+
+    public static func lift(_ handle: UInt64) throws -> ClipRules {
+        return ClipRules(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: ClipRules) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ClipRules {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: ClipRules, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeClipRules_lift(_ handle: UInt64) throws -> ClipRules {
+    return try FfiConverterTypeClipRules.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeClipRules_lower(_ value: ClipRules) -> UInt64 {
+    return FfiConverterTypeClipRules.lower(value)
+}
+
+
 
 
 
@@ -1210,12 +1386,6 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     func appData()  -> AppData?
     
     /**
-     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
-     * save `export_state` then.
-     */
-    func applyHello(seq: UInt64, allowedTransports: [Int32])  -> Bool
-    
-    /**
      * Mac: close the pairing slot early (window closed, QR expired).
      */
     func cancelPairing() 
@@ -1244,12 +1414,6 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
     func id()  -> String
     
     func identityKey()  -> Data
-    
-    /**
-     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
-     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
-     */
-    func nextHello(enabled: [PeerPath])  -> HelloOut?
     
     /**
      * Open an Envelope from a paired peer.
@@ -1309,6 +1473,23 @@ public protocol SeamDeviceProtocol: AnyObject, Sendable {
      * Mac: open a 5-minute pairing slot.
      */
     func startPairing()  -> PairingOffer
+    
+    /**
+     * Applies the peer's Hello (`seam.v1.Hello` bytes) if its seq is newer than any before;
+     * save `export_state` then. None: old, replayed, or no app data, and nothing changed.
+     */
+    func applyHello(hello: Data) throws  -> PeerHello?
+    
+    /**
+     * The next Hello, as `seam.v1.Payload` bytes ready to seal. Counts up in the app data: save
+     * `export_state` before it leaves. None without app data.
+     */
+    func nextHello(facts: HelloFacts)  -> Data?
+    
+    /**
+     * Whether the peer said it can do `capability` in its last Hello.
+     */
+    func peerSupports(capability: String)  -> Bool
     
 }
 /**
@@ -1432,21 +1613,6 @@ open func appData() -> AppData?  {
 }
     
     /**
-     * Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
-     * save `export_state` then.
-     */
-open func applyHello(seq: UInt64, allowedTransports: [Int32]) -> Bool  {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_seamdevice_apply_hello(
-            self.uniffiCloneHandle(),
-        FfiConverterUInt64.lower(seq),
-        FfiConverterSequenceInt32.lower(allowedTransports),uniffiCallStatus
-    )
-})
-}
-    
-    /**
      * Mac: close the pairing slot early (window closed, QR expired).
      */
 open func cancelPairing()  {try! rustCall() {
@@ -1519,20 +1685,6 @@ open func identityKey() -> Data  {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_identity_key(
             self.uniffiCloneHandle(),uniffiCallStatus
-    )
-})
-}
-    
-    /**
-     * The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
-     * Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
-     */
-open func nextHello(enabled: [PeerPath]) -> HelloOut?  {
-    return try!  FfiConverterOptionTypeHelloOut.lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_seam_ffi_fn_method_seamdevice_next_hello(
-            self.uniffiCloneHandle(),
-        FfiConverterSequenceTypePeerPath.lower(enabled),uniffiCallStatus
     )
 })
 }
@@ -1701,6 +1853,47 @@ open func startPairing() -> PairingOffer  {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_method_seamdevice_start_pairing(
             self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Applies the peer's Hello (`seam.v1.Hello` bytes) if its seq is newer than any before;
+     * save `export_state` then. None: old, replayed, or no app data, and nothing changed.
+     */
+open func applyHello(hello: Data)throws  -> PeerHello?  {
+    return try  FfiConverterOptionTypePeerHello.lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_apply_hello(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(hello),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The next Hello, as `seam.v1.Payload` bytes ready to seal. Counts up in the app data: save
+     * `export_state` before it leaves. None without app data.
+     */
+open func nextHello(facts: HelloFacts) -> Data?  {
+    return try!  FfiConverterOptionData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_next_hello(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeHelloFacts_lower(facts),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Whether the peer said it can do `capability` in its last Hello.
+     */
+open func peerSupports(capability: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_seamdevice_peer_supports(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(capability),uniffiCallStatus
     )
 })
 }
@@ -2983,6 +3176,10 @@ public struct AppData: Equatable, Hashable {
      * The peer's paths from its last Hello. None: everything (never heard, or an older version).
      */
     public var peerAllowed: [PeerPath]?
+    /**
+     * The peer's capabilities from its last Hello, sorted.
+     */
+    public var peerCapabilities: [String]
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -2998,13 +3195,17 @@ public struct AppData: Equatable, Hashable {
          */peerDiscovery: Data, helloSeqSent: UInt64, helloSeqApplied: UInt64, 
         /**
          * The peer's paths from its last Hello. None: everything (never heard, or an older version).
-         */peerAllowed: [PeerPath]?) {
+         */peerAllowed: [PeerPath]?, 
+        /**
+         * The peer's capabilities from its last Hello, sorted.
+         */peerCapabilities: [String] = []) {
         self.torSecret = torSecret
         self.onionAddress = onionAddress
         self.peerDiscovery = peerDiscovery
         self.helloSeqSent = helloSeqSent
         self.helloSeqApplied = helloSeqApplied
         self.peerAllowed = peerAllowed
+        self.peerCapabilities = peerCapabilities
     }
 
     
@@ -3028,7 +3229,8 @@ public struct FfiConverterTypeAppData: FfiConverterRustBuffer {
                 peerDiscovery: FfiConverterData.read(from: &buf), 
                 helloSeqSent: FfiConverterUInt64.read(from: &buf), 
                 helloSeqApplied: FfiConverterUInt64.read(from: &buf), 
-                peerAllowed: FfiConverterOptionSequenceTypePeerPath.read(from: &buf)
+                peerAllowed: FfiConverterOptionSequenceTypePeerPath.read(from: &buf), 
+                peerCapabilities: FfiConverterSequenceString.read(from: &buf)
         )
     }
 
@@ -3039,6 +3241,7 @@ public struct FfiConverterTypeAppData: FfiConverterRustBuffer {
         FfiConverterUInt64.write(value.helloSeqSent, into: &buf)
         FfiConverterUInt64.write(value.helloSeqApplied, into: &buf)
         FfiConverterOptionSequenceTypePeerPath.write(value.peerAllowed, into: &buf)
+        FfiConverterSequenceString.write(value.peerCapabilities, into: &buf)
     }
 }
 
@@ -3059,23 +3262,55 @@ public func FfiConverterTypeAppData_lower(_ value: AppData) -> RustBuffer {
 
 
 /**
- * A Hello's ordering and switches, for `seam.v1.Hello`.
+ * What this device says about itself in its next Hello.
  */
-public struct HelloOut: Equatable, Hashable {
-    public var seq: UInt64
+public struct HelloFacts: Equatable, Hashable {
+    public var appVersion: String
     /**
-     * seam.v1.Transport numbers.
+     * "macos" | "android".
      */
-    public var allowedTransports: [Int32]
+    public var platform: String
+    /**
+     * This device's connection switches, any order.
+     */
+    public var enabled: [PeerPath]
+    /**
+     * The links open to the peer now, any order.
+     */
+    public var `open`: [PeerPath]
+    /**
+     * Phone: paused until then (unix ms, 0: not paused). A computer sends 0.
+     */
+    public var pausedUntilMs: Int64
+    /**
+     * What this device can do now: `core_capabilities()` plus the app's own.
+     */
+    public var capabilities: [String]
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(seq: UInt64, 
+    public init(appVersion: String, 
         /**
-         * seam.v1.Transport numbers.
-         */allowedTransports: [Int32]) {
-        self.seq = seq
-        self.allowedTransports = allowedTransports
+         * "macos" | "android".
+         */platform: String, 
+        /**
+         * This device's connection switches, any order.
+         */enabled: [PeerPath], 
+        /**
+         * The links open to the peer now, any order.
+         */`open`: [PeerPath], 
+        /**
+         * Phone: paused until then (unix ms, 0: not paused). A computer sends 0.
+         */pausedUntilMs: Int64, 
+        /**
+         * What this device can do now: `core_capabilities()` plus the app's own.
+         */capabilities: [String]) {
+        self.appVersion = appVersion
+        self.platform = platform
+        self.enabled = enabled
+        self.`open` = `open`
+        self.pausedUntilMs = pausedUntilMs
+        self.capabilities = capabilities
     }
 
     
@@ -3084,24 +3319,32 @@ public struct HelloOut: Equatable, Hashable {
 }
 
 #if compiler(>=6)
-extension HelloOut: Sendable {}
+extension HelloFacts: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHelloOut: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HelloOut {
+public struct FfiConverterTypeHelloFacts: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HelloFacts {
         return
-            try HelloOut(
-                seq: FfiConverterUInt64.read(from: &buf), 
-                allowedTransports: FfiConverterSequenceInt32.read(from: &buf)
+            try HelloFacts(
+                appVersion: FfiConverterString.read(from: &buf), 
+                platform: FfiConverterString.read(from: &buf), 
+                enabled: FfiConverterSequenceTypePeerPath.read(from: &buf), 
+                open: FfiConverterSequenceTypePeerPath.read(from: &buf), 
+                pausedUntilMs: FfiConverterInt64.read(from: &buf), 
+                capabilities: FfiConverterSequenceString.read(from: &buf)
         )
     }
 
-    public static func write(_ value: HelloOut, into buf: inout [UInt8]) {
-        FfiConverterUInt64.write(value.seq, into: &buf)
-        FfiConverterSequenceInt32.write(value.allowedTransports, into: &buf)
+    public static func write(_ value: HelloFacts, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.appVersion, into: &buf)
+        FfiConverterString.write(value.platform, into: &buf)
+        FfiConverterSequenceTypePeerPath.write(value.enabled, into: &buf)
+        FfiConverterSequenceTypePeerPath.write(value.`open`, into: &buf)
+        FfiConverterInt64.write(value.pausedUntilMs, into: &buf)
+        FfiConverterSequenceString.write(value.capabilities, into: &buf)
     }
 }
 
@@ -3109,15 +3352,15 @@ public struct FfiConverterTypeHelloOut: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeHelloOut_lift(_ buf: RustBuffer) throws -> HelloOut {
-    return try FfiConverterTypeHelloOut.lift(buf)
+public func FfiConverterTypeHelloFacts_lift(_ buf: RustBuffer) throws -> HelloFacts {
+    return try FfiConverterTypeHelloFacts.lift(buf)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeHelloOut_lower(_ value: HelloOut) -> RustBuffer {
-    return FfiConverterTypeHelloOut.lower(value)
+public func FfiConverterTypeHelloFacts_lower(_ value: HelloFacts) -> RustBuffer {
+    return FfiConverterTypeHelloFacts.lower(value)
 }
 
 
@@ -3435,6 +3678,168 @@ public func FfiConverterTypePairingStart_lift(_ buf: RustBuffer) throws -> Pairi
 #endif
 public func FfiConverterTypePairingStart_lower(_ value: PairingStart) -> RustBuffer {
     return FfiConverterTypePairingStart.lower(value)
+}
+
+
+/**
+ * How a payload is delivered.
+ */
+public struct PayloadRules: Equatable, Hashable {
+    /**
+     * Seconds it may wait; 0: the core's default (24 h). Pass to `seal`.
+     */
+    public var ttlS: UInt32
+    /**
+     * A newer one of the same kind replaces a queued one.
+     */
+    public var latestOnly: Bool
+    /**
+     * Waits for the next connection rather than making one.
+     */
+    public var lazy: Bool
+    /**
+     * Not captured or sent while the phone has Seam paused.
+     */
+    public var paused: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Seconds it may wait; 0: the core's default (24 h). Pass to `seal`.
+         */ttlS: UInt32, 
+        /**
+         * A newer one of the same kind replaces a queued one.
+         */latestOnly: Bool, 
+        /**
+         * Waits for the next connection rather than making one.
+         */lazy: Bool, 
+        /**
+         * Not captured or sent while the phone has Seam paused.
+         */paused: Bool) {
+        self.ttlS = ttlS
+        self.latestOnly = latestOnly
+        self.lazy = lazy
+        self.paused = paused
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PayloadRules: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePayloadRules: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PayloadRules {
+        return
+            try PayloadRules(
+                ttlS: FfiConverterUInt32.read(from: &buf), 
+                latestOnly: FfiConverterBool.read(from: &buf), 
+                lazy: FfiConverterBool.read(from: &buf), 
+                paused: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PayloadRules, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.ttlS, into: &buf)
+        FfiConverterBool.write(value.latestOnly, into: &buf)
+        FfiConverterBool.write(value.lazy, into: &buf)
+        FfiConverterBool.write(value.paused, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePayloadRules_lift(_ buf: RustBuffer) throws -> PayloadRules {
+    return try FfiConverterTypePayloadRules.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePayloadRules_lower(_ value: PayloadRules) -> RustBuffer {
+    return FfiConverterTypePayloadRules.lower(value)
+}
+
+
+/**
+ * What a newer Hello from the peer says.
+ */
+public struct PeerHello: Equatable, Hashable {
+    /**
+     * The phone's pause end (unix ms); 0: not paused.
+     */
+    public var pausedUntilMs: Int64
+    /**
+     * The links the peer has open now; None from an older peer that doesn't say.
+     */
+    public var openLinks: [PeerPath]?
+    public var capabilities: [String]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The phone's pause end (unix ms); 0: not paused.
+         */pausedUntilMs: Int64, 
+        /**
+         * The links the peer has open now; None from an older peer that doesn't say.
+         */openLinks: [PeerPath]?, capabilities: [String]) {
+        self.pausedUntilMs = pausedUntilMs
+        self.openLinks = openLinks
+        self.capabilities = capabilities
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PeerHello: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePeerHello: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PeerHello {
+        return
+            try PeerHello(
+                pausedUntilMs: FfiConverterInt64.read(from: &buf), 
+                openLinks: FfiConverterOptionSequenceTypePeerPath.read(from: &buf), 
+                capabilities: FfiConverterSequenceString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PeerHello, into buf: inout [UInt8]) {
+        FfiConverterInt64.write(value.pausedUntilMs, into: &buf)
+        FfiConverterOptionSequenceTypePeerPath.write(value.openLinks, into: &buf)
+        FfiConverterSequenceString.write(value.capabilities, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeerHello_lift(_ buf: RustBuffer) throws -> PeerHello {
+    return try FfiConverterTypePeerHello.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeerHello_lower(_ value: PeerHello) -> RustBuffer {
+    return FfiConverterTypePeerHello.lower(value)
 }
 
 
@@ -3931,6 +4336,30 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
+    typealias SwiftType = Data?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterData.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterData.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeTorService: FfiConverterRustBuffer {
     typealias SwiftType = TorService?
 
@@ -3979,8 +4408,8 @@ fileprivate struct FfiConverterOptionTypeAppData: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeHelloOut: FfiConverterRustBuffer {
-    typealias SwiftType = HelloOut?
+fileprivate struct FfiConverterOptionTypePeerHello: FfiConverterRustBuffer {
+    typealias SwiftType = PeerHello?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
@@ -3988,13 +4417,13 @@ fileprivate struct FfiConverterOptionTypeHelloOut: FfiConverterRustBuffer {
             return
         }
         writeInt(&buf, Int8(1))
-        FfiConverterTypeHelloOut.write(value, into: &buf)
+        FfiConverterTypePeerHello.write(value, into: &buf)
     }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
-        case 1: return try FfiConverterTypeHelloOut.read(from: &buf)
+        case 1: return try FfiConverterTypePeerHello.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -4051,23 +4480,23 @@ fileprivate struct FfiConverterOptionSequenceTypePeerPath: FfiConverterRustBuffe
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceInt32: FfiConverterRustBuffer {
-    typealias SwiftType = [Int32]
+fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
+    typealias SwiftType = [String]
 
-    public static func write(_ value: [Int32], into buf: inout [UInt8]) {
+    public static func write(_ value: [String], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
-            FfiConverterInt32.write(item, into: &buf)
+            FfiConverterString.write(item, into: &buf)
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Int32] {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String] {
         let len: Int32 = try readInt(&buf)
-        var seq = [Int32]()
+        var seq = [String]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterInt32.read(from: &buf))
+            seq.append(try FfiConverterString.read(from: &buf))
         }
         return seq
     }
@@ -4158,6 +4587,37 @@ public func chunkDataSize() -> UInt32  {
 })
 }
 /**
+ * The capabilities every build supports; an app adds its platform's own.
+ */
+public func coreCapabilities() -> [String]  {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_core_capabilities(uniffiCallStatus
+    )
+})
+}
+/**
+ * The rules for a `seam.v1.Payload`.
+ */
+public func payloadRules(payload: Data)throws  -> PayloadRules  {
+    return try  FfiConverterTypePayloadRules_lift(try rustCallWithError(FfiConverterTypeSeamError_lift) {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_payload_rules(
+        FfiConverterData.lower(payload),uniffiCallStatus
+    )
+})
+}
+/**
+ * The largest clip, in UTF-8 bytes.
+ */
+public func clipMaxBytes() -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_clip_max_bytes(uniffiCallStatus
+    )
+})
+}
+/**
  * The public half of a discovery secret, which the Mac's service lets discover it (empty for
  * one that isn't 32 bytes).
  */
@@ -4209,6 +4669,15 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_func_chunk_data_size() != 5213) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_func_core_capabilities() != 15994) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_payload_rules() != 30398) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_clip_max_bytes() != 30606) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_func_tor_discovery_public() != 59638) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4257,9 +4726,6 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 29712) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_apply_hello() != 62351) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing() != 4348) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4279,9 +4745,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_identity_key() != 47370) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_next_hello() != 17158) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_open() != 5951) {
@@ -4321,6 +4784,27 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_start_pairing() != 54107) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_apply_hello() != 65394) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_next_hello() != 9879) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_seamdevice_peer_supports() != 26466) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_cliprules_forced() != 31478) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_cliprules_incoming() != 62169) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_cliprules_outgoing() != 64418) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_cliprules_reset() != 35432) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_tor_connect() != 49519) {
@@ -4387,6 +4871,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_constructor_seamdevice_restore() != 15264) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_constructor_cliprules_new() != 65485) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_constructor_tor_new() != 24386) {

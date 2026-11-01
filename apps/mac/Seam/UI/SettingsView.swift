@@ -77,7 +77,7 @@ struct SettingsView: View {
     private func row(_ p: Pane) -> some View {
         SidebarItem(
             title: title(p), selected: pane == p,
-            count: p == .notifications ? controller.notificationSettings.map { Words.appsOnCount($0.apps) } ?? 0 : 0,
+            count: p == .notifications ? controller.notifications.settings.map { Words.appsOnCount($0.apps) } ?? 0 : 0,
             dot: p == .phone && controller.phone != nil ? controller.connected : nil,
             miss: !query.isEmpty && !matches(p)
         ) {

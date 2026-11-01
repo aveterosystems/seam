@@ -92,14 +92,6 @@ import Testing
         #expect(Arrival.notification(old: [a], new: [a]) == nil)
     }
 
-    @Test func onlyANewClipFromThePhoneArrives() {
-        let mine = Clip(text: "mac", at: now, fromPhone: false)
-        let phone = Clip(text: "phone", at: now, fromPhone: true)
-        #expect(Arrival.clip(old: [], new: [phone])?.text == "phone")
-        #expect(Arrival.clip(old: [phone], new: [mine, phone]) == nil, "a copy here isn't an arrival")
-        #expect(Arrival.clip(old: [phone], new: [phone]) == nil)
-    }
-
     // No label ends in "…": words say a state, they don't trail off (the user's rule for Seam)
     @Test func noLabelTrailsOff() {
         let looks: [LinkLook] = [.sameWifi, .throughTor, .connectingTor, .torBlocked, .torClock, .noSharedPath, .waitingOnWifi, .away,

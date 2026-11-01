@@ -183,6 +183,10 @@ final class Rig: @unchecked Sendable {
     let saved: SavedState
     let outbox: OutboxFile
     private(set) var session: Session
+    /// The current session's features (a restart makes new ones, as the app does).
+    private(set) var clipboard: ClipboardFeature
+    private(set) var notifications: NotificationsFeature
+    private(set) var status: StatusFeature
     private var opened: [Data: Seam_V1_Payload] = [:]
 
     /// `paired` false: the phone is made but not paired yet (pairing tests pair it).
@@ -200,7 +204,9 @@ final class Rig: @unchecked Sendable {
         timers = FakeTimers()
         saved = SavedState()
         outbox = OutboxFile(url: FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID()).bin"))
-        session = Self.session(mac, saved, outbox, pasteboard, centre, timers, wifi: wifi, tor: tor, clipboardSync: clipboardSync)
+        (session, clipboard, notifications, status) = Self.session(
+            mac, saved, outbox, pasteboard, centre, timers, wifi: wifi, tor: tor, clipboardSync: clipboardSync
+        )
         try saved.save(mac)
         await session.start()
     }
@@ -215,23 +221,28 @@ final class Rig: @unchecked Sendable {
     private static func session(
         _ device: SeamDevice, _ saved: SavedState, _ outbox: OutboxFile, _ pasteboard: MemoryPasteboard,
         _ centre: MemoryNotifications, _ timers: FakeTimers, wifi: Bool, tor: Bool, clipboardSync: Bool
-    ) -> Session {
+    ) -> (Session, ClipboardFeature, NotificationsFeature, StatusFeature) {
         let storage = SessionStorage(
             saveState: { try saved.save(device) }, outbox: outbox,
             pausedUntil: { saved.pausedUntil }, setPausedUntil: { saved.pausedUntil = $0 }
         )
-        return Session(
-            device: device, storage: storage, pasteboard: pasteboard, notifications: centre,
-            wifi: wifi, tor: tor, clipboardSync: clipboardSync, appVersion: "test", timers: timers,
-            ownStatus: { saved.ownStatus }
+        let clipboard = ClipboardFeature(pasteboard: pasteboard, syncOn: clipboardSync, timers: timers)
+        let notifications = NotificationsFeature(centre: centre)
+        let status = StatusFeature(timers: timers, own: { saved.ownStatus })
+        let session = Session(
+            device: device, storage: storage, features: [clipboard, notifications, status],
+            wifi: wifi, tor: tor, appVersion: "test", timers: timers
         )
+        return (session, clipboard, notifications, status)
     }
 
     /// Quit and relaunch: the Mac comes back from what it saved, with a new session.
     func restart() async throws -> Session {
         await session.stop()
         let restored = try SeamDevice.restore(state: try #require(saved.blob), storageKey: SavedState.key)
-        session = Self.session(restored, saved, outbox, pasteboard, centre, timers, wifi: true, tor: true, clipboardSync: true)
+        (session, clipboard, notifications, status) = Self.session(
+            restored, saved, outbox, pasteboard, centre, timers, wifi: true, tor: true, clipboardSync: true
+        )
         await session.start()
         return session
     }
@@ -251,7 +262,7 @@ final class Rig: @unchecked Sendable {
 
     /// Something for the phone that isn't a Hello, told apart by `n`.
     func sendSomething(_ n: Int64) async {
-        await session.changeNotificationSettings(.with { $0.pausedUntil = n })
+        await notifications.change(.with { $0.pausedUntil = n })
     }
 
     /// The phone seals `payload` for the Mac.
@@ -262,17 +273,15 @@ final class Rig: @unchecked Sendable {
     /// The phone's Hello, as its switches say.
     /// `openLinks`: the links the phone says it has open (nil: an older phone that doesn't say).
     func phoneHello(wifi: Bool, tor: Bool, pausedUntilMs: Int64 = 0, openLinks: [Seam_V1_Transport]? = nil) throws -> Seam_V1_Envelope {
-        let next = try #require(phone.nextHello(enabled: (wifi ? [.lan] : []) + (tor ? [.tor] : [])))
-        return try fromPhone(.with {
-            $0.control = .with {
-                $0.hello = .with {
-                    $0.pausedUntilMs = pausedUntilMs
-                    $0.seq = next.seq
-                    $0.allowedTransports = next.allowedTransports.map { Seam_V1_Transport(rawValue: Int($0))! }
-                    if let links = openLinks { $0.openLinks = Seam_V1_OpenLinks.with { $0.transports = links } }
-                }
-            }
-        })
+        let facts = HelloFacts(appVersion: "test", platform: "android", enabled: (wifi ? [.lan] : []) + (tor ? [.tor] : []),
+                               open: [], pausedUntilMs: pausedUntilMs, capabilities: coreCapabilities())
+        var payload = try Seam_V1_Payload(serializedBytes: try #require(phone.nextHello(facts: facts)))
+        if let links = openLinks {
+            payload.control.hello.openLinks.transports = links
+        } else {
+            payload.control.hello.clearOpenLinks()
+        }
+        return try fromPhone(payload)
     }
 
     /// What reached the phone through Tor, opened by the phone, in order.

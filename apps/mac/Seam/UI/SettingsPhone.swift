@@ -86,7 +86,7 @@ private struct PhoneCard: View {
 
     var body: some View {
         let look = controller.link
-        let status = controller.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.statusAt) }
+        let status = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt) }
         HStack(spacing: 16) {
             PhoneGlyph(level: status?.percent, low: status?.low == true, on: look.connected)
             VStack(alignment: .leading, spacing: 0) {

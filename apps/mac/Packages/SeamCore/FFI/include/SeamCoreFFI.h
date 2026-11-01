@@ -449,11 +449,6 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_allowed_paths(uint64_t ptr, Rust
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_app_data(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APPLY_HELLO
-#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APPLY_HELLO
-int8_t uniffi_seam_ffi_fn_method_seamdevice_apply_hello(uint64_t ptr, uint64_t seq, RustBuffer allowed_transports, RustCallStatus *_Nonnull out_status
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CANCEL_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_CANCEL_PAIRING
 void uniffi_seam_ffi_fn_method_seamdevice_cancel_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
@@ -487,11 +482,6 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_id(uint64_t ptr, RustCallStatus 
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_IDENTITY_KEY
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_IDENTITY_KEY
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_identity_key(uint64_t ptr, RustCallStatus *_Nonnull out_status
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
-#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
-RustBuffer uniffi_seam_ffi_fn_method_seamdevice_next_hello(uint64_t ptr, RustBuffer enabled, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_OPEN
@@ -557,6 +547,57 @@ RustBuffer uniffi_seam_ffi_fn_method_seamdevice_sign_relay_login(uint64_t ptr, R
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_START_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_START_PAIRING
 RustBuffer uniffi_seam_ffi_fn_method_seamdevice_start_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APPLY_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_APPLY_HELLO
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_apply_hello(uint64_t ptr, RustBuffer hello, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_NEXT_HELLO
+RustBuffer uniffi_seam_ffi_fn_method_seamdevice_next_hello(uint64_t ptr, RustBuffer facts, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_PEER_SUPPORTS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SEAMDEVICE_PEER_SUPPORTS
+int8_t uniffi_seam_ffi_fn_method_seamdevice_peer_supports(uint64_t ptr, RustBuffer capability, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_CLIPRULES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_CLIPRULES
+uint64_t uniffi_seam_ffi_fn_clone_cliprules(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_CLIPRULES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_CLIPRULES
+void uniffi_seam_ffi_fn_free_cliprules(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_CLIPRULES_NEW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_CLIPRULES_NEW
+uint64_t uniffi_seam_ffi_fn_constructor_cliprules_new(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_FORCED
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_FORCED
+RustBuffer uniffi_seam_ffi_fn_method_cliprules_forced(uint64_t ptr, RustBuffer text, int64_t now_ms, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_INCOMING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_INCOMING
+RustBuffer uniffi_seam_ffi_fn_method_cliprules_incoming(uint64_t ptr, RustBuffer text, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_OUTGOING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_OUTGOING
+RustBuffer uniffi_seam_ffi_fn_method_cliprules_outgoing(uint64_t ptr, RustBuffer text, int64_t now_ms, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_RESET
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_CLIPRULES_RESET
+void uniffi_seam_ffi_fn_method_cliprules_reset(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TOR
@@ -717,6 +758,23 @@ void uniffi_seam_ffi_fn_method_torstreamlistener_on_closed(uint64_t ptr, RustCal
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CHUNK_DATA_SIZE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CHUNK_DATA_SIZE
 uint32_t uniffi_seam_ffi_fn_func_chunk_data_size(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CORE_CAPABILITIES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CORE_CAPABILITIES
+RustBuffer uniffi_seam_ffi_fn_func_core_capabilities(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_PAYLOAD_RULES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_PAYLOAD_RULES
+RustBuffer uniffi_seam_ffi_fn_func_payload_rules(RustBuffer payload, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_MAX_BYTES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_MAX_BYTES
+uint32_t uniffi_seam_ffi_fn_func_clip_max_bytes(RustCallStatus *_Nonnull out_status
     
 );
 #endif
@@ -1002,6 +1060,24 @@ uint16_t uniffi_seam_ffi_checksum_func_chunk_data_size(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CORE_CAPABILITIES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CORE_CAPABILITIES
+uint16_t uniffi_seam_ffi_checksum_func_core_capabilities(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_PAYLOAD_RULES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_PAYLOAD_RULES
+uint16_t uniffi_seam_ffi_checksum_func_payload_rules(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIP_MAX_BYTES
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIP_MAX_BYTES
+uint16_t uniffi_seam_ffi_checksum_func_clip_max_bytes(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_DISCOVERY_PUBLIC
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_DISCOVERY_PUBLIC
 uint16_t uniffi_seam_ffi_checksum_func_tor_discovery_public(void
@@ -1098,12 +1174,6 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_app_data(void
     
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APPLY_HELLO
-#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APPLY_HELLO
-uint16_t uniffi_seam_ffi_checksum_method_seamdevice_apply_hello(void
-    
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CANCEL_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_CANCEL_PAIRING
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_cancel_pairing(void
@@ -1143,12 +1213,6 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_id(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_IDENTITY_KEY
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_IDENTITY_KEY
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_identity_key(void
-    
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_NEXT_HELLO
-#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_NEXT_HELLO
-uint16_t uniffi_seam_ffi_checksum_method_seamdevice_next_hello(void
     
 );
 #endif
@@ -1227,6 +1291,48 @@ uint16_t uniffi_seam_ffi_checksum_method_seamdevice_sign_relay_login(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_START_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_START_PAIRING
 uint16_t uniffi_seam_ffi_checksum_method_seamdevice_start_pairing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APPLY_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_APPLY_HELLO
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_apply_hello(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_NEXT_HELLO
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_NEXT_HELLO
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_next_hello(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_PEER_SUPPORTS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SEAMDEVICE_PEER_SUPPORTS
+uint16_t uniffi_seam_ffi_checksum_method_seamdevice_peer_supports(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_FORCED
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_FORCED
+uint16_t uniffi_seam_ffi_checksum_method_cliprules_forced(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_INCOMING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_INCOMING
+uint16_t uniffi_seam_ffi_checksum_method_cliprules_incoming(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_OUTGOING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_OUTGOING
+uint16_t uniffi_seam_ffi_checksum_method_cliprules_outgoing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_RESET
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_CLIPRULES_RESET
+uint16_t uniffi_seam_ffi_checksum_method_cliprules_reset(void
     
 );
 #endif
@@ -1359,6 +1465,12 @@ uint16_t uniffi_seam_ffi_checksum_constructor_seamdevice_generate(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_SEAMDEVICE_RESTORE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_SEAMDEVICE_RESTORE
 uint16_t uniffi_seam_ffi_checksum_constructor_seamdevice_restore(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_CLIPRULES_NEW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_CLIPRULES_NEW
+uint16_t uniffi_seam_ffi_checksum_constructor_cliprules_new(void
     
 );
 #endif

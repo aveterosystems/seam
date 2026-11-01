@@ -4,15 +4,20 @@ import SeamCore
 import SeamProtocol
 
 /// Delivery to the phone, what arrives from it, and forgetting it.
-extension Session {
+extension Session: FeatureHost {
     // MARK: Delivery
 
-    /// Sealed, saved, then sent: never sends what a failed save would forget (SR-2-11).
-    func sendToPhone(_ payload: Seam_V1_Payload, ttl: UInt32, hello: Bool = false) async {
+    /// Sealed, saved, then sent: never sends what a failed save would forget (SR-2-11). How long
+    /// it may wait, and whether it waits out the phone's pause, is the core's catalogue.
+    func sendToPhone(_ payload: Seam_V1_Payload, hello: Bool = false) async {
         guard let phone else { return }
         let envelope: Seam_V1_Envelope
         do {
-            let sealed = try device.seal(peerId: phone.id, payload: try payload.serializedData(), ttlS: ttl)
+            let bytes = try payload.serializedData()
+            let rules = try payloadRules(payload: bytes)
+            // Paused on the phone: nothing but control goes, and nothing is kept for later
+            if paused, rules.paused { return }
+            let sealed = try device.seal(peerId: phone.id, payload: bytes, ttlS: rules.ttlS)
             do { try storage.saveState() } catch { return saveFailed() }
             envelope = try Seam_V1_Envelope(serializedBytes: sealed)
         } catch {
@@ -26,8 +31,13 @@ extension Session {
         attempt(envelope)
     }
 
-    func send(_ outgoing: [Outgoing]) async {
-        for out in outgoing { await sendToPhone(out.payload, ttl: out.ttl) }
+    public func send(_ payload: Seam_V1_Payload) async {
+        await sendToPhone(payload)
+    }
+
+    public func reach() -> Reach {
+        guard phone != nil, !paused else { return .off }
+        return device.route(enabled: enabledPaths, up: upPaths, hello: false) == nil ? .away : .connected
     }
 
     /// Never a disallowed path, and never a path before it's on disk. Kept in the outbox until the
@@ -85,10 +95,9 @@ extension Session {
 
     /// The phone's Hello lists the links it has open. One of ours that it doesn't list is dead on
     /// its side (it left the Wi‑Fi): close it, so nothing more is sent into it.
-    func closeLinks(missingFrom open: Seam_V1_OpenLinks) async {
+    func closeLinks(missingFrom open: [PeerPath]) async {
         guard let phone else { return }
-        let listed = Set(open.transports)
-        for path in upPaths where !listed.contains(path.transport) {
+        for path in upPaths where !open.contains(path) {
             links[path]?.close(peerId: phone.id)
             await pathClosed(path)
         }
@@ -99,22 +108,18 @@ extension Session {
         guard phone != nil else { return }
         await flush()
         await sendHello()
-        for feature in features { await send(await feature.onConnected(now: timers.now())) }
-        await ownStatusChanged()
+        for feature in features { await feature.connected() }
     }
 
     /// Its seq is counted in the core's app data and saved with the seal, before it leaves: a
     /// Hello never goes with a seq a restart could hand out again.
     func sendHello() async {
-        guard phone != nil, let next = device.nextHello(enabled: enabledPaths) else { return }
-        let hello = Seam_V1_Hello.with {
-            $0.appVersion = appVersion
-            $0.platform = "macos"
-            $0.seq = next.seq
-            $0.allowedTransports = next.allowedTransports.map { Seam_V1_Transport(rawValue: Int($0)) ?? .unspecified }
-            $0.openLinks = .with { $0.transports = upPaths.map(\.transport) }
-        }
-        await sendToPhone(.with { $0.control = .with { $0.hello = hello } }, ttl: Self.settingsTTL, hello: true)
+        // The Mac never pauses: only the phone does
+        let facts = HelloFacts(appVersion: appVersion, platform: "macos", enabled: enabledPaths, open: upPaths,
+                               pausedUntilMs: 0, capabilities: coreCapabilities())
+        guard phone != nil, let bytes = device.nextHello(facts: facts),
+              let hello = try? Seam_V1_Payload(serializedBytes: bytes) else { return }
+        await sendToPhone(hello, hello: true)
     }
 
     // MARK: Receiving
@@ -138,11 +143,11 @@ extension Session {
         // Only a newer Hello counts (the core checks): a resent old one must not undo a newer one.
         // Applied before the save just below, with the ratchet
         if case .control(let c)? = payload?.body, case .hello(let h)? = c.body, isConfirmedPhone(message.peerId),
-           device.applyHello(seq: h.seq, allowedTransports: h.allowedTransports.map { Int32($0.rawValue) }) {
+           let bytes = try? h.serializedData(), let peer = try? device.applyHello(hello: bytes) {
             // The phone's pause rides on the same counter, so a late or replayed Hello can't
             // re-pause a resumed Mac, and every new connection brings the current state (SR-32-01)
-            setPause(until: Self.pauseEnd(h.pausedUntilMs))
-            if h.hasOpenLinks { await closeLinks(missingFrom: h.openLinks) }
+            setPause(until: Self.pauseEnd(peer.pausedUntilMs))
+            if let open = peer.openLinks { await closeLinks(missingFrom: open) }
         }
         let saved = (try? storage.saveState()) != nil
         // Handled even if the save failed: the ratchet has moved, so a redelivery in this run opens
@@ -160,7 +165,7 @@ extension Session {
         // Features only from the paired, confirmed phone
         guard isConfirmedPhone(peerId), let body = payload.body else { return }
         guard case .control(let c) = body else {
-            for feature in features { await send(await feature.receive(body)) }
+            for feature in features { await feature.receive(body) }
             return
         }
         if case .hello = c.body { await flush() } // a path may have opened

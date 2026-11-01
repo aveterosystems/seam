@@ -21,8 +21,8 @@ struct SessionFeatureTests {
         await rig.torUp()
         #expect(await rig.session.received(try rig.fromPhone(clip("from the phone"))))
         #expect(rig.pasteboard.text == "from the phone")
-        #expect(await rig.session.state.clips.map(\.text) == ["from the phone"])
-        #expect(await rig.session.state.clips.allSatisfy(\.fromPhone))
+        #expect(await rig.clipboard.clips.map(\.text) == ["from the phone"])
+        #expect(await rig.clipboard.clips.allSatisfy(\.fromPhone))
         await rig.timers.advance(1)
         #expect(try clips(rig).isEmpty)
     }
@@ -33,20 +33,20 @@ struct SessionFeatureTests {
         rig.pasteboard.copy("one")
         await rig.timers.advance(1)
         #expect(try clips(rig) == ["one"])
-        await rig.session.setClipboardSync(false)
+        await rig.clipboard.setSync(false)
         rig.pasteboard.copy("private")
         await rig.timers.advance(1)
-        await rig.session.setClipboardSync(true)
+        await rig.clipboard.setSync(true)
         await rig.timers.advance(1)
         #expect(try clips(rig) == ["one"], "nothing copied while off goes, even after it's back on")
-        #expect(await rig.session.state.clips.isEmpty, "turning sync off takes the history off the screen (SR-10-04)")
+        #expect(await rig.clipboard.clips.isEmpty, "turning sync off takes the history off the screen (SR-10-04)")
     }
 
     @Test func sr_29_05_turningSyncOffMidReadStopsThatCopy() async throws {
         let rig = try await Rig()
         await rig.torUp()
-        let session = rig.session
-        rig.pasteboard.whileReading = { await session.setClipboardSync(false) }
+        let clipboard = rig.clipboard
+        rig.pasteboard.whileReading = { await clipboard.setSync(false) }
         rig.pasteboard.copy("private")
         await rig.timers.advance(1)
         #expect(try clips(rig).isEmpty)
@@ -73,7 +73,7 @@ struct SessionFeatureTests {
     @Test func copyingAPhoneClipAgainDoesntSendItBack() async throws {
         let rig = try await Rig()
         await rig.torUp()
-        await rig.session.copyAgain("again")
+        await rig.clipboard.copyAgain("again")
         await rig.timers.advance(1)
         #expect(rig.pasteboard.text == "again")
         #expect(try clips(rig).isEmpty)
@@ -89,7 +89,7 @@ struct SessionFeatureTests {
         _ = await rig.session.received(try rig.fromPhone(.with { $0.notification = .with { $0.key = "k"; $0.appID = "chat" } }))
         #expect(rig.centre.shown.map(\.notification.key) == ["k"])
         #expect(rig.centre.shown.first?.icon == png)
-        #expect(await rig.session.state.appIcons["chat"] == png)
+        #expect(await rig.notifications.icons["chat"] == png)
         _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationAction = .with { $0.key = "k"; $0.dismissed = true } }))
         #expect(rig.centre.dismissed == ["k"], "dismissed on the phone, dismissed here")
     }
@@ -115,11 +115,11 @@ struct SessionFeatureTests {
         let dismissed = Seam_V1_NotificationAction.with { $0.key = "k"; $0.dismissed = true }
         let actions = { () throws -> Int in try rig.onTor().filter { if case .notificationAction? = $0.body { true } else { false } }.count }
         _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationSettings = .with { $0.dismissBoth = false } }))
-        await rig.session.notificationAction(dismissed)
+        await rig.notifications.act(dismissed)
         #expect(try actions() == 0)
-        await rig.session.changeNotificationSettings(.with { $0.dismissBoth = true })
-        #expect(await rig.session.state.notificationSettings?.dismissBoth == true, "shown at once")
-        await rig.session.notificationAction(dismissed)
+        await rig.notifications.change(.with { $0.dismissBoth = true })
+        #expect(await rig.notifications.settings?.dismissBoth == true, "shown at once")
+        await rig.notifications.act(dismissed)
         #expect(try actions() == 1)
     }
 
@@ -128,9 +128,9 @@ struct SessionFeatureTests {
         await rig.torUp()
         rig.pasteboard.copy("mine")
         await rig.timers.advance(1)
-        #expect(await rig.session.state.clips.map { "\($0.text) \($0.fromPhone)" } == ["mine false"])
-        await rig.session.clearClips()
-        #expect(await rig.session.state.clips.isEmpty)
+        #expect(await rig.clipboard.clips.map { "\($0.text) \($0.fromPhone)" } == ["mine false"])
+        await rig.clipboard.clearClips()
+        #expect(await rig.clipboard.clips.isEmpty)
     }
 
     @Test func theMainWindowListsThePhonesNotificationsUntilDismissed() async throws {
@@ -140,26 +140,44 @@ struct SessionFeatureTests {
         _ = await rig.session.received(try rig.fromPhone(note("a", "first")))
         _ = await rig.session.received(try rig.fromPhone(note("b", "second")))
         _ = await rig.session.received(try rig.fromPhone(note("a", "first, updated")))
-        #expect(await rig.session.state.phoneNotifications.map(\.title) == ["first, updated", "second"], "an update replaces it, newest first")
-        await rig.session.dismissNotification(key: "a")
-        #expect(await rig.session.state.phoneNotifications.map(\.key) == ["b"])
+        #expect(await rig.notifications.shown.map(\.title) == ["first, updated", "second"], "an update replaces it, newest first")
+        await rig.notifications.dismiss(key: "a")
+        #expect(await rig.notifications.shown.map(\.key) == ["b"])
         #expect(rig.centre.dismissed == ["a"], "its banner goes too")
         _ = await rig.session.received(try rig.fromPhone(.with { $0.notificationAction = .with { $0.key = "b"; $0.dismissed = true } }))
-        #expect(await rig.session.state.phoneNotifications.isEmpty, "dismissed on the phone")
+        #expect(await rig.notifications.shown.isEmpty, "dismissed on the phone")
+    }
+
+    @Test func onlyWhatArrivesFromThePhoneIsAnnounced() async throws {
+        let rig = try await Rig()
+        await rig.torUp()
+        let heard = EventLog()
+        await MainActor.run {
+            rig.clipboard.onArrival = { heard.add($0) }
+            rig.notifications.onArrival = { heard.add($0) }
+        }
+        rig.pasteboard.copy("mine")
+        await rig.timers.advance(1)
+        _ = await rig.session.received(try rig.fromPhone(clip("theirs")))
+        let note = Seam_V1_Payload.with { $0.notification = .with { $0.key = "a"; $0.appName = "Chat"; $0.postedAt = 1 } }
+        _ = await rig.session.received(try rig.fromPhone(note))
+        _ = await rig.session.received(try rig.fromPhone(note)) // the same one again isn't new
+        #expect(heard.all == ["Copied from your phone", "Notification from Chat"])
+        #expect(await rig.notifications.arrivals == 1, "the bell rings once")
     }
 
     @Test func theBatteryNeverShowsMoreThanAHundred() async throws {
         let rig = try await Rig()
         _ = await rig.session.received(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 250 } }))
-        #expect(await rig.session.state.status?.batteryPct == 100)
+        #expect(await rig.status.status?.batteryPct == 100)
     }
 
     @Test func thePhonesStatusSaysWhenItArrived() async throws {
         let rig = try await Rig()
         let sent = rig.timers.now()
         _ = await rig.session.received(try rig.fromPhone(.with { $0.status = .with { $0.batteryPct = 40; $0.network = "wifi"; $0.dnd = true } }))
-        let state = await rig.session.state
-        #expect(state.statusAt == sent && state.status?.network == "wifi" && state.status?.dnd == true)
+        let (status, at) = await (rig.status.status, rig.status.statusAt)
+        #expect(at == sent && status?.network == "wifi" && status?.dnd == true)
     }
 
     private func statuses(_ rig: Rig) throws -> [UInt32] {
@@ -169,19 +187,19 @@ struct SessionFeatureTests {
     @Test func thisMacsBatteryGoesWhenThePhoneConnectsAndWhenItChanges() async throws {
         let rig = try await Rig()
         rig.saved.ownStatus = .with { $0.batteryPct = 64; $0.charging = true }
-        await rig.session.ownStatusChanged()
+        await rig.status.ownChanged()
         #expect(try statuses(rig).isEmpty, "nothing is queued while the phone is away")
         await rig.torUp()
         #expect(try statuses(rig) == [64])
         rig.saved.ownStatus = .with { $0.batteryPct = 63 }
-        await rig.session.ownStatusChanged()
+        await rig.status.ownChanged()
         #expect(try statuses(rig) == [64, 63])
     }
 
     @Test func aMacWithoutABatterySendsNoStatus() async throws {
         let rig = try await Rig()
         await rig.torUp()
-        await rig.session.ownStatusChanged()
+        await rig.status.ownChanged()
         #expect(try statuses(rig).isEmpty)
     }
 
@@ -195,7 +213,10 @@ struct SessionFeatureTests {
         _ = await rig.session.received(try rig.fromPhone(.with { $0.control = .with { $0.unpair = .init() } }))
         let state = await rig.session.state
         #expect(state.phone == nil)
-        #expect(state.status == nil && state.clips.isEmpty && state.phoneNotifications.isEmpty && state.notificationSettings == nil)
+        #expect(await rig.status.status == nil)
+        #expect(await rig.clipboard.clips.isEmpty)
+        #expect(await rig.notifications.shown.isEmpty)
+        #expect(await rig.notifications.settings == nil)
         #expect(rig.centre.shown.isEmpty)
         #expect(rig.mac.peers().isEmpty)
         #expect(state.torServices.isEmpty && rig.mac.appData() == nil, "its onion service goes too")
@@ -233,7 +254,7 @@ struct SessionFeatureTests {
         #expect(rig.tor.closed == [rig.phoneID], "then the link closes")
         #expect(await rig.session.state.torServices.isEmpty, "and the service goes")
         #expect(rig.lan.frames.isEmpty)
-        #expect(await rig.session.state.status == nil && rig.mac.peers().isEmpty)
+        #expect(await rig.status.status == nil && rig.mac.peers().isEmpty)
     }
 
     /// A 1×1 PNG.

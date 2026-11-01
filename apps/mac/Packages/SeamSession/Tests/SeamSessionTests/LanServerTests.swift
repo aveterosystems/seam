@@ -131,7 +131,8 @@ func collect(_ server: LanServer, _ count: Int, within seconds: Double = 5) asyn
 }
 
 /// A listener tests can reach on 127.0.0.1 (the app's refuses loopback).
-func testServer(_ device: SeamDevice, authDeadline: TimeInterval = 10, firstBytes: TimeInterval = 2) -> LanServer {
+// Generous deadlines unless a test is about them: a parallel run generating keys can hold a client back for seconds
+func testServer(_ device: SeamDevice, authDeadline: TimeInterval = 10, firstBytes: TimeInterval = 10) -> LanServer {
     LanServer(device: device, advertise: false, authDeadline: authDeadline, firstBytesDeadline: firstBytes, allowLoopback: true)
 }
 

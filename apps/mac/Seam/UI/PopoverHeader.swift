@@ -16,7 +16,7 @@ struct PopoverHeader: View {
 
     var body: some View {
         let look = controller.link
-        let battery = controller.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.statusAt) }
+        let battery = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt) }
         VStack(alignment: .leading, spacing: 0) {
             TimelineView(.periodic(from: .now, by: 30)) { tl in
                 let line = look.statusLine(lastSeen: controller.lastSeen, now: tl.date)

@@ -19,7 +19,7 @@ struct NotificationsSettingsPane: View {
             if controller.phone == nil {
                 SettingsGroup { SettingsRow("No phone is paired with this Mac", "Pair your phone to see its notifications here") { EmptyView() } }
                     .rise(0, shown, pane: true)
-            } else if let s = controller.notificationSettings {
+            } else if let s = controller.notifications.settings {
                 switches(s).rise(0, shown, pane: true)
                 appsTitle(s).rise(1, shown, pane: true)
                 apps(s).rise(2, shown, pane: true)
@@ -45,13 +45,13 @@ struct NotificationsSettingsPane: View {
     private func switches(_ s: Seam_V1_NotificationSettings) -> some View {
         SettingsGroup {
             SettingsRow("Show on this Mac", "Your phone filters apps that are off before anything leaves it") {
-                Toggle("Show on this Mac", isOn: Binding(get: { s.enabled }, set: { controller.setNotifications(enabled: $0) })).labelsHidden()
+                Toggle("Show on this Mac", isOn: Binding(get: { s.enabled }, set: { controller.notifications.setEnabled($0) })).labelsHidden()
             }
             SettingsRow("Dismiss on both devices", "Clear one here and it's cleared on your phone") {
-                Toggle("Dismiss on both devices", isOn: Binding(get: { s.dismissBoth }, set: { controller.setNotifications(dismissBoth: $0) })).labelsHidden()
+                Toggle("Dismiss on both devices", isOn: Binding(get: { s.dismissBoth }, set: { controller.notifications.setDismissBoth($0) })).labelsHidden()
             }
             SettingsRow("Quiet while I'm using my phone", "Nothing comes here while it's unlocked in your hand") {
-                Toggle("Quiet while I'm using my phone", isOn: Binding(get: { s.quietWhileUsingPhone }, set: { controller.setNotifications(quietWhileUsingPhone: $0) })).labelsHidden()
+                Toggle("Quiet while I'm using my phone", isOn: Binding(get: { s.quietWhileUsingPhone }, set: { controller.notifications.setQuietWhileUsingPhone($0) })).labelsHidden()
             }
             SettingsRow("Banners, sounds and previews", "Set by macOS, like any app") {
                 Button("System Settings ↗") {
@@ -108,9 +108,9 @@ struct NotificationsSettingsPane: View {
                     .accessibilityLabel("Select \(app.appName)")
                     .transition(reduce ? .opacity : .scale(scale: 0, anchor: .leading).combined(with: .opacity))
             }
-            AppIcon(image: controller.appIcons[app.appID], name: app.appName).clipShape(RoundedRectangle(cornerRadius: 6))
+            AppIcon(image: controller.notifications.images[app.appID], name: app.appName).clipShape(RoundedRectangle(cornerRadius: 6))
         } trailing: {
-            ModePicker(mode: Binding(get: { app.mode == .unspecified ? .off : app.mode }, set: { $0.map { controller.setNotificationMode($0, for: [app.appID]) } }))
+            ModePicker(mode: Binding(get: { app.mode == .unspecified ? .off : app.mode }, set: { $0.map { controller.notifications.setMode($0, for: [app.appID]) } }))
                 .accessibilityLabel(app.appName)
         }
         .contentShape(Rectangle())
@@ -125,7 +125,7 @@ struct NotificationsSettingsPane: View {
             SwapText("\(selected.count) selected", pane: true).fontWeight(.semibold).monospacedDigit()
             ModePicker(mode: Binding(get: { nil }, set: { mode in
                 guard let mode else { return }
-                controller.setNotificationMode(mode, for: selected)
+                controller.notifications.setMode(mode, for: selected)
                 // Long enough to watch the rows' own pickers move, then out of Select mode
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { endSelect() }
             }))
