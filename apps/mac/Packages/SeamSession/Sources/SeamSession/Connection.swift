@@ -159,7 +159,7 @@ public struct LinkLook: Equatable, Sendable {
     public static let sameWifi = LinkLook(line: .solid, symbol: "wifi", label: "Same Wi‑Fi", connected: true)
     /// A neutral globe, not the Tor onion (that needs the Tor Project's permission; docs/tor/11-wording.md).
     public static let throughTor = LinkLook(line: .dashed, symbol: "globe", label: "Through Tor", connected: true)
-    public static let connectingTor = LinkLook(line: .dotted, symbol: "globe", label: "Connecting through Tor…", connected: false)
+    public static let connectingTor = LinkLook(line: .dotted, symbol: "globe", label: "Connecting through Tor", connected: false)
     public static let torBlocked = LinkLook.offline("Tor is blocked on this network",
         detail: "This network stops Tor connections. Your phone can still connect on the same Wi‑Fi.")
     public static let torClock = LinkLook.offline("Tor needs the correct time. Check your clock",
@@ -169,7 +169,7 @@ public struct LinkLook: Equatable, Sendable {
     public static let waitingOnWifi = LinkLook.offline("Waiting for your phone on the same Wi‑Fi",
         detail: "Only Same Wi‑Fi is on, so your phone connects when it's on this Mac's network. Turn on Tor to connect from anywhere.")
     public static let away = LinkLook.offline("Offline · will send when your phone is back",
-        detail: "To save battery, your phone disconnects about a minute after its screen goes off. It's back when you unlock it, plug it in, or it has something to send, like a copy or a notification. Copies from this Mac wait up to 10 minutes.")
+        detail: "To save battery, your phone disconnects about a minute after its screen goes off. It's back when you unlock it or it has something to send. Copies from this Mac wait up to 10 minutes.")
 
     public static func offline(_ why: String, detail: String? = nil) -> LinkLook {
         LinkLook(line: .broken, symbol: nil, label: why, connected: false, detail: detail)

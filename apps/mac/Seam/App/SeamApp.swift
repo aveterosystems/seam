@@ -23,13 +23,12 @@ struct SeamApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 900, height: 620)
 
-        // Board M03 draws its own title and sidebar, so this is a plain window with a hidden title
-        // bar rather than the system Settings window (which centres a title and adds a toolbar)
+        // Board M03 draws its own title and sidebar (SidebarWindow), so the window's title bar is hidden
         Window("Seam Settings", id: "settings") {
             SettingsView(controller: appDelegate.controller)
         }
         .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 SettingsCommand()
@@ -46,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let controller = SeamController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppearanceFade.start()
+        #if DEBUG
+        if let demo = ProcessInfo.processInfo.environment["SEAM_DEMO"] { return Demo.run(demo, controller) }
+        #endif
         controller.start()
         Updates.shared.start()
         if controller.needsReset {
@@ -74,23 +77,6 @@ enum ResetPrompt {
     }
 }
 
-/// Asks before unpairing: both devices forget each other's keys.
-@MainActor
-enum UnpairPrompt {
-    static func run(_ controller: SeamController) {
-        let name = controller.phone?.name ?? "your phone"
-        let alert = NSAlert()
-        alert.messageText = "Unpair \(name)?"
-        alert.informativeText = "This Mac stops syncing with \(name) and forgets its keys. \(name) forgets this Mac too: now if it's online, otherwise it's asked to pair again when it next connects. You can pair again any time."
-        alert.addButton(withTitle: "Cancel")
-        alert.addButton(withTitle: "Unpair")
-        alert.buttons[1].hasDestructiveAction = true
-        NSApp.activate()
-        guard alert.runModal() == .alertSecondButtonReturn else { return }
-        controller.unpairPhone()
-    }
-}
-
 /// ⌘O opens the main window.
 private struct OpenMainCommand: View {
     @Environment(\.openWindow) private var openWindow
@@ -109,7 +95,7 @@ private struct SettingsCommand: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("Settings…") {
+        Button("Settings") {
             NSApp.activate()
             openWindow(id: "settings")
         }
