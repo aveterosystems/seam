@@ -77,7 +77,7 @@ cd apps/android
 |---|---|
 | `SeamCoreTest` | Kotlin can pin, start a session, encrypt and decrypt through the Rust core; impostors fail with `UntrustedIdentity`; unpaired peers fail with `NotPaired`; file chunks reject reordering |
 | `ProtocolTest` | The golden vector decodes and re-encodes byte for byte; fields from newer apps don't break parsing |
-| `SessionTest` | Pairing, Codes don't match (including just after the Mac accepted), delivery and acks, unpairing, and when the phone connects and goes idle |
+| `SessionTest` | Pairing, Codes don't match (including just after the Mac accepted), delivery and acks, unpairing, when the phone connects and goes idle, and a dead link given up in seconds (the Mac's Hello doesn't list it, or 8 s with no ack while Tor is up) |
 | `OutboxTest` | Only the latest clipboard or status waits, the queue is capped, expired messages drop, and a status alone never wakes the radio |
 | `LanPathTest` | A Same Wi‑Fi handshake that takes too long is given up |
 | `ClipRulesTest` | No echoes or repeats, size limits, the share preview shows hidden characters, a Mac copy stops showing after 10 minutes |

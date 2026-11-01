@@ -5,6 +5,7 @@ import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.SeamDevice
 import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Hello
+import com.avetero.seam.protocol.v1.OpenLinks
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.Transport
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,12 +54,14 @@ internal class Switches(
      * The next Hello telling the Mac these switches, counted up in the app data now; the session
      * seals it and persists both in one write before anything is sent. Null if there's no Mac to tell.
      */
-    fun nextHello(wifi: Boolean = this.wifi, tor: Boolean = this.tor): Payload? {
+    /** [open]: the links this phone has open to the Mac now, so the Mac can close any it holds that died. */
+    fun nextHello(wifi: Boolean = this.wifi, tor: Boolean = this.tor, open: List<Transport> = emptyList()): Payload? {
         val next = device.nextHello(enabled(wifi, tor)) ?: return null
         syncPeer()
         val hello = Hello.newBuilder().setAppVersion(appVersion).setPlatform("android").setSeq(next.seq.toLong())
             .addAllAllowedTransportsValue(next.allowedTransports)
             .setPausedUntilMs(_settings.value.pausedUntil) // the Mac learns the pause in order (SR-32-01)
+            .setOpenLinks(OpenLinks.newBuilder().addAllTransports(open))
         return Payload.newBuilder().setControl(Control.newBuilder().setHello(hello)).build()
     }
 

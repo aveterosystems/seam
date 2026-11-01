@@ -10,10 +10,12 @@ import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Delivered
 import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.Hello
+import com.avetero.seam.protocol.v1.OpenLinks
 import com.avetero.seam.protocol.v1.Payload
-import com.avetero.seam.protocol.v1.Unpair
 import com.avetero.seam.protocol.v1.ServerFrame
 import com.avetero.seam.protocol.v1.Transport
+import com.avetero.seam.protocol.v1.Unpair
+import com.google.protobuf.ByteString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -127,6 +129,8 @@ class Session(
     private var pairingDeadline: Job? = null
     /** Paths that authenticated and haven't gone down since: only their drop can lose an unacked envelope. */
     private val upPaths = mutableSetOf<Path>()
+    /** Each envelope sent and not yet acked, timing the link it went on (see [watchAck]). */
+    private val ackWatch = mutableMapOf<ByteString, Job>()
 
     /** Both paths try at once while pairing, until one wins (contract: first channel to authenticate). */
     private fun pathWanted(p: PeerPath): Boolean {
@@ -399,6 +403,7 @@ class Session(
             // The Mac's ack, on whichever path. An unknown id: nothing to remove, nothing written
             ServerFrame.FrameCase.DELIVERED -> if (!pairing.active) {
                 outbox.acked(frame.delivered.msgId)
+                ackWatch.remove(frame.delivered.msgId)?.cancel()
                 if (paused()) reconsider(connect = false) // the last thing the Mac had to confirm
             }
             else -> Unit
@@ -534,7 +539,8 @@ class Session(
         }
         if (wasUp) outbox.linkDropped()
         pathDown()
-        if (wasUp && canSend()) flush() // e.g. the other path is up
+        if (wasUp && upPaths.isNotEmpty()) queueHello() // the Mac may not know this link is gone
+        if (wasUp && (canSend() || canSendHello())) flush() // e.g. the other path is up
     }
 
     private fun fail(reason: String) {
@@ -572,8 +578,39 @@ class Session(
         if (via == null) return false
         // Recorded before it's handed to the link
         if (!outbox.sentDirect(e)) trace?.invoke("pending: save failed")
-        return via.send(frame) // a failed write stays recorded, and goes again when the link drops
+        val sent = via.send(frame) // a failed write stays recorded, and goes again when the link drops
+        watchAck(e.msgId, via)
+        return sent
     }
+
+    /**
+     * A link that leaves an envelope unacked for [ACK_TIMEOUT_MS] while the other link is up is dead
+     * without having said so (the network went away under it): it's closed, so what it never
+     * confirmed goes on the other, and the Mac is told. With one link, its own timeouts decide.
+     */
+    private fun watchAck(id: ByteString, via: Path) {
+        ackWatch.remove(id)?.cancel() // sent again: timed from now, on this link
+        ackWatch[id] = scope.launch {
+            delay(ACK_TIMEOUT_MS)
+            ackWatch.remove(id)
+            if (!outbox.unacked(id) || via !in upPaths || upPaths.size < 2) return@launch
+            trace?.invoke("no ack in ${ACK_TIMEOUT_MS / 1000} s: closing that link")
+            via.stop()
+            pathClosed(via)
+        }
+    }
+
+    /** The Mac's Hello lists the links it has open; one of ours it doesn't list is dead on its side. */
+    private fun closeLinksMissingFrom(open: OpenLinks) {
+        val listed = open.transportsList.toSet()
+        upPaths.filter { transportOf(it) !in listed }.forEach {
+            trace?.invoke("the Mac no longer has this link: closing")
+            it.stop()
+            pathClosed(it)
+        }
+    }
+
+    private fun transportOf(p: Path): Transport = if (p === direct) Transport.TRANSPORT_LAN else Transport.TRANSPORT_TOR
 
     /**
      * The path to the Mac now, by the core's rules (decision 0006): one up and allowed at both ends,
@@ -652,7 +689,10 @@ class Session(
             trace?.invoke("hello: not newer than the last one, ignored")
             return
         }
-        scope.launch { applySettings() } // after this Hello is acked on the path it came on
+        scope.launch {
+            if (h.hasOpenLinks()) closeLinksMissingFrom(h.openLinks)
+            applySettings()
+        } // after this Hello is acked on the path it came on
     }
 
     /**
@@ -673,7 +713,7 @@ class Session(
 
     /** Only the latest Hello matters: it replaces any still queued. */
     private fun queueHello(wifi: Boolean = switches.wifi, tor: Boolean = switches.tor) =
-        outbox.replaceHello(switches.nextHello(wifi, tor))
+        outbox.replaceHello(switches.nextHello(wifi, tor, upPaths.map(::transportOf)))
 
     /** Closes both paths and stops looking for the Mac. */
     private fun closePaths() = paths.forEach { stopPath(it) }
@@ -707,3 +747,6 @@ class Session(
 
 internal const val CODE_REFUSED = "That pairing code didn't work. Show a new one on your Mac and scan again."
 internal const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
+
+/** No ack for this long on one link while the other is up: that link is taken for dead. */
+internal const val ACK_TIMEOUT_MS = 8_000L

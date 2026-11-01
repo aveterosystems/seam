@@ -77,6 +77,15 @@ sequenceDiagram
 
 Each device has a switch per path (`Transport` in `control.proto`; decision 0006). Every time a path to the peer comes up, and whenever the switches change, each device sends a sealed `Hello` with its `allowed_transports`. It applies a `Hello` only if its `seq` is higher than the last one applied (a counter, not a clock, so a delayed old `Hello` can't switch a path back on), remembers the peer's latest list, and treats a peer it has never heard from, or a `Hello` with an empty list (older versions), as allowing everything; a list naming only paths this version can't use means nothing in common. These rules live once, in `core/seam-core` (`links`), and both apps call them. A device opens and listens on every path its **own** switches allow, but only sends messages over a path allowed at **both** ends. The exceptions are `Hello` and the farewell `Unpair` (and the relay's own acks), which may go over any path the sender allows, so a change of switches can always reach the peer: otherwise two devices that each remember the other's old choice could never reach each other again. A `Hello` carries only the switches, sealed like any message. It never quietly falls back: a message with no allowed path waits in the outbox, and the app says why.
 
+## A link that dies without closing
+
+A link can die without either end being told: the phone leaves the Wi‑Fi, the Mac sleeps, a router drops idle connections. TCP takes minutes to notice, and until it does each device would keep preferring the dead link. Two rules give it up in seconds:
+
+- **Open links.** Every `Hello` lists `open_links`: the links the sender has open to the peer right now. A device also sends a `Hello` whenever a link closes while another stays open. The receiver closes any link of its own that the peer's latest `Hello` doesn't list, and sends what that link never confirmed on another. A `Hello` without `open_links` (an older app) closes nothing.
+- **Ack timeout.** A message left unacked for 8 seconds on one link, while another link is up, means that link is dead: it's closed and the message goes on the other. With one link, the link's own timeouts decide.
+
+The core re-encodes each payload when it seals it, so a new field reaches the peer only once both apps' cores are built with it.
+
 ## The relay link
 
 The Mac can use its own relay instead of Seam's. A **relay link** is `seam-relay://<host>[:port][/path]#<owner key>`, meaning `wss://<host>…` plus the private relay's owner key (base64url, sent as `Login.owner_key` when the Mac creates its group; see server/README.md, "Running your own relay"). The key never goes in the pairing QR code: the phone joins with the one-time token.
