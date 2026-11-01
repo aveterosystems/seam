@@ -44,62 +44,30 @@ Each part's README explains how to build and test it: [core](core/README.md), [p
 
 **Every pull request gets a security-focused review before it merges.** Passing CI isn't enough.
 
-1. **Automated review, per area.** Each part the PR touches (core, protocol, Android, Mac) is reviewed against the rules above: trust-on-first-use leaks, pairing and direct-link bypasses, replay and binding, nonce reuse, panics on untrusted input, anything sensitive logged, and claims without tests. Findings are ranked Critical / High / Medium / Low and checked before they're acted on.
-2. **Findings are posted on the pull request**, in the format below: one inline comment per finding on the exact line, plus one summary comment. Each comment opens a review thread, and `main` won't accept the merge until every thread is resolved.
-3. **Fix before merge.** Critical and High findings are fixed in the PR, each with a test, and the thread is resolved with a link to the fixing commit. Medium and Low are fixed, or accepted with a reason in the thread (a follow-up issue if it's deferred).
-4. **Line-by-line reading** by the maintainer for anything in `core/` or `protocol/`.
-5. **`main` is protected.** Changes land only through a pull request, with all four CI checks (`core`, `protocol`, `android`, `mac`) passing and every review thread resolved. Squash merges only, and nobody can bypass this, admins included.
+1. **Automated review by [CodeRabbit](https://coderabbit.ai).** It reviews every pull request when it opens and again on each push, against the rules above ([`.coderabbit.yaml`](.coderabbit.yaml)): trust-on-first-use leaks, pairing and direct-link bypasses, replay and binding, nonce reuse, panics on untrusted input, anything sensitive logged, and claims without tests. Each finding is an inline comment that opens a review thread. Comment `@coderabbitai review` to ask for a review again.
+2. **Fix before merge.** Security findings are fixed in the PR, each with a test. Other findings are fixed, or accepted with a reason in the thread (a follow-up issue if it's deferred).
+3. **Line-by-line reading** by the maintainer for anything in `core/` or `protocol/`.
+4. **`main` is protected.** Changes land only through a pull request, with all four CI checks (`core`, `protocol`, `android`, `mac`) passing and every review thread resolved. Squash merges only, and nobody can bypass this, admins included.
 
 An independent security audit is planned before 1.0. Review here is meant to make that audit short, not replace it.
-
-### Review comment format
-
-Every finding gets an id, `SR-<PR number>-<two digits>` (e.g. `SR-2-04`), numbered most severe first. Inline comment:
-
-```markdown
-**🔴 High · SR-2-04 · Pairing slot can be silently replaced**
-`core` · Confirmed
-
-**Problem:** One sentence: what's wrong.
-**Scenario:** Who does what, and the bad outcome.
-**Fix:** The change, concretely.
-
-<sub>Automated security review · resolve this thread with the fixing commit, or the reason it's accepted</sub>
-```
-
-Severity markers: 🟣 Critical · 🔴 High · 🟠 Medium · 🟡 Low · ⚪ Info. Status is **Confirmed** (traced in the code or shown by a test) or **Plausible** (needs proof).
-
-Summary comment, one per review:
-
-```markdown
-## Security review · PR #2
-
-| ID | Severity | Area | Finding | Status |
-|---|---|---|---|---|
-| SR-2-01 | 🔴 High | core | … | Confirmed |
-
-**Areas reviewed:** …
-**Checked and fine:** the security properties verified to hold.
-**Outside this diff:** findings on code the PR doesn't change (no inline thread), each with file and line.
-```
 
 ### Closing a finding
 
 **Every thread gets a reply before it's resolved. Nothing is resolved silently.** The reply takes one of three forms:
 
 ```markdown
-**✅ Fixed · SR-2-04** in abc1234
+**✅ Fixed** in abc1234
 What changed, in one line.
 **Proven by:** `test_name_one`, `test_name_two`
 ```
 
 ```markdown
-**⚖️ Accepted · SR-2-25**
+**⚖️ Accepted**
 Why it's acceptable as it stands, what part was fixed, and the follow-up issue if it's deferred (#NN).
 ```
 
 ```markdown
-**↩️ Disputed · SR-2-07**
+**↩️ Disputed**
 Why the finding doesn't apply, with the evidence (code, test, or docs).
 ```
 
@@ -112,17 +80,6 @@ When to resolve:
 | ↩️ Disputed | **The maintainer agrees.** It stays open until then. | The maintainer only |
 
 Disputed threads stay open on purpose: an author doesn't get to dismiss a finding about their own code.
-
-When every thread has its reply, post **one resolution summary** on the PR: a table of every finding (Low and Info included), its outcome (Fixed / Accepted / Disputed / Open) and its commit, so the review reads as one complete record.
-
-```markdown
-## Security review · resolution · PR #2
-
-| ID | Severity | Outcome | Commit |
-|---|---|---|---|
-| SR-2-01 | 🔴 High | ✅ Fixed | 9ed4702 |
-| SR-2-25 | 🟠 Medium | ⚖️ Accepted (partly fixed) | e724a60 |
-```
 
 ## Code style
 

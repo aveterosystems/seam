@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit reviews every pull request (CONTRIBUTING.md, "Review").
+language: en-GB
+reviews:
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Seam is a security product. Review against these rules first and flag any break as a security finding:
+        1. Content never leaves a device unencrypted: every payload goes through core/seam-core before any transport, the local network included.
+        2. No crypto outside core/seam-core: the apps only call the generated bindings.
+        3. No home-made cryptography: only libsignal and audited RustCrypto crates.
+        4. Never trust a key on first use: peers are pinned at pairing. Look for pairing and direct-link bypasses.
+        5. The network learns nothing new: no new plaintext envelope or frame field revealing content, type, real size or device identity.
+        6. Never log message contents, keys, phone numbers, contact or file names, or IP addresses.
+        7. Every security property has a test: flag claims without one.
+        8. The phone never holds a connection it doesn't need.
+        Also look for replay and binding issues, nonce reuse, and panics on untrusted input.
+    - path: "{core,protocol}/**"
+      instructions: |
+        Highest-risk code. Check every change line by line. In protocol/, field numbers are never reused or renumbered.
