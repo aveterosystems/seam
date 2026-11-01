@@ -72,7 +72,7 @@ class GalleryActivity : ComponentActivity() {
                 var tor by remember { mutableStateOf(true) }
                 val look = when (link) {
                     "tor" -> LinkLook.ThroughTor
-                    "offline" -> LinkLook.Reconnecting
+                    "offline" -> LinkLook.Offline
                     "paused" -> LinkLook.paused(now + 30 * 60_000L, now)
                     else -> LinkLook.SameWifi
                 }

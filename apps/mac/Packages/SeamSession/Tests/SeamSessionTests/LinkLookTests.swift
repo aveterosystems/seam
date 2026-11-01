@@ -46,6 +46,20 @@ import Testing
         #expect(LinkLook.of(route: .lan, allowed: tor, tor: .blocked(reason: .filtered)) == .sameWifi, "Same Wi‑Fi still works")
     }
 
+    // A Reconnect shows until a path is up, but never hides a reason one can't be
+    @Test func aReconnectShowsUntilThePhoneIsBack() {
+        let both: [PeerPath] = [.lan, .tor]
+        let asked = LinkLook.of(route: nil, allowed: both, reconnect: .asked)
+        #expect(asked == .reconnecting && asked.line == .dotted && asked.sentence == "Reconnecting")
+        let out = LinkLook.of(route: nil, allowed: both, reconnect: .phoneOffline)
+        #expect(out == .wakePhone && out.label == "Turn on your phone's screen to connect" && out.detail != nil)
+        #expect(LinkLook.of(route: .lan, allowed: both, reconnect: .asked) == .sameWifi)
+        #expect(LinkLook.of(route: nil, allowed: both, tor: .blocked(reason: .filtered), reconnect: .asked) == .torBlocked)
+        #expect(LinkLook.of(route: nil, allowed: [], reconnect: .asked) == .noSharedPath)
+        let now = Date()
+        #expect(LinkLook.of(route: nil, allowed: both, pausedUntil: .distantFuture, now: now, reconnect: .asked).symbol == "pause.circle")
+    }
+
     @Test func aPauseOnThePhoneComesFirstAndSaysUntilWhen() {
         let now = Date(timeIntervalSince1970: 1_793_455_000)
         let paused = LinkLook.of(route: .lan, allowed: [.lan], pausedUntil: now.addingTimeInterval(3600), now: now)

@@ -31,9 +31,11 @@ data class LinkLook(
         val SameWifi = LinkLook(Line.Solid, "Same Wi‑Fi", true, R.drawable.ic_wifi)
         val ThroughTor = LinkLook(Line.Dashed, "Through Tor", true, R.drawable.ic_globe)
         val Idle = LinkLook(Line.Broken, "Paired · connects when there's something to sync", false)
-        val Reconnecting = LinkLook(Line.Broken, "Offline · will send when it's back", false)
+        val Offline = LinkLook(Line.Broken, "Offline · will send when it's back", false)
+        /** "Reconnect" was tapped (here or on the Mac): dots travel along the line until it connects or gives up. */
+        val Reconnecting = LinkLook(Line.Dotted, "Reconnecting", false)
         val WaitingOnWifi = LinkLook(Line.Broken, "Waiting for your Mac on the same Wi‑Fi", false)
-        val ConnectingTor = LinkLook(Line.Broken, "Connecting through Tor", false)
+        val ConnectingTor = LinkLook(Line.Dotted, "Connecting through Tor", false)
         val TorBlocked = LinkLook(Line.Broken, "Tor is blocked on this network", false)
         val TorClock = LinkLook(Line.Broken, "Tor needs the correct time. Check your clock", false)
         val TorFailed = LinkLook(Line.Broken, "Tor couldn't start on this phone", false)
@@ -62,10 +64,11 @@ data class LinkLook(
                 onion && tor is TorState.Blocked && tor.reason == TorBlock.CLOCK_SKEWED -> TorClock
                 onion && tor is TorState.Blocked && tor.reason != TorBlock.OFFLINE -> TorBlocked
                 onion && tor is TorState.Failed -> TorFailed
+                state is SessionState.Connecting && state.reconnecting -> Reconnecting
                 state is SessionState.Idle -> Idle
                 wifi && !onion -> WaitingOnWifi
                 onion && tor is TorState.Starting -> ConnectingTor
-                else -> Reconnecting
+                else -> Offline
             }
         }
     }

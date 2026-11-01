@@ -69,6 +69,9 @@ public final class Paths {
     private var wanted: [TorServiceSpec] = []
     private var hosted: [TorServiceSpec: any TorHosted] = [:]
     private var carriers: [PeerPath: (runner: any LanRunner, task: Task<Void, Never>)] = [:]
+    /// Telling the session a path's carrier closed: a new carrier on that path waits for it, so the
+    /// late "closed" can never take the new one away.
+    private var closing: [PeerPath: Task<Void, Never>] = [:]
     private var switching: Task<Void, Never>?
 
     /// `makeLan`: Same Wi‑Fi's listener. `makeTorLan`: the carrier Tor streams are adopted into.
@@ -146,6 +149,15 @@ public final class Paths {
         reconcile()
     }
 
+    /// "Reconnect" with the phone out of reach: this Mac's own side may be what's stuck, so its
+    /// listeners start again and its services are published again. Never a switch or a pairing.
+    public func restart() {
+        guard !stopped else { return }
+        for path in Array(carriers.keys) { close(path) } // the Tor carrier takes its services with it
+        updateCarriers()
+        reconcile()
+    }
+
     // MARK: Private
 
     /// Each change waits for the one before, carrying the switches as they were when it was made.
@@ -200,6 +212,7 @@ public final class Paths {
     private func open(_ path: PeerPath) {
         let runner = path == .lan ? makeLan() : makeTorLan()
         let session = session
+        let closed = closing[path]
         let task = Task { [weak self] in
             do {
                 _ = try await runner.start()
@@ -209,6 +222,8 @@ public final class Paths {
                 return
             }
             // Closed or replaced while starting: never hand a stale carrier to the session (SR-31-03)
+            guard !Task.isCancelled, self?.carriers[path]?.runner === runner else { return runner.stop() }
+            await closed?.value // the old carrier's "closed" first
             guard !Task.isCancelled, self?.carriers[path]?.runner === runner else { return runner.stop() }
             await session.setLink(runner, for: path)
             for await event in runner.events { await session.linkEvent(event, on: path) }
@@ -225,6 +240,10 @@ public final class Paths {
             hosted = [:]
         }
         let session = session
-        Task { await session.setLink(nil, for: path) }
+        let before = closing[path]
+        closing[path] = Task {
+            await before?.value
+            await session.setLink(nil, for: path)
+        }
     }
 }

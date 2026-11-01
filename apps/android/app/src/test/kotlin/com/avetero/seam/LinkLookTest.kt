@@ -33,8 +33,8 @@ class LinkLookTest {
         assertEquals(LinkLook.WaitingOnWifi, LinkLook.of(SessionState.Connecting("Mac"), null, wifiOnly))
         assertEquals(LinkLook.NoSharedPath, LinkLook.of(up, null, wifiOnly.copy(allowed = emptySet())))
         assertEquals(LinkLook.Idle, LinkLook.of(SessionState.Idle("Mac"), null, all))
-        assertEquals(LinkLook.Reconnecting, LinkLook.of(SessionState.Connecting("Mac"), null, all))
-        for (l in listOf(LinkLook.WaitingOnWifi, LinkLook.NoSharedPath, LinkLook.Idle, LinkLook.Reconnecting)) {
+        assertEquals(LinkLook.Offline, LinkLook.of(SessionState.Connecting("Mac"), null, all))
+        for (l in listOf(LinkLook.WaitingOnWifi, LinkLook.NoSharedPath, LinkLook.Idle, LinkLook.Offline)) {
             assertEquals(LinkLook.Line.Broken, l.line)
             assertFalse(l.connected)
             assertNull(l.icon)
@@ -42,12 +42,21 @@ class LinkLookTest {
         }
     }
 
+    @Test fun reconnectingIsDottedUntilItConnectsAndAReasonStillWins() {
+        val asked = SessionState.Connecting("Mac", reconnecting = true)
+        assertEquals(LinkLook.Reconnecting, LinkLook.of(asked, null, all))
+        assertEquals(LinkLook.Line.Dotted, LinkLook.Reconnecting.line)
+        assertEquals("Reconnecting", LinkLook.Reconnecting.sentence)
+        assertEquals(LinkLook.SameWifi, LinkLook.of(asked, Transport.TRANSPORT_LAN, all))
+        assertEquals("never hides why Tor can't connect", LinkLook.TorBlocked, LinkLook.of(asked, null, all, TorState.Blocked(TorBlock.FILTERED)))
+    }
+
     @Test fun torSaysWhyItCantConnect() {
         val down = SessionState.Connecting("Mac")
         fun blocked(r: TorBlock) = LinkLook.of(down, null, all, TorState.Blocked(r))
         assertEquals(LinkLook.TorBlocked, blocked(TorBlock.FILTERED))
         assertEquals(LinkLook.TorClock, blocked(TorBlock.CLOCK_SKEWED))
-        assertEquals(LinkLook.Reconnecting, blocked(TorBlock.OFFLINE))
+        assertEquals(LinkLook.Offline, blocked(TorBlock.OFFLINE))
         assertEquals(LinkLook.TorFailed, LinkLook.of(down, null, all, TorState.Failed))
         assertEquals(LinkLook.ConnectingTor, LinkLook.of(down, null, all, TorState.Starting(40u)))
         assertEquals("even while idle", LinkLook.TorBlocked, LinkLook.of(SessionState.Idle("Mac"), null, all, TorState.Blocked(TorBlock.FILTERED)))

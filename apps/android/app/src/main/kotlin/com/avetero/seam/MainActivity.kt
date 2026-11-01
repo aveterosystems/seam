@@ -160,6 +160,8 @@ class MainActivity : ComponentActivity() {
                     pairedAt = pairedAt,
                     sendSensitive = clipboard.sendSensitive,
                     onSendSensitive = { clipboard.sendSensitive = it },
+                    onReconnect = if (macName != null) ({ session.reconnect() }) else null,
+                    reconnecting = (state as? SessionState.Connecting)?.reconnecting == true,
                 )
                 Page.Home ->                 SeamScreen(
                     state = state,

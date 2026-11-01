@@ -59,7 +59,7 @@ fun SeamScreen(
     askUpdates: Boolean = false,
     onAnswerUpdates: (Boolean) -> Unit = {},
     /** How the link to the Mac looks: the hero's stitches and the status line. */
-    look: LinkLook = LinkLook.Reconnecting,
+    look: LinkLook = LinkLook.Offline,
     onPause: (PauseFor) -> Unit = {},
     onResume: () -> Unit = {},
 ) {

@@ -22,6 +22,9 @@ internal interface Path {
     /** Close on purpose: no events and no retries until the next [start]. */
     fun stop()
 
+    /** "Reconnect": close, forget every wait and refusal, and connect again at once. */
+    fun restart()
+
     fun send(frame: ClientFrame): Boolean
 }
 

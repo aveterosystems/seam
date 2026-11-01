@@ -247,6 +247,42 @@ final class FakeTor: TorRunner, @unchecked Sendable {
         #expect(log.all.filter { $0 == "lan starts" }.count == 1)
     }
 
+    @Test func restartStartsTheListenersAgainAndRepublishes() async throws {
+        let rig = try await Rig()
+        let p = paths(rig)
+        p.start(linksWanted: true, services: [a])
+        tor.become(.ready)
+        await settle(p)
+        #expect(tor.hosts == 1)
+        p.restart() // Reconnect with the phone out of reach
+        await settle(p)
+        #expect(log.all.filter { $0 == "lan starts" }.count == 2 && log.all.filter { $0 == "tor starts" }.count == 2)
+        #expect(log.all.contains("lan stops") && log.all.contains("tor stops"))
+        #expect(tor.live == [a] && tor.hosts == 2, "published again")
+        #expect(p.wifiOn && p.torOn, "never a switch")
+    }
+
+    @Test func sr_55_06_aLateCloseNeverTakesAwayTheCarrierThatReplacedIt() async throws {
+        let rig = try await Rig()
+        var made: [FakeLanRunner] = []
+        let p = Paths(
+            session: rig.session, wifi: true, tor: false, torRunner: tor,
+            makeLan: { [log] in
+                let lan = FakeLanRunner(log)
+                made.append(lan)
+                return lan
+            },
+            makeTorLan: { [log] in FakeLanRunner(log, name: "tor") }
+        )
+        p.start(linksWanted: true)
+        await settle(p)
+        for _ in 0..<5 { p.restart() } // each one's "closed" races the next one's hand-over
+        await settle(p)
+        let link = await rig.session.links[.lan]
+        #expect(made.count == 6)
+        #expect((link as? FakeLanRunner) === made.last, "the newest listener is the session's, not nil")
+    }
+
     @Test func sr_31_03_aListenerClosedWhileStartingIsNeverHandedOver() async throws {
         let rig = try await Rig()
         var made: [FakeLanRunner] = []

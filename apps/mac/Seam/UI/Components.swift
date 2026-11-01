@@ -141,8 +141,9 @@ private struct Rise: ViewModifier {
 }
 
 /// The stitch (design-system.md, catalogue 10): solid teal drawn left to right on the same Wi‑Fi,
-/// teal dashes flowing at 11 pt a second through Tor, still grey dots while Tor connects and a
-/// broken grey line offline. The styles crossfade; the words beside it always say the same thing.
+/// teal dashes flowing at 11 pt a second through Tor, grey dots travelling the same way while
+/// connecting (Tor starting, or a Reconnect), and a broken grey line offline. The styles
+/// crossfade; the words beside it always say the same thing.
 struct Stitch: View {
     let line: LinkLook.Line
     /// Change it to draw the solid line again (a surface opened).
@@ -159,8 +160,13 @@ struct Stitch: View {
                 Rule().stroke(SeamStyle.teal, style: StrokeStyle(lineWidth: 2, dash: [7, 4], dashPhase: reduce ? 0 : -phase))
             }
             .opacity(line == .dashed ? 1 : 0)
-            Rule().stroke(SeamStyle.Pop.fg3, style: StrokeStyle(lineWidth: 2, dash: line == .dotted ? [2, 5] : [3, 5]))
-                .opacity(line == .broken || line == .dotted ? 1 : 0)
+            // Connecting: the dots travel along at the Tor dashes' pace (11 pt/s, one 7 pt period at a time)
+            TimelineView(.animation(paused: reduce || line != .dotted)) { tl in
+                let phase = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 7.0 / 11) * 11
+                Rule().stroke(SeamStyle.Pop.fg3, style: StrokeStyle(lineWidth: 2, dash: line == .dotted ? [2, 5] : [3, 5],
+                                                                    dashPhase: line == .dotted && !reduce ? -phase : 0))
+            }
+            .opacity(line == .broken || line == .dotted ? 1 : 0)
         }
         .frame(height: 2)
         .animation(Motion.lineFade, value: line)

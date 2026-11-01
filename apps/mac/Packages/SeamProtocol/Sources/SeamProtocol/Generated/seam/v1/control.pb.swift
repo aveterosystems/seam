@@ -136,6 +136,14 @@ public nonisolated struct Seam_V1_Control: Sendable {
     set {body = .pairAccept(newValue)}
   }
 
+  public var reconnect: Seam_V1_Reconnect {
+    get {
+      if case .reconnect(let v)? = body {return v}
+      return Seam_V1_Reconnect()
+    }
+    set {body = .reconnect(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Body: Equatable, Sendable {
@@ -145,6 +153,7 @@ public nonisolated struct Seam_V1_Control: Sendable {
     case unpair(Seam_V1_Unpair)
     case pairRequest(Seam_V1_PairRequest)
     case pairAccept(Seam_V1_PairAccept)
+    case reconnect(Seam_V1_Reconnect)
 
   }
 
@@ -283,6 +292,18 @@ public nonisolated struct Seam_V1_PairAccept: Sendable {
   public init() {}
 }
 
+/// "Reconnect" on the Mac: the phone closes every link, forgets its waits and refusals, and dials
+/// again at once. Sent only on a link that's up, never queued: a late one would cut a fresh link.
+public nonisolated struct Seam_V1_Reconnect: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate nonisolated let _protobuf_package = "seam.v1"
@@ -293,7 +314,7 @@ nonisolated extension Seam_V1_Transport: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Control"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}hello\0\u{1}ack\0\u{1}ping\0\u{1}unpair\0\u{3}pair_request\0\u{3}pair_accept\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}hello\0\u{1}ack\0\u{1}ping\0\u{1}unpair\0\u{3}pair_request\0\u{3}pair_accept\0\u{1}reconnect\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -379,6 +400,19 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
           self.body = .pairAccept(v)
         }
       }()
+      case 7: try {
+        var v: Seam_V1_Reconnect?
+        var hadOneofValue = false
+        if let current = self.body {
+          hadOneofValue = true
+          if case .reconnect(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.body = .reconnect(v)
+        }
+      }()
       default: break
       }
     }
@@ -413,6 +447,10 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
     case .pairAccept?: try {
       guard case .pairAccept(let v)? = self.body else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    }()
+    case .reconnect?: try {
+      guard case .reconnect(let v)? = self.body else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
     }()
     case nil: break
     }
@@ -658,6 +696,25 @@ nonisolated extension Seam_V1_PairAccept: SwiftProtobuf.Message, SwiftProtobuf._
   }
 
   public static func ==(lhs: Seam_V1_PairAccept, rhs: Seam_V1_PairAccept) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_Reconnect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".Reconnect"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_Reconnect, rhs: Seam_V1_Reconnect) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
