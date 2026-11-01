@@ -17,8 +17,10 @@ enum AutoClipboardSetup {
         let intro = NSAlert()
         intro.messageText = "Turn on automatic clipboard from your phone?"
         intro.informativeText = """
-            Connect your phone with a USB cable (or wireless debugging) with USB debugging on, in Settings → Developer options. \
-            Then, once, on the phone:
+            The easy way needs no cable: in Seam on your phone, turn on Automatic clipboard.
+
+            To set it up without Android's Accessibility, connect the phone by USB or wireless debugging, \
+            with USB debugging on in Settings → Developer options. Then, once, on the phone:
 
             \(AdbSetup.consent)
 
