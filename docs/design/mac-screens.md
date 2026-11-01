@@ -4,29 +4,27 @@ Boards M01–M08 on the [canvas](https://claude.ai/artifact/L2EffY2kHu6PjJy6Nkoi
 
 The Mac app is a menu bar app (`LSUIElement`), so it has no Dock icon. The main window opens from the popover or with ⌘O. Settings open with ⌘,.
 
-## M01 Menu bar popover (`MacMenuBar.dc.html`)
+## M01 Menu bar popover (`MacMenuBar.dc.html`, prototype `mac-popover.html`)
 
 **Purpose:** everything daily, two clicks away.
 
-**Layout:** `MenuBarExtra(.window)`, 360 pt wide, top to bottom:
-1. A device header: phone glyph, name, status line, battery pill and a settings button.
-2. The stitch.
-3. Four round Control Centre-style modules: Send file, Clipboard (a toggle, on by default), Ring phone, Messages.
-4. **From your phone's clipboard**: the last two items, each with Copy or Open.
-5. **Notifications**: the latest three, with Reply / Mark read on messages, and Clear all.
-6. A footer: "End-to-end encrypted" and "Open Seam ⌘O".
+**Built** (`apps/mac/Seam/UI/Popover*.swift`), `MenuBarExtra(.window)`, 340 pt wide, top to bottom:
+1. **One banner slot**: a startup error (with Reset Seam), then a warning, then "Seam X is available" with Update. It unfolds in place.
+2. **Header**: a tinted phone glyph, the phone's name, and the status line with a live dot: "Connected · Same Wi‑Fi" or "Connected · Through Tor". Offline it reads "Last seen 12 min ago", and ⓘ unfolds why underneath. Any other reason (Tor blocked, a pause, no shared connection) stays in words. On the right are the battery pill (the bolt springs in and out, the number counts, and it turns `warn` at 15% or below when not charging) and, under it, "Wi‑Fi" or "Mobile data" with a moon for Do Not Disturb, or "as of 14:02" offline.
+3. **The stitch**: it draws itself on the same Wi‑Fi, its dashes flow through Tor, it's broken and grey offline, and the styles crossfade.
+4. **Queue bar** (offline with copies waiting): "3 waiting · sends when your phone is back", with a turning clock.
+5. **Two tiles**: Clipboard ("Syncing", "On", "Off") and Notifications ("On · 2 showing", "Paused · 15:00", "Paused · tomorrow", "Off", "Waiting for phone"). Its ▾ menu has Pause for 1 hour, Pause until tomorrow, Resume now, Turn off (or Turn on) and Notification settings.
+6. **Notifications**: the latest three. Hover or focus shows Reply (or Open) and ✕. Reply opens a field in place: Return sends, Escape closes, then "✓ Sent from your phone" shows for 1.1 s and the row leaves. "All N ›" opens the main window.
+7. **Clipboard from phone**: the last two. The whole row is clickable, with a link or ¶ icon. Text copies again and shows "✓ Copied"; a link opens and a pill confirms it. "History ›" opens the main window.
+8. **Footer**: "End-to-end encrypted", "Open Seam ⌘O" and one gear button (⌘,).
 
-**Behaviour:**
-- The menu bar icon is the Seam mark. It's filled when connected and outlined when offline, and pulses once when something arrives.
-- Dropping files on the icon sends them.
-- Reply expands an inline field in place, without opening the window.
+The words for every state come from SeamSession's `Looks.swift` (`statusLine`, `PhoneStatusLook`, `NotificationsLook`, `ClipboardLook`, `Words`), which has unit tests. The controller records when the link last went from connected to not.
 
-**States:**
-- **Offline:** broken stitch and "Will send when your phone is back". The actions stay enabled and queue.
-- **Not paired:** the popover shows only "Pair your phone" (it opens M02).
-- **Low battery:** the battery pill turns `warn` at 15% or below.
+**Behaviour:** the menu bar icon pops once and VoiceOver announces what arrived. The bell rings for a notification. Motion follows [motion.md](motion.md), checked frame by frame against the prototype.
 
-**Done when:** the popover opens in under 100 ms, every action works from the keyboard (Tab, Space, Return), and VoiceOver reads the header as "Pixel 9, connected, same Wi‑Fi, battery 82 percent".
+**States:** connected (Same Wi‑Fi or Tor), offline with copies waiting, low battery, paused, waiting for the phone's settings, empty lists, not paired ("Pair your phone"), startup error.
+
+**Not built yet:** dropping files on the icon (Files isn't built).
 
 ## M02 Pairing (`MacPairing.dc.html`)
 
@@ -45,24 +43,24 @@ The Mac app is a menu bar app (`LSUIElement`), so it has no Dock icon. The main 
 
 **Done when:** a first-time user pairs in under 30 s without reading anything except the window.
 
-## M03 Settings (`MacSettings.dc.html`)
+## M03 Settings (`MacSettings.dc.html`, prototype `mac-settings.html`)
 
 **Purpose:** the System Settings-style window.
 
-**Layout:** a sidebar with General, the phone by name, a **Features** section (Notifications, Messages, Clipboard, Files, Find my phone), then a **Seam** section (Privacy & Security, About). The content area is a grouped `Form`.
+**Built** (`apps/mac/Seam/UI/Settings*.swift`, `Sidebar.swift`, `Rows.swift`): a fixed 700 × 540 window drawn to the prototype.
+- **Sidebar**: a floating panel holding the traffic lights and Search. Typing jumps to the first pane that matches and fades the rest.
+- **Title bar**: 52 pt, with the pane's title, and Show history on Notifications and Clipboard.
+- **Grouped rows** in the prototype's sizes, with its switch, segmented control and capsule buttons.
 
-The board shows **Notifications**:
-- Show on this Mac
-- Dismiss on both devices
-- Quiet while I'm using my phone
-- Hide content on the lock screen
-- A searchable per-app list with switches. Messaging apps show a "Reply on Mac" pill, and sensitive apps show "title only".
+Switching panes fades the old one out, then the new one's sections rise in a stagger.
 
-**Other panes** (not drawn; build them with the same grouped form):
-- **Clipboard:** sync on/off, history length, never sync passwords, and **Turn on automatic clipboard (phone → Mac)**. That button starts the one-time adb set-up (USB or wireless debugging), with a step list and progress.
-- **Files:** save location, and ask before receiving large files.
-- **Device:** name, battery, paired date, verification code, Forget.
-- **Privacy & Security:** encryption status, re-verify the code, export diagnostics (no content).
+- **General:** Open at login (`SMAppService.mainApp`, with Login Items if macOS wants approval). Updates: Check automatically ⓘ, How often, and Seam's version with Check now, which asks quietly and shows "Checking", "✓ Seam is up to date" or the new version in place. Then Quit, and About at the bottom.
+- **The phone, by name:** a live card (a phone glyph that fills to the battery level, the status line, the stitch, and Battery, Network and DND). Connections: Same Wi‑Fi and Internet through Tor; the last one on locks, and the footnote says why. Pairing: the verification code, blurred until Show; "Paired 14 September 2026" (the date is kept from pairing on, cleared on unpair or reset, and "Paired with this Mac" when unknown); Unpair, which asks first.
+- **Notifications:** Show on this Mac, Dismiss on both devices, Quiet while I'm using my phone, and the System Settings link. Apps: a live "6 of 10 on" count, a filter, and an On, Title only or Off control per app (with an animated "Reply on Mac" badge). Select mode adds checkboxes and a floating bar to set several apps at once.
+- **Clipboard:** Sync the clipboard, Never send passwords (always on), Waiting copies ⓘ, and Automatic from your phone ⓘ with Set up (the USB/adb steps).
+- **Privacy & Security:** End-to-end encrypted, Away from home through Tor, Update checks with Change (opens General), and the Tor notice.
+
+**Not built:** "Show in the menu bar". With it off, nothing could bring Seam's window back on relaunch, so it stays out until that's solved. Files, Messages and Find my phone panes come with their features.
 
 **Done when:** every switch takes effect at once (no Apply button), and the per-app list fills in from the phone within 2 s of opening.
 

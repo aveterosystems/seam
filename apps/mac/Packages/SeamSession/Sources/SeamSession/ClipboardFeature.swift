@@ -9,6 +9,12 @@ public struct Clip: Identifiable, Sendable {
     public let at: Date
     public let fromPhone: Bool
 
+    public init(text: String, at: Date, fromPhone: Bool) {
+        self.text = text
+        self.at = at
+        self.fromPhone = fromPhone
+    }
+
     public var openableURL: URL? { ClipRules.openableURL(text) }
 }
 

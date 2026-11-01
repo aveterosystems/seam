@@ -29,7 +29,7 @@ final class SeamController {
     private(set) var phoneNotifications: [Seam_V1_Notification] = []
     /// The phone's notification settings as it last sent them (the phone owns them). Memory only.
     private(set) var notificationSettings: Seam_V1_NotificationSettings?
-    /// Set to open Settings at a pane (the popover's "Notification Settings…"); Settings clears it.
+    /// Set to open Settings at a pane (the popover's "Notification settings"); Settings clears it.
     var requestedSettingsPane: SettingsView.Pane?
     /// Set to open the main window at a pane (the popover's links); the window clears it.
     var requestedMainPane: MainWindow.Pane?
@@ -41,12 +41,24 @@ final class SeamController {
     private(set) var link = LinkLook.away
     /// Paused on the phone (only the phone pauses and resumes); the link says until when.
     private(set) var paused = false
+    /// When the link last went from connected to not, for "Last seen 12 min ago". This run only.
+    private(set) var lastSeen: Date?
+    /// When the phone's status arrived, for "as of 14:02" once it's gone.
+    private(set) var statusAt: Date?
+    /// Envelopes for the phone not yet delivered, for the popover's queue bar.
+    private(set) var waiting = 0
+    /// Counts notifications arriving from the phone, so the bell rings once for each.
+    private(set) var notificationArrivals = 0
+    /// When this phone was paired, if it was paired since Seam started keeping the date (a preference, not a secret).
+    private(set) var pairedAt = UserDefaults.standard.object(forKey: "pairedAt") as? Date {
+        didSet { UserDefaults.standard.set(pairedAt, forKey: "pairedAt") }
+    }
 
     @ObservationIgnored private var store: Store?
-    @ObservationIgnored private var session: Session?
+    @ObservationIgnored private(set) var session: Session?
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
     /// Runs Same Wi‑Fi's listener and the Mac's onion services as the switches allow (SeamSession `Paths`).
-    @ObservationIgnored private var paths: Paths?
+    @ObservationIgnored private(set) var paths: Paths?
     /// Tor, once per app run: started when first needed and never put to sleep (the phone reaches the Mac).
     @ObservationIgnored private var tor: SeamTor?
     @ObservationIgnored private let notifications = PhoneNotifications()
@@ -80,6 +92,7 @@ final class SeamController {
     func reset() {
         do {
             begin(try Store.reset())
+            pairedAt = nil
             needsReset = false
             startupError = nil
         } catch {
@@ -136,8 +149,13 @@ final class SeamController {
     }
 
     private func show(_ s: Session.State) {
+        if s.phone == nil, phone != nil { pairedAt = nil } // unpaired, here or by the phone
+        if case .paired = s.pairing, pairing != s.pairing { pairedAt = Date() }
+        if let old = lastState { announceArrivals(old: old, new: s) }
         phone = s.phone
         status = s.status
+        statusAt = s.statusAt
+        waiting = s.waiting
         clips = s.clips
         phoneNotifications = s.phoneNotifications
         notificationSettings = s.notificationSettings
@@ -148,7 +166,7 @@ final class SeamController {
         }
         paused = s.pausedUntil != nil
         lastState = s
-        link = LinkLook.of(route: s.route, allowed: s.allowed, tor: torState, pausedUntil: s.pausedUntil)
+        setLink(LinkLook.of(route: s.route, allowed: s.allowed, tor: torState, pausedUntil: s.pausedUntil))
         if case .confirm = s.pairing, pairing != s.pairing { NSApp.activate() } // the safety code needs the user's eyes now
         pairing = s.pairing
         if s.phone != nil { pairAgainWarning = nil }
@@ -159,7 +177,28 @@ final class SeamController {
 
     private func torChanged(_ state: TorState) {
         torState = state
-        if let s = lastState { link = LinkLook.of(route: s.route, allowed: s.allowed, tor: state, pausedUntil: s.pausedUntil) }
+        if let s = lastState { setLink(LinkLook.of(route: s.route, allowed: s.allowed, tor: state, pausedUntil: s.pausedUntil)) }
+    }
+
+    private func setLink(_ new: LinkLook) {
+        if link.connected, !new.connected { lastSeen = Date() }
+        link = new
+    }
+
+    /// Something new from the phone: the menu bar icon pops once and VoiceOver says what (catalogue 5).
+    private func announceArrivals(old: Session.State, new: Session.State) {
+        let what: String
+        if let n = Arrival.notification(old: old.phoneNotifications, new: new.phoneNotifications) {
+            notificationArrivals += 1
+            what = "Notification from \(n.appName)"
+        } else if Arrival.clip(old: old.clips, new: new.clips) != nil {
+            what = "Copied from your phone"
+        } else {
+            return
+        }
+        MenuBarPing.ping()
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+                             userInfo: [.announcement: what, .priority: NSAccessibilityPriorityLevel.high.rawValue])
     }
 
     /// After sleep the services' descriptors may have lapsed: published again, once per wake.
@@ -188,6 +227,9 @@ final class SeamController {
 
     /// The code both devices showed at pairing, for re-checking in Settings.
     func phoneCode() -> String? {
+        #if DEBUG
+        if let demoCode { return demoCode }
+        #endif
         guard let store, let phone else { return nil }
         return try? store.device.safetyCode(peerId: phone.id)
     }
@@ -228,70 +270,23 @@ final class SeamController {
         paths?.setTor(on)
     }
 
-    // MARK: Notifications
+    #if DEBUG
+    @ObservationIgnored private var demoCode: String?
 
-    /// A button or reply on one of the phone's notifications, in the main window.
-    func act(_ action: Seam_V1_NotificationAction) {
-        Task { await session?.notificationAction(action) }
+    /// SEAM_DEMO (Demo.swift): made-up phone state for looking at every state without a phone.
+    /// Nothing is saved or sent: the session never starts.
+    func showDemo(phone: PeerInfo, status: Seam_V1_Status, look: LinkLook, waiting: Int, settings: Seam_V1_NotificationSettings,
+                  notifications: [Seam_V1_Notification], clips: [Clip]) {
+        self.phone = phone
+        self.status = status
+        statusAt = Date().addingTimeInterval(-12 * 60)
+        setLink(look)
+        self.waiting = waiting
+        notificationSettings = settings
+        phoneNotifications = notifications
+        self.clips = clips
+        demoCode = "482 913"
+        pairedAt = Calendar.current.date(from: DateComponents(year: 2026, month: 9, day: 14))
     }
-
-    /// The main window's dismiss: the banner goes too.
-    func dismiss(_ n: Seam_V1_Notification) {
-        Task { await session?.dismissNotification(key: n.key) }
-    }
-
-    func setNotifications(enabled: Bool) {
-        changeNotificationSettings(.with { $0.enabled = enabled })
-    }
-
-    func setNotifications(quietWhileUsingPhone on: Bool) {
-        changeNotificationSettings(.with { $0.quietWhileUsingPhone = on })
-    }
-
-    func setNotifications(dismissBoth on: Bool) {
-        changeNotificationSettings(.with { $0.dismissBoth = on })
-    }
-
-    /// Until a time, or nil to resume. The phone holds it, so a paused phone sends nothing.
-    func pauseNotifications(until: Date?) {
-        let ms = until.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0
-        changeNotificationSettings(.with { $0.pausedUntil = ms })
-    }
-
-    func setNotificationMode(_ mode: Seam_V1_NotificationMode, for appIDs: Set<String>) {
-        guard !appIDs.isEmpty else { return }
-        changeNotificationSettings(.with { $0.apps = appIDs.sorted().map { id in .with { $0.appID = id; $0.mode = mode } } })
-    }
-
-    private func changeNotificationSettings(_ change: Seam_V1_NotificationSettingsChange) {
-        Task { await session?.changeNotificationSettings(change) }
-    }
-
-    // MARK: Pairing
-
-    func startPairing() {
-        guard let session else { return }
-        let name = Host.current().localizedName ?? "Mac"
-        let paths = paths
-        Task {
-            await paths?.settled() // a switch changed just before: the session hears of it first
-            await session.startPairing(name: name)
-            #if DEBUG
-            // Device tests: hand the code to an emulator, which has no camera to scan with
-            if let path = ProcessInfo.processInfo.environment["SEAM_PAIRING_CODE_FILE"], case .waiting(let qr, _) = await session.state.pairing {
-                FileManager.default.createFile(atPath: path, contents: Data(qr.utf8), attributes: [.posixPermissions: 0o600])
-            }
-            #endif
-        }
-    }
-
-    /// Pair was clicked. Safe to call twice: only the first call does anything.
-    func confirmPairing() {
-        Task { await session?.confirmPairing() }
-    }
-
-    /// Cancel, or the window closed. Does nothing while PairAccept is already on its way.
-    func cancelPairing() {
-        Task { await session?.cancelPairing() }
-    }
+    #endif
 }

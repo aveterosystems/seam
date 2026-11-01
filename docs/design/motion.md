@@ -22,14 +22,16 @@ Spatial means position, size or scale. Effects means opacity or colour.
 
 | Token | Value | Use | SwiftUI | Compose |
 |---|---|---|---|---|
-| `spring` | ~420 ms to settle, ~7% overshoot | Default spatial: open, expand, insert, press release | `.spring(duration: 0.42, bounce: 0.2)` | `MaterialTheme.motionScheme.defaultSpatialSpec()` |
-| `springFast` | ~300 ms | Presses, chevrons, small icons | `.spring(duration: 0.3, bounce: 0.2)` | `fastSpatialSpec()` |
-| `fade` | 300–400 ms, ease in-out | Colour and opacity changes, theme switch | `.easeInOut(duration: 0.35)` | `defaultEffectsSpec()` |
+| `spring` | 420 ms: peaks at 25% with 7.7% overshoot, settled by about 45% | Default spatial: open, expand, insert, press release | `Motion.css(0.42)` = `.spring(response: 0.388 × 0.42, dampingFraction: 0.632)` | `MaterialTheme.motionScheme.defaultSpatialSpec()` |
+| `springFast` | 300 ms, the same curve | Presses, chevrons, small icons | `Motion.css(0.3)` | `fastSpatialSpec()` |
+| `fade` | 300–400 ms, CSS `ease` (0.25, 0.1, 0.25, 1) | Colour and opacity changes, theme switch | `Motion.ease(0.35)` | `defaultEffectsSpec()` |
 | `exit` | 180 ms, ease-in | Content leaving its slot before new content arrives | `.easeIn(duration: 0.18)` | `fastEffectsSpec()` |
 | `settle` | 500–700 ms, strong ease-out `(0.2, 0.8, 0.2, 1)` | Line drawing, counting numbers | `.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.7)` | `tween(700, easing = CubicBezierEasing(.2f, .8f, .2f, 1f))` |
 | `stagger` | 35 ms per section, starting at 60 ms | Sections arriving when a surface opens | `.delay(0.06 + 0.035 * i)` | `delayMillis = 60 + 35 * i` |
 
 Define these once per platform: Mac in `apps/mac/Seam/UI/SeamStyle.swift`, Android in `Theme.kt`. Screens use the named token, never a bare duration.
+
+The springs are the prototype's own: its `--spring` is a CSS `linear()` curve, and `Motion.css(d)` is that curve fitted as a SwiftUI spring (damping 0.632, response 0.388 × d), so every duration in the prototype's CSS can be used as written. Transitions the CSS leaves untimed use its default `ease`, which is `Motion.ease(d)`. Checked frame by frame against the prototypes.
 
 ## Catalogue
 
@@ -107,7 +109,7 @@ The line styles crossfade over 400 ms when the state changes. Offline is calm: n
 
 **Before a UI change is done:**
 
-- **Every state is designed:** loading or waiting ("Waiting for phone…"), empty ("Nothing on your phone right now"), offline, paused, error, and the low and high ends of every value. Nothing is dimmed without a reason in words beside it.
+- **Every state is designed:** loading or waiting ("Waiting for phone"), empty ("Nothing on your phone right now"), offline, paused, error, and the low and high ends of every value. Nothing is dimmed without a reason in words beside it.
 - **State is in words:** colour and motion repeat what a label already says.
 - **Layout is stable:** swapped text sits in a fixed-height slot, digits are tabular, and space is reserved so that what changes never pushes what didn't.
 - **Motion is driven by state:** a change in the data drives the animation, so fast repeated clicks still end in the right state. Timers only control how long a confirmation stays on screen.

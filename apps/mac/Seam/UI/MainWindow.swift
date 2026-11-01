@@ -2,6 +2,7 @@
 import AppKit
 import SeamCore
 import SeamProtocol
+import SeamSession
 import SwiftUI
 
 /// The main window (boards M05 and M06, with what's built): the phone's notifications and the
@@ -26,16 +27,16 @@ struct MainWindow: View {
             case .notifications:
                 if !controller.phoneNotifications.isEmpty {
                     Button("Clear All") { controller.phoneNotifications.forEach(controller.dismiss) }
-                        .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                        .buttonStyle(CapButtonStyle())
                 }
             case .clipboard:
                 if !controller.clips.isEmpty {
-                    Button("Clear History") { controller.clearClips() }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    Button("Clear History") { controller.clearClips() }.buttonStyle(CapButtonStyle())
                 }
             }
         } content: {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 0) {
                     switch pane {
                     case .notifications: NotificationsPane(controller: controller)
                     case .clipboard: ClipboardPane(controller: controller)
@@ -70,14 +71,14 @@ struct MainWindow: View {
                 Image(systemName: "iphone").foregroundStyle(SeamStyle.teal)
                 Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 0)
-                if let s = controller.status { BatteryPill(status: s) }
+                if let s = controller.status { BatteryPill(look: PhoneStatusLook(s, connected: controller.connected, at: controller.statusAt)) }
             }
             Stitch(line: controller.link.line)
             LinkStatus(look: controller.link)
-                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg2)
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.045)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(SeamStyle.Win.group))
     }
 }
 
@@ -89,7 +90,7 @@ private struct NotificationsPane: View {
         if controller.phone == nil {
             SettingsGroup {
                 SettingsRow("No phone is paired with this Mac", "Pair your phone to see its notifications here") {
-                    Button("Pair…") { PairingWindow.show(controller) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    Button("Pair") { PairingWindow.show(controller) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                 }
             }
         } else if controller.notificationSettings?.enabled == false {
@@ -107,11 +108,11 @@ private struct NotificationsPane: View {
             ForEach(groups, id: \.appID) { group in
                 SettingsGroup {
                     HStack(spacing: 8) {
-                        AppIcon(image: controller.appIcons[group.appID], size: 20)
+                        AppIcon(image: controller.appIcons[group.appID], size: 20, name: group.items[0].appName)
                         Text(group.items[0].appName).font(.system(size: 12, weight: .semibold))
                         Spacer()
                         if group.items.count > 1 {
-                            Text("\(group.items.count)").font(.system(size: 11)).monospacedDigit().foregroundStyle(.tertiary)
+                            Text("\(group.items.count)").font(.system(size: 11)).monospacedDigit().foregroundStyle(SeamStyle.Win.fg3)
                         }
                     }
                     .padding(EdgeInsets(top: 11, leading: 14, bottom: 3, trailing: 14))
@@ -121,7 +122,7 @@ private struct NotificationsPane: View {
             Text(controller.notificationSettings?.dismissBoth == false
                 ? "Notifications you clear here stay on your phone."
                 : "Notifications you clear here are also cleared on your phone.")
-                .font(.system(size: 11)).foregroundStyle(.tertiary)
+                .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
                 .frame(maxWidth: .infinity)
         }
     }
@@ -155,12 +156,12 @@ private struct NotificationRow: View {
             HStack(spacing: 8) {
                 if n.postedAt > 0 {
                     Text(Date(timeIntervalSince1970: TimeInterval(n.postedAt) / 1000), style: .time)
-                        .font(.system(size: 11)).foregroundStyle(.tertiary)
+                        .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
                 }
                 Button { controller.dismiss(n) } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).frame(width: 14, height: 14)
+                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(SeamStyle.Win.fg2).frame(width: 14, height: 14)
                 }
-                .buttonStyle(.bordered).buttonBorderShape(.circle).tint(.secondary)
+                .buttonStyle(.bordered).buttonBorderShape(.circle).tint(SeamStyle.Win.fg2)
                 .help("Dismiss")
                 .accessibilityLabel("Dismiss")
             }
@@ -214,11 +215,11 @@ private struct ClipboardPane: View {
                 ForEach(controller.clips) { clip in
                     SettingsRow(Self.preview(clip.text), nil, leading: {
                         Image(systemName: clip.fromPhone ? "iphone" : "laptopcomputer")
-                            .foregroundStyle(.secondary).frame(width: 18)
+                            .foregroundStyle(SeamStyle.Win.fg2).frame(width: 18)
                             .accessibilityLabel(clip.fromPhone ? "From your phone" : "From this Mac")
                     }) {
                         HStack(spacing: 8) {
-                            Text(clip.at, style: .relative).font(.system(size: 11)).foregroundStyle(.tertiary)
+                            Text(clip.at, style: .relative).font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
                             if let url = clip.openableURL {
                                 Button("Open") { NSWorkspace.shared.open(url) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                             }
@@ -229,7 +230,7 @@ private struct ClipboardPane: View {
             }
         }
         Text("Kept in memory for a day, and gone when Seam quits. Passwords and anything apps mark as private are never synced.")
-            .font(.system(size: 11)).foregroundStyle(.tertiary)
+            .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
             .frame(maxWidth: .infinity)
     }
 

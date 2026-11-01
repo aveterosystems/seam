@@ -25,6 +25,10 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
 
     /// The version of a newer release Sparkle found, until it's installed or skipped.
     private(set) var found: String?
+    /// Settings' Check now is running.
+    private(set) var checking = false
+    /// What the last Check now found when it found nothing new: up to date, or it couldn't ask.
+    private(set) var checkFailed: Bool?
 
     @ObservationIgnored private lazy var driver = OneClickDriver(hostBundle: .main, delegate: self)
     @ObservationIgnored private lazy var updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: driver, delegate: self)
@@ -53,17 +57,51 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
         set { updater.updateCheckInterval = newValue }
     }
 
+    /// "once a day": how often an interval is, in words.
+    static func often(_ interval: TimeInterval) -> String {
+        switch interval {
+        case ..<3600: "every 30 minutes"
+        case ..<86400: "once an hour"
+        case ..<604_800: "once a day"
+        default: "once a week"
+        }
+    }
+
     var canCheck: Bool { available && updater.canCheckForUpdates }
 
     func checkNow() { updater.checkForUpdates() }
+
+    /// When Sparkle last asked GitHub.
+    var lastChecked: Date? { available ? updater.lastUpdateCheckDate : nil }
+
+    /// Settings' Check now: asks without opening a window and shows the answer in place. A newer
+    /// release still installs only through `checkNow` (Sparkle's window, the user's click).
+    func checkQuietly() {
+        guard canCheck, !checking else { return }
+        checking = true
+        checkFailed = nil
+        updater.checkForUpdateInformation()
+    }
 
     // A menu bar app: a background check never steals focus. Seam shows the update in the menu bar
     // instead, and Update there opens Sparkle's window.
     nonisolated var supportsGentleScheduledUpdateReminders: Bool { true }
     nonisolated func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool { false }
 
-    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) { found = item.displayVersionString }
-    func updaterDidNotFindUpdate(_ updater: SPUUpdater) { found = nil }
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        found = item.displayVersionString
+        checking = false
+    }
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        found = nil
+        if checking { checkFailed = false }
+        checking = false
+    }
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
+        // Still checking: neither callback came. "No update" is an error here too, and means up to date
+        if checking { checkFailed = error.map { ($0 as NSError).code != Int(SUError.noUpdateError.rawValue) } ?? false }
+        checking = false
+    }
     func updater(_ updater: SPUUpdater, userDidMake choice: SPUUserUpdateChoice, forUpdate updateItem: SUAppcastItem, state: SPUUserUpdateState) {
         if choice == .skip { found = nil }
     }
