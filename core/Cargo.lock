@@ -4048,6 +4048,7 @@ dependencies = [
 name = "seam-ffi"
 version = "0.1.0"
 dependencies = [
+ "prost",
  "seam-core",
  "seam-tor",
  "thiserror 2.0.21",

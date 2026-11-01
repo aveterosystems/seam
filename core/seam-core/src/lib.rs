@@ -9,13 +9,19 @@
 //! - [`relay`]: the Ed25519 key a device logs in to the relay with.
 //! - [`lan`]: the encrypted, mutually authenticated direct link (same Wi-Fi).
 //! - [`links`]: which path may carry a message, Hello state, the app's saved data.
+//! - [`hello`]: building and applying the Hello, capabilities included.
+//! - [`catalogue`]: each feature's delivery rules, the table both outboxes ask.
+//! - [`features`]: each feature's own rules, one module per feature.
 //! - [`padding`], [`bundle`], [`file`]: size buckets, prekey bundle bytes, file chunks.
 
 pub mod bundle;
+pub mod catalogue;
 mod device;
 pub mod envelope;
 mod error;
+pub mod features;
 pub mod file;
+pub mod hello;
 pub mod lan;
 pub mod links;
 pub mod padding;

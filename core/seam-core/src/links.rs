@@ -6,15 +6,17 @@
 //!
 //! Saved as `version 5 | Tor secret (32) | onion address length (u8) | address UTF-8 | peer
 //! discovery key length (u8, 0 or 32) | key | Hello seq sent (u64 BE) | Hello seq applied (u64 BE)
-//! | the peer's allowed list: 0xFF (never heard) or a count (u8) | values (u8 each)`.
-//! Earlier versions held a relay group (Tor replaced relays): they aren't read,
-//! so those devices pair again.
+//! | the peer's allowed list: 0xFF (never heard) or a count (u8) | values (u8 each) | the peer's
+//! capabilities: a count (u8) | each as length (u8) | UTF-8`. Version 5 is the same without the
+//! capabilities and still reads. Earlier versions held a relay group (Tor replaced
+//! relays): they aren't read, so those devices pair again.
 
 #[cfg(test)]
 mod tests;
 
-/// The current format. Earlier (relay) ones aren't read.
-pub const VERSION: u8 = 5;
+/// The current format. Version 5 (no capabilities) still reads; earlier (relay) ones don't.
+pub const VERSION: u8 = 6;
+const VERSION_5: u8 = 5;
 const SECRET_LEN: usize = 32;
 /// A v3 onion address is 62 characters; anything near this is wrong.
 const MAX_ADDRESS: usize = 255;
@@ -80,6 +82,9 @@ pub struct AppData {
     /// The peer's paths from its last applied Hello. None: never heard, or an older version that
     /// sends no list; either way everything this device allows. Some(empty): nothing in common.
     pub peer_allowed: Option<Vec<Path>>,
+    /// The peer's capabilities from its last applied Hello, sorted, each once
+    /// ([`crate::hello::capabilities`]). Empty: never heard, or an older version.
+    pub peer_capabilities: Vec<String>,
 }
 
 // The secret never prints, even in a panic message
@@ -92,6 +97,7 @@ impl std::fmt::Debug for AppData {
             .field("hello_seq_sent", &self.hello_seq_sent)
             .field("hello_seq_applied", &self.hello_seq_applied)
             .field("peer_allowed", &self.peer_allowed)
+            .field("peer_capabilities", &self.peer_capabilities)
             .finish()
     }
 }
@@ -105,6 +111,7 @@ impl AppData {
             hello_seq_sent: 0,
             hello_seq_applied: 0,
             peer_allowed: None,
+            peer_capabilities: Vec::new(),
         }
     }
 
@@ -154,6 +161,7 @@ impl AppData {
         self.hello_seq_sent = 0;
         self.hello_seq_applied = 0;
         self.peer_allowed = None;
+        self.peer_capabilities.clear();
     }
 
     /// This app data, ready to save: Err for anything that wouldn't read back (a secret that
@@ -176,6 +184,7 @@ impl AppData {
         out.peer_allowed = out
             .peer_allowed
             .map(|l| known(l.into_iter().map(Path::transport)));
+        out.peer_capabilities = crate::hello::capabilities(&out.peer_capabilities);
         Ok(out)
     }
 
@@ -197,14 +206,22 @@ impl AppData {
                 out.extend(list.iter().map(|p| p.transport() as u8));
             }
         }
+        // Bounded by hello::capabilities, so every length fits its byte
+        let caps = crate::hello::capabilities(&self.peer_capabilities);
+        out.push(caps.len() as u8);
+        for c in &caps {
+            out.push(c.len() as u8);
+            out.extend(c.as_bytes());
+        }
         out
     }
 
-    /// None for anything that isn't a complete v5 encoding. Earlier (relay) versions aren't read:
-    /// those devices pair again.
+    /// None for anything that isn't a complete v6 or v5 encoding. Earlier (relay) versions aren't
+    /// read: those devices pair again.
     pub fn decode(bytes: &[u8]) -> Option<Self> {
         let mut r = Reader(bytes);
-        if r.u8()? != VERSION {
+        let version = r.u8()?;
+        if version != VERSION && version != VERSION_5 {
             return None;
         }
         let secret = r.take(SECRET_LEN)?.to_vec();
@@ -220,6 +237,17 @@ impl AppData {
         let count = r.u8()?;
         if count != NEVER_HEARD {
             data.peer_allowed = Some(known(r.take(count as usize)?.iter().map(|&b| b as i32)));
+        }
+        if version == VERSION {
+            let mut caps = Vec::new();
+            for _ in 0..r.u8()? {
+                let n = r.u8()? as usize;
+                caps.push(String::from_utf8(r.take(n)?.to_vec()).ok()?);
+            }
+            if crate::hello::capabilities(&caps) != caps {
+                return None; // only ever written sorted and bounded
+            }
+            data.peer_capabilities = caps;
         }
         r.0.is_empty().then_some(data)
     }

@@ -10,7 +10,13 @@ use seam_core::{Device, SignalProtocolError, bundle, file, lan, links};
 
 uniffi::setup_scaffolding!();
 
+mod catalogue;
+mod clipboard;
+mod hello;
 mod tor;
+pub use catalogue::*;
+pub use clipboard::*;
+pub use hello::*;
 pub use tor::*;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -147,6 +153,9 @@ pub struct AppData {
     pub hello_seq_applied: u64,
     /// The peer's paths from its last Hello. None: everything (never heard, or an older version).
     pub peer_allowed: Option<Vec<PeerPath>>,
+    /// The peer's capabilities from its last Hello, sorted.
+    #[uniffi(default)]
+    pub peer_capabilities: Vec<String>,
 }
 
 impl std::fmt::Debug for AppData {
@@ -167,6 +176,7 @@ impl From<links::AppData> for AppData {
             peer_allowed: d
                 .peer_allowed
                 .map(|l| l.into_iter().map(Into::into).collect()),
+            peer_capabilities: d.peer_capabilities,
         }
     }
 }
@@ -182,16 +192,9 @@ impl From<AppData> for links::AppData {
             peer_allowed: d
                 .peer_allowed
                 .map(|l| l.into_iter().map(Into::into).collect()),
+            peer_capabilities: d.peer_capabilities,
         }
     }
-}
-
-/// A Hello's ordering and switches, for `seam.v1.Hello`.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
-pub struct HelloOut {
-    pub seq: u64,
-    /// seam.v1.Transport numbers.
-    pub allowed_transports: Vec<i32>,
 }
 
 /// This device: identity, peers and sessions. Safe to share across threads.
@@ -322,25 +325,6 @@ impl SeamDevice {
             None => links::route(&links::mine(&enabled), &up),
         };
         path.map(Into::into)
-    }
-
-    /// The next Hello to send: its seq and `allowed_transports` (seam.v1.Transport numbers).
-    /// Counts up in the app data: save `export_state` before the Hello leaves. None without app data.
-    pub fn next_hello(&self, enabled: Vec<PeerPath>) -> Option<HelloOut> {
-        let enabled = paths(enabled);
-        let (seq, allowed_transports) = self.lock().edit_app_data(|d| d.next_hello(&enabled))?;
-        Some(HelloOut {
-            seq,
-            allowed_transports,
-        })
-    }
-
-    /// Applies the peer's Hello if its seq is newer than any before. True if it changed anything;
-    /// save `export_state` then.
-    pub fn apply_hello(&self, seq: u64, allowed_transports: Vec<i32>) -> bool {
-        self.lock()
-            .edit_app_data(|d| d.apply_hello(seq, &allowed_transports))
-            .unwrap_or(false)
     }
 
     /// The peer was forgotten or replaced: Hello state starts again (the relay group stays).
@@ -619,6 +603,7 @@ fn invalid(detail: &str) -> SeamError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prost::Message;
 
     /// The whole M1 flow through the exported API, as the apps will run it.
     #[test]
@@ -676,8 +661,16 @@ mod tests {
             SeamDevice::generate().unwrap(),
             SeamDevice::generate().unwrap(),
         );
+        let facts = |enabled: Vec<PeerPath>| HelloFacts {
+            app_version: "1.0".into(),
+            platform: "android".into(),
+            enabled,
+            open: vec![PeerPath::Lan],
+            paused_until_ms: 0,
+            capabilities: vec!["ring_computer.v1".into()],
+        };
         assert_eq!(
-            mac.next_hello(vec![PeerPath::Lan, PeerPath::Tor]),
+            mac.next_hello(facts(vec![PeerPath::Lan, PeerPath::Tor])),
             None,
             "no app data yet"
         );
@@ -690,23 +683,33 @@ mod tests {
                 hello_seq_sent: 0,
                 hello_seq_applied: 0,
                 peer_allowed: None,
+                peer_capabilities: vec![],
             })
             .unwrap();
         }
         // The phone allows only Same Wi-Fi
-        let hello = phone.next_hello(vec![PeerPath::Lan]).unwrap();
+        let payload = phone.next_hello(facts(vec![PeerPath::Lan])).unwrap();
+        let hello = match seam_core::proto::v1::Payload::decode(payload.as_slice())
+            .unwrap()
+            .body
+        {
+            Some(seam_core::proto::v1::payload::Body::Control(c)) => match c.body {
+                Some(seam_core::proto::v1::control::Body::Hello(h)) => h,
+                _ => panic!("not a Hello"),
+            },
+            _ => panic!("not control"),
+        };
+        assert_eq!((hello.seq, hello.allowed_transports.clone()), (1, vec![1]));
+        let bytes = hello.encode_to_vec();
+        let peer = mac.apply_hello(bytes.clone()).unwrap().unwrap();
+        assert_eq!(peer.open_links, Some(vec![PeerPath::Lan]));
+        assert!(mac.peer_supports("ring_computer.v1".into()));
         assert_eq!(
-            hello,
-            HelloOut {
-                seq: 1,
-                allowed_transports: vec![1]
-            }
-        );
-        assert!(mac.apply_hello(hello.seq, hello.allowed_transports.clone()));
-        assert!(
-            !mac.apply_hello(hello.seq, vec![2]),
+            mac.apply_hello(bytes).unwrap(),
+            None,
             "a replay changes nothing"
         );
+        assert!(mac.apply_hello(vec![0xFF, 0xFF]).is_err(), "not a Hello");
         assert_eq!(
             mac.allowed_paths(vec![PeerPath::Lan, PeerPath::Tor]),
             vec![PeerPath::Lan]
