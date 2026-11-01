@@ -33,7 +33,7 @@ import Testing
         #expect(LinkLook.sameWifi.detail == nil && LinkLook.throughTor.detail == nil)
     }
 
-    // Decision 0004: never a silent wait. Tor's own trouble is said, not shown as "offline"
+    // Never a silent wait. Tor's own trouble is said, not shown as "offline"
     @Test func torsStateSaysWhyThePhoneCantComeThroughTor() {
         let tor: [PeerPath] = [.lan, .tor]
         #expect(LinkLook.of(route: nil, allowed: tor, tor: .starting(percent: 40)) == .connectingTor)

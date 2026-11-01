@@ -8,7 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Whether a connection is worth having now (decision 0005, CONTRIBUTING rule 8): it's held only
+ * Whether a connection is worth having now (CONTRIBUTING rule 8): it's held only
  * while it's cheap (screen on, charging) or needed (activity in the last [IDLE_MS], or whatever the
  * session says it needs). This decides; the session opens and closes the links. When an activity
  * window ends it calls [onWindowEnd] on [scope], the session's single thread.

@@ -8,7 +8,7 @@ import SeamProtocol
 extension LinkLook {
     /// The status line under the phone's name. Plain "offline" says when the phone was last here;
     /// any other reason (Tor blocked, a pause, no shared path) stays in words, never hidden behind
-    /// a time (decision 0004).
+    /// a time.
     public func statusLine(lastSeen: Date?, now: Date = Date(), calendar: Calendar = .current) -> String {
         guard self == .away, let lastSeen else { return sentence }
         return "Last seen " + LastSeen.text(lastSeen, now: now, calendar: calendar)

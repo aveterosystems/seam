@@ -9,7 +9,7 @@ import com.google.protobuf.ByteString
 /**
  * What's waiting for the Mac: payloads not sealed yet, and envelopes sent directly that the Mac
  * hasn't acked. Payloads stay unsealed until they can go, so a newer one can replace them and the
- * session can see whether any is worth a connection (decision 0008). The session decides when to
+ * session can see whether any is worth a connection. The session decides when to
  * flush and does the sealing and sending; this keeps the order, the expiry and the pending file.
  * Touched only from the session's thread.
  */
@@ -72,7 +72,7 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
         queue.removeFirst()
     }
 
-    /** Whether anything waiting is worth a connection of its own (decision 0005). */
+    /** Whether anything waiting is worth a connection of its own. */
     fun wantsConnection(): Boolean =
         queue.any { it.payload.bodyCase !in LAZY && !expired(it) } || resend.any { !expired(it) }
 

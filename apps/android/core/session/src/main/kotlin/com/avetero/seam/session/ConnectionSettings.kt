@@ -6,7 +6,7 @@ import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.protocol.v1.Transport
 
 /**
- * The user's connection switches (decision 0006), and what the Mac last said it allows. Only the
+ * The user's connection switches, and what the Mac last said it allows. Only the
  * switches are saved through a [SettingsStore]; the rest is kept sealed in the app data.
  */
 data class ConnectionSettings(
@@ -21,7 +21,7 @@ data class ConnectionSettings(
     val helloSeq: Long = 0,
     /** Paused until then (unix ms; Long.MAX_VALUE: until resumed); 0: not paused. Only the phone pauses. */
     val pausedUntil: Long = 0,
-    /** Paths on at both ends, as the core decides from the switches and the Mac's Hello (decision 0006). Never saved. */
+    /** Paths on at both ends, as the core decides from the switches and the Mac's Hello. Never saved. */
     val allowed: Set<PeerPath> = setOf(PeerPath.LAN, PeerPath.TOR),
 )
 

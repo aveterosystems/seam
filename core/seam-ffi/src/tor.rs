@@ -27,7 +27,7 @@ pub enum TorState {
         percent: u8,
     },
     Ready,
-    /// The network or device stops Tor: say why (decision 0004: never a silent fallback).
+    /// The network or device stops Tor: say why (never a silent fallback).
     Blocked {
         reason: TorBlock,
     },

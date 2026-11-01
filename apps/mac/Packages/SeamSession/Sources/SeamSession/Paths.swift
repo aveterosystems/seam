@@ -43,7 +43,7 @@ public protocol TorHosted: AnyObject, Sendable {
     func stop()
 }
 
-/// Runs the paths the connection switches allow (decision 0006) and keeps the session told:
+/// Runs the paths the connection switches allow and keeps the session told:
 /// - a carrier switched off closes at once, so nothing more can go on it (SR-29-07); a closed
 ///   carrier refuses every send;
 /// - switch changes reach the session one at a time, in order (SR-29-11);

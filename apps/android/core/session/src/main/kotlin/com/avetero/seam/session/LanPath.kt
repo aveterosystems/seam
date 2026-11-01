@@ -26,7 +26,7 @@ internal class LanPath(
     private val trace: ((String) -> Unit)?,
     /** The paired Mac's id; null: nobody to look for. */
     private val peer: () -> String?,
-    /** Whether to keep trying: this phone's switch is on and something needs a connection (decision 0005). */
+    /** Whether to keep trying: this phone's switch is on and something needs a connection. */
     private val wanted: () -> Boolean,
     private val events: PathEvents,
     /** The QR code being paired with, if any: then the channel is a pairing one. */

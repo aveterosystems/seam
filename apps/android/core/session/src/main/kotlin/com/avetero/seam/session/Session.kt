@@ -29,7 +29,7 @@ sealed interface SessionState {
     data class Pairing(val macName: String, val safetyCode: String?) : SessionState
     data class Connecting(val macName: String) : SessionState
     data class Connected(val macName: String) : SessionState
-    /** Paired, connection closed to save battery: it connects again to send, on screen on, or when charging (decision 0005). */
+    /** Paired, connection closed to save battery: it connects again to send, on screen on, or when charging. */
     data class Idle(val macName: String) : SessionState
     data class Failed(val reason: String) : SessionState
 }
@@ -94,7 +94,7 @@ class Session(
         if (!storageBlocked) outbox.save() // drops what expired, or what belongs to no Mac; never while state couldn't be opened
     }
 
-    // Decision 0005: the connection is held only while it's cheap or needed
+    // The connection is held only while it's cheap or needed
     private val wake = Wakefulness(scope, now, onChanged = { updateCpu() }) { reconsider(connect = false) }
 
     init {
@@ -613,7 +613,7 @@ class Session(
     private fun transportOf(p: Path): Transport = if (p === direct) Transport.TRANSPORT_LAN else Transport.TRANSPORT_TOR
 
     /**
-     * The path to the Mac now, by the core's rules (decision 0006): one up and allowed at both ends,
+     * The path to the Mac now, by the core's rules: one up and allowed at both ends,
      * or for a [hello] any up path this phone's own switches allow. Null while pairing.
      */
     private fun route(hello: Boolean = false): Path? {

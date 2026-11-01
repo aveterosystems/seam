@@ -17,7 +17,7 @@ import Testing
         #expect(LinkLook.torBlocked.heroLine(lastSeen: now, now: now) == LinkLook.torBlocked.label)
     }
 
-    // Decision 0004: a reason the user can act on is never replaced by a time
+    // A reason the user can act on is never replaced by a time
     @Test func otherReasonsStayInWords() {
         for look in [LinkLook.torBlocked, .torClock, .noSharedPath, .waitingOnWifi, .connectingTor] {
             #expect(look.statusLine(lastSeen: now.addingTimeInterval(-60), now: now) == look.label)

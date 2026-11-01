@@ -14,10 +14,10 @@ Thanks for helping. Seam is a security product first, so the bar for changes is 
 2. **No crypto outside `core/seam-core`.** The apps call the generated bindings; they never encrypt, sign or derive keys themselves.
 3. **No home-made cryptography.** Only libsignal and audited RustCrypto crates.
 4. **Never trust a key on first use.** Peers are pinned at pairing.
-5. **The relay learns nothing new.** No new plaintext envelope field that reveals content, type, real size or device identity.
+5. **The network learns nothing new.** No new plaintext envelope field that reveals content, type, real size or device identity.
 6. **Never log** message contents, keys, phone numbers, contact or file names, or IP addresses.
 7. **Every security property has a test.** If a change claims or relies on one, it proves it.
-8. **The phone never holds a connection it doesn't need.** On battery it connects to send, when the screen turns on, and when an empty push wakes it for something urgent, then disconnects. Pings on any held connection are as rare as the network allows. Pushes carry no content.
+8. **The phone never holds a connection it doesn't need.** On battery it connects to send, when the screen turns on, and for a short window after activity (longer when a notification can be replied to), then disconnects and lets Tor go dormant. Pings on any held connection are as rare as the network allows.
 
 ## Setting up
 
@@ -27,9 +27,9 @@ Thanks for helping. Seam is a security product first, so the bar for changes is 
 | `protoc` | libsignal's build, and `scripts/gen-protocol.sh` |
 | Xcode 26+ and XcodeGen | The Mac app |
 | JDK 17, the Android SDK, NDK 29, cargo-ndk | The Android app |
-| Node 22 | The relay |
+| Node 22 | Linting `protocol/` locally (`npx @bufbuild/buf`) |
 
-Each part's README explains how to build and test it: [core](core/README.md), [protocol](protocol/README.md), [Mac](apps/mac/README.md), [Android](apps/android/README.md), [relay](server/README.md), [scripts](scripts/README.md).
+Each part's README explains how to build and test it: [core](core/README.md), [protocol](protocol/README.md), [Mac](apps/mac/README.md), [Android](apps/android/README.md), [scripts](scripts/README.md).
 
 ## Making a change
 
@@ -44,11 +44,11 @@ Each part's README explains how to build and test it: [core](core/README.md), [p
 
 **Every pull request gets a security-focused review before it merges.** Passing CI isn't enough.
 
-1. **Automated review, per area.** Each part the PR touches (core, relay, Android, Mac) is reviewed against the rules above: trust-on-first-use leaks, pairing and login bypasses, replay and binding, nonce reuse, panics on untrusted input, anything sensitive logged, and claims without tests. Findings are ranked Critical / High / Medium / Low and checked before they're acted on.
+1. **Automated review, per area.** Each part the PR touches (core, protocol, Android, Mac) is reviewed against the rules above: trust-on-first-use leaks, pairing and direct-link bypasses, replay and binding, nonce reuse, panics on untrusted input, anything sensitive logged, and claims without tests. Findings are ranked Critical / High / Medium / Low and checked before they're acted on.
 2. **Findings are posted on the pull request**, in the format below: one inline comment per finding on the exact line, plus one summary comment. Each comment opens a review thread, and `main` won't accept the merge until every thread is resolved.
 3. **Fix before merge.** Critical and High findings are fixed in the PR, each with a test, and the thread is resolved with a link to the fixing commit. Medium and Low are fixed, or accepted with a reason in the thread (a follow-up issue if it's deferred).
-4. **Line-by-line reading** by the maintainer for anything in `core/`, `protocol/`, or the relay's login and pairing code.
-5. **`main` is protected.** Changes land only through a pull request, with all five CI checks (`core`, `protocol`, `android`, `mac`, `server`) passing and every review thread resolved. Squash merges only, and nobody can bypass this, admins included.
+4. **Line-by-line reading** by the maintainer for anything in `core/` or `protocol/`.
+5. **`main` is protected.** Changes land only through a pull request, with all four CI checks (`core`, `protocol`, `android`, `mac`) passing and every review thread resolved. Squash merges only, and nobody can bypass this, admins included.
 
 An independent security audit is planned before 1.0. Review here is meant to make that audit short, not replace it.
 
@@ -58,7 +58,7 @@ Every finding gets an id, `SR-<PR number>-<two digits>` (e.g. `SR-2-04`), number
 
 ```markdown
 **🔴 High · SR-2-04 · Pairing slot can be silently replaced**
-`relay` · Confirmed
+`core` · Confirmed
 
 **Problem:** One sentence: what's wrong.
 **Scenario:** Who does what, and the bad outcome.
@@ -128,7 +128,7 @@ When every thread has its reply, post **one resolution summary** on the PR: a ta
 
 - Rust: `cargo fmt` and `cargo clippy -- -D warnings`.
 - Protobuf: `buf format` and `buf lint`. Never reuse or renumber a field.
-- Swift, Kotlin, TypeScript: follow the surrounding code. Files stay small (about 300 lines at most), split by responsibility.
+- Swift, Kotlin: follow the surrounding code. Files stay small (about 300 lines at most), split by responsibility.
 - New source files start with `SPDX-License-Identifier: AGPL-3.0-only` in a comment.
 - Comments say *why*, not what.
 
@@ -138,7 +138,7 @@ A feature is one Protobuf message in `protocol/seam/v1/` (taking the next free b
 
 ## Releasing
 
-One release per version, tagged `vX.Y.Z`, with both apps attached. The apps share a protocol version and ship together; the relay isn't released, it deploys from `main`.
+One release per version, tagged `vX.Y.Z`, with both apps attached. The apps share a protocol version and ship together.
 
 Which number goes up:
 

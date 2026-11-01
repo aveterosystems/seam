@@ -43,7 +43,7 @@ class ConnectionService : Service() {
         val app = application as SeamApplication
         val session = app.session
         AutoClipboard.start(this, app.clipboard) // full builds, once the Mac has granted log access
-        // Decision 0005: the session connects on screen on and stays connected while charging
+        // The session connects on screen on and stays connected while charging
         session.setScreenOn(getSystemService(PowerManager::class.java).isInteractive)
         session.setCharging(getSystemService(BatteryManager::class.java).isCharging)
         registerReceiver(power, IntentFilter().apply {

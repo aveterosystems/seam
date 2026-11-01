@@ -4,7 +4,7 @@ Helpers for code generation, builds and releases. Run them from anywhere; they f
 
 | Script | What it does | When to run it |
 |---|---|---|
-| `gen-protocol.sh` | Checks the schema compiles, then generates Swift (`protoc-gen-swift`) and TypeScript (`protoc-gen-es`) from `protocol/`. Skips any generator that isn't installed, with a message. | After changing anything in `protocol/` |
+| `gen-protocol.sh` | Checks the schema compiles, then generates Swift (`protoc-gen-swift`) from `protocol/`. Skips it, with a message, if the generator isn't installed. | After changing anything in `protocol/` |
 | `gen-bindings.sh` | Builds `core/seam-ffi` and generates its Swift and Kotlin bindings with UniFFI | After changing `seam-ffi`'s public API |
 | `build-mac-core.sh` | Builds the Rust core as `SeamCoreFFI.xcframework` for the Mac app. Host architecture, release, by default; `ARCHS="arm64 x86_64"` for universal; `PROFILE=debug` reuses `gen-bindings.sh`'s build (CI). | Before building or testing the Mac app, and after changing `core/` |
 | `check-release.sh` | The release gate: the tag is on `main`, both apps carry its version, both build numbers went up since the last release, `CHANGELOG.md` has its section, the certificate pins are well formed, and the Mac update key is set | Run by the release workflow; locally with `MAIN_REF=HEAD scripts/check-release.sh vX.Y.Z` |
@@ -19,7 +19,6 @@ Helpers for code generation, builds and releases. Run them from anywhere; they f
 ```mermaid
 flowchart LR
     proto["protocol/*.proto"] -- gen-protocol.sh --> sw["Swift messages<br/>apps/mac/…/SeamProtocol"]
-    proto -- gen-protocol.sh --> ts["TypeScript messages<br/>server/src/generated"]
     ffi["core/seam-ffi"] -- gen-bindings.sh --> sb["Swift bindings<br/>apps/mac/…/SeamCore"]
     ffi -- gen-bindings.sh --> kb["Kotlin bindings<br/>apps/android/core/crypto"]
     core["core/"] -- build-mac-core.sh --> xc["SeamCoreFFI.xcframework"]

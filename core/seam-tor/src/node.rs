@@ -105,7 +105,7 @@ impl TorNode {
     }
 
     /// Dormant: no background traffic until the next connection. Only the phone sleeps Tor,
-    /// whenever it has no Tor connection open (decision 0005). Never the Mac: a dormant client
+    /// whenever it has no Tor connection open. Never the Mac: a dormant client
     /// stops republishing its onion service, so the phone couldn't reach it.
     pub fn set_dormant(&self, dormant: bool) {
         self.client.set_dormant(if dormant {

@@ -33,7 +33,7 @@ struct Store: Sendable {
         } catch SeamError.BadState {
             throw Unreadable()
         }
-        // A phone paired through the relay has app data the core no longer reads (decision 0009):
+        // A phone paired through the relay has app data the core no longer reads:
         // there's no way to reach it over Tor, so it's forgotten and pairs again. The identity stays
         guard device.appData() == nil, !device.peers().isEmpty else {
             return Store(device: device, pairAgain: false, key: key, file: file)

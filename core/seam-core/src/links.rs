@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Which path may carry a message to the paired device (decision 0006), the Hello state that
+//! Which path may carry a message to the paired device, the Hello state that
 //! decides it, and the app's own saved data (the Tor details and Hello state). Plain logic, no
 //! I/O: the apps feed it their switches and which paths are up, and it answers. Written once so the
 //! Mac and Android can't drift apart.
@@ -7,7 +7,7 @@
 //! Saved as `version 5 | Tor secret (32) | onion address length (u8) | address UTF-8 | peer
 //! discovery key length (u8, 0 or 32) | key | Hello seq sent (u64 BE) | Hello seq applied (u64 BE)
 //! | the peer's allowed list: 0xFF (never heard) or a count (u8) | values (u8 each)`.
-//! Earlier versions held a relay group (decision 0009 replaces relays with Tor): they aren't read,
+//! Earlier versions held a relay group (Tor replaced relays): they aren't read,
 //! so those devices pair again.
 
 #[cfg(test)]
@@ -30,7 +30,7 @@ pub enum Path {
 }
 
 impl Path {
-    /// Every path this build knows, in order of preference (decision 0006: Same Wi-Fi first).
+    /// Every path this build knows, in order of preference (Same Wi-Fi first).
     /// The one place that order lives: everything below picks by it, whatever order callers use.
     pub const ALL: [Path; 2] = [Path::Lan, Path::Tor];
 
