@@ -35,7 +35,7 @@ You pick which apps get through. Every app starts off, and the phone filters bef
 
 ### 📋 Copy here, paste there
 
-Copy on your computer, paste on your phone. Copy a code on your phone, paste it on your computer. No buttons, no sharing sheets, no emailing yourself links.
+Copy on your computer, paste on your phone. Copy a code on your phone, paste it on your computer. Switch on automatic clipboard once and phone copies reach your computer by themselves; until then it's one tap of **Send clipboard**. No sharing sheets, no emailing yourself links.
 
 ### 🔋 Battery at a glance
 

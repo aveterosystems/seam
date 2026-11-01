@@ -1,5 +1,5 @@
 #!/bin/sh
-# Renders the README pictures in ../ from the pages here. Needs macOS, Google Chrome and Python with Pillow.
+# Renders the README pictures in ../ from the pages here. Needs macOS, Google Chrome, the Android SDK and Python with Pillow.
 set -e
 cd "$(dirname "$0")"
 src=$PWD
@@ -8,7 +8,10 @@ cp ./*.html sym.js "$work/"
 cp ../../../apps/mac/Seam/Assets.xcassets/AppIcon.appiconset/icon_128x128.png "$work/AppIcon.png"
 mkdir "$work/sym"
 (cd "$work" && swift "$src/assets.swift")
-curl -sfL -o "$work/Roboto.ttf" "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto%5Bwdth,wght%5D.ttf"
+cp ../../../docs/design/prototypes/mac-popover.html "$work/"
+# The phone in the hero is the app itself, rendered by ScreensTest (home-wifi and home-clip only)
+(cd ../../../apps/android && ./gradlew -q :app:testFullDebugUnitTest --tests '*ScreensTest.homeWifi*' --tests '*ScreensTest.homeClip*' -Pscreens)
+cp ../../../apps/android/app/build/screens/home-wifi.png ../../../apps/android/app/build/screens/home-clip.png "$work/"
 
 shot() { # page, frame, width, height
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --hide-scrollbars \
