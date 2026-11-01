@@ -20,16 +20,12 @@
 </p>
 
 <p align="center">
-  <img src="assets/readme/hero-animated.png" width="560" alt="A link copied on the Mac appears on the Android phone a moment later">
+  <img src="assets/readme/hero-animated.png" width="560" alt="Text copied on the Mac appears on the Android phone a moment later">
 </p>
 
 ---
 
 ## Your phone, on your computer
-
-<p align="center">
-  <img src="assets/readme/mac-notifications.png" width="640" alt="Phone notifications in Seam's Mac window, with an inline reply">
-</p>
 
 ### 🔔 Notifications that follow you
 
@@ -39,7 +35,7 @@ You pick which apps get through. Every app starts off, and the phone filters bef
 
 ### 📋 Copy here, paste there
 
-Copy on your computer, paste on your phone. Copy a code on your phone, paste it on your computer. No buttons, no sharing sheets, no emailing yourself links.
+Copy on your computer, paste on your phone. Copy a code on your phone, paste it on your computer. Switch on automatic clipboard once and phone copies reach your computer by themselves; until then it's one tap of **Send clipboard**. No sharing sheets, no emailing yourself links.
 
 ### 🔋 Battery at a glance
 
@@ -68,15 +64,15 @@ The encryption, pairing and sync all live in one shared core, so each new platfo
 
 | | **Seam** | Bounce Connect | KDE Connect | Phone Link |
 |---|---|---|---|---|
-| **Your computer** | Mac today; Linux and Windows next | Mac | Linux, Windows; Mac as nightly builds | Windows |
-| **Works away from home** | ✅ Through Tor | Same Wi‑Fi only | Same network only | Through Microsoft's servers |
-| **Encryption** | Signal Protocol, end-to-end, post-quantum | AES-256 | TLS | Not published |
-| **Hides where you are** | ✅ Tor | Not needed (local only) | Not needed (local only) | No |
-| **Account** | None | None | None | Microsoft account |
-| **Open source** | ✅ AGPL-3.0 | Not stated | ✅ GPL | No |
-| **Price** | Free | Paid Android app | Free | Free with Windows |
+| **Your computer** | [Mac today; Linux and Windows next](#works-where-you-work) | [Mac](https://bounceconnect.app) | [Linux, Windows, Mac](https://kdeconnect.kde.org/download.html) | [Windows](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Works away from home** | ✅ [Through Tor](#private-by-design) | [Same Wi‑Fi only](https://bounceconnect.app) | [Same network, or through your own VPN](https://userbase.kde.org/KDEConnect) | [Over Wi‑Fi or mobile data](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Encryption** | [Signal Protocol, end-to-end, post-quantum](#private-by-design) | [AES-256](https://bounceconnect.app) | [TLS](https://invent.kde.org/network/kdeconnect-kde/-/blob/master/README.md) | [Not published](https://support.microsoft.com/en-us/windows/apps/phonelink/frequently-asked-questions-about-the-phone-link) |
+| **Hides where you are** | ✅ [Tor](#private-by-design) | [Not needed (local only)](https://bounceconnect.app/privacy) | [Not needed (local or your own VPN)](https://userbase.kde.org/KDEConnect) | [Not published](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Account** | [None](#set-up-in-ten-seconds) | [None](https://bounceconnect.app/privacy) | [None](https://userbase.kde.org/KDEConnect) | [Microsoft account](https://support.microsoft.com/en-us/windows/apps/phonelink/frequently-asked-questions-about-the-phone-link) |
+| **Open source** | ✅ [AGPL-3.0](LICENSE) | [Not stated](https://bounceconnect.app) | ✅ [GPL](https://invent.kde.org/network/kdeconnect-kde/-/blob/master/README.md) | [Not stated](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
+| **Price** | [Free](#faq) | [Paid Android app](https://bounceconnect.app) | [Free](https://kdeconnect.kde.org/) | [Comes with Windows](https://www.microsoft.com/en-us/windows/sync-across-your-devices) |
 
-<sub>From each project's own pages, October 2026. Something out of date? Please [open an issue](https://github.com/aveterosystems/seam/issues).</sub>
+<sub>Each value links to the project's own page it comes from, checked October 2026. Something out of date? Please [open an issue](https://github.com/aveterosystems/seam/issues).</sub>
 
 ## Set up in ten seconds
 
@@ -118,7 +114,7 @@ Found a vulnerability? Please read [SECURITY.md](SECURITY.md) rather than openin
 
 ## Install
 
-Seam is an early release (0.2.2). Expect rough edges, and tell us about them.
+Seam is an early release. Expect rough edges, and tell us about them. What changed in each version is in the [changelog](CHANGELOG.md).
 
 Download both apps from the [latest release](https://github.com/aveterosystems/seam/releases/latest).
 
@@ -147,22 +143,6 @@ Run the same for `Seam-<version>-android.apk`. Then check the files are signed b
 | Mac | `2049f2317d0b7caeac304b764586b661c8e9393a5a6f8328104bd07cdc05c06a` | `codesign -d --extract-certificates`, then `shasum -a 256` |
 
 The same fingerprints are kept in [`release/`](release/).
-
-## Roadmap
-
-- [x] Pair with a QR code, no account
-- [x] Clipboard both ways
-- [x] Phone battery on the computer
-- [x] Phone notifications, with reply and dismiss
-- [x] Direct connection on the same Wi‑Fi
-- [ ] Works anywhere through Tor, with no Seam servers in between *(in progress)*
-- [ ] Files both ways
-- [ ] Texts on your computer
-- [ ] Ring my phone
-- [ ] Seam for Linux
-- [ ] Seam for Windows
-
-Follow along in [issues](https://github.com/aveterosystems/seam/issues) and the [changelog](CHANGELOG.md).
 
 ## FAQ
 

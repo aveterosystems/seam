@@ -79,7 +79,7 @@ struct PairingView: View {
             }
             VStack(alignment: .leading, spacing: 14) {
                 step(1, Text("Get **Seam** on your phone"))
-                step(2, Text("Tap **Scan pairing code** and point the camera here"))
+                step(2, Text("Tap **Pair with a Mac** and point the camera here"))
                 step(3, Text("Check both screens show the same code, then pair"))
             }
             Spacer()

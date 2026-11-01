@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- README: the Mac pairing window while it waits for the phone, as PairingView.swift draws it (pt = px). -->
+<html><head><meta charset="utf-8"><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 840px; height: 610px; background: transparent; overflow: hidden; }
+body { font: 13px -apple-system, sans-serif; color: rgba(0,0,0,.85); }
+.sym { display: inline-block; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; flex: none; }
+.sec { color: rgba(0,0,0,.5); }
+.win { position: absolute; left: 50px; top: 40px; width: 740px; height: 508px; border-radius: 16px; background: #f5f5f5;
+  border: 0.5px solid rgba(0,0,0,.18); box-shadow: 0 28px 70px rgba(0,0,0,.2), 0 6px 18px rgba(0,0,0,.08); }
+.lights { position: absolute; left: 20px; top: 20px; display: flex; gap: 8px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,.12); background: #dcdcdc; }
+/* Under the 28 pt title bar: 8 pt top, 48 sides, 40 bottom */
+.body { position: absolute; left: 48px; right: 48px; top: 36px; bottom: 40px; display: flex; gap: 40px; align-items: flex-start; }
+.steps { flex: 1; height: 100%; display: flex; flex-direction: column; gap: 20px; }
+.step { display: flex; gap: 12px; align-items: baseline; }
+.n { width: 22px; height: 20px; border-radius: 10px; background: rgba(11,127,111,.13); color: #07604F; font-size: 10px; font-weight: 600;
+  display: inline-grid; place-items: center; flex: none; }
+.right { width: 260px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.qr { padding: 14px; background: #fff; border-radius: 16px; border: 1px solid rgba(0,0,0,.09); }
+.qr img { width: 200px; height: 200px; image-rendering: pixelated; display: block; }
+</style></head><body>
+<div class="win">
+  <!-- Closable only: minimise and zoom are greyed out -->
+  <div class="lights"><i style="background:#ff5f57"></i><i></i><i></i></div>
+  <div class="body">
+    <div class="steps">
+      <img src="AppIcon.png" width="56" height="56">
+      <div><div style="font-size:24px;font-weight:700">Pair your phone</div>
+        <div class="sec" style="font-size:14px;margin-top:6px">Open Seam on your Android phone and scan this code. That's the whole setup.</div></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="step"><span class="n">1</span><span>Get <b>Seam</b> on your phone</span></div>
+        <div class="step"><span class="n">2</span><span>Tap <b>Pair with a Mac</b> and point the camera here</span></div>
+        <div class="step"><span class="n">3</span><span>Check both screens show the same code, then pair</span></div>
+      </div>
+      <div class="sec" style="margin-top:auto;font-size:10px;display:flex;gap:6px;align-items:center">
+        <i class="sym" data-s="lock" data-pt="10"></i>Keys are made on this Mac and never leave it. No account, no password.</div>
+    </div>
+    <div class="right">
+      <div class="qr"><img src="qr.png"></div>
+      <div class="sec" style="font-size:10px;display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums">
+        <i style="width:8px;height:8px;border-radius:50%;background:#9A5200"></i>Waiting for your phone… code expires in 4:32</div>
+    </div>
+  </div>
+</div>
+<script src="sym.js"></script>
+</body></html>
