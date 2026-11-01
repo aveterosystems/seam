@@ -62,7 +62,7 @@ What changed, in one line.
 ```
 
 ```markdown
-**⚖️ Accepted**
+**⚖️ Accepted** (not for security findings)
 Why it's acceptable as it stands, what part was fixed, and the follow-up issue if it's deferred (#NN).
 ```
 
@@ -76,7 +76,7 @@ When to resolve:
 | Reply | Resolved when | By |
 |---|---|---|
 | ✅ Fixed | CI is green on the fixing commit | The PR author |
-| ⚖️ Accepted | The reason (and any follow-up issue) is written | The PR author |
+| ⚖️ Accepted | Not a security finding, and the reason (and any follow-up issue) is written | The PR author |
 | ↩️ Disputed | **The maintainer agrees.** It stays open until then. | The maintainer only |
 
 Disputed threads stay open on purpose: an author doesn't get to dismiss a finding about their own code.

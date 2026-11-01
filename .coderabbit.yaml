@@ -2,6 +2,9 @@
 # CodeRabbit reviews every pull request (CONTRIBUTING.md, "Review").
 language: en-GB
 reviews:
+  auto_review:
+    drafts: true
+    auto_pause_after_reviewed_commits: 0 # CONTRIBUTING.md promises a review on every push
   path_instructions:
     - path: "**"
       instructions: |
