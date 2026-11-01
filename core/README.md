@@ -33,6 +33,17 @@ flowchart LR
 | `links.rs` | Which path may carry a message (decision 0006: Same Wi‑Fi first, then the relay, only paths on at both ends), applying a Hello, and the app's saved data (relay group, owner key, Hello counters). Reads both apps' earlier formats. |
 | `error.rs` | One error type; the apps see `NotPaired`, `UntrustedIdentity` or `Invalid` |
 
+### Features
+
+Each feature's messages, rules and states live in `seam-core/src/features/<feature>/` (decision 0011), with the same name as its `protocol/seam/v1/<feature>.proto`, its `seam-ffi/src/<feature>.rs` and the apps' feature modules. The rules:
+
+- A feature with no rules to share (a single message) has no folder here, only its `.proto`.
+- A feature uses only the core's public sealing and link code.
+- **A feature never uses another feature's code.** If two need the same thing, it moves into the shared core.
+- Copies kept on the computer (messages, contacts, call log) go through `seam-core/src/store/`; the app supplies only the key.
+
+Review checks these; the compiler doesn't.
+
 ## What Seam adds to libsignal
 
 ```mermaid
