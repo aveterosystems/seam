@@ -183,6 +183,33 @@ public nonisolated struct Seam_V1_Hello: Sendable {
   /// captured or sent either way, the phone makes no connections, and the Mac keeps listening.
   public var pausedUntilMs: Int64 = 0
 
+  /// The links this device has open to the peer right now. A link the receiver still has up but
+  /// that isn't listed is dead (the network went away without closing it, e.g. the phone left the
+  /// Wi‑Fi): the receiver closes it and sends again on another. So a Hello also goes whenever a
+  /// link closes while another stays open. Unset (an older app): nothing is closed.
+  public var openLinks: Seam_V1_OpenLinks {
+    get {_openLinks ?? Seam_V1_OpenLinks()}
+    set {_openLinks = newValue}
+  }
+  /// Returns true if `openLinks` has been explicitly set.
+  public var hasOpenLinks: Bool {self._openLinks != nil}
+  /// Clears the value of `openLinks`. Subsequent reads from it will return its default value.
+  public mutating func clearOpenLinks() {self._openLinks = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _openLinks: Seam_V1_OpenLinks? = nil
+}
+
+public nonisolated struct Seam_V1_OpenLinks: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var transports: [Seam_V1_Transport] = []
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -401,7 +428,7 @@ nonisolated extension Seam_V1_Control: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Hello"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}app_version\0\u{1}platform\0\u{1}capabilities\0\u{3}allowed_transports\0\u{1}seq\0\u{3}paused_until_ms\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}app_version\0\u{1}platform\0\u{1}capabilities\0\u{3}allowed_transports\0\u{1}seq\0\u{3}paused_until_ms\0\u{3}open_links\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -415,12 +442,17 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 4: try { try decoder.decodeRepeatedEnumField(value: &self.allowedTransports) }()
       case 5: try { try decoder.decodeSingularUInt64Field(value: &self.seq) }()
       case 6: try { try decoder.decodeSingularInt64Field(value: &self.pausedUntilMs) }()
+      case 7: try { try decoder.decodeSingularMessageField(value: &self._openLinks) }()
       default: break
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.appVersion.isEmpty {
       try visitor.visitSingularStringField(value: self.appVersion, fieldNumber: 1)
     }
@@ -439,6 +471,9 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if self.pausedUntilMs != 0 {
       try visitor.visitSingularInt64Field(value: self.pausedUntilMs, fieldNumber: 6)
     }
+    try { if let v = self._openLinks {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -449,6 +484,37 @@ nonisolated extension Seam_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if lhs.allowedTransports != rhs.allowedTransports {return false}
     if lhs.seq != rhs.seq {return false}
     if lhs.pausedUntilMs != rhs.pausedUntilMs {return false}
+    if lhs._openLinks != rhs._openLinks {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_OpenLinks: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".OpenLinks"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}transports\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedEnumField(value: &self.transports) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.transports.isEmpty {
+      try visitor.visitPackedEnumField(value: self.transports, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_OpenLinks, rhs: Seam_V1_OpenLinks) -> Bool {
+    if lhs.transports != rhs.transports {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

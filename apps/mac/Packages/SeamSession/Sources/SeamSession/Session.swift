@@ -68,6 +68,11 @@ public actor Session {
     /// Hellos in the outbox: the only envelopes allowed the Hello route. Memory only: after a
     /// restart a waiting Hello takes the normal route, and a fresh one goes when a path comes up.
     var hellos: Set<Data> = []
+    /// Each envelope sent and not yet acked, with the link it went on and when that link is given up.
+    var ackWaits: [Data: (path: PeerPath, timer: TimerToken)] = [:]
+    /// A link that leaves an envelope unacked this long, while another link is up, is taken for dead
+    /// (a network that went away without closing it): it's closed and the envelope goes on the other.
+    static let ackTimeout: TimeInterval = 8
 
     let clipboard: ClipboardFeature
     let notifications: NotificationsFeature
@@ -217,6 +222,7 @@ public actor Session {
             guard peerId == phone?.id else { return }
             outbox.remove(msgID)
             hellos.remove(msgID)
+            ackWaits.removeValue(forKey: msgID)?.timer.cancel()
             saveOutbox()
         case .bundleRequest(let peerId):
             if peerId == LanServer.pairingPeer { sendBundle(on: path) }

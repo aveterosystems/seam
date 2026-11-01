@@ -36,6 +36,15 @@ message Hello {
   // connection: a late or replayed message can't re-pause a resumed Mac. While paused nothing is
   // captured or sent either way, the phone makes no connections, and the Mac keeps listening.
   int64 paused_until_ms = 6;
+  // The links this device has open to the peer right now. A link the receiver still has up but
+  // that isn't listed is dead (the network went away without closing it, e.g. the phone left the
+  // Wi‑Fi): the receiver closes it and sends again on another. So a Hello also goes whenever a
+  // link closes while another stays open. Unset (an older app): nothing is closed.
+  OpenLinks open_links = 7;
+}
+
+message OpenLinks {
+  repeated Transport transports = 1;
 }
 
 enum Transport {

@@ -114,6 +114,9 @@ internal class Outbox(private val store: PendingStore, private val now: () -> Lo
         return save()
     }
 
+    /** Sent and not yet acked by the Mac. */
+    fun unacked(msgId: ByteString): Boolean = lanUnacked.containsKey(msgId)
+
     /** The Mac acked it on the direct link. An unknown id: nothing to remove, nothing written. */
     fun acked(msgId: ByteString) {
         if (lanUnacked.remove(msgId) != null) save()

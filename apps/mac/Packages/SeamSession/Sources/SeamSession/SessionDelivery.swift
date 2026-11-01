@@ -38,6 +38,19 @@ extension Session {
               links[path]?.send(.with { $0.deliver = envelope }, to: phone.id) == true else { return }
         outbox.markSent(envelope.msgID)
         saveOutbox()
+        let id = envelope.msgID
+        ackWaits[id]?.timer.cancel()
+        ackWaits[id] = (path, timers.after(Self.ackTimeout) { [weak self] in await self?.ackOverdue(id, on: path) })
+    }
+
+    /// No ack for this long on `path` while another link is up: that link is dead without having
+    /// said so. Closed, so what it never confirmed goes on the other one (and the phone is told).
+    private func ackOverdue(_ id: Data, on path: PeerPath) async {
+        guard ackWaits[id]?.path == path else { return } // acked, or sent again since on another link
+        ackWaits[id] = nil
+        guard outbox.sent.contains(where: { $0.msgID == id }), up.contains(path), upPaths.count > 1, let phone else { return }
+        links[path]?.close(peerId: phone.id)
+        await pathClosed(path)
     }
 
     /// Everything waiting, oldest first, now that a path may have opened.
@@ -61,10 +74,24 @@ extension Session {
     /// Anything sent but not acked goes again, on whatever path is allowed now.
     func pathClosed(_ path: PeerPath) async {
         guard up.remove(path) != nil else { return }
-        guard !outbox.sent.isEmpty else { return }
-        outbox.requeueSent()
-        saveOutbox()
-        await flush()
+        if !outbox.sent.isEmpty {
+            outbox.requeueSent()
+            saveOutbox()
+            await flush()
+        }
+        // The phone may not know this link is gone: the Hello lists the ones still open
+        if !upPaths.isEmpty { await sendHello() }
+    }
+
+    /// The phone's Hello lists the links it has open. One of ours that it doesn't list is dead on
+    /// its side (it left the Wi‑Fi): close it, so nothing more is sent into it.
+    func closeLinks(missingFrom open: Seam_V1_OpenLinks) async {
+        guard let phone else { return }
+        let listed = Set(open.transports)
+        for path in upPaths where !listed.contains(path.transport) {
+            links[path]?.close(peerId: phone.id)
+            await pathClosed(path)
+        }
     }
 
     /// A path to the phone came up: what waited, then this Mac's switches, then the features'.
@@ -85,6 +112,7 @@ extension Session {
             $0.platform = "macos"
             $0.seq = next.seq
             $0.allowedTransports = next.allowedTransports.map { Seam_V1_Transport(rawValue: Int($0)) ?? .unspecified }
+            $0.openLinks = .with { $0.transports = upPaths.map(\.transport) }
         }
         await sendToPhone(.with { $0.control = .with { $0.hello = hello } }, ttl: Self.settingsTTL, hello: true)
     }
@@ -114,6 +142,7 @@ extension Session {
             // The phone's pause rides on the same counter, so a late or replayed Hello can't
             // re-pause a resumed Mac, and every new connection brings the current state (SR-32-01)
             setPause(until: Self.pauseEnd(h.pausedUntilMs))
+            if h.hasOpenLinks { await closeLinks(missingFrom: h.openLinks) }
         }
         let saved = (try? storage.saveState()) != nil
         // Handled even if the save failed: the ratchet has moved, so a redelivery in this run opens

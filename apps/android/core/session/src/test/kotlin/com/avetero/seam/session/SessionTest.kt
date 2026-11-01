@@ -8,6 +8,7 @@ import com.avetero.seam.protocol.v1.Control
 import com.avetero.seam.protocol.v1.Envelope
 import com.avetero.seam.protocol.v1.Hello
 import com.avetero.seam.protocol.v1.Notification
+import com.avetero.seam.protocol.v1.OpenLinks
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.protocol.v1.Transport
@@ -847,10 +848,10 @@ class SessionTest {
 
     private var macSeq = 0L
 
-    private fun macHello(vararg allowed: Transport, seq: Long = ++macSeq): ByteArray {
-        val hello = Payload.newBuilder().setControl(
-            Control.newBuilder().setHello(Hello.newBuilder().setSeq(seq).addAllAllowedTransports(allowed.toList())),
-        ).build()
+    private fun macHello(vararg allowed: Transport, seq: Long = ++macSeq, open: List<Transport>? = null): ByteArray {
+        val h = Hello.newBuilder().setSeq(seq).addAllAllowedTransports(allowed.toList())
+        if (open != null) h.setOpenLinks(OpenLinks.newBuilder().addAllTransports(open))
+        val hello = Payload.newBuilder().setControl(Control.newBuilder().setHello(h)).build()
         return mac.seal(mac.peers().single().id, hello.toByteArray(), 0u)
     }
 
@@ -938,6 +939,64 @@ class SessionTest {
         s.setSwitches(wifi = false, tor = false)
         advanceUntilIdle()
         assertEquals(false to true, s.settings.value.wifi to s.settings.value.tor)
+    }
+
+    // MARK: a link that dies without closing (the phone or the Mac left the Wi‑Fi)
+
+    private fun TestScope.bothUp(lan: FakeLan): Session = pairedWithLan(lan).also {
+        lan.announce(home)
+        advanceUntilIdle()
+        assertTrue(lan.open?.closed == false && tor.open?.closed == false)
+    }
+
+    @Test fun whenItsWifiLinkGoesThePhoneTellsTheMacThroughTor() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        bothUp(lan)
+        assertEquals(setOf(Transport.TRANSPORT_LAN, Transport.TRANSPORT_TOR), lan.hellos.last().control.hello.openLinks.transportsList.toSet())
+        lan.drop() // Wi‑Fi switched off
+        advanceUntilIdle()
+        assertEquals(listOf(Transport.TRANSPORT_TOR), tor.hellos.last().control.hello.openLinks.transportsList)
+    }
+
+    @Test fun aWifiLinkThatStopsAckingIsGivenUpForTor() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = bothUp(lan)
+        lan.lose = true // the Mac left the Wi‑Fi: nothing arrives, nothing closes
+        s.send(clip("into the void"))
+        advanceTimeBy(ACK_TIMEOUT_MS - 1_000)
+        assertTrue("not yet", lan.open?.closed == false)
+        advanceTimeBy(2_000)
+        assertEquals("sent again through Tor", listOf("into the void"), tor.macReceived.filter { it.hasClipboard() }.map { it.clipboard.text })
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
+    }
+
+    @Test fun theOnlyLinkIsntClosedForBeingSlow() = runTest {
+        val s = pairedWithLan(FakeLan(emptyMap()))
+        advanceUntilIdle()
+        tor.lose = true
+        s.send(clip("slow"))
+        advanceTimeBy(ACK_TIMEOUT_MS * 2)
+        assertTrue("with nothing to fall back to, the link's own timeouts decide", tor.open?.closed == false)
+        tor.lose = false
+    }
+
+    @Test fun aMacHelloWithoutTheWifiLinkClosesOurs() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = bothUp(lan)
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_LAN, Transport.TRANSPORT_TOR, open = listOf(Transport.TRANSPORT_TOR)))
+        advanceUntilIdle()
+        assertEquals(Transport.TRANSPORT_TOR, s.route.value)
+        s.send(clip("via tor"))
+        advanceUntilIdle()
+        assertEquals("via tor", tor.macReceived.single { it.hasClipboard() }.clipboard.text)
+    }
+
+    @Test fun anOlderMacsHelloClosesNothing() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = bothUp(lan)
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_LAN, Transport.TRANSPORT_TOR))
+        advanceUntilIdle()
+        assertEquals(Transport.TRANSPORT_LAN, s.route.value)
     }
 
     @Test fun onlyPathsTheMacAllowsAreUsed() = runTest {
@@ -1169,14 +1228,15 @@ class SessionTest {
         val s = onWifi(lan)
         lan.lose = true // the link is dying: what's written now never arrives
         s.send(status(41))
-        advanceUntilIdle()
+        advanceTimeBy(1_000) // well inside the ack timeout: this test is about the drop, not the failover
         val sent = lan.lost.single { it.msgId !in tor.envelopes.map(Envelope::getMsgId) }
         val saves = store.saves.size
         lan.open!!.drop()
         runCurrent()
-        val again = tor.envelopes.last()
+        val again = tor.envelopes.single { it.msgId == sent.msgId }
         assertEquals("the same envelope, not a new seal", sent, again)
-        assertEquals("nothing sealed (or saved) again", saves, store.saves.size)
+        assertEquals("not sealed again: the one save is the Hello telling the Mac the link went", saves + 1, store.saves.size)
+        assertEquals(listOf(Transport.TRANSPORT_TOR), tor.hellos.last().control.hello.openLinks.transportsList)
         assertEquals(41, tor.macReceived.single { it.hasStatus() }.status.batteryPct)
     }
 
@@ -1187,12 +1247,13 @@ class SessionTest {
         s.send(status(46))
         advanceTimeBy(1_000) // not until idle: a Tor path with a lost envelope never goes idle
         runCurrent()
+        val id = lan.lost.last().msgId
         tor.services.remove(qr.onionAddress)
         tor.drop() // Tor was up: its drop resends, once
         advanceTimeBy(5 * 60_000L) // then many failed Tor attempts
         runCurrent()
         assertTrue(tor.dialled.size > 3)
-        assertEquals("an attempt that never came up loses nothing, so resends nothing", 2, lan.lost.count { it.msgId == lan.lost.last().msgId })
+        assertEquals("an attempt that never came up loses nothing, so resends nothing", 2, lan.lost.count { it.msgId == id })
         scopes.forEach { it.cancel() } // the Tor path retries for good while a message is owed: runTest would never go idle
     }
 
@@ -1215,7 +1276,7 @@ class SessionTest {
         val s = onWifi(lan)
         lan.lose = true
         s.send(status(44))
-        advanceUntilIdle()
+        advanceTimeBy(1_000) // well inside the ack timeout: this test is about the drop, not the failover
         val sent = lan.lost.last()
         assertEquals("recorded before it went", listOf(sent), pending.load())
         // Android kills the process; a new Session starts over the same saved state
@@ -1232,7 +1293,7 @@ class SessionTest {
         val s = onWifi(lan)
         lan.lose = true
         s.send(status(45))
-        advanceUntilIdle()
+        advanceTimeBy(1_000) // well inside the ack timeout: this test is about the drop, not the failover
         assertEquals(1, pending.load().size)
         s.forgetMac()
         advanceUntilIdle()
@@ -1268,10 +1329,10 @@ class SessionTest {
         advanceUntilIdle()
         assertEquals(42, lan.macReceived.single().status.batteryPct)
         assertTrue("acked: gone from the file too", pending.load().isEmpty())
-        val before = tor.envelopes.size
+        val before = tor.macReceived.size
         lan.open!!.drop()
         runCurrent()
-        assertEquals("acked: nothing to send again", before, tor.envelopes.size)
+        assertEquals("acked: nothing to send again (only a Hello saying the link went)", before, tor.macReceived.size)
     }
 
     @Test fun anAckForAnUnknownIdClearsNothing() = runTest {
@@ -1279,13 +1340,13 @@ class SessionTest {
         val s = onWifi(lan)
         lan.lose = true
         s.send(status(43))
-        advanceUntilIdle()
+        advanceTimeBy(1_000) // well inside the ack timeout: this test is about the drop, not the failover
         val sent = lan.lost.last()
         lan.open!!.delivered(ByteString.copyFrom(ByteArray(16) { 7 })) // not one we sent
-        advanceUntilIdle()
+        runCurrent()
         lan.open!!.drop()
         runCurrent()
-        assertEquals(sent, tor.envelopes.last())
+        assertEquals(sent, tor.envelopes.single { it.msgId == sent.msgId })
     }
 
     @Test fun anUnackedEnvelopePastItsTtlIsDroppedNotSentLate() = runTest {
@@ -1294,7 +1355,7 @@ class SessionTest {
         val s = onWifi(lan, now = { System.currentTimeMillis() + offset }) // sent_at is wall-clock time
         lan.lose = true
         s.send(clip("old"))
-        advanceUntilIdle()
+        advanceTimeBy(1_000) // well inside the ack timeout: this test is about the drop, not the failover
         offset = 601_000 // a clipboard lives 10 minutes
         lan.open!!.drop()
         runCurrent()
