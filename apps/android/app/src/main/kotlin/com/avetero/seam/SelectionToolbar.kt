@@ -34,21 +34,22 @@ import androidx.compose.ui.unit.sp
 import com.avetero.seam.feature.notifications.AppMode
 
 /**
- * Selection mode's floating toolbar, drawn as the prototype's (inverse colours, 30 dp corners, 6 dp padding): how many are picked, and
+ * Selection mode's floating toolbar, drawn as the prototype's (30 dp corners, 6 dp padding) in the theme's own colours, so it's dark
+ * in dark mode (not Material's inverse, which turns it light there): how many are picked, and
  * the three modes for all of them at once. It rises 120 dp from below on the spring (0.5 s)
  * while selecting, and drops away after.
  */
 @Composable
 internal fun BulkToolbar(visible: Boolean, count: Int, modifier: Modifier, onClose: () -> Unit, onMode: (AppMode) -> Unit) {
     val rise = with(LocalDensity.current) { 120.dp.roundToPx() }
-    val ink = MaterialTheme.colorScheme.inverseOnSurface
+    val ink = MaterialTheme.colorScheme.onSurface
     AnimatedVisibility(
         visible, modifier.padding(bottom = 28.dp),
         enter = slideInVertically(Motion.spring(500)) { rise }, exit = slideOutVertically(Motion.spring(500)) { rise },
     ) {
         Row(
             Modifier.shadow(12.dp, RoundedCornerShape(30.dp), ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.3f))
-                .background(MaterialTheme.colorScheme.inverseSurface, RoundedCornerShape(30.dp)).padding(6.dp),
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(30.dp)).padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
