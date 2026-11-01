@@ -102,7 +102,7 @@ internal fun Home(
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 40.dp)) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_seam_logo), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(painterResource(R.drawable.ic_seam_mark), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             Spacer(Modifier.width(8.dp))
             Text("Seam", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp, modifier = Modifier.weight(1f))
             IconButton(onClick = onOpenSettings, modifier = Modifier.size(48.dp)) {

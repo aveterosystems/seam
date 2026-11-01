@@ -50,18 +50,20 @@ fun SettingsScreen(
     connection: ConnectionSettings = ConnectionSettings(),
     onSwitches: (wifi: Boolean, tor: Boolean) -> Unit = { _, _ -> },
     pairedAt: Long? = null,
+    sendSensitive: Boolean = false,
+    onSendSensitive: (Boolean) -> Unit = {},
 ) {
     var confirmForget by remember { mutableStateOf(false) }
+    var neverSendSensitive by remember { mutableStateOf(!sendSensitive) }
     val uri = LocalUriHandler.current
-    val snack = rememberSnack()
     SubScreen("Settings", onBack) {
         Section("On your Mac") {
             if (notifications != null) NotificationsItem(notifications, "Notifications", home = false, onOpen = onOpenNotifications)
             AutoClipboardItem(clipboard)
-            // Copies apps mark sensitive are always skipped (readClip): nothing to switch off, so a tap says so
             SwitchItem(
-                "Never send passwords", "Password-manager copies stay on this phone",
-                checked = true, onChange = { snack("Always on: copies apps mark as sensitive never leave this phone") },
+                "Never send passwords",
+                if (neverSendSensitive) "Passwords and card numbers stay on this phone" else "Passwords and card numbers go to your Mac too",
+                checked = neverSendSensitive, onChange = { neverSendSensitive = it; onSendSensitive(!it) },
                 lead = painterResource(R.drawable.ic_key),
             )
         }

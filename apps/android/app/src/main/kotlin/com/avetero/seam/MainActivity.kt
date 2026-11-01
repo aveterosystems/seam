@@ -156,6 +156,8 @@ class MainActivity : ComponentActivity() {
                     connection = connection,
                     onSwitches = { wifi, tor -> session.setSwitches(wifi, tor) },
                     pairedAt = pairedAt,
+                    sendSensitive = clipboard.sendSensitive,
+                    onSendSensitive = { clipboard.sendSensitive = it },
                 )
                 Page.Home ->                 SeamScreen(
                     state = state,
