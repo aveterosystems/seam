@@ -4251,7 +4251,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() != 62568) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() != 6953) {
+    if (uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() != 47526) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_seamdevice_app_data() != 29712) {

@@ -1234,7 +1234,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_accept_pairing() and 0xFFFF) != 62568) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() and 0xFFFF) != 6953) {
+    if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_allowed_paths() and 0xFFFF) != 47526) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_seamdevice_app_data() and 0xFFFF) != 29712) {
