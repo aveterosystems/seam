@@ -230,6 +230,24 @@ struct InfoButton: View {
     }
 }
 
+/// Seam's one floating surface, for anything that hovers over a screen: the popover's toast and
+/// the Settings bulk bar. The theme's own colours (dark in dark mode, never inverted) and one lift,
+/// so they always match. A new floating bar uses this rather than drawing its own.
+struct FloatingSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(SeamStyle.Pop.fg)
+            .background(.regularMaterial, in: Capsule())
+            .background(SeamStyle.Win.side, in: Capsule())
+            .overlay(Capsule().strokeBorder(SeamStyle.Win.line, lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.2), radius: 15, y: 8)
+    }
+}
+
+extension View {
+    func floatingSurface() -> some View { modifier(FloatingSurface()) }
+}
+
 /// Catalogue 8: when the result happens somewhere else, a small pill rises above the footer.
 struct ToastPill: View {
     let text: String
@@ -237,8 +255,7 @@ struct ToastPill: View {
     var body: some View {
         Text(text).font(.system(size: 11, weight: .semibold))
             .padding(.horizontal, 11).padding(.vertical, 5)
-            .background(Capsule().fill(SeamStyle.Pop.fg))
-            .foregroundStyle(Color(light: 0xFFFFFF, dark: 0x111111))
+            .floatingSurface()
             .accessibilityAddTraits(.isStaticText)
     }
 }

@@ -135,10 +135,7 @@ struct NotificationsSettingsPane: View {
         }
         .font(.system(size: 12))
         .padding(EdgeInsets(top: 7, leading: 14, bottom: 7, trailing: 8))
-        .background(.regularMaterial, in: Capsule())
-        .background(SeamStyle.Win.side, in: Capsule())
-        .overlay(Capsule().strokeBorder(SeamStyle.Win.line, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.2), radius: 15, y: 8)
+        .floatingSurface()
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity)
     }

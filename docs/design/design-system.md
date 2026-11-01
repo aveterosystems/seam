@@ -108,6 +108,10 @@ The Mac uses **SF Symbols**, so weight and scale follow the system. Android uses
 | Lock Mac | `lock` | lock |
 | Settings | `slider.horizontal.3` | sliders |
 
+## Floating surfaces
+
+Anything that hovers over a screen (a toast, a snackbar, a selection toolbar, a camera caption) is drawn by one shared component per platform, in the theme's own colours: dark in dark mode, light in light mode, never Material's inverse colours. Mac: `.floatingSurface()` in `Components.swift`. Android: `FloatingSurface` in `Components.kt`. A new floating bar uses these rather than drawing its own.
+
 ## The stitch: how a connection is shown
 
 Every place that shows the link between the devices (the menu bar header, the sidebar device card, the Android home) uses the same line under the device name.
