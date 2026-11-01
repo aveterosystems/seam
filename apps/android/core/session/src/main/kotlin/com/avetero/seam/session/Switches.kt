@@ -79,6 +79,7 @@ internal class Switches(
             macHelloSeq = d?.helloSeqApplied?.toLong() ?: 0,
             helloSeq = d?.helloSeqSent?.toLong() ?: 0,
             allowed = allowedFor(s),
+            macCapabilities = d?.peerCapabilities?.takeIf { it.isNotEmpty() }?.toSet(),
         )
     }
 

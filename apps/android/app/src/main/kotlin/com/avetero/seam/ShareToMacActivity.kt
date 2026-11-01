@@ -101,6 +101,7 @@ class ShareToMacActivity : ComponentActivity() {
 
 /** "Sent" only when it can go now; otherwise say it's waiting (SR-4-04). */
 fun sentMessage(app: SeamApplication, sent: Boolean): String = when {
+    app.session.feature<ClipboardFeature>().offOnMac -> "Your Mac has Sync the clipboard turned off"
     !sent -> "Nothing to send: the clipboard is empty, too big, or holds something private"
     app.session.state.value is SessionState.Connected -> "Sent to your Mac's clipboard"
     // Queued and a connection starting, not sent yet (SR-8-04)

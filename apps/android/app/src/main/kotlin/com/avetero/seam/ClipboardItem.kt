@@ -11,8 +11,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import com.avetero.seam.feature.clipboard.CopyWatcher
 
-/** Phone → Mac clipboard: automatic (full build, granted), possible after setup (full), or one tap (Play). */
-enum class ClipboardStatus { Automatic, NeedsSetup, Manual }
+/** Phone → Mac clipboard: automatic (full build, granted), possible after setup (full), one tap (Play), or off on the Mac. */
+enum class ClipboardStatus { Automatic, NeedsSetup, Manual, OffOnMac }
 
 /** The row's line: on Home, what happens to a copy; in Settings, also how it was set up. */
 fun ClipboardStatus.subtitle(viaAccessibility: Boolean, home: Boolean): String = when (this) {
@@ -23,6 +23,7 @@ fun ClipboardStatus.subtitle(viaAccessibility: Boolean, home: Boolean): String =
     }
     ClipboardStatus.NeedsSetup -> "Off · tap Send clipboard after copying"
     ClipboardStatus.Manual -> "Tap Send clipboard after copying, or share to Send to Mac"
+    ClipboardStatus.OffOnMac -> "Off on your Mac · turn on Sync the clipboard there"
 }
 
 /**
@@ -58,13 +59,14 @@ private fun ClipboardDialog(clipboard: ClipboardStatus, viaAccessibility: Boolea
             ClipboardStatus.Automatic -> if (viaAccessibility) {
                 "What you copy here goes to your Mac by itself. To turn it off, turn off Seam in Android's Accessibility settings."
             } else {
-                "What you copy here goes to your Mac by itself. To turn it off, choose Clipboard Sync off in Seam on your Mac."
+                "What you copy here goes to your Mac by itself. To turn it off, turn off Sync the clipboard in Seam on your Mac."
             }
             ClipboardStatus.NeedsSetup -> "Optional. Turn on Seam in Android's Accessibility settings, and what you copy goes to your Mac by itself. " +
                 "Android warns that accessibility apps can see your screen: Seam only notices when you copy something, and skips anything apps mark as sensitive unless you allow it in Settings.\n\n" +
                 "If Android says Restricted setting: App info › ⋮ › Allow restricted settings, then try again.\n\n" +
                 "Without it, tap Send clipboard on the home screen, or share text to Send to Mac."
             ClipboardStatus.Manual -> "The Play Store build can't send copies by itself. Tap Send clipboard on the home screen, or share text to Send to Mac."
+            ClipboardStatus.OffOnMac -> "Your Mac has Sync the clipboard turned off, so nothing you copy goes to it and nothing comes back. Turn it on in Seam on your Mac."
         },
         onDismiss,
     ) { close ->

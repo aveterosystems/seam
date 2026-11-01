@@ -42,6 +42,17 @@ struct SessionFeatureTests {
         #expect(await rig.clipboard.clips.isEmpty, "turning sync off takes the history off the screen (SR-10-04)")
     }
 
+    @Test func thePhoneHearsSyncOffAndOnInAHello() async throws {
+        let rig = try await Rig()
+        await rig.torUp()
+        await rig.clipboard.setSync(false)
+        await rig.clipboard.setSync(false) // no change, no Hello
+        await rig.clipboard.setSync(true)
+        let hellos = try rig.onTor().compactMap { if case .control(let c)? = $0.body, case .hello(let h)? = c.body { h } else { nil } }
+        #expect(hellos.map { $0.capabilities.contains("clipboard.v1") } == [true, false, true])
+        #expect(hellos.allSatisfy { $0.capabilities.contains("status.v1") }, "only the clipboard is left out")
+    }
+
     @Test func sr_29_05_turningSyncOffMidReadStopsThatCopy() async throws {
         let rig = try await Rig()
         await rig.torUp()

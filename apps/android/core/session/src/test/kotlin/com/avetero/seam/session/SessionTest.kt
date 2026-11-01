@@ -848,8 +848,8 @@ class SessionTest {
 
     private var macSeq = 0L
 
-    private fun macHello(vararg allowed: Transport, seq: Long = ++macSeq, open: List<Transport>? = null): ByteArray {
-        val h = Hello.newBuilder().setSeq(seq).addAllAllowedTransports(allowed.toList())
+    private fun macHello(vararg allowed: Transport, seq: Long = ++macSeq, open: List<Transport>? = null, capabilities: List<String> = emptyList()): ByteArray {
+        val h = Hello.newBuilder().setSeq(seq).addAllAllowedTransports(allowed.toList()).addAllCapabilities(capabilities)
         if (open != null) h.setOpenLinks(OpenLinks.newBuilder().addAllTransports(open))
         val hello = Payload.newBuilder().setControl(Control.newBuilder().setHello(h)).build()
         return mac.seal(mac.peers().single().id, hello.toByteArray(), 0u)
@@ -1082,6 +1082,21 @@ class SessionTest {
         assertTrue(tor.open!!.closed)
         assertTrue(!lan.discovering && !tor.discovering)
         assertEquals(null, s.route.value)
+    }
+
+    @Test fun aCapabilityTheMacDropsIsNotTakenAndAnOlderMacTakesEverything() = runTest {
+        val s = pairedWithLan(FakeLan(emptyMap()))
+        assertTrue("never heard: everything", s.macTakes("clipboard.v1"))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR, capabilities = listOf("notifications.v1", "status.v1"))) // Sync the clipboard off
+        advanceUntilIdle()
+        assertTrue(!s.macTakes("clipboard.v1"))
+        assertTrue(s.macTakes("status.v1"))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR, capabilities = listOf("clipboard.v1", "notifications.v1", "status.v1")))
+        advanceUntilIdle()
+        assertTrue(s.macTakes("clipboard.v1"))
+        tor.deliverToPhone(macHello(Transport.TRANSPORT_TOR)) // an older Mac lists none
+        advanceUntilIdle()
+        assertTrue(s.macTakes("clipboard.v1"))
     }
 
     @Test fun aNewMacStartsWithNothingHeard() = runTest {

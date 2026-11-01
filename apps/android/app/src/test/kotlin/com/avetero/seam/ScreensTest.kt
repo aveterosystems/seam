@@ -94,12 +94,12 @@ class ScreensTest(private val dark: Boolean) {
     }
 
     @Composable
-    private fun home(look: LinkLook, clip: Boolean = false, update: Boolean = false) = SeamScreen(
+    private fun home(look: LinkLook, clip: Boolean = false, update: Boolean = false, clipboard: ClipboardStatus = ClipboardStatus.Automatic) = SeamScreen(
         state = SessionState.Connected("MacBook Pro"), scanError = null, toConfirm = null,
         onConfirm = {}, onCancelConfirm = {}, onScan = {},
         onSendClipboard = { SendFeedback(label = "✓ Sent to Mac") },
         fromMac = if (clip) FromMac("harbour-lights-42", now) else null, now = now,
-        mac = MacStatus(64, false, now), notifications = notifications, clipboard = ClipboardStatus.Automatic,
+        mac = MacStatus(64, false, now), notifications = notifications, clipboard = clipboard,
         update = if (update) Release("0.3", "", "", "") else null, look = look,
     )
 
@@ -115,6 +115,7 @@ class ScreensTest(private val dark: Boolean) {
     @Test fun homePaused() { show { home(LinkLook.paused(now + 30 * 60_000L, now)) }; shot("home-paused") }
     @Test fun homeClip() { show { home(LinkLook.SameWifi, clip = true) }; shot("home-clip") }
     @Test fun homeUpdate() { show { home(LinkLook.SameWifi, update = true) }; shot("home-update") }
+    @Test fun homeClipboardOffOnMac() { show { home(LinkLook.SameWifi, clipboard = ClipboardStatus.OffOnMac) }; shot("home-clipboard-off-on-mac") }
 
     @Test fun pauseSheet() {
         show { home(LinkLook.SameWifi) }

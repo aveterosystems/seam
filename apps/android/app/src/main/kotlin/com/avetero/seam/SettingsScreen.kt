@@ -146,7 +146,7 @@ private fun UpdatesSection(updater: Updater, version: String) {
             "GitHub sees this phone's IP when it checks",
             automatic, { automatic = it; updater.answer(it) }, lead = painterResource(R.drawable.ic_download),
         )
-        if (automatic) Item("How often", intervalLabel(interval), onClick = { chooseInterval = true })
+        if (automatic) Item("How often", intervalLabel(interval), lead = painterResource(R.drawable.ic_clock), onClick = { chooseInterval = true })
         Item("Seam ${version.substringBefore(' ')}", checkLabel(status), lead = painterResource(R.drawable.ic_info), onClick = { updater.checkNow() })
     }
     if (chooseInterval) {

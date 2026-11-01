@@ -84,13 +84,19 @@ public final class ClipboardFeature: Feature {
         pollTimer?.cancel()
     }
 
+    /// Off, the phone hears it in the Hello and stops sending copies this Mac would drop.
+    public var withheld: [String] { syncOn ? [] : [Self.capability] }
+    static let capability = "clipboard.v1"
+
     public func setSync(_ on: Bool) async {
+        let changed = syncOn != on
         syncOn = on
         lastChange = await pasteboard.changeCount() // turning it on never sends what was copied while off
         if !on {
             held.clear() // nor does turning it off let a held copy go later
             clips = [] // and it takes the clips off the screen (SR-10-04)
         }
+        if changed { await host?.sendHello() }
     }
 
     private func pollLater() {

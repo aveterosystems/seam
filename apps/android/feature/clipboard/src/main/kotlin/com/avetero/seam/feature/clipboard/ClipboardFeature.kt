@@ -49,13 +49,17 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         }
     }
 
+    /** The Mac has Sync the clipboard off: it would drop anything sent, so nothing goes. */
+    val offOnMac: Boolean get() = !session.macTakes(CLIPBOARD_CAPABILITY)
+
     /** Something new was copied on the phone (from [AutoClipboard]). */
     fun copied(text: String?) {
+        if (offOnMac) return
         rules.outgoing(text, System.currentTimeMillis())?.let(::send)
     }
 
-    /** The user asked to send this (share sheet). False if there's nothing sendable. */
-    fun sendNow(text: String?): Boolean = rules.forced(text, System.currentTimeMillis())?.also(::send) != null
+    /** The user asked to send this (share sheet). False if there's nothing sendable, or [offOnMac]. */
+    fun sendNow(text: String?): Boolean = !offOnMac && rules.forced(text, System.currentTimeMillis())?.also(::send) != null
 
     /** Send what's on the clipboard now. Only works while Seam has focus (Android 10+). */
     fun sendCurrent(): Boolean = sendNow(readClip())
@@ -108,6 +112,9 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         session.send(Payload.newBuilder().setClipboard(Clipboard.newBuilder().setText(text).setCopiedAt(System.currentTimeMillis())).build())
     }
 }
+
+/** What the Mac lists in its Hello while it takes clipboards. */
+const val CLIPBOARD_CAPABILITY = "clipboard.v1"
 
 /** How recent an automatically noticed copy must be. */
 const val FRESH_MS = 5_000L
