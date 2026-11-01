@@ -128,7 +128,7 @@ struct SessionDeliveryTests {
     @Test func anExpiredMessageIsDroppedNotSentLate() async throws {
         let rig = try await Rig()
         await rig.sendSomething(1) // 10 minutes to live
-        await rig.timers.advance(601)
+        await rig.timers.advance(660) // the core stamps sentAt with the real clock, a few seconds after the rig began
         await rig.torUp()
         #expect(try rig.onTor().numbers == [])
         #expect(await rig.session.state.waiting == 1, "only the new Hello, until the phone acks it")
