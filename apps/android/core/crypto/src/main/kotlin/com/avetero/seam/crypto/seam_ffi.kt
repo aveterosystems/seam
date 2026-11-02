@@ -813,6 +813,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_func_notification_mode_word(
     ): Int
+    external fun uniffi_seam_ffi_checksum_func_notifications_phone_count(
+    ): Int
     external fun uniffi_seam_ffi_checksum_func_notifications_phone_long(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_notifications_phone_short(
@@ -822,6 +824,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_seam_ffi_checksum_func_sender_only_footnote(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_size_words(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_until_words(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_waiting_words(
     ): Int
@@ -1205,6 +1209,8 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_notification_mode_word(`mode`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_notifications_phone_count(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_notifications_phone_long(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_notifications_phone_short(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1214,6 +1220,8 @@ internal object UniffiLib {
     external fun uniffi_seam_ffi_fn_func_sender_only_footnote(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_size_words(`bytes`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_until_words(`untilMs`: Long,`nowMs`: Long,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_waiting_words(`count`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1381,6 +1389,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_func_notification_mode_word() and 0xFFFF) != 38055) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_seam_ffi_checksum_func_notifications_phone_count() and 0xFFFF) != 2341) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_seam_ffi_checksum_func_notifications_phone_long() and 0xFFFF) != 12132) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1394,6 +1405,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_size_words() and 0xFFFF) != 47019) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_until_words() and 0xFFFF) != 50263) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_waiting_words() and 0xFFFF) != 9954) {
@@ -8957,6 +8971,20 @@ public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<Peer
     
 
         /**
+         * The phone's master card: "6 of 10 apps".
+         */ fun `notificationsPhoneCount`(`settingsBytes`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notifications_phone_count(
+    
+        
+        FfiConverterByteArray.lower(`settingsBytes`),_status)
+}
+    )
+    }
+    
+
+        /**
          * The phone's Settings line: "6 of 10 apps · Sender only for Monzo".
          */ fun `notificationsPhoneLong`(`settingsBytes`: kotlin.ByteArray): kotlin.String {
             return FfiConverterString.lift(
@@ -9021,6 +9049,23 @@ public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<Peer
     
         
         FfiConverterULong.lower(`bytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * When a pause ends: "until 14:44", "until tomorrow 14:44", "until 3 Nov 14:44", or "until you
+         * resume" for i64::MAX.
+         */ fun `untilWords`(`untilMs`: kotlin.Long, `nowMs`: kotlin.Long, `time`: TimeWords): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_until_words(
+    
+        
+        FfiConverterLong.lower(`untilMs`),
+        FfiConverterLong.lower(`nowMs`),
+        FfiConverterTypeTimeWords.lower(`time`),_status)
 }
     )
     }

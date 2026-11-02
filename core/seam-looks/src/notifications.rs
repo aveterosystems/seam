@@ -54,6 +54,11 @@ pub fn phone_short(enabled: bool, apps: &[NotificationApp]) -> String {
     }
 }
 
+/// The phone's master card: "6 of 10 apps".
+pub fn phone_app_count(apps: &[NotificationApp]) -> String {
+    format!("{} of {} apps", apps_on_count(apps), apps.len())
+}
+
 /// The phone's Settings line: "6 of 10 apps · Sender only for Monzo", naming one or two apps.
 pub fn phone_long(enabled: bool, apps: &[NotificationApp]) -> String {
     let sender_only: Vec<&str> = apps
@@ -66,7 +71,7 @@ pub fn phone_long(enabled: bool, apps: &[NotificationApp]) -> String {
         1 | 2 => Some(format!("Sender only for {}", sender_only.join(" and "))),
         n => Some(format!("Sender only for {n} apps")),
     };
-    let count = format!("{} of {} apps", apps_on_count(apps), apps.len());
+    let count = phone_app_count(apps);
     [(!enabled).then(|| "Off".to_string()), Some(count), names]
         .into_iter()
         .flatten()

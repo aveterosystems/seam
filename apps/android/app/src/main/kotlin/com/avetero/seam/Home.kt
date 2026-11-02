@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.avetero.seam.crypto.LinkLook
 import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.clipboard.FromMac
 import com.avetero.seam.feature.notifications.NotificationsFeature
@@ -81,7 +82,7 @@ fun sendFeedback(sent: Boolean, state: SessionState, macName: String, offOnMac: 
  */
 fun macBattery(look: LinkLook, mac: MacStatus?): String? = when {
     mac == null -> null
-    look.connected || look.paused -> "${mac.batteryPct}%"
+    look.connected || look.pausedHere -> "${mac.batteryPct}%"
     else -> "—"
 }
 
@@ -124,7 +125,7 @@ internal fun Home(
             Meta(macBattery(look, mac), mac?.let { it.batteryPct <= 15 && !it.charging } == true && look.connected)
             if (notice != null) Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 12.dp))
         }
-        Actions(look.paused, onSend, onPause, onResume)
+        Actions(look.pausedHere, onSend, onPause, onResume)
         FromMacSlot(fromMac, now, onPaste)
         Section(null) {
             if (notifications != null) NotificationsItem(notifications, "Notifications on Mac", home = true, onOpen = onOpenNotifications)
@@ -140,8 +141,8 @@ internal fun Home(
 @Composable
 private fun StatusChip(look: LinkLook) {
     val scheme = MaterialTheme.colorScheme
-    val bg = pick(look.paused, scheme.surfaceContainerLow, scheme.tertiaryContainer, Motion.ease(400))
-    val ink = pick(look.paused, scheme.onSurfaceVariant, scheme.onTertiaryContainer, Motion.ease(400))
+    val bg = pick(look.pausedHere, scheme.surfaceContainerLow, scheme.tertiaryContainer, Motion.ease(400))
+    val ink = pick(look.pausedHere, scheme.onSurfaceVariant, scheme.onTertiaryContainer, Motion.ease(400))
     val dot = pick(look.connected, scheme.outline, okColor, Motion.ease(400))
     val ring = remember { Animatable(0f) }
     if (look.connected && !reducedMotion()) LaunchedEffect(Unit) {
@@ -168,7 +169,7 @@ private fun StatusChip(look: LinkLook) {
         })
         Spacer(Modifier.width(7.dp))
         Swap(look.short) { Text(it, fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = ink, maxLines = 1) }
-        val icon = look.icon
+        val icon = look.icon?.drawable
         if (look.connected && icon != null) {
             Spacer(Modifier.width(6.dp))
             Crossfade(icon, label = "path") { Icon(painterResource(it), null, Modifier.size(15.dp), tint = ink) }
@@ -274,17 +275,10 @@ private fun FromMacSlot(fromMac: FromMac?, now: Long, onPaste: (String) -> Boole
     Unfold(shown != null) {
         val clip = last.value ?: return@Unfold
         val done = pasted == clip.at
-        Card("Copied on your Mac · ${ago(now - clip.at)}", clip.text, MaterialTheme.colorScheme.surfaceContainerHigh, kicker = MaterialTheme.colorScheme.outline) {
+        Card("Copied on your Mac · ${Looks.ago(clip.at, now)}", clip.text, MaterialTheme.colorScheme.surfaceContainerHigh, kicker = MaterialTheme.colorScheme.outline) {
             Pill(if (done) "✓ Pasted" else "Paste", { if (onPaste(clip.text)) pasted = clip.at else snack("Couldn't put it on the clipboard") }, if (done) PillKind.Done else PillKind.Tonal, enabled = !done)
         }
     }
-}
-
-/** "just now", "5 min ago", "2 h ago". */
-internal fun ago(ms: Long): String = when {
-    ms < 60_000 -> "just now"
-    ms < 3_600_000 -> "${ms / 60_000} min ago"
-    else -> "${ms / 3_600_000} h ago"
 }
 
 /** Home's cards: 28 dp corners, a 12 sp capitalised kicker, one 15 sp line, an action at the end, anything under them. */

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import com.avetero.seam.crypto.LookLine
 import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
@@ -38,12 +39,12 @@ class PauseTest {
     @Test fun thePausedLookWinsUntilTheTimeComes() {
         val now = 1_000_000L
         val c = ConnectionSettings(pausedUntil = now + 60_000, allowed = setOf(PeerPath.LAN))
-        val paused = LinkLook.of(SessionState.Idle("Mac"), null, c, now = now)
-        assertEquals(LinkLook.Line.Broken, paused.line)
+        val paused = Looks.link(SessionState.Idle("Mac"), null, c, now = now)
+        assertEquals(LookLine.BROKEN, paused.line)
         assertFalse(paused.connected)
         assertEquals(pausedLabel(now + 60_000, now).replace("Paused until", "Paused · until"), paused.label)
-        assertTrue(paused.paused)
-        assertEquals("over: back to normal", LinkLook.Idle, LinkLook.of(SessionState.Idle("Mac"), null, c, now = now + 60_000))
+        assertTrue(paused.pausedHere)
+        assertEquals("over: back to normal", Looks.idle, Looks.link(SessionState.Idle("Mac"), null, c, now = now + 60_000))
     }
 
     @Test fun theSheetOffersThePrototypesFourChoicesInItsWords() {

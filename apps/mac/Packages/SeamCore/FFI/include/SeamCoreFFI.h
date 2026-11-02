@@ -1261,6 +1261,11 @@ RustBuffer uniffi_seam_ffi_fn_func_notification_mode_explanation(int32_t mode, i
 RustBuffer uniffi_seam_ffi_fn_func_notification_mode_word(int32_t mode, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_COUNT
+RustBuffer uniffi_seam_ffi_fn_func_notifications_phone_count(RustBuffer settings_bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_LONG
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_LONG
 RustBuffer uniffi_seam_ffi_fn_func_notifications_phone_long(RustBuffer settings_bytes, RustCallStatus *_Nonnull out_status
@@ -1285,6 +1290,11 @@ RustBuffer uniffi_seam_ffi_fn_func_sender_only_footnote(RustCallStatus *_Nonnull
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_SIZE_WORDS
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_SIZE_WORDS
 RustBuffer uniffi_seam_ffi_fn_func_size_words(uint64_t bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_UNTIL_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_UNTIL_WORDS
+RustBuffer uniffi_seam_ffi_fn_func_until_words(int64_t until_ms, int64_t now_ms, uint64_t time, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_WAITING_WORDS
@@ -1652,6 +1662,12 @@ uint16_t uniffi_seam_ffi_checksum_func_notification_mode_word(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_COUNT
+uint16_t uniffi_seam_ffi_checksum_func_notifications_phone_count(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_LONG
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_LONG
 uint16_t uniffi_seam_ffi_checksum_func_notifications_phone_long(void
@@ -1679,6 +1695,12 @@ uint16_t uniffi_seam_ffi_checksum_func_sender_only_footnote(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_SIZE_WORDS
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_SIZE_WORDS
 uint16_t uniffi_seam_ffi_checksum_func_size_words(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_UNTIL_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_UNTIL_WORDS
+uint16_t uniffi_seam_ffi_checksum_func_until_words(void
     
 );
 #endif

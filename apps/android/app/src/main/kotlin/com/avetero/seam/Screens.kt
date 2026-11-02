@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,14 +15,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.avetero.seam.crypto.LinkLook
 import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.clipboard.FromMac
 import com.avetero.seam.feature.notifications.NotificationsFeature
@@ -59,7 +60,7 @@ fun SeamScreen(
     askUpdates: Boolean = false,
     onAnswerUpdates: (Boolean) -> Unit = {},
     /** How the link to the Mac looks: the hero's stitches and the status line. */
-    look: LinkLook = LinkLook.Offline,
+    look: LinkLook = Looks.offline,
     onPause: (PauseFor) -> Unit = {},
     onResume: () -> Unit = {},
 ) {
@@ -121,7 +122,7 @@ fun SeamScreen(
 
 @Composable
 private fun Intro(title: String, body: String, action: String, error: String?, onAction: () -> Unit) {
-    Hero("your Mac", LinkLook.Idle)
+    Hero("your Mac", Looks.idle)
     Text(title, fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp, textAlign = TextAlign.Center)
     Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     Spacer(Modifier.height(8.dp))

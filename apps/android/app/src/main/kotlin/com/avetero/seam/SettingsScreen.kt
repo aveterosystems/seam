@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.platform.LocalUriHandler
@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.avetero.seam.crypto.connectionsFootnote
 import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.session.ConnectionSettings
 import java.time.Instant
@@ -25,11 +26,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** The small print under the connection switches: what the current pair of them means. */
-fun connectionFootnote(wifi: Boolean, tor: Boolean): String = when {
-    wifi && tor -> "One always stays on. Encryption is the same on both."
-    wifi -> "Only on your Mac's network. Turn on Tor to reach it anywhere."
-    else -> "Through Tor even at home. Same Wi‑Fi is faster for big files."
-}
+fun connectionFootnote(wifi: Boolean, tor: Boolean): String = connectionsFootnote(wifi, tor, PhoneNames)
 
 /** "Paired 14 September 2026". */
 fun pairedLabel(at: Long, zone: ZoneId = ZoneId.systemDefault()): String =

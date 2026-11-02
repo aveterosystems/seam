@@ -4,6 +4,9 @@ package com.avetero.seam
 import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.notifications.AppEntry
 import com.avetero.seam.feature.notifications.AppMode
+import com.avetero.seam.feature.notifications.NotificationPrefs
+import com.avetero.seam.protocol.v1.Transport
+import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -14,17 +17,24 @@ import org.junit.Test
 
 /** The words and shapes each state turns into, as the approved prototype shows them. */
 class LookTest {
+    // The one thing the phone decides itself: which path the session's transport is
+    @Test fun connectedTransportsMapToTheirLooks() {
+        val up = SessionState.Connected("Mac")
+        assertEquals("Connected · Same Wi‑Fi", Looks.link(up, Transport.TRANSPORT_LAN, ConnectionSettings()).sentence)
+        assertEquals("Connected · Through Tor", Looks.link(up, Transport.TRANSPORT_TOR, ConnectionSettings()).sentence)
+    }
+
     @Test fun theCookieTurnsWhileConnectedSoftensWhenPausedAndIsAPlainCircleOtherwise() {
-        assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), LinkLook.SameWifi.cookie())
-        assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), LinkLook.ThroughTor.cookie())
-        assertEquals(CookieLook(104f, 5f, CookieLook.Fill.Paused, turning = false), LinkLook.paused(Long.MAX_VALUE, 0).cookie())
-        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), LinkLook.Offline.cookie())
-        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), LinkLook.Idle.cookie())
+        assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), Looks.sameWifi.cookie())
+        assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), Looks.throughTor.cookie())
+        assertEquals(CookieLook(104f, 5f, CookieLook.Fill.Paused, turning = false), Looks.paused(Long.MAX_VALUE, 0).cookie())
+        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), Looks.offline.cookie())
+        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), Looks.idle.cookie())
     }
 
     @Test fun offlineSaysItWillSendWhenTheMacIsBack() {
-        assertEquals("Offline · will send when it's back", LinkLook.Offline.sentence)
-        assertEquals("Paused · until you resume", LinkLook.paused(Long.MAX_VALUE, 0).sentence)
+        assertEquals("Offline · will send when your Mac is back", Looks.offline.sentence)
+        assertEquals("Paused · until you resume", Looks.paused(Long.MAX_VALUE, 0).sentence)
     }
 
     @Test fun sendClipboardConfirmsOnlyWhatReallyHappened() {
@@ -37,10 +47,10 @@ class LookTest {
 
     @Test fun theMacsBatteryShowsWhileReachableADashWhenNotAndNothingBeforeItsKnown() {
         val mac = MacStatus(64, false, 0)
-        assertEquals("64%", macBattery(LinkLook.SameWifi, mac))
-        assertEquals("64%", macBattery(LinkLook.paused(Long.MAX_VALUE, 0), mac))
-        assertEquals("—", macBattery(LinkLook.Offline, mac))
-        assertNull(macBattery(LinkLook.SameWifi, null))
+        assertEquals("64%", macBattery(Looks.sameWifi, mac))
+        assertEquals("64%", macBattery(Looks.paused(Long.MAX_VALUE, 0), mac))
+        assertEquals("—", macBattery(Looks.offline, mac))
+        assertNull(macBattery(Looks.sameWifi, null))
     }
 
     @Test fun notificationLinesCountTheAppsThatAreOn() {
@@ -48,17 +58,19 @@ class LookTest {
             AppEntry("a", "WhatsApp", AppMode.On), AppEntry("b", "Monzo", AppMode.TitleOnly),
             AppEntry("c", "Uber", AppMode.Off), AppEntry("d", "Gmail", AppMode.TitleOnly),
         )
-        assertEquals("On · 3 apps", notificationsShort(true, apps))
-        assertEquals("Off", notificationsShort(false, apps))
-        assertEquals("3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(true, apps))
-        assertEquals("Off · 3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(false, apps))
-        assertEquals("1 of 1 apps", notificationsLong(true, apps.take(1)))
-        assertEquals("3 of 4 apps", appCount(apps))
+        val on = NotificationPrefs(enabled = true, apps = apps)
+        assertEquals("On · 3 apps", notificationsShort(on))
+        assertEquals("Off", notificationsShort(on.copy(enabled = false)))
+        assertEquals("3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(on))
+        assertEquals("Off · 3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(on.copy(enabled = false)))
+        assertEquals("1 of 1 apps", notificationsLong(on.copy(apps = apps.take(1))))
+        assertEquals("3 of 4 apps", appCount(on))
+        assertEquals("Sender only", AppMode.TitleOnly.label)
     }
 
     @Test fun connectionFootnoteExplainsTheSwitches() {
-        assertEquals("One always stays on. Encryption is the same on both.", connectionFootnote(true, true))
-        assertEquals("Only on your Mac's network. Turn on Tor to reach it anywhere.", connectionFootnote(true, false))
+        assertEquals("One always stays on. The encryption is the same on both.", connectionFootnote(true, true))
+        assertEquals("Only on the same network as your Mac. Turn on Tor to reach it anywhere.", connectionFootnote(true, false))
         assertEquals("Through Tor even at home. Same Wi‑Fi is faster for big files.", connectionFootnote(false, true))
     }
 

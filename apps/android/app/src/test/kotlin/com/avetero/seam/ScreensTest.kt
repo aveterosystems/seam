@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.longClick
 import androidx.test.core.app.ApplicationProvider
+import com.avetero.seam.crypto.LinkLook
 import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.clipboard.FromMac
 import com.avetero.seam.feature.notifications.NotificationsFeature
@@ -110,19 +111,19 @@ class ScreensTest(private val dark: Boolean) {
     )
 
     @Test fun homeWifi() {
-        show { home(LinkLook.SameWifi) }
+        show { home(Looks.sameWifi) }
         rule.onNodeWithContentDescription("End-to-end encrypted").assertExists() // the shield speaks
         shot("home-wifi")
     }
-    @Test fun homeTor() { show { home(LinkLook.ThroughTor) }; shot("home-tor") }
-    @Test fun homeOffline() { show { home(LinkLook.Offline) }; shot("home-offline") }
-    @Test fun homePaused() { show { home(LinkLook.paused(now + 30 * 60_000L, now)) }; shot("home-paused") }
-    @Test fun homeClip() { show { home(LinkLook.SameWifi, clip = true) }; shot("home-clip") }
-    @Test fun homeUpdate() { show { home(LinkLook.SameWifi, update = true) }; shot("home-update") }
-    @Test fun homeClipboardOffOnMac() { show { home(LinkLook.SameWifi, clipboard = ClipboardStatus.OffOnMac) }; shot("home-clipboard-off-on-mac") }
+    @Test fun homeTor() { show { home(Looks.throughTor) }; shot("home-tor") }
+    @Test fun homeOffline() { show { home(Looks.offline) }; shot("home-offline") }
+    @Test fun homePaused() { show { home(Looks.paused(now + 30 * 60_000L, now)) }; shot("home-paused") }
+    @Test fun homeClip() { show { home(Looks.sameWifi, clip = true) }; shot("home-clip") }
+    @Test fun homeUpdate() { show { home(Looks.sameWifi, update = true) }; shot("home-update") }
+    @Test fun homeClipboardOffOnMac() { show { home(Looks.sameWifi, clipboard = ClipboardStatus.OffOnMac) }; shot("home-clipboard-off-on-mac") }
 
     @Test fun pauseSheet() {
-        show { home(LinkLook.SameWifi) }
+        show { home(Looks.sameWifi) }
         rule.mainClock.advanceTimeBy(500)
         rule.onNodeWithContentDescription("Pause").performClick()
         shot("pause-sheet")

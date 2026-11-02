@@ -20,9 +20,13 @@ android {
     testOptions.unitTests.isIncludeAndroidResources = true
 }
 
-// ScreensTest renders every screen state to app/build/screens/ for comparing with the approved
-// prototype; only with -Pscreens, so ordinary test runs stay quick
+// Unit tests call the Rust core (the shared looks), built for this machine by core:crypto
+val coreDir = rootDir.resolve("../../core")
 tasks.withType<Test>().configureEach {
+    dependsOn(":core:crypto:cargoHost")
+    systemProperty("jna.library.path", coreDir.resolve("target/debug").path)
+    // ScreensTest renders every screen state to app/build/screens/ for comparing with the approved
+    // prototype; only with -Pscreens, so ordinary test runs stay quick
     if (project.hasProperty("screens")) {
         systemProperty("seam.screens", rootDir.resolve("app/build/screens").path)
         systemProperty("roborazzi.test.record", "true")
@@ -43,6 +47,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.coroutines.android)
     testImplementation(libs.junit)
+    testImplementation(libs.jna)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.robolectric)

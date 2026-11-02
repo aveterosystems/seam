@@ -356,9 +356,8 @@ pub fn hero_line(
 pub fn connections_footnote(lan_on: bool, tor_on: bool, names: &Names) -> String {
     match (lan_on, tor_on) {
         (true, false) => format!(
-            "{} connects only on {}'s network. Turn on Tor to reach it anywhere.",
-            names.peer_start(),
-            names.this
+            "Only on the same network as {}. Turn on Tor to reach it anywhere.",
+            names.peer
         ),
         (false, true) => "Through Tor even at home. Same Wi‑Fi is faster for big files.".into(),
         _ => "One always stays on. The encryption is the same on both.".into(),

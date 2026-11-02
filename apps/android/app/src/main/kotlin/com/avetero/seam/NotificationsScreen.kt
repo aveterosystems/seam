@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -23,19 +21,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -49,35 +49,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.avetero.seam.crypto.notificationModeExplanation
+import com.avetero.seam.crypto.notificationModeWord
+import com.avetero.seam.crypto.notificationsPhoneCount
+import com.avetero.seam.crypto.notificationsPhoneLong
+import com.avetero.seam.crypto.notificationsPhoneShort
+import com.avetero.seam.crypto.senderOnlyFootnote
 import com.avetero.seam.feature.notifications.AppEntry
 import com.avetero.seam.feature.notifications.AppMode
+import com.avetero.seam.feature.notifications.NotificationPrefs
 import com.avetero.seam.feature.notifications.NotificationsFeature
+import com.avetero.seam.feature.notifications.toProto
 import java.text.DateFormat
 import java.util.Date
 
+// The words are the shared looks' (seam-looks), from the settings as the phone sends them
+private fun NotificationPrefs.bytes() = toProto { null }.toByteArray()
+
 /** Home's line: "On · 6 apps", or "Off". */
-fun notificationsShort(enabled: Boolean, apps: List<AppEntry>): String =
-    if (enabled) "On · ${apps.count { it.mode != AppMode.Off }} apps" else "Off"
+fun notificationsShort(prefs: NotificationPrefs): String = notificationsPhoneShort(prefs.bytes())
 
 /** Settings' line: "6 of 10 apps · Sender only for Monzo", the apps named when there are one or two. */
-fun notificationsLong(enabled: Boolean, apps: List<AppEntry>): String {
-    val titleOnly = apps.filter { it.mode == AppMode.TitleOnly }.map { it.name }
-    val names = when (titleOnly.size) {
-        0 -> null
-        1, 2 -> "Sender only for " + titleOnly.joinToString(" and ")
-        else -> "Sender only for ${titleOnly.size} apps"
-    }
-    return listOfNotNull("Off".takeIf { !enabled }, appCount(apps), names).joinToString(" · ")
-}
+fun notificationsLong(prefs: NotificationPrefs): String = notificationsPhoneLong(prefs.bytes())
 
 /** "6 of 10 apps": the master card's line. */
-fun appCount(apps: List<AppEntry>) = "${apps.count { it.mode != AppMode.Off }} of ${apps.size} apps"
+fun appCount(prefs: NotificationPrefs): String = notificationsPhoneCount(prefs.bytes())
 
-internal val AppMode.label get() = when (this) {
-    AppMode.On -> "On"
-    AppMode.TitleOnly -> "Sender only"
-    AppMode.Off -> "Off"
-}
+internal val AppMode.label: String get() = notificationModeWord(toProto().number)
 
 /** Settings › Notifications: what reaches the Mac, app by app. The Mac's pane edits the same settings. */
 @Composable
@@ -118,7 +116,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
     ) {
         if (!access) Section(null) { NotificationAccessItem(access) }
         Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        MasterCard(prefs.enabled, appCount(prefs.apps), feature::setEnabled)
+        MasterCard(prefs.enabled, appCount(prefs), feature::setEnabled)
         // Off, the rest stays visible but can't be changed; the card's switch says why
         val dim by animateFloatAsState(if (prefs.enabled) 1f else 0.4f, Motion.ease(400), label = "dim")
         Column(Modifier.alpha(dim), verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -136,7 +134,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
                 SwitchItem("Quiet while I'm using this phone", "Your Mac stays quiet while it's unlocked in your hand", prefs.quietWhileUsingPhone, feature::setQuietWhileUsingPhone, enabled = on)
             }
             Section(
-                null, footnote = "Sender only shows who it's from, never what it says. New apps start off.",
+                null, footnote = senderOnlyFootnote() + " New apps start off.",
                 above = if (prefs.apps.isEmpty()) null else ({ SearchField(query) { query = it } }),
             ) {
                 if (prefs.apps.isEmpty()) Item("No apps yet", "Apps that can notify show here once notification access is on")
@@ -235,11 +233,7 @@ private fun SearchField(query: String, onChange: (String) -> Unit) {
     )
 }
 
-private fun AppMode.explain(canReply: Boolean) = when (this) {
-    AppMode.On -> if (canReply) "Everything, and reply from the Mac" else "Everything"
-    AppMode.TitleOnly -> "Who it's from, never what it says"
-    AppMode.Off -> "Stays on this phone"
-}
+private fun AppMode.explain(canReply: Boolean) = notificationModeExplanation(toProto().number, canReply, PhoneNames)
 
 @Composable
 private fun appIcon(pkg: String): Painter {
@@ -254,7 +248,7 @@ private fun appIcon(pkg: String): Painter {
 @Composable
 internal fun NotificationsItem(feature: NotificationsFeature, title: String, home: Boolean, onOpen: () -> Unit) {
     val prefs by feature.prefs.collectAsStateWithLifecycle()
-    val line = if (home) notificationsShort(prefs.enabled, prefs.apps) else notificationsLong(prefs.enabled, prefs.apps)
+    val line = if (home) notificationsShort(prefs) else notificationsLong(prefs)
     Item(title, line, lead = painterResource(R.drawable.ic_bell), onClick = onOpen) {
         Text("›", fontSize = 14.sp, color = MaterialTheme.colorScheme.outline)
     }

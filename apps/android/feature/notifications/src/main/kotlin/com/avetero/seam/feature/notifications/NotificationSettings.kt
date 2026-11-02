@@ -85,7 +85,7 @@ data class NotificationPrefs(
     }
 }
 
-private fun AppMode.toProto() = when (this) {
+fun AppMode.toProto() = when (this) {
     AppMode.On -> NotificationMode.NOTIFICATION_MODE_ON
     AppMode.TitleOnly -> NotificationMode.NOTIFICATION_MODE_TITLE_ONLY
     AppMode.Off -> NotificationMode.NOTIFICATION_MODE_OFF

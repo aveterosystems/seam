@@ -384,7 +384,11 @@ fn the_computer_says_when_the_phone_was_last_here() {
 fn the_footnote_explains_why_the_last_connection_stays_on() {
     assert_eq!(
         connections_footnote(true, false, &mac()),
-        "Your phone connects only on this Mac's network. Turn on Tor to reach it anywhere."
+        "Only on the same network as your phone. Turn on Tor to reach it anywhere."
+    );
+    assert_eq!(
+        connections_footnote(true, false, &phone()),
+        "Only on the same network as your Mac. Turn on Tor to reach it anywhere."
     );
     assert_eq!(
         connections_footnote(false, true, &mac()),
