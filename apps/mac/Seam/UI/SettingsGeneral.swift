@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamCore
 import ServiceManagement
 import SwiftUI
 
@@ -11,6 +12,8 @@ struct GeneralPane: View {
     @State private var loginError: String?
     @State private var checksAutomatically = Updates.shared.checksAutomatically
     @State private var checkInterval = Updates.shared.checkInterval
+    @State private var nightly = Updates.shared.nightly
+    @State private var confirmNightly = false
     @State private var updatesInfo = false
     @Environment(\.accessibilityReduceMotion) private var reduce
     private var updates: Updates { .shared }
@@ -48,6 +51,18 @@ struct GeneralPane: View {
                     }
                     .labelsHidden().pickerStyle(.menu).fixedSize()
                     .disabled(!checksAutomatically)
+                }
+                SettingsRow("Nightly builds", "The newest work each day, less tested. Off waits for the next release.") {
+                    // Turning on asks first: nightlies are less tested (the same words as on the phone)
+                    Toggle("Nightly builds", isOn: Binding(get: { nightly }, set: { on in
+                        if on { confirmNightly = true } else { updates.nightly = false; nightly = false }
+                    })).labelsHidden()
+                }
+                .alert(nightlyWarningTitle(), isPresented: $confirmNightly) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Turn On") { updates.nightly = true; nightly = true }
+                } message: {
+                    Text(nightlyWarning())
                 }
                 versionRow
             }

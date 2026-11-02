@@ -9980,6 +9980,23 @@ public func linkLook(input: LinkInput, names: LookNames, lastSeenMs: Int64?, now
     )
 })
 }
+public func nightlyWarning() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_nightly_warning(uniffiCallStatus
+    )
+})
+}
+/**
+ * Asked before Nightly builds turns on: the title, then the warning.
+ */
+public func nightlyWarningTitle() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_nightly_warning_title(uniffiCallStatus
+    )
+})
+}
 /**
  * "6 of 10 on".
  */
@@ -10188,6 +10205,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_link_look() != 58522) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_nightly_warning() != 51125) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_nightly_warning_title() != 60418) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_notification_apps_on() != 53662) {

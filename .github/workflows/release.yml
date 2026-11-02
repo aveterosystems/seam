@@ -2,12 +2,21 @@ name: release
 # Pushing a version tag (v0.1.0) on main builds both apps, signs them with Seam's own keys, and
 # opens a draft release with checksums and build attestations. The maintainer reviews and publishes.
 #
+# Nightly: each night, if main has changed since the last nightly (or on demand), the same jobs
+# build main as the next patch's pre-release (0.3.1-nightly.202611030200) and publish it as a
+# nightly-… pre-release, plus the feed Mac nightly users follow. Apps get nightlies only with
+# Updates › Nightly builds on; GitHub's "latest release" skips pre-releases.
+#
 # Builds run with no secrets. Signing runs in its own jobs on fresh runners, in the `release`
-# environment (required reviewer, v* tags only), and runs only the signing tools: zipalign and
-# apksigner, codesign and security, and Sparkle's sign_update (pinned by SHA-256) (SR-14-01, 02).
+# environment (required reviewer, v* tags only) or, for nightlies, the `nightly` environment (main
+# only, no reviewer), and runs only the signing tools: zipalign and apksigner, codesign and
+# security, and Sparkle's sign_update (pinned by SHA-256) (SR-14-01, 02).
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: # a nightly now, even if main hasn't changed
 
 permissions: {}
 
@@ -32,21 +41,50 @@ jobs:
     permissions: { contents: read }
     outputs:
       version: ${{ steps.v.outputs.version }}
+      build: ${{ steps.v.outputs.build }}
+      tag: ${{ steps.v.outputs.tag }}
+      previous: ${{ steps.v.outputs.previous }}
+      nightly: ${{ steps.v.outputs.nightly }}
+      skip: ${{ steps.v.outputs.skip }}
+      # The one commit every later job builds: the tag's, or main's as this run found it (a manual
+      # run started on another branch, or main moving on mid-run, can't change what's built)
+      sha: ${{ steps.v.outputs.sha }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false, fetch-depth: 0 }
-      - name: Tag is on main, versions match it and go up, pins are well formed
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.ref_type == 'tag' && github.ref || 'refs/heads/main' }}
+      # A release: the tag is on main, versions match it and go up, pins are well formed.
+      # A nightly: built from main, numbered after the last release, skipped if main hasn't changed
+      - name: Version, build number and tag
         id: v
-        run: scripts/check-release.sh "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+        env:
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && 'force' || '' }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            scripts/check-release.sh "$GITHUB_REF_NAME"
+            # Numbered now, not when release.sh ran: a nightly built during the release PR's review
+            # must not outrank the release, or neither platform would install it over that nightly
+            echo "build=$(scripts/build-number.sh)"
+            echo "tag=$GITHUB_REF_NAME"
+            echo "nightly=false"
+            echo "skip=false"
+          else
+            scripts/nightly-version.sh ${FORCE:+"$FORCE"}
+            echo "nightly=true"
+          fi >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   build-android:
     needs: versions
+    if: needs.versions.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     permissions: { contents: read }
     defaults: { run: { working-directory: apps/android } }
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false }
+        with: { persist-credentials: false, ref: "${{ needs.versions.outputs.sha }}" }
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with: { distribution: temurin, java-version: "17" }
       # No build cache in a release: everything is built from the tagged sources
@@ -59,6 +97,9 @@ jobs:
           cd ../../core && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
           cargo install cargo-ndk --locked --version "$CARGO_NDK"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" > /dev/null
+      - name: This build's version (a release's files already carry it)
+        env: { VERSION: "${{ needs.versions.outputs.version }}", BUILD: "${{ needs.versions.outputs.build }}" }
+        run: ../../scripts/set-version.sh "$VERSION" "$BUILD"
       # The tests of the variant that ships (CI tests the debug ones)
       - name: Tests, then the unsigned full build
         run: ./gradlew testReleaseUnitTest testFullReleaseUnitTest assembleFullRelease
@@ -68,13 +109,17 @@ jobs:
 
   build-mac:
     needs: versions
+    if: needs.versions.outputs.skip != 'true'
     runs-on: macos-26
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false }
+        with: { persist-credentials: false, ref: "${{ needs.versions.outputs.sha }}" }
       - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
         with: { repo-token: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: This build's version (a release's files already carry it)
+        env: { VERSION: "${{ needs.versions.outputs.version }}", BUILD: "${{ needs.versions.outputs.build }}" }
+        run: scripts/set-version.sh "$VERSION" "$BUILD"
       - name: Rust core for Apple silicon and Intel
         run: ARCHS="arm64 x86_64" scripts/build-mac-core.sh
       - name: Swift tests
@@ -106,11 +151,11 @@ jobs:
   sign-android:
     needs: [versions, build-android]
     runs-on: ubuntu-24.04
-    environment: release
+    environment: ${{ needs.versions.outputs.nightly == 'true' && 'nightly' || 'release' }}
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false, sparse-checkout: "release\nscripts" }
+        with: { persist-credentials: false, ref: "${{ needs.versions.outputs.sha }}", sparse-checkout: "release\nscripts" }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: android-unsigned, path: in }
       - name: Align, sign with Seam's key, check it's the pinned one
@@ -131,11 +176,11 @@ jobs:
   sign-mac:
     needs: [versions, build-mac]
     runs-on: macos-26
-    environment: release
+    environment: ${{ needs.versions.outputs.nightly == 'true' && 'nightly' || 'release' }}
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false, sparse-checkout: "release\nscripts\napps/mac/Config" }
+        with: { persist-credentials: false, ref: "${{ needs.versions.outputs.sha }}", sparse-checkout: "release\nscripts\napps/mac/Config" }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: mac-unsigned, path: in }
       - name: Sparkle ${{ env.SPARKLE }}'s sign_update, checked against its pinned SHA-256
@@ -149,6 +194,9 @@ jobs:
           MAC_SIGNING_P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
           SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
           VERSION: ${{ needs.versions.outputs.version }}
+          TAG: ${{ needs.versions.outputs.tag }}
+          # A nightly has no CHANGELOG.md section: Sparkle's window says what it is instead
+          CHANGES: "${{ needs.versions.outputs.nightly == 'true' && 'A nightly build of main: the newest work, less tested than a release.' || '' }}"
         run: |
           keys="$(mktemp -d)"
           trap 'rm -rf "$keys"' EXIT
@@ -186,7 +234,7 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with: { persist-credentials: false }
+        with: { persist-credentials: false, fetch-depth: 0, ref: "${{ needs.versions.outputs.sha }}" }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: android, path: dist }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
@@ -202,6 +250,7 @@ jobs:
       - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with: { subject-path: "dist/Seam-*\ndist/SHA256SUMS\ndist/appcast.xml" }
       - name: Draft release
+        if: needs.versions.outputs.nightly != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.versions.outputs.version }}
@@ -217,3 +266,32 @@ jobs:
             "$RUNNER_TEMP/template.md" > "$RUNNER_TEMP/notes.md"
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "Seam $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Nightly pre-release, and the feed Mac nightly users follow
+        if: needs.versions.outputs.nightly == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.versions.outputs.version }}
+          TAG: ${{ needs.versions.outputs.tag }}
+          PREVIOUS: ${{ needs.versions.outputs.previous }}
+          SHA: ${{ needs.versions.outputs.sha }}
+        run: |
+          since="${PREVIOUS:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*')}"
+          # The Android app shows "## What's changed" on its Update card, as for a release
+          { echo "A nightly build of main: the newest work, less tested than a release. Seam offers it only with Settings › Updates › Nightly builds on."
+            echo; echo "## What's changed"; echo
+            # sed, not grep -v: an empty list (only a Release commit since) must not fail under pipefail
+            git log --format='- %s' "$since..$SHA" | sed -e '/^- Release [0-9]/d' -e 's/ (#[0-9]*)$//' | sed -n '1,50p'
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --prerelease --target "$SHA" \
+            --title "Seam $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          # Mac nightly users' Sparkle reads releases/download/nightly/appcast.xml: one fixed address
+          gh release view nightly --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create nightly --repo "$GITHUB_REPOSITORY" --prerelease --target "$SHA" --title "Nightly feed" \
+                 --notes "Holds appcast.xml, the feed Seam for Mac follows with Nightly builds on. The builds are the nightly-… pre-releases."
+          # --clobber replaces the old feed: retried, and if it still fails the next night rebuilds (nightly-version.sh
+          # skips only when the published feed is this nightly's)
+          for attempt in 1 2 3; do
+            gh release upload nightly dist/appcast.xml --repo "$GITHUB_REPOSITORY" --clobber && break
+            [ "$attempt" = 3 ] && { echo "Couldn't publish the nightly feed" >&2; exit 1; }
+            sleep 10
+          done

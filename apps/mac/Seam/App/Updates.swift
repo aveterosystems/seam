@@ -67,6 +67,30 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
         }
     }
 
+    /// Nightly builds: Sparkle follows the nightly feed instead of the latest release. Turning it off
+    /// keeps the nightly until a newer release comes out (Sparkle never goes back a build).
+    var nightly: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.nightlyKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.nightlyKey)
+            checkFailed = nil // the last check was the other feed's
+            // An update already found stays offered until it's installed or skipped: Sparkle
+            // ignores a new check while its session is open
+            guard !updater.sessionInProgress else { return }
+            found = nil
+            if checksAutomatically, canCheck { updater.checkForUpdatesInBackground() }
+        }
+    }
+
+    private nonisolated static let nightlyKey = "updatesNightly"
+    /// The release workflow keeps the newest nightly's signed appcast here (one fixed address).
+    private nonisolated static let nightlyFeed = "https://github.com/aveterosystems/seam/releases/download/nightly/appcast.xml"
+
+    /// Nil: the feed in Info.plist, the latest release's.
+    nonisolated func feedURLString(for updater: SPUUpdater) -> String? {
+        UserDefaults.standard.bool(forKey: Self.nightlyKey) ? Self.nightlyFeed : nil
+    }
+
     var canCheck: Bool { available && updater.canCheckForUpdates }
 
     func checkNow() { updater.checkForUpdates() }
@@ -77,7 +101,8 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
     /// Settings' Check now: asks without opening a window and shows the answer in place. A newer
     /// release still installs only through `checkNow` (Sparkle's window, the user's click).
     func checkQuietly() {
-        guard canCheck, !checking else { return }
+        // Sparkle ignores a check while a session is open, and would never call back to end it
+        guard canCheck, !checking, !updater.sessionInProgress else { return }
         checking = true
         checkFailed = nil
         updater.checkForUpdateInformation()

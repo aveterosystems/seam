@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.avetero.seam.crypto.connectionsFootnote
+import com.avetero.seam.crypto.nightlyWarning
+import com.avetero.seam.crypto.nightlyWarningTitle
 import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.session.ConnectionSettings
 import java.time.Instant
@@ -143,6 +145,8 @@ private fun UpdatesSection(updater: Updater, version: String) {
     val status by updater.status.collectAsState()
     var automatic by remember { mutableStateOf(updater.automatic) }
     var interval by remember { mutableStateOf(updater.interval) }
+    var nightly by remember { mutableStateOf(updater.nightly) }
+    var confirmNightly by remember { mutableStateOf(false) }
     var chooseInterval by remember { mutableStateOf(false) }
     // SR-17-14: the grant outlives the update
     Section("Updates", footnote = "After updating, you can turn off Install unknown apps for Seam in Android's settings. Seam asks again next time.") {
@@ -152,7 +156,18 @@ private fun UpdatesSection(updater: Updater, version: String) {
             automatic, { automatic = it; updater.answer(it) }, lead = painterResource(R.drawable.ic_download),
         )
         if (automatic) Item("How often", intervalLabel(interval), lead = painterResource(R.drawable.ic_clock), onClick = { chooseInterval = true })
+        SwitchItem(
+            "Nightly builds", "The newest work each day, less tested. Off waits for the next release",
+            // Turning on asks first: nightlies are less tested (the same words as on the Mac)
+            nightly, { on -> if (on) confirmNightly = true else { nightly = false; updater.nightly = false } }, lead = painterResource(R.drawable.ic_refresh),
+        )
         Item("Seam ${version.substringBefore(' ')}", checkLabel(status), lead = painterResource(R.drawable.ic_info), onClick = { updater.checkNow() })
+    }
+    if (confirmNightly) {
+        SeamDialog(nightlyWarningTitle(), nightlyWarning(), onDismiss = { confirmNightly = false }, icon = painterResource(R.drawable.ic_refresh)) { close ->
+            Pill("Cancel", close, PillKind.Text)
+            Pill("Turn on", { close(); nightly = true; updater.nightly = true; updater.checkNow() })
+        }
     }
     if (chooseInterval) {
         SeamSheet("Check for updates", null, onDismiss = { chooseInterval = false }) { close ->

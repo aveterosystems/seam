@@ -805,6 +805,10 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_func_link_look(
     ): Int
+    external fun uniffi_seam_ffi_checksum_func_nightly_warning(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_nightly_warning_title(
+    ): Int
     external fun uniffi_seam_ffi_checksum_func_notification_apps_on(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_notification_apps_on_count(
@@ -1201,6 +1205,10 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_link_look(`input`: RustBuffer.ByValue,`names`: RustBuffer.ByValue,`lastSeenMs`: RustBuffer.ByValue,`nowMs`: Long,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_nightly_warning(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_nightly_warning_title(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_notification_apps_on(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_notification_apps_on_count(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1375,6 +1383,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_link_look() and 0xFFFF) != 58522) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_nightly_warning() and 0xFFFF) != 51125) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_nightly_warning_title() and 0xFFFF) != 60418) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_notification_apps_on() and 0xFFFF) != 53662) {
@@ -8913,6 +8927,29 @@ public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<Peer
         FfiConverterOptionalLong.lower(`lastSeenMs`),
         FfiConverterLong.lower(`nowMs`),
         FfiConverterTypeTimeWords.lower(`time`),_status)
+}
+    )
+    }
+    
+ fun `nightlyWarning`(): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_nightly_warning(
+    
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * Asked before Nightly builds turns on: the title, then the warning.
+         */ fun `nightlyWarningTitle`(): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_nightly_warning_title(
+    
+        _status)
 }
     )
     }

@@ -5,10 +5,13 @@
 #   SPARKLE_KEY_FILE (base64 Ed25519 seed) and SIGN_UPDATE (Sparkle's sign_update) must be set;
 #   EXPECTED_PUBLIC_KEY must be the key's public half (the app's SUPublicEDKey);
 #   scripts/make-appcast.sh Seam-X.Y.Z-mac.zip X.Y.Z BUILD appcast.xml
+#   A nightly also sets TAG (its nightly-… tag) and CHANGES (it has no CHANGELOG.md section).
 set -euo pipefail
 zip="$1" version="$2" build="$3" out="$4"
 : "${SPARKLE_KEY_FILE:?}" "${SIGN_UPDATE:?}" "${EXPECTED_PUBLIC_KEY:?}"
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Bad version $version" >&2; exit 1; }
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-nightly\.[0-9]+)?$ ]] || { echo "Bad version $version" >&2; exit 1; }
+tag="${TAG:-v$version}"
+[[ "$tag" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+|nightly-[0-9]+)$ ]] || { echo "Bad tag $tag" >&2; exit 1; }
 [[ "$build" =~ ^[0-9]+$ ]] || { echo "Bad build $build" >&2; exit 1; }
 repo="https://github.com/aveterosystems/seam"
 
@@ -23,7 +26,7 @@ public="$({ printf '302e020100300506032b657004220420' | xxd -r -p; base64 -d < "
 [ "$public" = "$EXPECTED_PUBLIC_KEY" ] || { echo "The update key's public half ($public) isn't the app's SUPublicEDKey ($EXPECTED_PUBLIC_KEY)" >&2; exit 1; }
 name="$(basename "$zip")"
 # What changed, from CHANGELOG.md: Sparkle shows it as Markdown in its update window
-changes="$("$(dirname "$0")/changes.sh" "$version")"
+changes="${CHANGES:-$("$(dirname "$0")/changes.sh" "$version")}"
 [[ "$changes" != *"]]>"* ]] || { echo "CHANGELOG.md's $version section can't contain ]]>" >&2; exit 1; }
 # sparkle:edSignature="..." length="..."
 attrs="$("$SIGN_UPDATE" --ed-key-file "$SPARKLE_KEY_FILE" "$zip")"
@@ -41,8 +44,8 @@ cat > "$out" <<XML
       <sparkle:shortVersionString>$version</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description sparkle:format="markdown"><![CDATA[$changes]]></description>
-      <sparkle:fullReleaseNotesLink>$repo/releases/tag/v$version</sparkle:fullReleaseNotesLink>
-      <enclosure url="$repo/releases/download/v$version/$name" type="application/octet-stream" $attrs/>
+      <sparkle:fullReleaseNotesLink>$repo/releases/tag/$tag</sparkle:fullReleaseNotesLink>
+      <enclosure url="$repo/releases/download/$tag/$name" type="application/octet-stream" $attrs/>
     </item>
   </channel>
 </rss>

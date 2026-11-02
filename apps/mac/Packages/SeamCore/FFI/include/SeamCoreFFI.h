@@ -1241,6 +1241,18 @@ RustBuffer uniffi_seam_ffi_fn_func_device_status_look(RustBuffer status, int8_t 
 RustBuffer uniffi_seam_ffi_fn_func_link_look(RustBuffer input, RustBuffer names, RustBuffer last_seen_ms, int64_t now_ms, uint64_t time, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NIGHTLY_WARNING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NIGHTLY_WARNING
+RustBuffer uniffi_seam_ffi_fn_func_nightly_warning(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NIGHTLY_WARNING_TITLE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NIGHTLY_WARNING_TITLE
+RustBuffer uniffi_seam_ffi_fn_func_nightly_warning_title(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_APPS_ON
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_APPS_ON
 RustBuffer uniffi_seam_ffi_fn_func_notification_apps_on(RustBuffer settings_bytes, RustCallStatus *_Nonnull out_status
@@ -1635,6 +1647,18 @@ uint16_t uniffi_seam_ffi_checksum_func_device_status_look(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_LINK_LOOK
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_LINK_LOOK
 uint16_t uniffi_seam_ffi_checksum_func_link_look(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NIGHTLY_WARNING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NIGHTLY_WARNING
+uint16_t uniffi_seam_ffi_checksum_func_nightly_warning(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NIGHTLY_WARNING_TITLE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NIGHTLY_WARNING_TITLE
+uint16_t uniffi_seam_ffi_checksum_func_nightly_warning_title(void
     
 );
 #endif
