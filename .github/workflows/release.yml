@@ -58,7 +58,9 @@ jobs:
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             scripts/check-release.sh "$GITHUB_REF_NAME"
-            echo "build=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' apps/android/app/build.gradle.kts)"
+            # Numbered now, not when release.sh ran: a nightly built during the release PR's review
+            # must not outrank the release, or neither platform would install it over that nightly
+            echo "build=$(scripts/build-number.sh)"
             echo "tag=$GITHUB_REF_NAME"
             echo "nightly=false"
             echo "skip=false"
@@ -269,7 +271,8 @@ jobs:
           # The Android app shows "## What's changed" on its Update card, as for a release
           { echo "A nightly build of main: the newest work, less tested than a release. Seam offers it only with Settings › Updates › Nightly builds on."
             echo; echo "## What's changed"; echo
-            git log --format='- %s' "$since..$GITHUB_SHA" | grep -v '^- Release [0-9]' | sed 's/ (#[0-9]*)$//' | head -50
+            # sed, not grep -v: an empty list (only a Release commit since) must not fail under pipefail
+            git log --format='- %s' "$since..$GITHUB_SHA" | sed -e '/^- Release [0-9]/d' -e 's/ (#[0-9]*)$//' | head -50
           } > "$RUNNER_TEMP/notes.md"
           gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
             --title "Seam $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
@@ -277,4 +280,10 @@ jobs:
           gh release view nightly --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create nightly --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" --title "Nightly feed" \
                  --notes "Holds appcast.xml, the feed Seam for Mac follows with Nightly builds on. The builds are the nightly-… pre-releases."
-          gh release upload nightly dist/appcast.xml --repo "$GITHUB_REPOSITORY" --clobber
+          # --clobber replaces the old feed: retried, and if it still fails the next night rebuilds (nightly-version.sh
+          # skips only when the published feed is this nightly's)
+          for attempt in 1 2 3; do
+            gh release upload nightly dist/appcast.xml --repo "$GITHUB_REPOSITORY" --clobber && break
+            [ "$attempt" = 3 ] && { echo "Couldn't publish the nightly feed" >&2; exit 1; }
+            sleep 10
+          done

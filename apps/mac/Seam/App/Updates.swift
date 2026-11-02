@@ -73,6 +73,10 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
         get { UserDefaults.standard.bool(forKey: Self.nightlyKey) }
         set {
             UserDefaults.standard.set(newValue, forKey: Self.nightlyKey)
+            checkFailed = nil // the last check was the other feed's
+            // An update already found stays offered until it's installed or skipped: Sparkle
+            // ignores a new check while its session is open
+            guard !updater.sessionInProgress else { return }
             found = nil
             if checksAutomatically, canCheck { updater.checkForUpdatesInBackground() }
         }
@@ -97,7 +101,8 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
     /// Settings' Check now: asks without opening a window and shows the answer in place. A newer
     /// release still installs only through `checkNow` (Sparkle's window, the user's click).
     func checkQuietly() {
-        guard canCheck, !checking else { return }
+        // Sparkle ignores a check while a session is open, and would never call back to end it
+        guard canCheck, !checking, !updater.sessionInProgress else { return }
         checking = true
         checkFailed = nil
         updater.checkForUpdateInformation()

@@ -185,6 +185,8 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
             _status.value = "Couldn't reach GitHub. Seam will try again later."
             return
         }
+        // Nightly builds changed while asking: that answer is the other channel's, and a new check is under way
+        if (nightly != this.nightly) return
         prefs.edit().putLong("lastCheck", System.currentTimeMillis()).apply()
         val release = if (nightly) UpdateFeed.newest(json, BuildConfig.VERSION_NAME) else UpdateFeed.newer(json, BuildConfig.VERSION_NAME)
         setOffer(release)

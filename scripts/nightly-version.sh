@@ -13,7 +13,11 @@ IFS=. read -r major minor patch <<< "$current"
 stamp="$(date -u +%Y%m%d%H%M)"
 last="$(git tag --list 'nightly-[0-9]*' --sort=-refname | head -1)"
 skip=false
-if [ "${1:-}" != force ] && [ -n "$last" ] && [ "$(git rev-list -n1 "$last")" = "$(git rev-parse HEAD)" ]; then skip=true; fi
+# Main unchanged, and that nightly fully published (the Mac feed points at it): nothing to do
+if [ "${1:-}" != force ] && [ -n "$last" ] && [ "$(git rev-list -n1 "$last")" = "$(git rev-parse HEAD)" ] \
+  && curl -sSfL "https://github.com/aveterosystems/seam/releases/download/nightly/appcast.xml" | grep -qF "/download/$last/"; then
+  skip=true
+fi
 echo "version=$major.$minor.$((patch + 1))-nightly.$stamp"
 echo "tag=nightly-$stamp"
 echo "build=$(scripts/build-number.sh)"
