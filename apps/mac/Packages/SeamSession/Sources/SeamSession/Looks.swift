@@ -108,7 +108,7 @@ public enum Words {
     /// The popover's queue bar.
     public static func waiting(_ n: Int) -> String { "\(n) waiting" }
 
-    /// Settings' Apps header: "6 of 10 on". Title only counts as on.
+    /// Settings' Apps header: "6 of 10 on". Sender only counts as on.
     public static func appsOn(_ apps: [Seam_V1_NotificationApp]) -> String {
         "\(appsOnCount(apps)) of \(apps.count) on"
     }

@@ -50,8 +50,8 @@ class LookTest {
         )
         assertEquals("On · 3 apps", notificationsShort(true, apps))
         assertEquals("Off", notificationsShort(false, apps))
-        assertEquals("3 of 4 apps · Title only for Monzo and Gmail", notificationsLong(true, apps))
-        assertEquals("Off · 3 of 4 apps · Title only for Monzo and Gmail", notificationsLong(false, apps))
+        assertEquals("3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(true, apps))
+        assertEquals("Off · 3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(false, apps))
         assertEquals("1 of 1 apps", notificationsLong(true, apps.take(1)))
         assertEquals("3 of 4 apps", appCount(apps))
     }

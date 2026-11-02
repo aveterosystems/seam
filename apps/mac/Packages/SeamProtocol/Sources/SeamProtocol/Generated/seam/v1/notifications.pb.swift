@@ -70,7 +70,7 @@ public nonisolated enum Seam_V1_NotificationMode: SwiftProtobuf.Enum, Swift.Case
 }
 
 /// A phone notification mirrored to the Mac. Per-app filtering happens on the phone before sending;
-/// sensitive apps send title only.
+/// sensitive apps send only who it is from.
 public nonisolated struct Seam_V1_Notification: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for

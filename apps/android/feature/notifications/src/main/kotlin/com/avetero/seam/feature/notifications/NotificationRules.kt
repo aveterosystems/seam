@@ -15,7 +15,7 @@ data class Posted(
     val media: Boolean = false,
     /** Below default importance: the phone itself doesn't make a sound or show a banner. */
     val silent: Boolean = false,
-    /** The app hides it entirely on the lock screen: the Mac gets the title only. */
+    /** The app hides it entirely on the lock screen: the Mac gets only who it is from. */
     val secret: Boolean = false,
     /** The app asked for updates to this notification not to alert again. */
     val alertOnce: Boolean = false,
