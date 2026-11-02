@@ -50,12 +50,12 @@ flowchart LR
 
 ### Features
 
-Each feature's shared rules live in `seam-core/src/features/<feature>/` (the clipboard so far), named like its `protocol/seam/v1/<feature>.proto`, with a matching `seam-ffi/src/<feature>.rs` and app module. Delivery rules for every feature are one table in `catalogue.rs`. The rules for this code:
+Each feature's shared rules live in `seam-core/src/features/<feature>/` (the clipboard so far), named like its `protocol/seam/v1/<feature>.proto`, with the computer's side in `seam-computer/src/features/<feature>.rs` (clipboard, notifications and status today), its `seam-ffi/src/<feature>.rs` wrapper, and the phone's module. [Adding a feature](../CONTRIBUTING.md#adding-a-feature) walks through it. Delivery rules for every feature are one table in `catalogue.rs`. The rules for this code:
 
 - A feature with no rules to share (a single message) has no folder here, only its `.proto`.
 - A feature uses only the core's public sealing and link code.
 - **A feature never uses another feature's code.** If two need the same thing, it moves into the shared core.
-- Copies kept on the computer (messages, contacts, call log) go through a shared `seam-core/src/store/`; the app supplies only the key.
+- Copies kept on the computer (messages, contacts, call log) will go through a shared `seam-core/src/store/` (planned, [decision 0011](../docs/decisions/0011-feature-logic-in-seam-core.md)); the app supplies only the key.
 
 ## What Seam adds to libsignal
 
