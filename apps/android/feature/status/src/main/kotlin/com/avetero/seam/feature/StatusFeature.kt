@@ -54,11 +54,14 @@ class StatusFeature(context: Context) : Feature {
 
     // Storage, as the phone's own Settings shows it (256 GB, free including cache it can clear).
     // Asking can take seconds, so it's read off the main thread at most once a minute, and the
-    // status sends whatever was last read (0 until then, which the Mac treats as not sent).
+    // status sends whatever was last read (0 until then, which the Mac treats as not sent). Only
+    // the first reading sends by itself; later ones wait for the next battery, network or DND
+    // change, so storage never keeps the connection awake (rule 8).
     private val storageStats = app.getSystemService(StorageStatsManager::class.java)
     private val worker = Executors.newSingleThreadExecutor()
     private var storage = 0L to 0L // free (rounded), total
     private var storageReadAt = 0L
+    private var storageRead = false
 
     private fun refreshStorage() {
         val now = SystemClock.elapsedRealtime()
@@ -70,7 +73,10 @@ class StatusFeature(context: Context) : Feature {
             val free = runCatching { storageStats.getFreeBytes(StorageManager.UUID_DEFAULT) }.getOrElse { fs.availableBytes }
             main.post {
                 storage = roundedFree(free) to total
-                update(force = false)
+                if (!storageRead) {
+                    storageRead = true
+                    update(force = false)
+                }
             }
         }
     }
