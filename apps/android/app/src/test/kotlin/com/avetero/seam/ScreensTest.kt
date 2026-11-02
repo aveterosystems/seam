@@ -109,7 +109,11 @@ class ScreensTest(private val dark: Boolean) {
         notifications = notifications, connection = ConnectionSettings(), pairedAt = 1_789_380_000_000L,
     )
 
-    @Test fun homeWifi() { show { home(LinkLook.SameWifi) }; shot("home-wifi") }
+    @Test fun homeWifi() {
+        show { home(LinkLook.SameWifi) }
+        rule.onNodeWithContentDescription("End-to-end encrypted").assertExists() // the shield speaks
+        shot("home-wifi")
+    }
     @Test fun homeTor() { show { home(LinkLook.ThroughTor) }; shot("home-tor") }
     @Test fun homeOffline() { show { home(LinkLook.Offline) }; shot("home-offline") }
     @Test fun homePaused() { show { home(LinkLook.paused(now + 30 * 60_000L, now)) }; shot("home-paused") }

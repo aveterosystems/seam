@@ -14,6 +14,7 @@ import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
+import android.os.SystemClock
 import android.os.storage.StorageManager
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.Status
@@ -21,6 +22,7 @@ import com.avetero.seam.session.Feature
 import com.avetero.seam.session.SessionApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.util.concurrent.Executors
 
 /** The Mac's battery as it last sent it, and when (ms), for the home screen. */
 data class MacStatus(val batteryPct: Int, val charging: Boolean, val at: Long) {
@@ -50,10 +52,27 @@ class StatusFeature(context: Context) : Feature {
     private val connectivity = app.getSystemService(ConnectivityManager::class.java)
     private val notificationManager = app.getSystemService(NotificationManager::class.java)
 
-    // The size the phone's own Settings shows (256 GB), not the smaller formatted size; it never changes
-    private val totalBytes by lazy {
-        runCatching { app.getSystemService(StorageStatsManager::class.java).getTotalBytes(StorageManager.UUID_DEFAULT) }
-            .getOrElse { StatFs(app.filesDir.path).totalBytes }
+    // Storage, as the phone's own Settings shows it (256 GB, free including cache it can clear).
+    // Asking can take seconds, so it's read off the main thread at most once a minute, and the
+    // status sends whatever was last read (0 until then, which the Mac treats as not sent).
+    private val storageStats = app.getSystemService(StorageStatsManager::class.java)
+    private val worker = Executors.newSingleThreadExecutor()
+    private var storage = 0L to 0L // free (rounded), total
+    private var storageReadAt = 0L
+
+    private fun refreshStorage() {
+        val now = SystemClock.elapsedRealtime()
+        if (storageReadAt != 0L && now - storageReadAt < 60_000) return
+        storageReadAt = now
+        worker.execute {
+            val fs = StatFs(app.filesDir.path)
+            val total = runCatching { storageStats.getTotalBytes(StorageManager.UUID_DEFAULT) }.getOrElse { fs.totalBytes }
+            val free = runCatching { storageStats.getFreeBytes(StorageManager.UUID_DEFAULT) }.getOrElse { fs.availableBytes }
+            main.post {
+                storage = roundedFree(free) to total
+                update(force = false)
+            }
+        }
     }
 
     private val receiver = object : BroadcastReceiver() {
@@ -101,6 +120,7 @@ class StatusFeature(context: Context) : Feature {
     }
 
     private fun update(force: Boolean) {
+        refreshStorage()
         val intent = latest ?: return
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
@@ -112,8 +132,8 @@ class StatusFeature(context: Context) : Feature {
             },
             network = network(),
             dnd = dnd(),
-            free = roundedFree(StatFs(app.filesDir.path).availableBytes),
-            total = totalBytes,
+            free = storage.first,
+            total = storage.second,
         )
         if (!force && lastSent == now) return
         val s = session ?: return
