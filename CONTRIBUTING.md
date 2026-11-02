@@ -33,12 +33,15 @@ Each part's README explains how to build and test it: [core](core/README.md), [p
 
 ## Making a change
 
-1. Branch from `main`.
+1. Branch from `main`, named `type/what` (`feat/nightly-builds`, `fix/issue-123`).
 2. Keep generated code in sync. CI fails if it drifts:
    - Changed `protocol/`? Run `scripts/gen-protocol.sh`.
    - Changed `core/seam-ffi`'s API? Run `scripts/gen-bindings.sh`.
 3. Run the tests for the parts you touched. CI runs everything a change affects.
-4. Open a pull request saying what changed and why. Keep it focused: one change per PR.
+4. Open a pull request saying what changed and why. Keep it focused: one change per PR. Title it `type(scope): sentence`, like `fix(android): storage is read off the main thread`:
+   - **type:** `feat` (something new), `fix`, `perf`, or `chore`, `ci`, `docs`, `refactor`, `test`.
+   - **scope:** `mac`, `android`, `linux`, `core`, `protocol`, `release`, `ci` or `docs`.
+   - **sentence:** plain words for people using Seam, starting lower case. PRs are squash-merged, so the title becomes the commit on `main`, and `scripts/release.sh` drafts the changelog from the `feat`, `fix` and `perf` ones (without the prefix); the rest stay out of it.
 
 ## Review
 
