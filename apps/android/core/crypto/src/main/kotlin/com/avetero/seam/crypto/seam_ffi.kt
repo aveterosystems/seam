@@ -803,6 +803,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_func_device_status_look(
     ): Int
+    external fun uniffi_seam_ffi_checksum_func_encrypted_words(
+    ): Int
     external fun uniffi_seam_ffi_checksum_func_link_look(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_nightly_warning(
@@ -1203,6 +1205,8 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_device_status_look(`status`: RustBuffer.ByValue,`connected`: Byte,`atMs`: RustBuffer.ByValue,`sameWifi`: Byte,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_encrypted_words(`names`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_link_look(`input`: RustBuffer.ByValue,`names`: RustBuffer.ByValue,`lastSeenMs`: RustBuffer.ByValue,`nowMs`: Long,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_nightly_warning(uniffi_out_err: UniffiRustCallStatus, 
@@ -1380,6 +1384,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_device_status_look() and 0xFFFF) != 17410) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_encrypted_words() and 0xFFFF) != 55404) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_link_look() and 0xFFFF) != 58522) {
@@ -6718,11 +6725,11 @@ data class DeviceStatusLook (
     , 
     var `low`: kotlin.Boolean
     , 
-    var `battery`: kotlin.String
+    var `battery`: kotlin.String?
     , 
-    var `batteryIcon`: LookIcon
+    var `batteryIcon`: LookIcon?
     , 
-    var `batteryDetail`: kotlin.String
+    var `batteryDetail`: kotlin.String?
     , 
     var `network`: kotlin.String?
     , 
@@ -6731,6 +6738,12 @@ data class DeviceStatusLook (
     var `storage`: kotlin.String?
     , 
     var `storageDetail`: kotlin.String?
+    , 
+    var `cpu`: kotlin.String?
+    , 
+    var `memory`: kotlin.String?
+    , 
+    var `memoryDetail`: kotlin.String?
     , 
     var `dnd`: kotlin.Boolean
     , 
@@ -6758,11 +6771,14 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterUInt.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterBoolean.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterTypeLookIcon.read(buf),
-            FfiConverterString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalTypeLookIcon.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeLookIcon.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterBoolean.read(buf),
@@ -6776,13 +6792,16 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterUInt.allocationSize(value.`percent`) +
             FfiConverterBoolean.allocationSize(value.`charging`) +
             FfiConverterBoolean.allocationSize(value.`low`) +
-            FfiConverterString.allocationSize(value.`battery`) +
-            FfiConverterTypeLookIcon.allocationSize(value.`batteryIcon`) +
-            FfiConverterString.allocationSize(value.`batteryDetail`) +
+            FfiConverterOptionalString.allocationSize(value.`battery`) +
+            FfiConverterOptionalTypeLookIcon.allocationSize(value.`batteryIcon`) +
+            FfiConverterOptionalString.allocationSize(value.`batteryDetail`) +
             FfiConverterOptionalString.allocationSize(value.`network`) +
             FfiConverterOptionalTypeLookIcon.allocationSize(value.`networkIcon`) +
             FfiConverterOptionalString.allocationSize(value.`storage`) +
             FfiConverterOptionalString.allocationSize(value.`storageDetail`) +
+            FfiConverterOptionalString.allocationSize(value.`cpu`) +
+            FfiConverterOptionalString.allocationSize(value.`memory`) +
+            FfiConverterOptionalString.allocationSize(value.`memoryDetail`) +
             FfiConverterBoolean.allocationSize(value.`dnd`) +
             FfiConverterBoolean.allocationSize(value.`stale`) +
             FfiConverterOptionalString.allocationSize(value.`meta`) +
@@ -6793,13 +6812,16 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterUInt.write(value.`percent`, buf)
             FfiConverterBoolean.write(value.`charging`, buf)
             FfiConverterBoolean.write(value.`low`, buf)
-            FfiConverterString.write(value.`battery`, buf)
-            FfiConverterTypeLookIcon.write(value.`batteryIcon`, buf)
-            FfiConverterString.write(value.`batteryDetail`, buf)
+            FfiConverterOptionalString.write(value.`battery`, buf)
+            FfiConverterOptionalTypeLookIcon.write(value.`batteryIcon`, buf)
+            FfiConverterOptionalString.write(value.`batteryDetail`, buf)
             FfiConverterOptionalString.write(value.`network`, buf)
             FfiConverterOptionalTypeLookIcon.write(value.`networkIcon`, buf)
             FfiConverterOptionalString.write(value.`storage`, buf)
             FfiConverterOptionalString.write(value.`storageDetail`, buf)
+            FfiConverterOptionalString.write(value.`cpu`, buf)
+            FfiConverterOptionalString.write(value.`memory`, buf)
+            FfiConverterOptionalString.write(value.`memoryDetail`, buf)
             FfiConverterBoolean.write(value.`dnd`, buf)
             FfiConverterBoolean.write(value.`stale`, buf)
             FfiConverterOptionalString.write(value.`meta`, buf)
@@ -7672,6 +7694,12 @@ sealed class LookIcon {
     object DoNotDisturb : LookIcon()
     
     
+    object Cpu : LookIcon()
+    
+    
+    object Memory : LookIcon()
+    
+    
     object Notifications : LookIcon()
     
     
@@ -7707,8 +7735,10 @@ public object FfiConverterTypeLookIcon : FfiConverterRustBuffer<LookIcon>{
                 )
             7 -> LookIcon.Storage
             8 -> LookIcon.DoNotDisturb
-            9 -> LookIcon.Notifications
-            10 -> LookIcon.NotificationsOff
+            9 -> LookIcon.Cpu
+            10 -> LookIcon.Memory
+            11 -> LookIcon.Notifications
+            12 -> LookIcon.NotificationsOff
             else -> throw RuntimeException("invalid enum value, something is very wrong!!")
         }
     }
@@ -7765,6 +7795,18 @@ public object FfiConverterTypeLookIcon : FfiConverterRustBuffer<LookIcon>{
                 4UL
             )
         }
+        is LookIcon.Cpu -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.Memory -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
         is LookIcon.Notifications -> {
             // Add the size for the Int that specifies the variant plus the size needed for all fields
             (
@@ -7816,12 +7858,20 @@ public object FfiConverterTypeLookIcon : FfiConverterRustBuffer<LookIcon>{
                 buf.putInt(8)
                 Unit
             }
-            is LookIcon.Notifications -> {
+            is LookIcon.Cpu -> {
                 buf.putInt(9)
                 Unit
             }
-            is LookIcon.NotificationsOff -> {
+            is LookIcon.Memory -> {
                 buf.putInt(10)
+                Unit
+            }
+            is LookIcon.Notifications -> {
+                buf.putInt(11)
+                Unit
+            }
+            is LookIcon.NotificationsOff -> {
+                buf.putInt(12)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
@@ -8912,6 +8962,20 @@ public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<Peer
         FfiConverterOptionalLong.lower(`atMs`),
         FfiConverterBoolean.lower(`sameWifi`),
         FfiConverterTypeTimeWords.lower(`time`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * What the shield means: "End-to-end encrypted: only this phone and your Mac can read what Seam sends."
+         */ fun `encryptedWords`(`names`: LookNames): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_encrypted_words(
+    
+        
+        FfiConverterTypeLookNames.lower(`names`),_status)
 }
     )
     }

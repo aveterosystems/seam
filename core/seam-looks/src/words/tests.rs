@@ -11,6 +11,17 @@ fn sizes_read_like_a_phone() {
 }
 
 #[test]
+fn memory_reads_like_the_computer_labels_it() {
+    assert_eq!(
+        memory(24 << 30),
+        "24 GB",
+        "not 26: memory is counted in 1024s"
+    );
+    assert_eq!(memory(9_500 << 20), "9.3 GB");
+    assert_eq!(memory(8 << 30), "8 GB");
+}
+
+#[test]
 fn ago_says_how_long() {
     assert_eq!(ago(NOW - 20_000, NOW, &Utc, "just now"), "just now");
     assert_eq!(ago(NOW - 20_000, NOW, &Utc, "now"), "now");

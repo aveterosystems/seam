@@ -180,6 +180,14 @@ public nonisolated struct Seam_V1_Payload: Sendable {
     set {body = .status(newValue)}
   }
 
+  public var statusRequest: Seam_V1_StatusRequest {
+    get {
+      if case .statusRequest(let v)? = body {return v}
+      return Seam_V1_StatusRequest()
+    }
+    set {body = .statusRequest(newValue)}
+  }
+
   /// 60–69: find my phone
   public var findPhone: Seam_V1_FindPhone {
     get {
@@ -211,6 +219,7 @@ public nonisolated struct Seam_V1_Payload: Sendable {
     case messageSend(Seam_V1_MessageSend)
     /// 50–59: status
     case status(Seam_V1_Status)
+    case statusRequest(Seam_V1_StatusRequest)
     /// 60–69: find my phone
     case findPhone(Seam_V1_FindPhone)
 
@@ -284,7 +293,7 @@ nonisolated extension Seam_V1_Inner: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 nonisolated extension Seam_V1_Payload: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Payload"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}control\0\u{2}\u{9}clipboard\0\u{4}\u{a}file_offer\0\u{3}file_answer\0\u{3}file_chunk\0\u{3}file_done\0\u{2}\u{7}notification\0\u{3}notification_action\0\u{3}notification_settings\0\u{3}notification_settings_change\0\u{4}\u{7}message_sync\0\u{3}message_send\0\u{2}\u{9}status\0\u{4}\u{a}find_phone\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}control\0\u{2}\u{9}clipboard\0\u{4}\u{a}file_offer\0\u{3}file_answer\0\u{3}file_chunk\0\u{3}file_done\0\u{2}\u{7}notification\0\u{3}notification_action\0\u{3}notification_settings\0\u{3}notification_settings_change\0\u{4}\u{7}message_sync\0\u{3}message_send\0\u{2}\u{9}status\0\u{3}status_request\0\u{4}\u{9}find_phone\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -461,6 +470,19 @@ nonisolated extension Seam_V1_Payload: SwiftProtobuf.Message, SwiftProtobuf._Mes
           self.body = .status(v)
         }
       }()
+      case 51: try {
+        var v: Seam_V1_StatusRequest?
+        var hadOneofValue = false
+        if let current = self.body {
+          hadOneofValue = true
+          if case .statusRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.body = .statusRequest(v)
+        }
+      }()
       case 60: try {
         var v: Seam_V1_FindPhone?
         var hadOneofValue = false
@@ -536,6 +558,10 @@ nonisolated extension Seam_V1_Payload: SwiftProtobuf.Message, SwiftProtobuf._Mes
     case .status?: try {
       guard case .status(let v)? = self.body else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 50)
+    }()
+    case .statusRequest?: try {
+      guard case .statusRequest(let v)? = self.body else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 51)
     }()
     case .findPhone?: try {
       guard case .findPhone(let v)? = self.body else { preconditionFailure() }

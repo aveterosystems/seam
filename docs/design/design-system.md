@@ -113,9 +113,11 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | Through Tor (the path; a neutral globe, never the onion) | `globe` | globe | `web-browser-symbolic` |
 | Lock computer | `lock` | lock | `system-lock-screen-symbolic` |
 | Settings | `slider.horizontal.3` | sliders | `emblem-system-symbolic` |
-| Battery (fills to the level; bolt while charging) | `battery.0…100percent`, `battery.100percent.bolt` | Material `battery_full` | `battery-level-0…100-symbolic`, `battery-level-…-charging-symbolic` |
+| Battery (fills to the level; bolt while charging) | `battery.0…100percent`, `battery.100percent.bolt` | Material `battery_0_bar` … `battery_full`, `battery_charging_full` (`ic_battery_*`) | `battery-level-0…100-symbolic`, `battery-level-…-charging-symbolic` |
 | Mobile data (bars to the signal) | `cellularbars` | Material `signal_cellular_alt` | `network-cellular-signal-…-symbolic` |
-| Storage | `internaldrive` | Material `hard_drive` | `drive-harddisk-symbolic` |
+| Storage | `internaldrive` | Material `hard_drive` (`ic_storage`) | `drive-harddisk-symbolic` |
+| CPU (the computer's) | `cpu` | Material `memory` (`ic_cpu`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
+| Memory (the computer's) | `memorychip` | Material `memory_alt` (`ic_memory`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
 | Do Not Disturb | `moon.fill` | Material `bedtime` | `weather-clear-night-symbolic` |
 
 ## Floating surfaces

@@ -22,8 +22,9 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
-/// Each device's battery for the other's screen. The phone also sends network, dnd and storage;
-/// the Mac sends battery only, and nothing at all without a battery.
+/// Each device's status for the other's screen. The phone sends battery, network, dnd and storage;
+/// the computer sends battery (or no_battery), storage, CPU and memory: when the phone connects,
+/// when its battery changes, and in answer to a StatusRequest.
 public nonisolated struct Seam_V1_Status: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -41,11 +42,34 @@ public nonisolated struct Seam_V1_Status: Sendable {
   /// Do Not Disturb is on
   public var dnd: Bool = false
 
-  /// the phone's free space, to the nearest 100 MB
+  /// free space, to the nearest 100 MB
   public var storageFreeBytes: UInt64 = 0
 
-  /// 0 from a phone that doesn't send storage
+  /// 0 from a device that doesn't send storage
   public var storageTotalBytes: UInt64 = 0
+
+  /// the computer's CPU in use, 0–100 (valid only with memory_total_bytes)
+  public var cpuPct: UInt32 = 0
+
+  public var memoryUsedBytes: UInt64 = 0
+
+  /// 0 from a device that doesn't send CPU and memory
+  public var memoryTotalBytes: UInt64 = 0
+
+  /// a computer without a battery (battery_pct and charging mean nothing)
+  public var noBattery: Bool = false
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// The phone asks for the computer's status now: its sheet of the computer's resources is open.
+/// An older computer ignores it.
+public nonisolated struct Seam_V1_StatusRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -58,7 +82,7 @@ fileprivate nonisolated let _protobuf_package = "seam.v1"
 
 nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Status"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}battery_pct\0\u{1}charging\0\u{1}network\0\u{3}signal_bars\0\u{1}dnd\0\u{3}storage_free_bytes\0\u{3}storage_total_bytes\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}battery_pct\0\u{1}charging\0\u{1}network\0\u{3}signal_bars\0\u{1}dnd\0\u{3}storage_free_bytes\0\u{3}storage_total_bytes\0\u{3}cpu_pct\0\u{3}memory_used_bytes\0\u{3}memory_total_bytes\0\u{3}no_battery\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -73,6 +97,10 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
       case 5: try { try decoder.decodeSingularBoolField(value: &self.dnd) }()
       case 6: try { try decoder.decodeSingularUInt64Field(value: &self.storageFreeBytes) }()
       case 7: try { try decoder.decodeSingularUInt64Field(value: &self.storageTotalBytes) }()
+      case 8: try { try decoder.decodeSingularUInt32Field(value: &self.cpuPct) }()
+      case 9: try { try decoder.decodeSingularUInt64Field(value: &self.memoryUsedBytes) }()
+      case 10: try { try decoder.decodeSingularUInt64Field(value: &self.memoryTotalBytes) }()
+      case 11: try { try decoder.decodeSingularBoolField(value: &self.noBattery) }()
       default: break
       }
     }
@@ -100,6 +128,18 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if self.storageTotalBytes != 0 {
       try visitor.visitSingularUInt64Field(value: self.storageTotalBytes, fieldNumber: 7)
     }
+    if self.cpuPct != 0 {
+      try visitor.visitSingularUInt32Field(value: self.cpuPct, fieldNumber: 8)
+    }
+    if self.memoryUsedBytes != 0 {
+      try visitor.visitSingularUInt64Field(value: self.memoryUsedBytes, fieldNumber: 9)
+    }
+    if self.memoryTotalBytes != 0 {
+      try visitor.visitSingularUInt64Field(value: self.memoryTotalBytes, fieldNumber: 10)
+    }
+    if self.noBattery != false {
+      try visitor.visitSingularBoolField(value: self.noBattery, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -111,6 +151,29 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if lhs.dnd != rhs.dnd {return false}
     if lhs.storageFreeBytes != rhs.storageFreeBytes {return false}
     if lhs.storageTotalBytes != rhs.storageTotalBytes {return false}
+    if lhs.cpuPct != rhs.cpuPct {return false}
+    if lhs.memoryUsedBytes != rhs.memoryUsedBytes {return false}
+    if lhs.memoryTotalBytes != rhs.memoryTotalBytes {return false}
+    if lhs.noBattery != rhs.noBattery {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Seam_V1_StatusRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".StatusRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Seam_V1_StatusRequest, rhs: Seam_V1_StatusRequest) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

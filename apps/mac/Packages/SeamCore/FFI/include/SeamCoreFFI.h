@@ -1236,6 +1236,11 @@ RustBuffer uniffi_seam_ffi_fn_func_connections_footnote(int8_t lan_on, int8_t to
 RustBuffer uniffi_seam_ffi_fn_func_device_status_look(RustBuffer status, int8_t connected, RustBuffer at_ms, int8_t same_wifi, uint64_t time, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_ENCRYPTED_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_ENCRYPTED_WORDS
+RustBuffer uniffi_seam_ffi_fn_func_encrypted_words(RustBuffer names, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_LINK_LOOK
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_LINK_LOOK
 RustBuffer uniffi_seam_ffi_fn_func_link_look(RustBuffer input, RustBuffer names, RustBuffer last_seen_ms, int64_t now_ms, uint64_t time, RustCallStatus *_Nonnull out_status
@@ -1641,6 +1646,12 @@ uint16_t uniffi_seam_ffi_checksum_func_connections_footnote(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DEVICE_STATUS_LOOK
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DEVICE_STATUS_LOOK
 uint16_t uniffi_seam_ffi_checksum_func_device_status_look(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_ENCRYPTED_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_ENCRYPTED_WORDS
+uint16_t uniffi_seam_ffi_checksum_func_encrypted_words(void
     
 );
 #endif

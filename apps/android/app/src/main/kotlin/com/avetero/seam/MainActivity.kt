@@ -182,6 +182,7 @@ class MainActivity : ComponentActivity() {
                     onOpenSettings = { pages = pages + Page.Settings },
                     onOpenNotifications = { pages = pages + Page.Notifications },
                     mac = macStatus,
+                    onRequestMac = status::requestMac,
                     notifications = notifications,
                     clipboard = clipboardStatus,
                     onCodesDontMatch = { session.abortPairing() },

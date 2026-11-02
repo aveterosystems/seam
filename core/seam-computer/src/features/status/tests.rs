@@ -78,3 +78,36 @@ fn a_computer_without_a_battery_sends_no_status() {
     s.command(Command::BatteryChanged, &mut host);
     assert!(host.sent.is_empty());
 }
+
+#[test]
+fn the_phone_asking_gets_a_fresh_reading_but_only_while_connected() {
+    let power = Arc::new(Power::default());
+    let mut s = Status::new(power.clone());
+    let mut host = FakeHost::default();
+    *lock(&power.0) = Some(v1::Status {
+        cpu_pct: 250,
+        memory_used_bytes: 9,
+        memory_total_bytes: 16,
+        ..level(64)
+    });
+    s.receive(
+        &Body::StatusRequest(v1::StatusRequest::default()),
+        &mut host,
+    );
+    let Some(Body::Status(sent)) = host.bodies().pop() else {
+        panic!("no status sent")
+    };
+    assert_eq!(
+        (sent.battery_pct, sent.cpu_pct, sent.memory_total_bytes),
+        (64, 100, 16),
+        "CPU clamped too"
+    );
+    assert_eq!(s.view().status, None, "a request isn't the phone's status");
+    host.reach = Reach::Away;
+    let before = host.sent.len();
+    s.receive(
+        &Body::StatusRequest(v1::StatusRequest::default()),
+        &mut host,
+    );
+    assert_eq!(host.sent.len(), before);
+}

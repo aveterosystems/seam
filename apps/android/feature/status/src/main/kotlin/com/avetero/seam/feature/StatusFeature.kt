@@ -18,23 +18,19 @@ import android.os.SystemClock
 import android.os.storage.StorageManager
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.Status
+import com.avetero.seam.protocol.v1.StatusRequest
 import com.avetero.seam.session.Feature
 import com.avetero.seam.session.SessionApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.Executors
 
-/** The Mac's battery as it last sent it, and when (ms), for the home screen. */
-data class MacStatus(val batteryPct: Int, val charging: Boolean, val at: Long) {
-    companion object {
-        /** A uint32 arrives as a signed Int: never negative and never over 100 on screen. */
-        fun of(s: Status, at: Long) = MacStatus(s.batteryPct.toUInt().coerceAtMost(100u).toInt(), s.charging, at)
-    }
-}
+/** The Mac's status as it last sent it (battery, storage, CPU, memory), and when (ms). The shared looks read it. */
+data class MacStatus(val status: Status, val at: Long)
 
 /**
  * Sends the phone's battery, whether it's on Wi‑Fi or mobile data, Do Not Disturb and free storage
- * to the Mac: on connect, and when any changes. Storage rides along; it never sends by itself. Keeps the Mac's battery when the Mac sends it.
+ * to the Mac: on connect, and when any changes. Storage rides along; it never sends by itself. Keeps the Mac's status when the Mac sends it, and asks for a fresh one while its sheet is open.
  * The Wi‑Fi's name isn't sent: Android only gives it to apps with location access.
  */
 class StatusFeature(context: Context) : Feature {
@@ -111,7 +107,12 @@ class StatusFeature(context: Context) : Feature {
     }
 
     override fun receive(payload: Payload, fromPeer: String) {
-        _mac.value = MacStatus.of(payload.status, System.currentTimeMillis())
+        _mac.value = MacStatus(payload.status, System.currentTimeMillis())
+    }
+
+    /** The sheet of the Mac's resources is open: ask for a fresh reading. An older Mac ignores it. */
+    fun requestMac() {
+        session?.send(Payload.newBuilder().setStatusRequest(StatusRequest.getDefaultInstance()).build())
     }
 
     override fun reset() {

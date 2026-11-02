@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
@@ -16,16 +14,19 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.clipboard.FromMac
 import com.avetero.seam.feature.notifications.NotificationsFeature
 import com.avetero.seam.protocol.v1.Payload
-import com.avetero.seam.session.SessionApi
+import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.session.ConnectionSettings
+import com.avetero.seam.session.SessionApi
 import com.avetero.seam.session.SessionState
 
 /**
@@ -97,7 +98,7 @@ class GalleryActivity : ComponentActivity() {
                                             now = now, onPasteFromMac = { true },
                                             onOpenSettings = { pages = pages + Page.Settings },
                                             onOpenNotifications = { pages = pages + Page.Notifications },
-                                            mac = MacStatus(64, false, now), notifications = notifications,
+                                            mac = MacStatus(Status.newBuilder().setBatteryPct(64).setStorageFreeBytes(140_000_000_000).setStorageTotalBytes(500_000_000_000).setCpuPct(12).setMemoryUsedBytes(9L shl 30).setMemoryTotalBytes(24L shl 30).build(), now), notifications = notifications,
                                             clipboard = clipboard,
                                             update = if (intent.getBooleanExtra("update", false)) Release("0.3", "", "", "") else null,
                                             look = look, onPause = { link = "paused" }, onResume = { link = "wifi" },

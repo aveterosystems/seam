@@ -22,6 +22,10 @@ pub enum Icon {
     },
     Storage,
     DoNotDisturb,
+    /// The computer's processor.
+    Cpu,
+    /// The computer's memory.
+    Memory,
     Notifications,
     NotificationsOff,
 }

@@ -54,6 +54,12 @@ pub fn rules(payload: &Payload) -> Rules {
             lazy: true,
             ..DEFAULT
         },
+        // You opened the sheet of the computer's resources: worth a connection, stale in a minute
+        Body::StatusRequest(_) => Rules {
+            ttl_s: 60,
+            latest_only: true,
+            ..DEFAULT
+        },
         Body::Notification(_) => Rules {
             ttl_s: 3600, // a computer that was away gets the last hour, not a flood
             ..DEFAULT

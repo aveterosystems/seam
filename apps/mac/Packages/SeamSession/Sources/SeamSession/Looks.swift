@@ -86,6 +86,8 @@ extension LookIcon {
         case .mobileSignal: "cellularbars"
         case .storage: "internaldrive"
         case .doNotDisturb: "moon.fill"
+        case .cpu: "cpu"
+        case .memory: "memorychip"
         case .notifications: "bell"
         case .notificationsOff: "bell.slash"
         }

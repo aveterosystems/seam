@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! The phone's battery and the like, for the computer's screens; and the computer's battery, for
-//! the phone.
+//! The phone's battery and the like, for the computer's screens; and the computer's battery,
+//! storage, CPU and memory, for the phone.
 
 use std::sync::Arc;
 
@@ -8,7 +8,8 @@ use seam_core::proto::v1::{self, Payload, payload::Body};
 
 use super::{Host, Reach};
 
-/// The computer's battery: None on a computer without one, which sends nothing.
+/// This computer's status: battery (or `no_battery`), storage, CPU and memory, read when it's sent.
+/// None sends nothing.
 pub trait Battery: Send + Sync {
     fn read(&self) -> Option<v1::Status>;
 }
@@ -65,6 +66,10 @@ impl Status {
     }
 
     pub fn receive(&mut self, body: &Body, host: &mut dyn Host) {
+        // The phone's sheet of this computer's resources is open: a fresh reading now
+        if let Body::StatusRequest(_) = body {
+            self.own_changed(host);
+        }
         if let Body::Status(s) = body {
             let mut s = s.clone();
             s.battery_pct = s.battery_pct.min(100); // never nonsense on screen
@@ -83,6 +88,7 @@ impl Status {
             return;
         };
         s.battery_pct = s.battery_pct.min(100);
+        s.cpu_pct = s.cpu_pct.min(100);
         host.send(Payload {
             body: Some(Body::Status(s)),
         });

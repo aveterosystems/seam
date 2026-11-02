@@ -20,6 +20,22 @@ pub fn size(bytes: u64) -> String {
     format!("{} MB", (b / 1e6).round() as u64)
 }
 
+/// Memory, counted the way Apple and Android label it (24 GB is 24 × 1024³ bytes), to one place
+/// under 10 GB: "9.5 GB", "24 GB".
+pub fn memory(bytes: u64) -> String {
+    let gb = bytes as f64 / (1u64 << 30) as f64;
+    if gb < 10.0 {
+        let one = (gb * 10.0).round() / 10.0;
+        if one.fract() == 0.0 {
+            format!("{} GB", one as u64)
+        } else {
+            format!("{one} GB")
+        }
+    } else {
+        format!("{} GB", gb.round() as u64)
+    }
+}
+
 /// "just now", "12 min ago", "today at 14:02", "yesterday at 09:15", or a date. Notifications
 /// pass "now" for `just_now` (the popover prototype's format).
 pub fn ago(at_ms: i64, now_ms: i64, time: &dyn TimeWords, just_now: &str) -> String {
@@ -35,6 +51,14 @@ pub fn ago(at_ms: i64, now_ms: i64, time: &dyn TimeWords, just_now: &str) -> Str
         1 => format!("yesterday at {}", time.time(at_ms)),
         _ => time.date(at_ms),
     }
+}
+
+/// What the shield means, when it's tapped or hovered.
+pub fn encrypted(names: &crate::Names) -> String {
+    format!(
+        "End-to-end encrypted: only {} and {} can read what Seam sends.",
+        names.this, names.peer
+    )
 }
 
 /// Asked before Updates › Nightly builds turns on, in both apps.
