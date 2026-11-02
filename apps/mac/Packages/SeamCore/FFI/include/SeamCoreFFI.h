@@ -303,6 +303,27 @@ typedef void (*UniffiCallbackInterfaceSameWifiMethod2)(uint64_t, RustBuffer, int
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TIME_WORDS_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TIME_WORDS_METHOD0
+typedef void (*UniffiCallbackInterfaceTimeWordsMethod0)(uint64_t, int64_t, RustBuffer* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TIME_WORDS_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TIME_WORDS_METHOD1
+typedef void (*UniffiCallbackInterfaceTimeWordsMethod1)(uint64_t, int64_t, RustBuffer* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TIME_WORDS_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TIME_WORDS_METHOD2
+typedef void (*UniffiCallbackInterfaceTimeWordsMethod2)(uint64_t, int64_t, int64_t, int32_t* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD0
 typedef void (*UniffiCallbackInterfaceNotificationCentreMethod0)(uint64_t, RustBuffer, RustBuffer, UniffiForeignFutureCompleteVoid _Nonnull, uint64_t, UniffiForeignFutureDroppedCallbackStruct* _Nonnull
@@ -402,6 +423,17 @@ typedef struct UniffiVTableCallbackInterfaceSameWifi {
     UniffiCallbackInterfaceSameWifiMethod1 _Nonnull stopAnnouncing;
     UniffiCallbackInterfaceSameWifiMethod2 _Nonnull isLanAddress;
 } UniffiVTableCallbackInterfaceSameWifi;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TIME_WORDS
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TIME_WORDS
+typedef struct UniffiVTableCallbackInterfaceTimeWords {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceTimeWordsMethod0 _Nonnull time;
+    UniffiCallbackInterfaceTimeWordsMethod1 _Nonnull date;
+    UniffiCallbackInterfaceTimeWordsMethod2 _Nonnull daysBetween;
+} UniffiVTableCallbackInterfaceTimeWords;
 
 #endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_NOTIFICATION_CENTRE
@@ -921,6 +953,36 @@ void uniffi_seam_ffi_fn_method_samewifi_stop_announcing(uint64_t ptr, RustCallSt
 int8_t uniffi_seam_ffi_fn_method_samewifi_is_lan_address(uint64_t ptr, RustBuffer ip, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TIMEWORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TIMEWORDS
+uint64_t uniffi_seam_ffi_fn_clone_timewords(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TIMEWORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_TIMEWORDS
+void uniffi_seam_ffi_fn_free_timewords(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TIMEWORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_TIMEWORDS
+void uniffi_seam_ffi_fn_init_callback_vtable_timewords(const UniffiVTableCallbackInterfaceTimeWords* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TIMEWORDS_TIME
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TIMEWORDS_TIME
+RustBuffer uniffi_seam_ffi_fn_method_timewords_time(uint64_t ptr, int64_t ms, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TIMEWORDS_DATE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TIMEWORDS_DATE
+RustBuffer uniffi_seam_ffi_fn_method_timewords_date(uint64_t ptr, int64_t ms, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TIMEWORDS_DAYS_BETWEEN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_TIMEWORDS_DAYS_BETWEEN
+int32_t uniffi_seam_ffi_fn_method_timewords_days_between(uint64_t ptr, int64_t ms, int64_t now_ms, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_NOTIFICATIONCENTRE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_NOTIFICATIONCENTRE
 uint64_t uniffi_seam_ffi_fn_clone_notificationcentre(uint64_t handle, RustCallStatus *_Nonnull out_status
@@ -1152,6 +1214,82 @@ uint32_t uniffi_seam_ffi_fn_func_clip_max_bytes(RustCallStatus *_Nonnull out_sta
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_OPENABLE_URL
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_OPENABLE_URL
 RustBuffer uniffi_seam_ffi_fn_func_clip_openable_url(RustBuffer text, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_AGO_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_AGO_WORDS
+RustBuffer uniffi_seam_ffi_fn_func_ago_words(int64_t at_ms, int64_t now_ms, RustBuffer just_now, uint64_t time, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIPBOARD_SUBTITLE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIPBOARD_SUBTITLE
+RustBuffer uniffi_seam_ffi_fn_func_clipboard_subtitle(int8_t sync_on, int8_t connected, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CONNECTIONS_FOOTNOTE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CONNECTIONS_FOOTNOTE
+RustBuffer uniffi_seam_ffi_fn_func_connections_footnote(int8_t lan_on, int8_t tor_on, RustBuffer names, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_DEVICE_STATUS_LOOK
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_DEVICE_STATUS_LOOK
+RustBuffer uniffi_seam_ffi_fn_func_device_status_look(RustBuffer status, int8_t connected, RustBuffer at_ms, int8_t same_wifi, uint64_t time, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_LINK_LOOK
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_LINK_LOOK
+RustBuffer uniffi_seam_ffi_fn_func_link_look(RustBuffer input, RustBuffer names, RustBuffer last_seen_ms, int64_t now_ms, uint64_t time, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_APPS_ON
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_APPS_ON
+RustBuffer uniffi_seam_ffi_fn_func_notification_apps_on(RustBuffer settings_bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_APPS_ON_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_APPS_ON_COUNT
+uint32_t uniffi_seam_ffi_fn_func_notification_apps_on_count(RustBuffer settings_bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_MODE_EXPLANATION
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_MODE_EXPLANATION
+RustBuffer uniffi_seam_ffi_fn_func_notification_mode_explanation(int32_t mode, int8_t can_reply, RustBuffer names, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_MODE_WORD
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATION_MODE_WORD
+RustBuffer uniffi_seam_ffi_fn_func_notification_mode_word(int32_t mode, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_LONG
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_LONG
+RustBuffer uniffi_seam_ffi_fn_func_notifications_phone_long(RustBuffer settings_bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_SHORT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_PHONE_SHORT
+RustBuffer uniffi_seam_ffi_fn_func_notifications_phone_short(RustBuffer settings_bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_TILE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_NOTIFICATIONS_TILE
+RustBuffer uniffi_seam_ffi_fn_func_notifications_tile(RustBuffer settings_bytes, uint32_t showing, int64_t now_ms, uint64_t time, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_SENDER_ONLY_FOOTNOTE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_SENDER_ONLY_FOOTNOTE
+RustBuffer uniffi_seam_ffi_fn_func_sender_only_footnote(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_SIZE_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_SIZE_WORDS
+RustBuffer uniffi_seam_ffi_fn_func_size_words(uint64_t bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_WAITING_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_WAITING_WORDS
+RustBuffer uniffi_seam_ffi_fn_func_waiting_words(uint32_t count, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_DISCOVERY_PUBLIC
@@ -1457,6 +1595,96 @@ uint16_t uniffi_seam_ffi_checksum_func_clip_max_bytes(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIP_OPENABLE_URL
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIP_OPENABLE_URL
 uint16_t uniffi_seam_ffi_checksum_func_clip_openable_url(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_AGO_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_AGO_WORDS
+uint16_t uniffi_seam_ffi_checksum_func_ago_words(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIPBOARD_SUBTITLE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIPBOARD_SUBTITLE
+uint16_t uniffi_seam_ffi_checksum_func_clipboard_subtitle(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CONNECTIONS_FOOTNOTE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CONNECTIONS_FOOTNOTE
+uint16_t uniffi_seam_ffi_checksum_func_connections_footnote(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DEVICE_STATUS_LOOK
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DEVICE_STATUS_LOOK
+uint16_t uniffi_seam_ffi_checksum_func_device_status_look(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_LINK_LOOK
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_LINK_LOOK
+uint16_t uniffi_seam_ffi_checksum_func_link_look(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_APPS_ON
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_APPS_ON
+uint16_t uniffi_seam_ffi_checksum_func_notification_apps_on(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_APPS_ON_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_APPS_ON_COUNT
+uint16_t uniffi_seam_ffi_checksum_func_notification_apps_on_count(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_MODE_EXPLANATION
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_MODE_EXPLANATION
+uint16_t uniffi_seam_ffi_checksum_func_notification_mode_explanation(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_MODE_WORD
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATION_MODE_WORD
+uint16_t uniffi_seam_ffi_checksum_func_notification_mode_word(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_LONG
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_LONG
+uint16_t uniffi_seam_ffi_checksum_func_notifications_phone_long(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_SHORT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_PHONE_SHORT
+uint16_t uniffi_seam_ffi_checksum_func_notifications_phone_short(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_TILE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_NOTIFICATIONS_TILE
+uint16_t uniffi_seam_ffi_checksum_func_notifications_tile(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_SENDER_ONLY_FOOTNOTE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_SENDER_ONLY_FOOTNOTE
+uint16_t uniffi_seam_ffi_checksum_func_sender_only_footnote(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_SIZE_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_SIZE_WORDS
+uint16_t uniffi_seam_ffi_checksum_func_size_words(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_WAITING_WORDS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_WAITING_WORDS
+uint16_t uniffi_seam_ffi_checksum_func_waiting_words(void
     
 );
 #endif
@@ -1835,6 +2063,24 @@ uint16_t uniffi_seam_ffi_checksum_method_samewifi_stop_announcing(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_IS_LAN_ADDRESS
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_IS_LAN_ADDRESS
 uint16_t uniffi_seam_ffi_checksum_method_samewifi_is_lan_address(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TIMEWORDS_TIME
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TIMEWORDS_TIME
+uint16_t uniffi_seam_ffi_checksum_method_timewords_time(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TIMEWORDS_DATE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TIMEWORDS_DATE
+uint16_t uniffi_seam_ffi_checksum_method_timewords_date(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TIMEWORDS_DAYS_BETWEEN
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TIMEWORDS_DAYS_BETWEEN
+uint16_t uniffi_seam_ffi_checksum_method_timewords_days_between(void
     
 );
 #endif

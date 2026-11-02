@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import SeamCore
 import SeamSession
 import SwiftUI
 
@@ -97,7 +98,7 @@ extension Tile where Accessory == EmptyView {
 /// Catalogue 11: the phone's battery. The number counts, the bolt springs in and out, and at 15% or
 /// below while not charging the pill fades to `warn`.
 struct BatteryPill: View {
-    let look: PhoneStatusLook
+    let look: DeviceStatusLook
 
     var body: some View {
         HStack(spacing: 3) {

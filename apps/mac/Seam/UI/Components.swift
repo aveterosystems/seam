@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamCore
 import SeamSession
 import SwiftUI
 
@@ -145,7 +146,7 @@ private struct Rise: ViewModifier {
 /// connecting (Tor starting, or a Reconnect), and a broken grey line offline. The styles
 /// crossfade; the words beside it always say the same thing.
 struct Stitch: View {
-    let line: LinkLook.Line
+    let line: LookLine
     /// Change it to draw the solid line again (a surface opened).
     var replay = 0
     @Environment(\.accessibilityReduceMotion) private var reduce

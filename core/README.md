@@ -11,6 +11,7 @@ flowchart LR
     subgraph core["core/"]
         FFI["seam-ffi<br/>the only surface the apps can call"] --> SC["seam-core<br/>pairing · sealing · direct link · path rules · saved state"]
         FFI --> ST["seam-tor<br/>onion service · Tor client"]
+        FFI --> LK["seam-looks<br/>what every screen shows: words · icon meanings · line"]
         FFI -- "Mac build only" --> CO["seam-computer<br/>the computer's session · paths · pairing · features · saved files"]
         CO --> SC
         CO --> ST
@@ -25,8 +26,9 @@ flowchart LR
 |---|---|
 | **`seam-core`** | A device's identity and Signal sessions, plus Seam's own layer on top: pairing and identity pinning, sealing envelopes, padding, the prekey bundle byte format, file chunk sealing, the encrypted direct link (`LanChannel`), which path a message may take, and the sealed saved state |
 | **`seam-computer`** | The computer side of the session, shared by every computer app (decision 0014): the Same Wi‑Fi listener and Tor streams, pairing, delivery and the outbox, each feature's computer side, and the saved files. Each app is its screens plus a few OS interfaces (pasteboard, notifications, key store, Same Wi‑Fi announcement, battery). Owns its I/O on tokio; nothing here logs |
+| **`seam-looks`** | What every screen shows for each state, for every app (decision 0015): the link (line, path icon, "Connected", the reasons and their details), the other device's battery, network, storage and Do Not Disturb, the notification and clipboard tiles and words, sizes and "12 min ago". Icons are meanings each app maps to its own set (the design system's icon table); the app passes its names for the two devices and its locale's time words. Pure: no I/O, no clock reads |
 | **`seam-tor`** | Seam's Tor path on Arti: the Mac's private onion service (restricted discovery, so only the paired phone can find it), the phone's connection to it, and the two 32-byte secrets behind them. Keys live only in memory (Arti's in-memory keystore); the apps keep them in their sealed state. Arti is pinned to one exact version because restricted discovery and the in-memory keystore are behind its experimental features. Nothing here logs |
-| **`seam-ffi`** | The API the apps see (the Mac's build adds `Computer`, seam-computer, behind the `computer` feature): `SeamDevice` (identity, pairing, sealing, Hello and routing, saved state), the feature catalogue, the clipboard rules, `LanChannel` (the direct link), `Tor` and `TorStream` (Tor as a byte pipe), and `FileSealer` / `FileReceiver`. Plain bytes and strings in and out. UniFFI generates the Swift and Kotlin code from it |
+| **`seam-ffi`** | The API the apps see (the Mac's build adds `Computer`, seam-computer, behind the `computer` feature): `SeamDevice` (identity, pairing, sealing, Hello and routing, saved state), the feature catalogue, the clipboard rules, `LanChannel` (the direct link), `Tor` and `TorStream` (Tor as a byte pipe), and `FileSealer` / `FileReceiver`, and the looks (`link_look`, `device_status_look`, `notifications_tile` and the words). Plain bytes and strings in and out. UniFFI generates the Swift and Kotlin code from it |
 
 ### `seam-core` modules
 

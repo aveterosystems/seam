@@ -103,7 +103,10 @@ struct PairingView: View {
     /// While Tor isn't ready the phone can still pair on the same Wi‑Fi: say why Tor waits.
     private var torNote: String? {
         guard controller.torOn, controller.torState != .ready else { return nil }
-        return LinkLook.of(route: nil, allowed: [.tor], tor: controller.torState).label
+        var tor = LinkInput.offline
+        tor.lanAllowed = false
+        tor.tor = controller.torState
+        return Looks.link(tor).label
     }
 
     /// Pairing works over either path, and one is always on: a code can always show.

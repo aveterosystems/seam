@@ -16,10 +16,10 @@ struct PopoverHeader: View {
 
     var body: some View {
         let look = controller.link
-        let battery = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt, sameWifi: look == .sameWifi) }
+        let battery = controller.status.status.flatMap { Looks.phone($0, link: look, at: controller.status.statusAt) }
         VStack(alignment: .leading, spacing: 0) {
             TimelineView(.periodic(from: .now, by: 30)) { tl in
-                let line = look.statusLine(lastSeen: controller.lastSeen, now: tl.date)
+                let line = controller.link(at: tl.date).statusLine
                 HStack(spacing: 11) {
                     PhoneOutline()
                         .frame(width: 38, height: 38)
@@ -31,7 +31,7 @@ struct PopoverHeader: View {
                         HStack(spacing: 5) {
                             StatusDot(on: look.connected)
                             SwapText(line)
-                            if look.connected, let symbol = look.symbol {
+                            if look.connected, let symbol = look.icon?.symbol {
                                 // The path as an icon; clicking it says which path, in words
                                 Button { why.toggle() } label: { Image(systemName: symbol).contentTransition(.symbolEffect(.replace)) }
                                     .buttonStyle(.plain).help(look.sentence)
@@ -73,7 +73,7 @@ struct PopoverHeader: View {
     private var name: String { phone.name.isEmpty ? "Your phone" : phone.name }
 
     /// The pill, and under it the network and a moon for Do Not Disturb, or "as of 14:02" offline.
-    private func batteryColumn(_ b: PhoneStatusLook) -> some View {
+    private func batteryColumn(_ b: DeviceStatusLook) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
             BatteryPill(look: b)
             // "Wi‑Fi · ☾", or "as of 14:02" offline
@@ -101,7 +101,7 @@ struct QueueBar: View {
                 Image(systemName: "clock").font(.system(size: 12))
                     .rotationEffect(.degrees(reduce ? 0 : tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 6) / 6 * 360))
             }
-            Text("\(Text(Words.waiting(count)).foregroundStyle(SeamStyle.Pop.fg).fontWeight(.semibold)) · sends when your phone is back")
+            Text("\(Text(waitingWords(count: UInt32(count))).foregroundStyle(SeamStyle.Pop.fg).fontWeight(.semibold)) · sends when your phone is back")
                 .monospacedDigit()
                 .contentTransition(.numericText(value: Double(count)))
             Spacer(minLength: 0)

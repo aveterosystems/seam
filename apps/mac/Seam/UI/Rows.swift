@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamCore
 import SeamSession
 import SwiftUI
 
@@ -182,7 +183,7 @@ struct PathIcon: View {
     @State private var showing = false
 
     var body: some View {
-        if look.connected, let symbol = look.symbol {
+        if look.connected, let symbol = look.icon?.symbol {
             Button { showing = true } label: { Image(systemName: symbol).contentTransition(.symbolEffect(.replace)) }
                 .buttonStyle(.plain)
                 .help(look.sentence)
@@ -207,7 +208,7 @@ struct LinkStatus: View {
             HStack(spacing: 6) {
                 Circle().fill(look.connected ? SeamStyle.live : SeamStyle.Win.fg3).frame(width: 8, height: 8)
                 Text(look.short)
-                if let symbol = look.symbol { Image(systemName: symbol) }
+                if let symbol = look.icon?.symbol { Image(systemName: symbol) }
                 if look.detail != nil && !look.connected { Image(systemName: "info.circle") }
             }
             .contentShape(Rectangle())

@@ -519,6 +519,22 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
+    typealias FfiType = Int32
+    typealias SwiftType = Int32
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int32 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Int32, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
     typealias FfiType = UInt64
     typealias SwiftType = UInt64
@@ -545,6 +561,22 @@ fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
 
     public static func write(_ value: Int64, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterFloat: FfiConverterPrimitive {
+    typealias FfiType = Float
+    typealias SwiftType = Float
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Float {
+        return try lift(readFloat(&buf))
+    }
+
+    public static func write(_ value: Float, into buf: inout [UInt8]) {
+        writeFloat(&buf, lower(value))
     }
 }
 
@@ -3860,6 +3892,304 @@ public func FfiConverterTypeSeamDevice_lower(_ value: SeamDevice) -> UInt64 {
 
 
 /**
+ * The app's own clock and calendar words, in the user's locale and time zone.
+ */
+public protocol TimeWords: AnyObject, Sendable {
+    
+    /**
+     * "14:02"
+     */
+    func time(ms: Int64)  -> String
+    
+    /**
+     * "3 Nov"
+     */
+    func date(ms: Int64)  -> String
+    
+    /**
+     * Calendar days from `ms` to `now_ms`: 0 the same day, 1 yesterday, -1 tomorrow.
+     */
+    func daysBetween(ms: Int64, nowMs: Int64)  -> Int32
+    
+}
+/**
+ * The app's own clock and calendar words, in the user's locale and time zone.
+ */
+open class TimeWordsImpl: TimeWords, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_seam_ffi_fn_clone_timewords(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_seam_ffi_fn_free_timewords(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * "14:02"
+     */
+open func time(ms: Int64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_timewords_time(
+            self.uniffiCloneHandle(),
+        FfiConverterInt64.lower(ms),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * "3 Nov"
+     */
+open func date(ms: Int64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_timewords_date(
+            self.uniffiCloneHandle(),
+        FfiConverterInt64.lower(ms),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Calendar days from `ms` to `now_ms`: 0 the same day, 1 yesterday, -1 tomorrow.
+     */
+open func daysBetween(ms: Int64, nowMs: Int64) -> Int32  {
+    return try!  FfiConverterInt32.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_timewords_days_between(
+            self.uniffiCloneHandle(),
+        FfiConverterInt64.lower(ms),
+        FfiConverterInt64.lower(nowMs),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceTimeWords {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceTimeWords = UniffiVTableCallbackInterfaceTimeWords(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterTypeTimeWords.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface TimeWords: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterTypeTimeWords.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface TimeWords: handle missing in uniffiClone")
+            }
+        },
+        time: { (
+            uniffiHandle: UInt64,
+            ms: Int64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> String in
+                guard let uniffiObj = try? FfiConverterTypeTimeWords.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.time(
+                     ms: try FfiConverterInt64.lift(ms)
+                )
+            }
+
+            
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        date: { (
+            uniffiHandle: UInt64,
+            ms: Int64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> String in
+                guard let uniffiObj = try? FfiConverterTypeTimeWords.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.date(
+                     ms: try FfiConverterInt64.lift(ms)
+                )
+            }
+
+            
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        daysBetween: { (
+            uniffiHandle: UInt64,
+            ms: Int64,
+            nowMs: Int64,
+            uniffiOutReturn: UnsafeMutablePointer<Int32>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> Int32 in
+                guard let uniffiObj = try? FfiConverterTypeTimeWords.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.daysBetween(
+                     ms: try FfiConverterInt64.lift(ms),
+                     nowMs: try FfiConverterInt64.lift(nowMs)
+                )
+            }
+
+            
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterInt32.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceTimeWords> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceTimeWords>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitTimeWords() {
+    uniffi_seam_ffi_fn_init_callback_vtable_timewords(UniffiCallbackInterfaceTimeWords.vtablePtr)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTimeWords: FfiConverter {
+    fileprivate static let handleMap = UniffiHandleMap<TimeWords>()
+
+    typealias FfiType = UInt64
+    typealias SwiftType = TimeWords
+
+    public static func lift(_ handle: UInt64) throws -> TimeWords {
+        if ((handle & 1) == 0) {
+            // Rust-generated handle, construct a new class that uses the handle to implement the
+            // interface
+            return TimeWordsImpl(unsafeFromHandle: handle)
+        } else {
+            // Swift-generated handle, get the object from the handle map
+            return try handleMap.remove(handle: handle)
+        }
+    }
+
+    public static func lower(_ value: TimeWords) -> UInt64 {
+         if let rustImpl = value as? TimeWordsImpl {
+             // Rust-implemented object.  Clone the handle and return it
+            return rustImpl.uniffiCloneHandle()
+         } else {
+            // Swift object, generate a new vtable handle and return that.
+            return handleMap.insert(obj: value)
+         }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TimeWords {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: TimeWords, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTimeWords_lift(_ handle: UInt64) throws -> TimeWords {
+    return try FfiConverterTypeTimeWords.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTimeWords_lower(_ value: TimeWords) -> UInt64 {
+    return FfiConverterTypeTimeWords.lower(value)
+}
+
+
+
+
+
+
+/**
  * Tor for one app. Create once; `start` before `host` or `connect`.
  */
 public protocol TorProtocol: AnyObject, Sendable {
@@ -5443,6 +5773,111 @@ public func FfiConverterTypeComputerSnapshot_lower(_ value: ComputerSnapshot) ->
 }
 
 
+/**
+ * The other device's battery, network, storage and Do Not Disturb, ready to draw.
+ */
+public struct DeviceStatusLook: Equatable, Hashable {
+    public var percent: UInt32
+    public var charging: Bool
+    public var low: Bool
+    public var battery: String
+    public var batteryIcon: LookIcon
+    public var batteryDetail: String
+    public var network: String?
+    public var networkIcon: LookIcon?
+    public var storage: String?
+    public var storageDetail: String?
+    public var dnd: Bool
+    public var stale: Bool
+    public var meta: String?
+    public var spoken: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(percent: UInt32, charging: Bool, low: Bool, battery: String, batteryIcon: LookIcon, batteryDetail: String, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
+        self.percent = percent
+        self.charging = charging
+        self.low = low
+        self.battery = battery
+        self.batteryIcon = batteryIcon
+        self.batteryDetail = batteryDetail
+        self.network = network
+        self.networkIcon = networkIcon
+        self.storage = storage
+        self.storageDetail = storageDetail
+        self.dnd = dnd
+        self.stale = stale
+        self.meta = meta
+        self.spoken = spoken
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension DeviceStatusLook: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DeviceStatusLook {
+        return
+            try DeviceStatusLook(
+                percent: FfiConverterUInt32.read(from: &buf), 
+                charging: FfiConverterBool.read(from: &buf), 
+                low: FfiConverterBool.read(from: &buf), 
+                battery: FfiConverterString.read(from: &buf), 
+                batteryIcon: FfiConverterTypeLookIcon.read(from: &buf), 
+                batteryDetail: FfiConverterString.read(from: &buf), 
+                network: FfiConverterOptionString.read(from: &buf), 
+                networkIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
+                storage: FfiConverterOptionString.read(from: &buf), 
+                storageDetail: FfiConverterOptionString.read(from: &buf), 
+                dnd: FfiConverterBool.read(from: &buf), 
+                stale: FfiConverterBool.read(from: &buf), 
+                meta: FfiConverterOptionString.read(from: &buf), 
+                spoken: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: DeviceStatusLook, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.percent, into: &buf)
+        FfiConverterBool.write(value.charging, into: &buf)
+        FfiConverterBool.write(value.low, into: &buf)
+        FfiConverterString.write(value.battery, into: &buf)
+        FfiConverterTypeLookIcon.write(value.batteryIcon, into: &buf)
+        FfiConverterString.write(value.batteryDetail, into: &buf)
+        FfiConverterOptionString.write(value.network, into: &buf)
+        FfiConverterOptionTypeLookIcon.write(value.networkIcon, into: &buf)
+        FfiConverterOptionString.write(value.storage, into: &buf)
+        FfiConverterOptionString.write(value.storageDetail, into: &buf)
+        FfiConverterBool.write(value.dnd, into: &buf)
+        FfiConverterBool.write(value.stale, into: &buf)
+        FfiConverterOptionString.write(value.meta, into: &buf)
+        FfiConverterString.write(value.spoken, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeviceStatusLook_lift(_ buf: RustBuffer) throws -> DeviceStatusLook {
+    return try FfiConverterTypeDeviceStatusLook.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeviceStatusLook_lower(_ value: DeviceStatusLook) -> RustBuffer {
+    return FfiConverterTypeDeviceStatusLook.lower(value)
+}
+
+
 public struct FeatureViews: Equatable, Hashable {
     public var clipboard: ClipboardView
     public var notifications: NotificationsView
@@ -5749,6 +6184,335 @@ public func FfiConverterTypeLegacyPreferences_lift(_ buf: RustBuffer) throws -> 
 #endif
 public func FfiConverterTypeLegacyPreferences_lower(_ value: LegacyPreferences) -> RustBuffer {
     return FfiConverterTypeLegacyPreferences.lower(value)
+}
+
+
+/**
+ * What the link look is made from.
+ */
+public struct LinkInput: Equatable, Hashable {
+    public var route: PeerPath?
+    public var lanAllowed: Bool
+    public var torAllowed: Bool
+    public var tor: TorState
+    /**
+     * Unix ms; i64::MAX for until resumed.
+     */
+    public var pausedUntilMs: Int64?
+    /**
+     * The phone showing its own pause.
+     */
+    public var pausedHere: Bool
+    public var reconnect: LinkReconnect?
+    public var idle: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(route: PeerPath?, lanAllowed: Bool, torAllowed: Bool, tor: TorState, 
+        /**
+         * Unix ms; i64::MAX for until resumed.
+         */pausedUntilMs: Int64?, 
+        /**
+         * The phone showing its own pause.
+         */pausedHere: Bool, reconnect: LinkReconnect?, idle: Bool) {
+        self.route = route
+        self.lanAllowed = lanAllowed
+        self.torAllowed = torAllowed
+        self.tor = tor
+        self.pausedUntilMs = pausedUntilMs
+        self.pausedHere = pausedHere
+        self.reconnect = reconnect
+        self.idle = idle
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension LinkInput: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLinkInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LinkInput {
+        return
+            try LinkInput(
+                route: FfiConverterOptionTypePeerPath.read(from: &buf), 
+                lanAllowed: FfiConverterBool.read(from: &buf), 
+                torAllowed: FfiConverterBool.read(from: &buf), 
+                tor: FfiConverterTypeTorState.read(from: &buf), 
+                pausedUntilMs: FfiConverterOptionInt64.read(from: &buf), 
+                pausedHere: FfiConverterBool.read(from: &buf), 
+                reconnect: FfiConverterOptionTypeLinkReconnect.read(from: &buf), 
+                idle: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LinkInput, into buf: inout [UInt8]) {
+        FfiConverterOptionTypePeerPath.write(value.route, into: &buf)
+        FfiConverterBool.write(value.lanAllowed, into: &buf)
+        FfiConverterBool.write(value.torAllowed, into: &buf)
+        FfiConverterTypeTorState.write(value.tor, into: &buf)
+        FfiConverterOptionInt64.write(value.pausedUntilMs, into: &buf)
+        FfiConverterBool.write(value.pausedHere, into: &buf)
+        FfiConverterOptionTypeLinkReconnect.write(value.reconnect, into: &buf)
+        FfiConverterBool.write(value.idle, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkInput_lift(_ buf: RustBuffer) throws -> LinkInput {
+    return try FfiConverterTypeLinkInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkInput_lower(_ value: LinkInput) -> RustBuffer {
+    return FfiConverterTypeLinkInput.lower(value)
+}
+
+
+/**
+ * The link, ready to draw.
+ */
+public struct LinkLook: Equatable, Hashable {
+    public var kind: LinkKind
+    public var line: LookLine
+    public var icon: LookIcon?
+    public var label: String
+    public var connected: Bool
+    public var pausedHere: Bool
+    public var detail: String?
+    /**
+     * Beside the icon: "Connected", or the reason.
+     */
+    public var short: String
+    /**
+     * In full, for screen readers: "Connected · Same Wi‑Fi".
+     */
+    public var sentence: String
+    /**
+     * Under the other device's name: "Last seen 12 min ago" on the computer when it knows.
+     */
+    public var statusLine: String
+    /**
+     * The same with room to say what happens next.
+     */
+    public var heroLine: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(kind: LinkKind, line: LookLine, icon: LookIcon?, label: String, connected: Bool, pausedHere: Bool, detail: String?, 
+        /**
+         * Beside the icon: "Connected", or the reason.
+         */short: String, 
+        /**
+         * In full, for screen readers: "Connected · Same Wi‑Fi".
+         */sentence: String, 
+        /**
+         * Under the other device's name: "Last seen 12 min ago" on the computer when it knows.
+         */statusLine: String, 
+        /**
+         * The same with room to say what happens next.
+         */heroLine: String) {
+        self.kind = kind
+        self.line = line
+        self.icon = icon
+        self.label = label
+        self.connected = connected
+        self.pausedHere = pausedHere
+        self.detail = detail
+        self.short = short
+        self.sentence = sentence
+        self.statusLine = statusLine
+        self.heroLine = heroLine
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension LinkLook: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLinkLook: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LinkLook {
+        return
+            try LinkLook(
+                kind: FfiConverterTypeLinkKind.read(from: &buf), 
+                line: FfiConverterTypeLookLine.read(from: &buf), 
+                icon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
+                label: FfiConverterString.read(from: &buf), 
+                connected: FfiConverterBool.read(from: &buf), 
+                pausedHere: FfiConverterBool.read(from: &buf), 
+                detail: FfiConverterOptionString.read(from: &buf), 
+                short: FfiConverterString.read(from: &buf), 
+                sentence: FfiConverterString.read(from: &buf), 
+                statusLine: FfiConverterString.read(from: &buf), 
+                heroLine: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LinkLook, into buf: inout [UInt8]) {
+        FfiConverterTypeLinkKind.write(value.kind, into: &buf)
+        FfiConverterTypeLookLine.write(value.line, into: &buf)
+        FfiConverterOptionTypeLookIcon.write(value.icon, into: &buf)
+        FfiConverterString.write(value.label, into: &buf)
+        FfiConverterBool.write(value.connected, into: &buf)
+        FfiConverterBool.write(value.pausedHere, into: &buf)
+        FfiConverterOptionString.write(value.detail, into: &buf)
+        FfiConverterString.write(value.short, into: &buf)
+        FfiConverterString.write(value.sentence, into: &buf)
+        FfiConverterString.write(value.statusLine, into: &buf)
+        FfiConverterString.write(value.heroLine, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkLook_lift(_ buf: RustBuffer) throws -> LinkLook {
+    return try FfiConverterTypeLinkLook.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkLook_lower(_ value: LinkLook) -> RustBuffer {
+    return FfiConverterTypeLinkLook.lower(value)
+}
+
+
+/**
+ * How the app names itself ("this Mac") and the other device ("your phone").
+ */
+public struct LookNames: Equatable, Hashable {
+    public var side: LookSide
+    public var this: String
+    public var peer: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(side: LookSide, this: String, peer: String) {
+        self.side = side
+        self.this = this
+        self.peer = peer
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension LookNames: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLookNames: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LookNames {
+        return
+            try LookNames(
+                side: FfiConverterTypeLookSide.read(from: &buf), 
+                this: FfiConverterString.read(from: &buf), 
+                peer: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LookNames, into buf: inout [UInt8]) {
+        FfiConverterTypeLookSide.write(value.side, into: &buf)
+        FfiConverterString.write(value.this, into: &buf)
+        FfiConverterString.write(value.peer, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookNames_lift(_ buf: RustBuffer) throws -> LookNames {
+    return try FfiConverterTypeLookNames.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookNames_lower(_ value: LookNames) -> RustBuffer {
+    return FfiConverterTypeLookNames.lower(value)
+}
+
+
+public struct NotificationsTile: Equatable, Hashable {
+    public var mode: NotificationsTileMode
+    public var subtitle: String
+    public var icon: LookIcon
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(mode: NotificationsTileMode, subtitle: String, icon: LookIcon) {
+        self.mode = mode
+        self.subtitle = subtitle
+        self.icon = icon
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension NotificationsTile: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNotificationsTile: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NotificationsTile {
+        return
+            try NotificationsTile(
+                mode: FfiConverterTypeNotificationsTileMode.read(from: &buf), 
+                subtitle: FfiConverterString.read(from: &buf), 
+                icon: FfiConverterTypeLookIcon.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: NotificationsTile, into buf: inout [UInt8]) {
+        FfiConverterTypeNotificationsTileMode.write(value.mode, into: &buf)
+        FfiConverterString.write(value.subtitle, into: &buf)
+        FfiConverterTypeLookIcon.write(value.icon, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNotificationsTile_lift(_ buf: RustBuffer) throws -> NotificationsTile {
+    return try FfiConverterTypeNotificationsTile.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNotificationsTile_lower(_ value: NotificationsTile) -> RustBuffer {
+    return FfiConverterTypeNotificationsTile.lower(value)
 }
 
 
@@ -6902,6 +7666,573 @@ public func FfiConverterTypeHealth_lower(_ value: Health) -> RustBuffer {
 
 
 
+
+public enum LinkKind: Equatable, Hashable {
+    
+    case sameWifi
+    case throughTor
+    case paused
+    case noSharedPath
+    case torClock
+    case torBlocked
+    case torFailed
+    case reconnecting
+    case wakePeer
+    case idle
+    case waitingOnWifi
+    case connectingTor
+    case offline
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension LinkKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLinkKind: FfiConverterRustBuffer {
+    typealias SwiftType = LinkKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LinkKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .sameWifi
+        
+        case 2: return .throughTor
+        
+        case 3: return .paused
+        
+        case 4: return .noSharedPath
+        
+        case 5: return .torClock
+        
+        case 6: return .torBlocked
+        
+        case 7: return .torFailed
+        
+        case 8: return .reconnecting
+        
+        case 9: return .wakePeer
+        
+        case 10: return .idle
+        
+        case 11: return .waitingOnWifi
+        
+        case 12: return .connectingTor
+        
+        case 13: return .offline
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LinkKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .sameWifi:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .throughTor:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .paused:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .noSharedPath:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .torClock:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .torBlocked:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .torFailed:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .reconnecting:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .wakePeer:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .idle:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .waitingOnWifi:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .connectingTor:
+            writeInt(&buf, Int32(12))
+        
+        
+        case .offline:
+            writeInt(&buf, Int32(13))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkKind_lift(_ buf: RustBuffer) throws -> LinkKind {
+    return try FfiConverterTypeLinkKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkKind_lower(_ value: LinkKind) -> RustBuffer {
+    return FfiConverterTypeLinkKind.lower(value)
+}
+
+
+
+
+public enum LinkReconnect: Equatable, Hashable {
+    
+    case asked
+    case peerUnreachable
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension LinkReconnect: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLinkReconnect: FfiConverterRustBuffer {
+    typealias SwiftType = LinkReconnect
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LinkReconnect {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .asked
+        
+        case 2: return .peerUnreachable
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LinkReconnect, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .asked:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .peerUnreachable:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkReconnect_lift(_ buf: RustBuffer) throws -> LinkReconnect {
+    return try FfiConverterTypeLinkReconnect.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLinkReconnect_lower(_ value: LinkReconnect) -> RustBuffer {
+    return FfiConverterTypeLinkReconnect.lower(value)
+}
+
+
+
+/**
+ * An icon as a meaning; each app maps it to its own icon set.
+ */
+
+public enum LookIcon: Equatable, Hashable {
+    
+    case sameWifi
+    case throughTor
+    case paused
+    case battery(level: UInt8, charging: Bool
+    )
+    case wifi
+    case mobileSignal(fraction: Float
+    )
+    case storage
+    case doNotDisturb
+    case notifications
+    case notificationsOff
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension LookIcon: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLookIcon: FfiConverterRustBuffer {
+    typealias SwiftType = LookIcon
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LookIcon {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .sameWifi
+        
+        case 2: return .throughTor
+        
+        case 3: return .paused
+        
+        case 4: return .battery(level: try FfiConverterUInt8.read(from: &buf), charging: try FfiConverterBool.read(from: &buf)
+        )
+        
+        case 5: return .wifi
+        
+        case 6: return .mobileSignal(fraction: try FfiConverterFloat.read(from: &buf)
+        )
+        
+        case 7: return .storage
+        
+        case 8: return .doNotDisturb
+        
+        case 9: return .notifications
+        
+        case 10: return .notificationsOff
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LookIcon, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .sameWifi:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .throughTor:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .paused:
+            writeInt(&buf, Int32(3))
+        
+        
+        case let .battery(level,charging):
+            writeInt(&buf, Int32(4))
+            FfiConverterUInt8.write(level, into: &buf)
+            FfiConverterBool.write(charging, into: &buf)
+            
+        
+        case .wifi:
+            writeInt(&buf, Int32(5))
+        
+        
+        case let .mobileSignal(fraction):
+            writeInt(&buf, Int32(6))
+            FfiConverterFloat.write(fraction, into: &buf)
+            
+        
+        case .storage:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .doNotDisturb:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .notifications:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .notificationsOff:
+            writeInt(&buf, Int32(10))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookIcon_lift(_ buf: RustBuffer) throws -> LookIcon {
+    return try FfiConverterTypeLookIcon.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookIcon_lower(_ value: LookIcon) -> RustBuffer {
+    return FfiConverterTypeLookIcon.lower(value)
+}
+
+
+
+
+public enum LookLine: Equatable, Hashable {
+    
+    case solid
+    case dashed
+    case dotted
+    case broken
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension LookLine: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLookLine: FfiConverterRustBuffer {
+    typealias SwiftType = LookLine
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LookLine {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .solid
+        
+        case 2: return .dashed
+        
+        case 3: return .dotted
+        
+        case 4: return .broken
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LookLine, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .solid:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .dashed:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .dotted:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .broken:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookLine_lift(_ buf: RustBuffer) throws -> LookLine {
+    return try FfiConverterTypeLookLine.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookLine_lower(_ value: LookLine) -> RustBuffer {
+    return FfiConverterTypeLookLine.lower(value)
+}
+
+
+
+
+public enum LookSide: Equatable, Hashable {
+    
+    case phone
+    case computer
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension LookSide: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLookSide: FfiConverterRustBuffer {
+    typealias SwiftType = LookSide
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LookSide {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .phone
+        
+        case 2: return .computer
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LookSide, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .phone:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .computer:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookSide_lift(_ buf: RustBuffer) throws -> LookSide {
+    return try FfiConverterTypeLookSide.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLookSide_lower(_ value: LookSide) -> RustBuffer {
+    return FfiConverterTypeLookSide.lower(value)
+}
+
+
+
+
+public enum NotificationsTileMode: Equatable, Hashable {
+    
+    case waiting
+    case on
+    case paused
+    case off
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension NotificationsTileMode: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNotificationsTileMode: FfiConverterRustBuffer {
+    typealias SwiftType = NotificationsTileMode
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NotificationsTileMode {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .waiting
+        
+        case 2: return .on
+        
+        case 3: return .paused
+        
+        case 4: return .off
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: NotificationsTileMode, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .waiting:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .on:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .paused:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .off:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNotificationsTileMode_lift(_ buf: RustBuffer) throws -> NotificationsTileMode {
+    return try FfiConverterTypeNotificationsTileMode.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNotificationsTileMode_lower(_ value: NotificationsTileMode) -> RustBuffer {
+    return FfiConverterTypeNotificationsTileMode.lower(value)
+}
+
+
+
 public 
 enum OsError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
 
@@ -7958,6 +9289,30 @@ fileprivate struct FfiConverterOptionTypeAppData: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeDeviceStatusLook: FfiConverterRustBuffer {
+    typealias SwiftType = DeviceStatusLook?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeDeviceStatusLook.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeDeviceStatusLook.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeFeatureViews: FfiConverterRustBuffer {
     typealias SwiftType = FeatureViews?
 
@@ -8070,6 +9425,54 @@ fileprivate struct FfiConverterOptionTypeSessionSnapshot: FfiConverterRustBuffer
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeSessionSnapshot.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeLinkReconnect: FfiConverterRustBuffer {
+    typealias SwiftType = LinkReconnect?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeLinkReconnect.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeLinkReconnect.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeLookIcon: FfiConverterRustBuffer {
+    typealias SwiftType = LookIcon?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeLookIcon.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeLookIcon.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -8512,6 +9915,178 @@ public func clipOpenableUrl(text: String) -> String?  {
 })
 }
 /**
+ * "12 min ago", "today at 14:02"; `just_now` for under a minute ("just now", or "now").
+ */
+public func agoWords(atMs: Int64, nowMs: Int64, justNow: String, time: TimeWords) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_ago_words(
+        FfiConverterInt64.lower(atMs),
+        FfiConverterInt64.lower(nowMs),
+        FfiConverterString.lower(justNow),
+        FfiConverterTypeTimeWords_lower(time),uniffiCallStatus
+    )
+})
+}
+/**
+ * The clipboard tile: Syncing, On or Off.
+ */
+public func clipboardSubtitle(syncOn: Bool, connected: Bool) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_clipboard_subtitle(
+        FfiConverterBool.lower(syncOn),
+        FfiConverterBool.lower(connected),uniffiCallStatus
+    )
+})
+}
+/**
+ * Under the connection switches: why the last one on can't be turned off.
+ */
+public func connectionsFootnote(lanOn: Bool, torOn: Bool, names: LookNames) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_connections_footnote(
+        FfiConverterBool.lower(lanOn),
+        FfiConverterBool.lower(torOn),
+        FfiConverterTypeLookNames_lower(names),uniffiCallStatus
+    )
+})
+}
+/**
+ * From a seam.v1.Status; None if the bytes aren't one.
+ */
+public func deviceStatusLook(status: Data, connected: Bool, atMs: Int64?, sameWifi: Bool, time: TimeWords) -> DeviceStatusLook?  {
+    return try!  FfiConverterOptionTypeDeviceStatusLook.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_device_status_look(
+        FfiConverterData.lower(status),
+        FfiConverterBool.lower(connected),
+        FfiConverterOptionInt64.lower(atMs),
+        FfiConverterBool.lower(sameWifi),
+        FfiConverterTypeTimeWords_lower(time),uniffiCallStatus
+    )
+})
+}
+public func linkLook(input: LinkInput, names: LookNames, lastSeenMs: Int64?, nowMs: Int64, time: TimeWords) -> LinkLook  {
+    return try!  FfiConverterTypeLinkLook_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_link_look(
+        FfiConverterTypeLinkInput_lower(input),
+        FfiConverterTypeLookNames_lower(names),
+        FfiConverterOptionInt64.lower(lastSeenMs),
+        FfiConverterInt64.lower(nowMs),
+        FfiConverterTypeTimeWords_lower(time),uniffiCallStatus
+    )
+})
+}
+/**
+ * "6 of 10 on".
+ */
+public func notificationAppsOn(settingsBytes: Data) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notification_apps_on(
+        FfiConverterData.lower(settingsBytes),uniffiCallStatus
+    )
+})
+}
+public func notificationAppsOnCount(settingsBytes: Data) -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notification_apps_on_count(
+        FfiConverterData.lower(settingsBytes),uniffiCallStatus
+    )
+})
+}
+public func notificationModeExplanation(mode: Int32, canReply: Bool, names: LookNames) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notification_mode_explanation(
+        FfiConverterInt32.lower(mode),
+        FfiConverterBool.lower(canReply),
+        FfiConverterTypeLookNames_lower(names),uniffiCallStatus
+    )
+})
+}
+/**
+ * On, Sender only or Off, for a seam.v1.NotificationMode value.
+ */
+public func notificationModeWord(mode: Int32) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notification_mode_word(
+        FfiConverterInt32.lower(mode),uniffiCallStatus
+    )
+})
+}
+/**
+ * The phone's Settings line: "6 of 10 apps · Sender only for Monzo".
+ */
+public func notificationsPhoneLong(settingsBytes: Data) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notifications_phone_long(
+        FfiConverterData.lower(settingsBytes),uniffiCallStatus
+    )
+})
+}
+/**
+ * The phone's home line: "On · 6 apps", or "Off".
+ */
+public func notificationsPhoneShort(settingsBytes: Data) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notifications_phone_short(
+        FfiConverterData.lower(settingsBytes),uniffiCallStatus
+    )
+})
+}
+/**
+ * The computer's Notifications tile, from the phone's seam.v1.NotificationSettings (None until
+ * it has sent them).
+ */
+public func notificationsTile(settingsBytes: Data?, showing: UInt32, nowMs: Int64, time: TimeWords) -> NotificationsTile  {
+    return try!  FfiConverterTypeNotificationsTile_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notifications_tile(
+        FfiConverterOptionData.lower(settingsBytes),
+        FfiConverterUInt32.lower(showing),
+        FfiConverterInt64.lower(nowMs),
+        FfiConverterTypeTimeWords_lower(time),uniffiCallStatus
+    )
+})
+}
+public func senderOnlyFootnote() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_sender_only_footnote(uniffiCallStatus
+    )
+})
+}
+/**
+ * "112 GB".
+ */
+public func sizeWords(bytes: UInt64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_size_words(
+        FfiConverterUInt64.lower(bytes),uniffiCallStatus
+    )
+})
+}
+/**
+ * The queue bar: "3 waiting".
+ */
+public func waitingWords(count: UInt32) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_waiting_words(
+        FfiConverterUInt32.lower(count),uniffiCallStatus
+    )
+})
+}
+/**
  * The public half of a discovery secret, which the Mac's service lets discover it (empty for
  * one that isn't 32 bytes).
  */
@@ -8573,6 +10148,51 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_clip_openable_url() != 54359) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_ago_words() != 35036) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_clipboard_subtitle() != 26400) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_connections_footnote() != 41593) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_device_status_look() != 17410) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_link_look() != 58522) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_notification_apps_on() != 53662) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_notification_apps_on_count() != 20489) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_notification_mode_explanation() != 29913) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_notification_mode_word() != 38055) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_notifications_phone_long() != 12132) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_notifications_phone_short() != 26700) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_notifications_tile() != 39273) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_sender_only_footnote() != 9368) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_size_words() != 47019) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_waiting_words() != 9954) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_tor_discovery_public() != 59638) {
@@ -8764,6 +10384,15 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_method_samewifi_is_lan_address() != 36984) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_method_timewords_time() != 8766) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_timewords_date() != 9383) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_timewords_days_between() != 20929) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_method_notificationcentre_show() != 19466) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -8858,6 +10487,7 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitNotificationCentre()
     uniffiCallbackInitPasteboard()
     uniffiCallbackInitSameWifi()
+    uniffiCallbackInitTimeWords()
     uniffiCallbackInitTorConnectListener()
     uniffiCallbackInitTorStateListener()
     uniffiCallbackInitTorStreamListener()

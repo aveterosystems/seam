@@ -97,7 +97,7 @@ private struct NotificationRow: View {
                         (Text(n.title.isEmpty ? n.appName : n.title).fontWeight(.semibold) + Text(n.text.isEmpty ? "" : " — " + n.text))
                             .font(.system(size: 12)).lineLimit(1).frame(height: 15)
                         TimelineView(.periodic(from: .now, by: 30)) { tl in
-                            Text(n.postedAt > 0 ? "\(n.appName) · \(LastSeen.text(Date(timeIntervalSince1970: TimeInterval(n.postedAt) / 1000), now: tl.date, justNow: "now"))" : n.appName)
+                            Text(n.postedAt > 0 ? "\(n.appName) · \(Looks.ago(Date(ms: n.postedAt), now: tl.date, justNow: "now"))" : n.appName)
                         }
                         .font(.system(size: 10.5)).foregroundStyle(SeamStyle.Pop.fg3).frame(height: 12)
                     }
@@ -271,7 +271,7 @@ private struct ClipRow: View {
                     let flat = clip.text.prefix(200).split(whereSeparator: \.isNewline).joined(separator: " ")
                     Text(url == nil ? "\"\(flat)\"" : flat.replacingOccurrences(of: "https://", with: "", options: .anchored))
                         .font(.system(size: 12)).lineLimit(1).frame(height: 15)
-                    TimelineView(.periodic(from: .now, by: 30)) { tl in Text(LastSeen.text(clip.at, now: tl.date)) }
+                    TimelineView(.periodic(from: .now, by: 30)) { tl in Text(Looks.ago(clip.at, now: tl.date)) }
                         .font(.system(size: 10.5)).foregroundStyle(SeamStyle.Pop.fg3).frame(height: 12)
                 }
                 Spacer(minLength: 0)

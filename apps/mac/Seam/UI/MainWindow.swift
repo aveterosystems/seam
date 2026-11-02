@@ -71,7 +71,7 @@ struct MainWindow: View {
                 Image(systemName: "iphone").foregroundStyle(SeamStyle.teal)
                 Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 0)
-                if let s = controller.status.status { BatteryPill(look: PhoneStatusLook(s, connected: controller.connected, at: controller.status.statusAt)) }
+                if let s = controller.status.status.flatMap({ Looks.phone($0, link: controller.link, at: controller.status.statusAt) }) { BatteryPill(look: s) }
             }
             Stitch(line: controller.link.line)
             LinkStatus(look: controller.link)
