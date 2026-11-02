@@ -95,22 +95,28 @@ If the user has set a system accent colour, controls follow it. Seam teal is the
 
 ## Icons
 
-The Mac uses **SF Symbols**, so weight and scale follow the system. Android uses the 24 px stroke set on board 00 (1.8 stroke, round caps), or Material Symbols Rounded where one matches.
+The Mac uses **SF Symbols**, so weight and scale follow the system. Android uses the 24 px stroke set on board 00 (1.8 stroke, round caps), or Material Symbols Rounded where one matches. Linux uses the **Adwaita symbolic icons** that GTK ships, so they follow the desktop's colours and size.
 
-| Meaning | SF Symbol | Android |
-|---|---|---|
-| Clipboard | `doc.on.clipboard` | clipboard (stroke set) |
-| Send file | `arrow.up.doc` | file-up |
-| Notifications | `bell` | bell |
-| Messages | `message` | message |
-| Phone | `iphone` (no Android glyph in SF Symbols) | smartphone |
-| Mac | `laptopcomputer` | laptop |
-| Ring | `speaker.wave.2` | volume |
-| Encrypted | `checkmark.shield` | shield-check |
-| Same Wi‑Fi | `wifi` | wifi |
-| Relay | `cloud` | cloud |
-| Lock Mac | `lock` | lock |
-| Settings | `slider.horizontal.3` | sliders |
+Each meaning has one row, and every app uses that row's icon. A new meaning gets a new row here before any app uses it.
+
+| Meaning | SF Symbol (Mac) | Android | Adwaita (Linux) |
+|---|---|---|---|
+| Clipboard | `doc.on.clipboard` | clipboard (stroke set) | `edit-paste-symbolic` |
+| Send file | `arrow.up.doc` | file-up | `document-send-symbolic` |
+| Notifications | `bell` | bell | `preferences-system-notifications-symbolic` |
+| Messages | `message` | message | `chat-message-new-symbolic` |
+| Phone | `iphone` (no Android glyph in SF Symbols) | smartphone | `phone-symbolic` |
+| Computer | `laptopcomputer` | laptop | `computer-symbolic` |
+| Ring | `speaker.wave.2` | volume | `audio-volume-high-symbolic` |
+| Encrypted | `checkmark.shield` | shield-check (`ic_shield`) | `security-high-symbolic` |
+| Same Wi‑Fi (the path) | `wifi` | wifi | `network-wireless-symbolic` |
+| Through Tor (the path; a neutral globe, never the onion) | `globe` | globe | `web-browser-symbolic` |
+| Lock computer | `lock` | lock | `system-lock-screen-symbolic` |
+| Settings | `slider.horizontal.3` | sliders | `emblem-system-symbolic` |
+| Battery (fills to the level; bolt while charging) | `battery.0…100percent`, `battery.100percent.bolt` | Material `battery_full` | `battery-level-0…100-symbolic`, `battery-level-…-charging-symbolic` |
+| Mobile data (bars to the signal) | `cellularbars` | Material `signal_cellular_alt` | `network-cellular-signal-…-symbolic` |
+| Storage | `internaldrive` | Material `hard_drive` | `drive-harddisk-symbolic` |
+| Do Not Disturb | `moon.fill` | Material `bedtime` | `weather-clear-night-symbolic` |
 
 ## Floating surfaces
 
