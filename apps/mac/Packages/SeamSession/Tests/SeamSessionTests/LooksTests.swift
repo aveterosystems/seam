@@ -83,15 +83,6 @@ import Testing
         #expect(Words.connectionsFootnote(wifi: false, tor: true).hasPrefix("Through Tor even at home"))
     }
 
-    @Test func onlyNewOrUpdatedNotificationsArrive() {
-        let a = Seam_V1_Notification.with { $0.key = "a"; $0.postedAt = 1 }
-        let b = Seam_V1_Notification.with { $0.key = "b"; $0.postedAt = 2 }
-        #expect(Arrival.notification(old: [a], new: [b, a])?.key == "b")
-        #expect(Arrival.notification(old: [b, a], new: [a]) == nil, "a dismissal")
-        #expect(Arrival.notification(old: [a], new: [.with { $0.key = "a"; $0.postedAt = 5 }])?.key == "a", "an update")
-        #expect(Arrival.notification(old: [a], new: [a]) == nil)
-    }
-
     // No label ends in "…": words say a state, they don't trail off (the user's rule for Seam)
     @Test func noLabelTrailsOff() {
         let looks: [LinkLook] = [.sameWifi, .throughTor, .connectingTor, .torBlocked, .torClock, .noSharedPath, .waitingOnWifi, .away,

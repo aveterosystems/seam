@@ -49,13 +49,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         if let demo = ProcessInfo.processInfo.environment["SEAM_DEMO"] { return Demo.run(demo, controller) }
         #endif
-        controller.start()
         Updates.shared.start()
-        if controller.needsReset {
-            ResetPrompt.run(controller)
-        } else if controller.phone == nil, controller.startupError == nil {
-            // First launch, or nothing paired yet: go straight to the QR code
-            PairingWindow.show(controller)
+        controller.start { controller in
+            if controller.needsReset {
+                ResetPrompt.run(controller)
+            } else if controller.phone == nil, controller.startupError == nil {
+                // First launch, or nothing paired yet: go straight to the QR code
+                PairingWindow.show(controller)
+            }
         }
     }
 }
@@ -72,8 +73,9 @@ enum ResetPrompt {
         alert.addButton(withTitle: "Reset")
         NSApp.activate()
         guard alert.runModal() == .alertSecondButtonReturn else { return }
-        controller.reset()
-        if controller.startupError == nil { PairingWindow.show(controller) }
+        controller.reset { controller in
+            if controller.startupError == nil { PairingWindow.show(controller) }
+        }
     }
 }
 

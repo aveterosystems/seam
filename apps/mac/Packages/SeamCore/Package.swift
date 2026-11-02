@@ -11,7 +11,13 @@ let package = Package(
     targets: [
         .binaryTarget(name: "SeamCoreFFI", path: "SeamCoreFFI.xcframework"),
         // Tor (arti) reads compressed directory documents with the system's liblzma
-        .target(name: "SeamCore", dependencies: ["SeamCoreFFI"], linkerSettings: [.linkedLibrary("lzma")]),
+        .target(
+            name: "SeamCore", dependencies: ["SeamCoreFFI"],
+            // UniFFI's generated code for async foreign traits doesn't build in Swift 6 mode yet;
+            // this target holds only that file, so everything else stays Swift 6
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            linkerSettings: [.linkedLibrary("lzma")]
+        ),
         .testTarget(name: "SeamCoreTests", dependencies: ["SeamCore"]),
     ]
 )

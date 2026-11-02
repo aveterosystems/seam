@@ -19,11 +19,18 @@ required-features = ["bindgen"]
 
 [features]
 bindgen = ["uniffi/cli"]
+# The computer side (seam-computer) for the Mac; the phone's build leaves it out
+computer = ["dep:seam-computer", "dep:async-trait"]
 
 [dependencies]
 seam-core = { path = "../seam-core" }
+seam-computer = { path = "../seam-computer", optional = true }
+async-trait = { version = "0.1", optional = true }
 prost = "0.14"
 seam-tor = { path = "../seam-tor" }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "io-util", "time"] }
 thiserror = "2"
 uniffi = "0.32"
+
+[dev-dependencies]
+tempfile = "3"

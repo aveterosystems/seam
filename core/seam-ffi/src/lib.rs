@@ -12,11 +12,23 @@ uniffi::setup_scaffolding!();
 
 mod catalogue;
 mod clipboard;
+#[cfg(feature = "computer")]
+mod computer;
 mod hello;
+#[cfg(feature = "computer")]
+mod notifications;
+#[cfg(feature = "computer")]
+mod status;
 mod tor;
 pub use catalogue::*;
 pub use clipboard::*;
+#[cfg(feature = "computer")]
+pub use computer::*;
 pub use hello::*;
+#[cfg(feature = "computer")]
+pub use notifications::*;
+#[cfg(feature = "computer")]
+pub use status::*;
 pub use tor::*;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
