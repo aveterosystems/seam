@@ -43,7 +43,8 @@ class StatusFeature(context: Context) : Feature {
     private val _mac = MutableStateFlow<MacStatus?>(null)
     val mac: StateFlow<MacStatus?> = _mac
 
-    private data class Sent(val pct: Int, val charging: Boolean, val network: String, val dnd: Boolean, val free: Long, val total: Long)
+    // What decides a send. Storage isn't in it: it rides along with the latest reading, never sends by itself
+    private data class Sent(val pct: Int, val charging: Boolean, val network: String, val dnd: Boolean)
 
     private var session: SessionApi? = null
     private var lastSent: Sent? = null
@@ -54,9 +55,9 @@ class StatusFeature(context: Context) : Feature {
 
     // Storage, as the phone's own Settings shows it (256 GB, free including cache it can clear).
     // Asking can take seconds, so it's read off the main thread at most once a minute, and the
-    // status sends whatever was last read (0 until then, which the Mac treats as not sent). Only
-    // the first reading sends by itself; later ones wait for the next battery, network or DND
-    // change, so storage never keeps the connection awake (rule 8).
+    // status sends whatever was last read (0 until then, which the Mac treats as not sent). Each
+    // connection's first completed reading sends once; later ones wait for the next battery,
+    // network or DND change, so storage never keeps the connection awake (rule 8).
     private val storageStats = app.getSystemService(StorageStatsManager::class.java)
     private val worker = Executors.newSingleThreadExecutor()
     private var storage = 0L to 0L // free (rounded), total
@@ -75,7 +76,7 @@ class StatusFeature(context: Context) : Feature {
                 storage = roundedFree(free) to total
                 if (!storageRead) {
                     storageRead = true
-                    update(force = false)
+                    update(force = true)
                 }
             }
         }
@@ -101,7 +102,12 @@ class StatusFeature(context: Context) : Feature {
 
     override fun onConnected(session: SessionApi) {
         this.session = session
-        main.post { update(force = true) }
+        main.post {
+            // A fresh storage reading for this connection, sent once when it's in
+            storageRead = false
+            storageReadAt = 0L
+            update(force = true)
+        }
     }
 
     override fun receive(payload: Payload, fromPeer: String) {
@@ -138,8 +144,6 @@ class StatusFeature(context: Context) : Feature {
             },
             network = network(),
             dnd = dnd(),
-            free = storage.first,
-            total = storage.second,
         )
         if (!force && lastSent == now) return
         val s = session ?: return
@@ -147,7 +151,7 @@ class StatusFeature(context: Context) : Feature {
         s.send(
             Payload.newBuilder().setStatus(
                 Status.newBuilder().setBatteryPct(now.pct).setCharging(now.charging).setNetwork(now.network).setDnd(now.dnd)
-                    .setStorageFreeBytes(now.free).setStorageTotalBytes(now.total),
+                    .setStorageFreeBytes(storage.first).setStorageTotalBytes(storage.second),
             ).build(),
         )
     }
