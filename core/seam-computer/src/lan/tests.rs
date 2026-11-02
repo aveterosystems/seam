@@ -783,3 +783,52 @@ async fn a_second_pairing_connection_cant_replace_the_first() {
         "it goes to the first"
     );
 }
+
+/// A phone that stops reading mid-frame can't hold a close open: once the grace is up, the link
+/// is gone, even with a write still blocked.
+#[tokio::test]
+async fn a_close_ends_within_its_grace_even_if_the_phone_stopped_reading() {
+    let (mac, phone) = paired_devices();
+    let mac_id = mac.id().to_owned();
+    let pid = phone.id().to_owned();
+    let (server, mut events, _) = test_server(mac);
+    // A stream with room for only a little: a big frame blocks once the phone stops reading
+    let (ours, theirs) = tokio::io::duplex(4096);
+    server.adopt(Box::new(theirs));
+    let (mut read, mut write) = tokio::io::split(ours);
+    let mut channel = LanChannel::initiator(&phone, &mac_id).unwrap();
+    write.write_all(&channel.start()).await.unwrap();
+    let mut buf = vec![0u8; 1 << 16];
+    while channel.peer_id().is_none() {
+        let n = tokio::time::timeout(FIVE, read.read(&mut buf))
+            .await
+            .unwrap()
+            .unwrap();
+        let out = channel.receive(&buf[..n]).unwrap();
+        if !out.send.is_empty() {
+            write.write_all(&out.send).await.unwrap();
+        }
+    }
+    assert_eq!(
+        collect(&mut events, 1, FIVE).await,
+        [LanEvent::Authenticated(pid.clone())]
+    );
+    // The phone stops reading; a big frame fills the stream and the write blocks
+    let big = Envelope {
+        msg_id: vec![1],
+        ciphertext: vec![7; 1_000_000],
+        ..Default::default()
+    };
+    assert!(server.send(&deliver(&big), &pid));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let closed_at = Instant::now();
+    server.close(&pid);
+    // Gone once the grace is up: the computer's end of the stream has been dropped
+    tokio::time::sleep(CLOSE_GRACE + Duration::from_millis(500)).await;
+    let refused = write.write_all(b"still there?").await.is_err();
+    assert!(
+        refused,
+        "the computer still holds the link {:?} after closing it",
+        closed_at.elapsed()
+    );
+}
