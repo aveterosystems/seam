@@ -143,6 +143,7 @@ private fun UpdatesSection(updater: Updater, version: String) {
     val status by updater.status.collectAsState()
     var automatic by remember { mutableStateOf(updater.automatic) }
     var interval by remember { mutableStateOf(updater.interval) }
+    var nightly by remember { mutableStateOf(updater.nightly) }
     var chooseInterval by remember { mutableStateOf(false) }
     // SR-17-14: the grant outlives the update
     Section("Updates", footnote = "After updating, you can turn off Install unknown apps for Seam in Android's settings. Seam asks again next time.") {
@@ -152,6 +153,10 @@ private fun UpdatesSection(updater: Updater, version: String) {
             automatic, { automatic = it; updater.answer(it) }, lead = painterResource(R.drawable.ic_download),
         )
         if (automatic) Item("How often", intervalLabel(interval), lead = painterResource(R.drawable.ic_clock), onClick = { chooseInterval = true })
+        SwitchItem(
+            "Nightly builds", "The newest work each day, less tested. Off waits for the next release",
+            nightly, { nightly = it; updater.nightly = it; updater.checkNow() }, lead = painterResource(R.drawable.ic_refresh),
+        )
         Item("Seam ${version.substringBefore(' ')}", checkLabel(status), lead = painterResource(R.drawable.ic_info), onClick = { updater.checkNow() })
     }
     if (chooseInterval) {

@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** A newer release on GitHub, where its APK and checksums are, and what changed in it. */
@@ -33,7 +34,10 @@ data class Release(val version: String, val apkUrl: String, val apkName: String,
 /** The parts of the updater that don't need Android: the release feed, versions, checksums. */
 object UpdateFeed {
     const val LATEST = "https://api.github.com/repos/aveterosystems/seam/releases/latest"
-    private val VERSION = Regex("""^v(\d+)\.(\d+)\.(\d+)$""")
+    /** Recent releases and nightlies, newest first, for Nightly builds. */
+    const val RECENT = "https://api.github.com/repos/aveterosystems/seam/releases?per_page=30"
+    private val VERSION = Regex("""^v?(\d+)\.(\d+)\.(\d+)(?:-nightly\.(\d+))?$""")
+    private val NIGHTLY_APK = Regex("""^Seam-(\d+\.\d+\.\d+-nightly\.\d+)-android\.apk$""")
     private const val DOWNLOADS = "https://github.com/aveterosystems/seam/releases/download/"
     /** Largest release JSON or SHA256SUMS Seam reads, and largest APK it downloads (SR-17-06). */
     const val MAX_TEXT = 1L shl 20
@@ -42,20 +46,37 @@ object UpdateFeed {
     const val MAX_CHANGES = 2000
 
     /** GitHub's "latest release" JSON, if it's a newer, published version with both files. */
-    fun newer(json: String, current: String): Release? = runCatching {
-        val r = JSONObject(json)
-        if (r.optBoolean("draft") || r.optBoolean("prerelease")) return null
+    fun newer(json: String, current: String): Release? = runCatching { release(JSONObject(json), current, nightly = false) }.getOrNull()
+
+    /** With Nightly builds on: the newest release or nightly in GitHub's recent releases, if newer than [current]. */
+    fun newest(json: String, current: String): Release? = runCatching {
+        val all = JSONArray(json)
+        (0 until all.length()).mapNotNull { release(all.getJSONObject(it), current, nightly = true) }
+            .reduceOrNull { a, b -> if (isNewer(b.version, a.version)) b else a }
+    }.getOrNull()
+
+    private fun release(r: JSONObject, current: String, nightly: Boolean): Release? {
+        if (r.optBoolean("draft")) return null
+        val pre = r.optBoolean("prerelease")
+        if (pre && !nightly) return null
         val tag = r.getString("tag_name")
-        if (!isNewer(tag, current)) return null
-        val version = tag.removePrefix("v")
         val assets = r.getJSONArray("assets")
+        val names = (0 until assets.length()).map { assets.getJSONObject(it).getString("name") }
+        // A release's tag is its version (vX.Y.Z); a nightly's (nightly-…) isn't, so its file names say it
+        val version = if (pre) {
+            if (!tag.startsWith("nightly-")) return null
+            names.firstNotNullOfOrNull { NIGHTLY_APK.matchEntire(it)?.groupValues?.get(1) } ?: return null
+        } else {
+            tag.removePrefix("v").takeIf { tag.startsWith("v") && VERSION.matchEntire(it)?.groupValues?.get(4)?.isEmpty() == true } ?: return null
+        }
+        if (!isNewer(version, current)) return null
         // Only this repo's download for exactly this tag and file name (SR-17-16)
         fun url(name: String) = (0 until assets.length()).map { assets.getJSONObject(it) }
             .firstOrNull { it.getString("name") == name }?.getString("browser_download_url")
             ?.takeIf { it == "$DOWNLOADS$tag/$name" }
         val apk = "Seam-$version-android.apk"
-        Release(version, url(apk) ?: return null, apk, url("SHA256SUMS") ?: return null, changes(r.optString("body")))
-    }.getOrNull()
+        return Release(version, url(apk) ?: return null, apk, url("SHA256SUMS") ?: return null, changes(r.optString("body")))
+    }
 
     /** The "## What's changed" section of a release's notes (from CHANGELOG.md), as plain lines. */
     fun changes(body: String): String = body.replace("\r\n", "\n")
@@ -63,10 +84,17 @@ object UpdateFeed {
         .lines().map { it.trim().replace(Regex("^[-*] "), "• ").replace("**", "").replace("`", "") }
         .filter { it.isNotEmpty() }.joinToString("\n").take(MAX_CHANGES)
 
-    /** True if tag `vX.Y.Z` is above [current] `X.Y.Z`. */
-    fun isNewer(tag: String, current: String): Boolean {
-        val a = VERSION.matchEntire(tag)?.groupValues?.drop(1)?.map { it.toIntOrNull() ?: return false } ?: return false
-        val b = VERSION.matchEntire("v$current")?.groupValues?.drop(1)?.map { it.toIntOrNull() ?: return false } ?: return false
+    /** Orders versions: the numbers, then a release above every nightly of it, then the nightly's time. */
+    private fun order(v: String): List<Long>? = VERSION.matchEntire(v)?.groupValues?.let { g ->
+        // Ints, so an absurd version fails closed; the nightly's stamp (a date and time) needs a Long
+        val numbers = g.subList(1, 4).map { it.toIntOrNull()?.toLong() ?: return null }
+        numbers + if (g[4].isEmpty()) listOf(1L, 0L) else listOf(0L, g[4].toLongOrNull() ?: return null)
+    }
+
+    /** True if [version] (`X.Y.Z` or `X.Y.Z-nightly.N`, with or without a `v`) is above [current]. */
+    fun isNewer(version: String, current: String): Boolean {
+        val a = order(version) ?: return false
+        val b = order(current) ?: return false
         return a.zip(b).firstOrNull { (x, y) -> x != y }?.let { (x, y) -> x > y } ?: false
     }
 
@@ -111,6 +139,11 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
     /** Whether the user has answered "check for updates automatically?" (Home asks once). */
     val asked: StateFlow<Boolean> = _asked
 
+    /** Settings › Nightly builds: offer nightlies as well as releases. Off keeps a nightly until a newer release. */
+    var nightly: Boolean
+        get() = prefs.getBoolean("nightly", false)
+        set(value) { prefs.edit().putBoolean("nightly", value).apply() }
+
     var automatic: Boolean
         get() = prefs.getBoolean("automatic", true)
         set(value) { prefs.edit().putBoolean("automatic", value).apply() }
@@ -146,13 +179,14 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
 
     private suspend fun check(notify: Boolean) {
         _status.value = "Checking"
-        val json = runCatching { withContext(Dispatchers.IO) { getText(UpdateFeed.LATEST, github = true) } }.getOrNull()
+        val nightly = nightly
+        val json = runCatching { withContext(Dispatchers.IO) { getText(if (nightly) UpdateFeed.RECENT else UpdateFeed.LATEST, github = true) } }.getOrNull()
         if (json == null) {
             _status.value = "Couldn't reach GitHub. Seam will try again later."
             return
         }
         prefs.edit().putLong("lastCheck", System.currentTimeMillis()).apply()
-        val release = UpdateFeed.newer(json, BuildConfig.VERSION_NAME)
+        val release = if (nightly) UpdateFeed.newest(json, BuildConfig.VERSION_NAME) else UpdateFeed.newer(json, BuildConfig.VERSION_NAME)
         setOffer(release)
         _status.value = if (release == null) "Seam is up to date" else "Seam ${release.version} is available"
         // One notification per version, not one a day (SR-17-13)
@@ -295,7 +329,7 @@ class Updater(private val app: Context, private val paired: () -> Boolean) {
     /** The stored offer, if it's still newer than this build (it isn't, once updated). */
     private fun storedOffer(): Release? = prefs.getString("offer", null)?.split("\n")?.takeIf { it.size == 4 }
         ?.let { (v, url, name, sums) -> Release(v, url, name, sums, prefs.getString("offerChanges", null).orEmpty()) }
-        ?.takeIf { UpdateFeed.isNewer("v${it.version}", BuildConfig.VERSION_NAME) }
+        ?.takeIf { UpdateFeed.isNewer(it.version, BuildConfig.VERSION_NAME) }
 
     private fun notifyOffer(release: Release) {
         val nm = app.getSystemService(NotificationManager::class.java)

@@ -83,4 +83,39 @@ class UpdateFeedTest {
         assertNull(UpdateFeed.sumFor("$a  x-Seam-0.1.1-android.apk", "Seam-0.1.1-android.apk"))
         assertNull(UpdateFeed.sumFor("$a  Seam-0.1.1-android.apk.idsig", "Seam-0.1.1-android.apk"))
     }
+
+    private fun nightly(tag: String, version: String, apkUrl: String? = null) = """
+        {"tag_name":"$tag","draft":false,"prerelease":true,"assets":[
+          {"name":"Seam-$version-android.apk","browser_download_url":"${apkUrl ?: "https://github.com/aveterosystems/seam/releases/download/$tag/Seam-$version-android.apk"}"},
+          {"name":"SHA256SUMS","browser_download_url":"https://github.com/aveterosystems/seam/releases/download/$tag/SHA256SUMS"}]}
+    """.trimIndent()
+
+    @Test fun aNightlySitsAfterItsReleaseAndBeforeTheNext() {
+        assertTrue(UpdateFeed.isNewer("0.3.1-nightly.202611030200", "0.3.0"))
+        assertTrue(UpdateFeed.isNewer("0.3.1-nightly.202611040200", "0.3.1-nightly.202611030200"))
+        assertTrue("the release beats its nightlies", UpdateFeed.isNewer("v0.3.1", "0.3.1-nightly.202611040200"))
+        assertTrue(UpdateFeed.isNewer("0.4.0", "0.3.1-nightly.202611040200"))
+        assertFalse(UpdateFeed.isNewer("0.3.1-nightly.202611040200", "0.3.1"))
+        assertFalse(UpdateFeed.isNewer("0.3.1-beta.1", "0.3.0"))
+    }
+
+    private fun feed(vararg releases: String) = releases.joinToString(",", "[", "]")
+
+    @Test fun nightlyBuildsOfferTheNewestOfReleasesAndNightlies() {
+        val rolling = """{"tag_name":"nightly","draft":false,"prerelease":true,"assets":[{"name":"appcast.xml","browser_download_url":"https://github.com/aveterosystems/seam/releases/download/nightly/appcast.xml"}]}"""
+        val n = nightly("nightly-202611040200", "0.3.1-nightly.202611040200")
+        val r = UpdateFeed.newest(feed(rolling, n, release("v0.3.0")), "0.3.0")!!
+        assertEquals("0.3.1-nightly.202611040200", r.version)
+        assertTrue(r.apkUrl.endsWith("/nightly-202611040200/Seam-0.3.1-nightly.202611040200-android.apk"))
+        assertEquals("a release after it wins", "0.3.1", UpdateFeed.newest(feed(release("v0.3.1"), n), "0.3.0")!!.version)
+        assertNull("nothing newer", UpdateFeed.newest(feed(n, rolling), "0.3.1-nightly.202611040200"))
+        assertNull("a stable check never offers a nightly", UpdateFeed.newer(n, "0.3.0"))
+    }
+
+    @Test fun aNightlyMustComeFromItsOwnTag() {
+        val elsewhere = "https://github.com/aveterosystems/seam/releases/download/nightly-1/Seam-0.3.1-nightly.2-android.apk"
+        assertNull(UpdateFeed.newest("[${nightly("nightly-2", "0.3.1-nightly.2", apkUrl = elsewhere)}]", "0.3.0"))
+        assertNull("a pre-release with a release tag isn't a nightly", UpdateFeed.newest("[${nightly("v0.3.1", "0.3.1-nightly.2")}]", "0.3.0"))
+        assertNull(UpdateFeed.newest("not json", "0.3.0"))
+    }
 }

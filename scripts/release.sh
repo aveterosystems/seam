@@ -30,14 +30,15 @@ esac
 git rev-parse -q --verify "refs/tags/v$version" >/dev/null && fail "v$version is already tagged"
 code="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' "$gradle")"
 build="$(sed -n 's/.*CURRENT_PROJECT_VERSION: "\([0-9]*\)".*/\1/p' "$yml")"
+# Minutes since 2026, shared with nightly builds, so every later build has a higher number
+new="$(scripts/build-number.sh)"
 
-echo "Releasing $current → $version (Android versionCode $code → $((code + 1)), Mac build $build → $((build + 1)))"
+echo "Releasing $current → $version (Android versionCode $code → $new, Mac build $build → $new)"
 read -r -p "Go ahead? [y/N] " ok
 [ "$ok" = y ] || exit 1
 
 git switch -q -c "release-$version"
-sed -i '' -e "s/versionName = \"$current\"/versionName = \"$version\"/" -e "s/versionCode = $code\$/versionCode = $((code + 1))/" "$gradle"
-sed -i '' -e "s/MARKETING_VERSION: \"$current\"/MARKETING_VERSION: \"$version\"/" -e "s/CURRENT_PROJECT_VERSION: \"$build\"/CURRENT_PROJECT_VERSION: \"$((build + 1))\"/" "$yml"
+scripts/set-version.sh "$version" "$new"
 # What changed: drafted from the PR titles since the last release, then edited by you
 if ! scripts/changes.sh "$version" >/dev/null 2>&1; then
   previous="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
@@ -54,7 +55,7 @@ MAIN_REF=HEAD scripts/check-release.sh "v$version" >/dev/null
 
 git commit -q -am "Release $version"
 git push -q -u origin "release-$version"
-pr="$(gh pr create --title "Release $version" --body "Bumps both apps to $version: Android versionCode $code → $((code + 1)), Mac build $build → $((build + 1)). Made by \`scripts/release.sh\`; after it merges, the script tags \`v$version\` on main.")"
+pr="$(gh pr create --title "Release $version" --body "Bumps both apps to $version: Android versionCode $code → $new, Mac build $build → $new. Made by \`scripts/release.sh\`; after it merges, the script tags \`v$version\` on main.")"
 echo "Opened $pr. Waiting for checks…"
 sleep 10 # give GitHub a moment to register the checks
 gh pr checks "$pr" --watch --interval 20 >/dev/null || fail "Checks failed on $pr: nothing merged or tagged"

@@ -11,6 +11,7 @@ struct GeneralPane: View {
     @State private var loginError: String?
     @State private var checksAutomatically = Updates.shared.checksAutomatically
     @State private var checkInterval = Updates.shared.checkInterval
+    @State private var nightly = Updates.shared.nightly
     @State private var updatesInfo = false
     @Environment(\.accessibilityReduceMotion) private var reduce
     private var updates: Updates { .shared }
@@ -48,6 +49,9 @@ struct GeneralPane: View {
                     }
                     .labelsHidden().pickerStyle(.menu).fixedSize()
                     .disabled(!checksAutomatically)
+                }
+                SettingsRow("Nightly builds", "The newest work each day, less tested. Off waits for the next release.") {
+                    Toggle("Nightly builds", isOn: Binding(get: { nightly }, set: { updates.nightly = $0; nightly = $0 })).labelsHidden()
                 }
                 versionRow
             }
