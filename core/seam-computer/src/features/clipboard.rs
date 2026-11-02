@@ -70,7 +70,7 @@ impl std::fmt::Debug for Clip {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Command {
     /// Off, the phone hears it in the Hello and stops sending copies this computer would drop.
     SetSync(bool),
@@ -79,11 +79,31 @@ pub enum Command {
     ClearClips,
 }
 
+// What was copied never prints (rule 6)
+impl std::fmt::Debug for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Command::SetSync(on) => f.debug_tuple("SetSync").field(on).finish(),
+            Command::CopyAgain(_) => f.write_str("CopyAgain(..)"),
+            Command::ClearClips => f.write_str("ClearClips"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct View {
     pub sync_on: bool,
     /// Clips that crossed either way in the last day, newest first.
     pub clips: Vec<Clip>,
+}
+
+/// What the app's thread applies before the command reaches the session: turning sync off takes
+/// effect at once, even on a copy being read now (SR-29-05). Turning it on waits for the session,
+/// which first marks what was copied while off as seen, so that never goes.
+pub fn apply_now(command: &Command, sync_on: &AtomicBool) {
+    if let Command::SetSync(false) = command {
+        sync_on.store(false, Ordering::SeqCst);
+    }
 }
 
 pub struct Clipboard {

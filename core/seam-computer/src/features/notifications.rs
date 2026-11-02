@@ -41,7 +41,7 @@ fn dismissed(a: &NotificationAction) -> bool {
     a.action == Some(Action::Dismissed(true))
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Command {
     /// Asks the phone to change its settings, shown here at once.
     Change(NotificationSettingsChange),
@@ -51,7 +51,7 @@ pub enum Command {
     Dismiss(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct View {
     /// The phone's notifications that are still up, newest first.
     pub shown: Vec<Notification>,
@@ -61,6 +61,27 @@ pub struct View {
     pub icons_version: u64,
     /// Counts notifications arriving from the phone, so the bell rings once for each.
     pub arrivals: u64,
+}
+
+// A notification's words, a reply typed to it, and the phone's apps never print (rule 6)
+impl std::fmt::Debug for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Command::Change(_) => "Change(..)",
+            Command::Act(_) => "Act(..)",
+            Command::Dismiss(_) => "Dismiss(..)",
+        })
+    }
+}
+
+impl std::fmt::Debug for View {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("View")
+            .field("shown", &self.shown.len())
+            .field("icons_version", &self.icons_version)
+            .field("arrivals", &self.arrivals)
+            .finish_non_exhaustive()
+    }
 }
 
 pub struct Notifications {

@@ -82,7 +82,10 @@ impl Timers for TokioTimers {
 
     fn after(&self, delay: Duration, due: Due) -> TimerToken {
         let (deliver, clock, woke) = (self.deliver.clone(), self.clock.clone(), self.woke.clone());
-        let at = clock.now_ms() + delay.as_millis() as i64;
+        // A pause end comes from the phone and may be near i64::MAX: never overflow
+        let at = clock
+            .now_ms()
+            .saturating_add(i64::try_from(delay.as_millis()).unwrap_or(i64::MAX));
         let task = tokio::spawn(async move {
             loop {
                 let left = at - clock.now_ms();

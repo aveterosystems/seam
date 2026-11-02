@@ -292,7 +292,7 @@ impl Core {
         self.paused_until = until;
         self.save_preferences();
         if let Some(until) = until.filter(|&u| u != UNTIL_RESUMED) {
-            let wait = (until - self.timers.now_ms()).max(0) as u64;
+            let wait = until.saturating_sub(self.timers.now_ms()).max(0) as u64;
             self.pause_timer = Some(
                 self.timers
                     .after(Duration::from_millis(wait), Due::PauseEnded),

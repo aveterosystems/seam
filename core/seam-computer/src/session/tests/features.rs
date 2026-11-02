@@ -309,3 +309,56 @@ async fn unpairing_tells_the_phone_once_on_the_path_thats_up() {
     assert!(rig.lan.frames().is_empty());
     assert!(rig.session.features.status.status().is_none() && rig.mac().peers().is_empty());
 }
+
+/// Turning sync on never sends what was copied while it was off, even when a look at the
+/// pasteboard was already queued ahead of the switch.
+#[tokio::test]
+async fn a_copy_made_while_off_never_goes_when_sync_comes_on_mid_poll() {
+    let mut rig = Rig::new().await;
+    rig.tor_up().await;
+    rig.clipboard(clipboard::Command::SetSync(false)).await;
+    rig.pasteboard.copy("copied while off");
+    let on = clipboard::Command::SetSync(true);
+    rig.app_applies(&on); // the switch, on the app's thread
+    rig.advance(1.0).await; // the poll that was queued ahead of the command
+    rig.session
+        .feature(crate::features::Command::Clipboard(on))
+        .await;
+    rig.advance(1.0).await;
+    assert!(clips(&rig.on_tor()).is_empty());
+    rig.pasteboard.copy("copied after");
+    rig.advance(1.0).await;
+    assert_eq!(clips(&rig.on_tor()), ["copied after"]);
+}
+
+/// Rule 6: commands and views carrying what was copied, a notification's words or a reply never
+/// print them.
+#[test]
+fn feature_commands_and_views_never_print_contents() {
+    use seam_core::proto::v1::{Notification, NotificationAction, notification_action::Action};
+
+    use crate::features::{Command, notifications as n};
+    let secret = "hunter2";
+    let commands = [
+        Command::Clipboard(clipboard::Command::CopyAgain(secret.into())),
+        Command::Notifications(n::Command::Act(NotificationAction {
+            key: secret.into(),
+            action: Some(Action::ReplyText(secret.into())),
+        })),
+        Command::Notifications(n::Command::Dismiss(secret.into())),
+    ];
+    for c in commands {
+        assert!(!format!("{c:?}").contains(secret), "{c:?}");
+    }
+    let view = n::View {
+        shown: vec![Notification {
+            title: secret.into(),
+            text: secret.into(),
+            ..Default::default()
+        }],
+        settings: None,
+        icons_version: 1,
+        arrivals: 1,
+    };
+    assert!(!format!("{view:?}").contains(secret));
+}

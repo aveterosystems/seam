@@ -44,25 +44,29 @@ impl Core {
         // Saved to the outbox first, then onto the best path; otherwise it waits there
         self.outbox.add(envelope.clone());
         if self.save_outbox() {
-            self.attempt(&envelope);
+            self.attempt(&envelope, true);
         } // else it stays in memory; the next flush tries again
     }
 
     /// Never a disallowed path, and never a path before it's on disk. Kept in the outbox until the
     /// phone's Delivered; resent if the link drops first.
-    fn attempt(&mut self, envelope: &Envelope) {
+    /// True if it went. `save`: save the outbox now (a flush saves once, after the lot). It was
+    /// on disk before it left, so a restart sends it again either way.
+    fn attempt(&mut self, envelope: &Envelope, save: bool) -> bool {
         let hello = self.hellos.contains(&envelope.msg_id);
         let (Some(phone), Some(path)) = (self.phone.as_ref(), self.route(hello)) else {
-            return;
+            return false;
         };
         let Some(link) = self.links.get(&path) else {
-            return;
+            return false;
         };
         if !link.send(&deliver(envelope.clone()), &phone.id) {
-            return;
+            return false;
         }
         self.outbox.mark_sent(&envelope.msg_id);
-        self.save_outbox();
+        if save {
+            self.save_outbox();
+        }
         let id = envelope.msg_id.clone();
         if let Some((_, t)) = self.ack_waits.remove(&id) {
             t.cancel();
@@ -75,6 +79,7 @@ impl Core {
             },
         );
         self.ack_waits.insert(id, (path, timer));
+        true
     }
 
     /// No ack for this long on `path` while another link is up: that link is dead without having
@@ -105,8 +110,12 @@ impl Core {
         if !self.save_outbox() {
             return;
         }
+        let mut sent = false;
         for envelope in self.outbox.waiting().to_vec() {
-            self.attempt(&envelope);
+            sent |= self.attempt(&envelope, false);
+        }
+        if sent {
+            self.save_outbox();
         }
     }
 

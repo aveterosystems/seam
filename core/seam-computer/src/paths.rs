@@ -143,8 +143,11 @@ impl Paths {
 
     pub fn tor_changed(&mut self, state: TorState, session: &Session) {
         self.tor_state = state;
-        if state == TorState::Ready {
-            self.reconcile(session.state().tor);
+        match state {
+            TorState::Ready => self.reconcile(session.state().tor),
+            // Bootstrap gave up: the next update or Reconnect starts it again
+            TorState::Failed | TorState::Blocked(_) => self.tor_started = false,
+            _ => {}
         }
     }
 

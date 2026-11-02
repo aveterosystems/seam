@@ -340,3 +340,40 @@ async fn no_service_with_tor_switched_off_but_same_wifi_still_pairs() {
     assert!(rig.session.state().tor_services.is_empty());
     scan(&mut rig, &qr, Path::Lan, None).await;
 }
+
+/// Once a request is held, another pairing link can't take over and be sent its PairAccept, and a
+/// Delivered it makes up doesn't finish the pairing.
+#[tokio::test]
+async fn a_second_pairing_link_cant_take_over_a_held_request() {
+    let mut rig = Rig::unpaired().await;
+    let qr = show_code(&mut rig).await;
+    scan(&mut rig, &qr, Path::Tor, None).await;
+    rig.event(LanEvent::Closed(PAIRING.into()), Path::Tor).await; // the phone's link drops
+    rig.session.set_link(Some(rig.lan.clone()), Path::Lan);
+    rig.event(LanEvent::Authenticated(PAIRING.into()), Path::Lan)
+        .await; // someone else's
+    assert_eq!(rig.lan.closed(), [PAIRING], "refused");
+    rig.session.confirm_pairing().await;
+    assert!(
+        rig.lan.delivered().is_empty(),
+        "the PairAccept went nowhere"
+    );
+    rig.event(LanEvent::Delivered(PAIRING.into(), vec![0; 16]), Path::Lan)
+        .await;
+    assert!(matches!(
+        rig.session.state().pairing,
+        PairingState::Failed(_)
+    ));
+    assert!(rig.mac().peers().is_empty());
+}
+
+/// A fresh code forgets the phone whose request the old one was holding, so it can try again.
+#[tokio::test]
+async fn a_new_code_forgets_the_request_the_old_one_held() {
+    let mut rig = Rig::unpaired().await;
+    let qr = show_code(&mut rig).await;
+    scan(&mut rig, &qr, Path::Tor, None).await;
+    assert!(!rig.mac().peers().is_empty(), "held, unconfirmed");
+    show_code(&mut rig).await;
+    assert!(rig.mac().peers().is_empty());
+}

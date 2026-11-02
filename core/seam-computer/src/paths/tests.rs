@@ -388,3 +388,20 @@ async fn sr_31_03_a_listener_closed_and_replaced_is_stopped_and_the_newer_one_ke
         "the session keeps the newer listener"
     );
 }
+
+/// Tor that gave up (blocked, or failed to start) is started again on the next update.
+#[tokio::test]
+async fn tor_starts_again_after_it_gave_up() {
+    let mut s = setup(true, true, false).await;
+    want(&mut s, vec![spec(0xA)]).await;
+    assert_eq!(*lock(&s.tor.starts), 1);
+    s.paths.tor_changed(
+        TorState::Blocked(crate::tor::TorBlock::Filtered),
+        &s.rig.session,
+    );
+    want(&mut s, vec![spec(0xA)]).await;
+    assert_eq!(*lock(&s.tor.starts), 2);
+    s.paths.tor_changed(TorState::Ready, &s.rig.session);
+    want(&mut s, vec![spec(0xA)]).await;
+    assert_eq!(*lock(&s.tor.starts), 2, "running: not started twice");
+}

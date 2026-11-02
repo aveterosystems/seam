@@ -117,6 +117,11 @@ impl Shared {
                     }
                     link.heard.store(true, Ordering::SeqCst);
                     let mut state = lock(&self.state);
+                    // Checked under the lock drop_link runs under: a link closed meanwhile (a
+                    // deadline, stop) must never authenticate after it went
+                    if link.closed.load(Ordering::SeqCst) {
+                        return;
+                    }
                     if !self.handle(&mut state, &link, &buf[..n]) {
                         self.drop_link(&mut state, &link, false);
                         return;
@@ -144,7 +149,16 @@ impl Shared {
                 () = link.kill.notified() => break,
                 next = queued.recv() => match next {
                     Some(Write::Bytes(bytes)) => {
-                        if write.write_all(&bytes).await.is_err() || write.flush().await.is_err() {
+                        // A peer that stops reading can't hold a close open past its grace
+                        let written = tokio::select! {
+                            biased;
+                            () = link.kill.notified() => break,
+                            r = async {
+                                write.write_all(&bytes).await?;
+                                write.flush().await
+                            } => r,
+                        };
+                        if written.is_err() {
                             self.drop_now(&link);
                             break;
                         }

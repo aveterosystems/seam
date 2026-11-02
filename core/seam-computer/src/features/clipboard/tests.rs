@@ -102,3 +102,18 @@ fn a_clip_never_prints_its_text() {
     };
     assert!(!format!("{item:?}").contains("hunter2"));
 }
+
+/// SR-10-03: nothing invisible can make the address that opens differ from the one shown.
+#[test]
+fn zero_width_and_bidi_characters_are_never_opened() {
+    for hidden in [
+        '\u{200B}', '\u{200D}', '\u{202E}', '\u{2066}', '\u{2069}', '\u{FEFF}', '\u{00A0}',
+    ] {
+        let text = format!("https://exa{hidden}mple.com/path");
+        assert!(openable_url(&text).is_none(), "{:?}", hidden);
+    }
+    assert!(
+        openable_url("https://example.com/a\u{0007}").is_none(),
+        "controls"
+    );
+}

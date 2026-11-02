@@ -49,7 +49,7 @@ impl Core {
         if self.flow.is_confirming() {
             return;
         }
-        self.close_pairing(); // an earlier code's service and slot
+        self.cancel_pairing(); // an earlier code's request, service and slot
         let (Ok(service), Ok(discovery)) = (ServiceKey::generate(), DiscoveryKey::generate())
         else {
             return;
@@ -89,8 +89,11 @@ impl Core {
     }
 
     pub(super) fn pairing_linked(&mut self, path: Path) {
-        // Only while a code is showing, and only one pairing link: a second carrier's goes
-        if !self.flow.is_open() || self.pairing.path.is_some_and(|p| p != path) {
+        // Only while a code is showing, and only one pairing link: a second carrier's goes. Once a
+        // request is held, nobody else's link can take over and receive its PairAccept
+        let showing = matches!(self.flow.state(), PairingState::Waiting { .. });
+        let held = self.pairing.path == Some(path);
+        if !(held || (showing && self.pairing.path.is_none())) {
             if let Some(l) = self.links.get(&path) {
                 l.close(PAIRING);
             }

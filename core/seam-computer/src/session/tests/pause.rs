@@ -149,3 +149,13 @@ async fn sr_32_01_any_newer_hello_brings_the_current_state() {
     pause(&mut rig, 0).await;
     assert_eq!(rig.session.state().paused_until, None);
 }
+
+/// A pause end comes from the phone: one near the end of time is still a pause, never a crash.
+#[tokio::test]
+async fn a_pause_near_the_end_of_time_is_still_a_pause() {
+    let mut rig = Rig::new().await;
+    rig.tor_up().await;
+    assert!(pause(&mut rig, i64::MAX - 1).await);
+    rig.advance(60.0).await;
+    assert_eq!(rig.session.state().paused_until, Some(i64::MAX - 1));
+}

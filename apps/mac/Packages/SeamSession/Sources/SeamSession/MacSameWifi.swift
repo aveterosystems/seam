@@ -15,6 +15,8 @@ public final class MacSameWifi: SameWifi, @unchecked Sendable {
 
     private let lock = NSLock()
     private var service: DNSServiceRef?
+    /// mDNSResponder expects a reference to be freed on the queue it's scheduled on.
+    private let queue = DispatchQueue(label: "com.avetero.seam.same-wifi")
 
     public init() {}
 
@@ -27,13 +29,13 @@ public final class MacSameWifi: SameWifi, @unchecked Sendable {
         var ref: DNSServiceRef?
         let status = DNSServiceRegister(&ref, 0, 0, Self.serviceName, Self.serviceType, nil, nil, port.bigEndian, 0, nil, nil, nil)
         guard status == kDNSServiceErr_NoError, let ref else { return }
-        DNSServiceSetDispatchQueue(ref, .main)
+        DNSServiceSetDispatchQueue(ref, queue)
         lock.withLock { service = ref }
     }
 
     public func stopAnnouncing() {
         if let ref = lock.withLock({ () -> DNSServiceRef? in defer { service = nil }; return service }) {
-            DNSServiceRefDeallocate(ref)
+            queue.sync { DNSServiceRefDeallocate(ref) } // no callback was given, so this can't wait on itself
         }
     }
 

@@ -85,7 +85,7 @@ impl Timers for Arc<FakeTimers> {
     fn after(&self, delay: Duration, due: Due) -> TimerToken {
         let mut t = lock(&self.inner);
         t.next += 1;
-        let (id, at) = (t.next, t.now + delay.as_millis() as i64);
+        let (id, at) = (t.next, t.now.saturating_add(delay.as_millis() as i64));
         t.jobs.push((id, at, due));
         let me = Arc::downgrade(self);
         TimerToken::new(move || {
@@ -472,11 +472,13 @@ impl Rig {
     }
 
     pub async fn clipboard(&mut self, c: clipboard::Command) {
-        // As the app does: the shared switch flips first, then the session hears (SR-29-05)
-        if let clipboard::Command::SetSync(on) = c {
-            self.sync_on.store(on, Ordering::SeqCst);
-        }
+        self.app_applies(&c);
         self.session.feature(FeatureCommand::Clipboard(c)).await;
+    }
+
+    /// What `Computer::feature` does on the app's thread, before the command is queued.
+    pub fn app_applies(&self, c: &clipboard::Command) {
+        clipboard::apply_now(c, &self.sync_on);
     }
 
     pub async fn notifications(&mut self, c: notifications::Command) {

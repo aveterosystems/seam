@@ -9,7 +9,7 @@ mod carriers;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use tokio::sync::mpsc;
@@ -178,8 +178,8 @@ impl Computer {
     /// What the user did to a feature. Turning clipboard sync off takes effect at once, even on
     /// a copy being read now (SR-29-05).
     pub fn feature(&self, command: FeatureCommand) {
-        if let FeatureCommand::Clipboard(clipboard::Command::SetSync(on)) = command {
-            self.sync_on.store(on, Ordering::SeqCst);
+        if let FeatureCommand::Clipboard(c) = &command {
+            clipboard::apply_now(c, &self.sync_on);
         }
         self.send(Command::Feature(command));
     }

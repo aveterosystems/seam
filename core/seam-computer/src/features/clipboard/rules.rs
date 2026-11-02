@@ -26,7 +26,9 @@ pub fn sendable(types: &[String]) -> bool {
 /// The web address a clip may be opened as, only when the whole clip is one: a single http(s) URL
 /// with a host and nothing around it, so what opens is what's shown (SR-10-03).
 pub fn openable_url(text: &str) -> Option<&str> {
-    if text.chars().any(char::is_whitespace) {
+    // Printable ASCII only: no spaces, controls, zero-width or bidi characters can make what
+    // opens differ from what's shown
+    if !text.bytes().all(|b| b.is_ascii_graphic()) {
         return None;
     }
     let rest = text
