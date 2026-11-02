@@ -93,7 +93,7 @@ private struct PhoneCard: View {
 
     var body: some View {
         let look = controller.link
-        let status = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt) }
+        let status = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt, sameWifi: look == .sameWifi) }
         HStack(spacing: 16) {
             PhoneGlyph(level: status?.percent, low: status?.low == true, on: look.connected)
             VStack(alignment: .leading, spacing: 0) {
@@ -102,6 +102,7 @@ private struct PhoneCard: View {
                     HStack(spacing: 6) {
                         StatusDot(on: look.connected)
                         SwapText(look.heroLine(lastSeen: controller.lastSeen, now: tl.date), pane: true)
+                        PathIcon(look: look)
                     }
                 }
                 .font(.system(size: 12.5)).foregroundStyle(SeamStyle.Win.fg2)
