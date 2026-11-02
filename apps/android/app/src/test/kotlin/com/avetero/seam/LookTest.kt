@@ -5,6 +5,8 @@ import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.notifications.AppEntry
 import com.avetero.seam.feature.notifications.AppMode
 import com.avetero.seam.feature.notifications.NotificationPrefs
+import com.avetero.seam.protocol.v1.Transport
+import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -15,6 +17,13 @@ import org.junit.Test
 
 /** The words and shapes each state turns into, as the approved prototype shows them. */
 class LookTest {
+    // The one thing the phone decides itself: which path the session's transport is
+    @Test fun connectedTransportsMapToTheirLooks() {
+        val up = SessionState.Connected("Mac")
+        assertEquals("Connected · Same Wi‑Fi", Looks.link(up, Transport.TRANSPORT_LAN, ConnectionSettings()).sentence)
+        assertEquals("Connected · Through Tor", Looks.link(up, Transport.TRANSPORT_TOR, ConnectionSettings()).sentence)
+    }
+
     @Test fun theCookieTurnsWhileConnectedSoftensWhenPausedAndIsAPlainCircleOtherwise() {
         assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), Looks.sameWifi.cookie())
         assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), Looks.throughTor.cookie())
