@@ -114,7 +114,7 @@ class NotificationsFeature(context: Context, private val session: SessionApi) : 
             .setPostedAt(sbn.postTime)
             .setCanReply(reply != null)
             .setConversationId(n.shortcutId.orEmpty())
-        // Button titles can carry content ("Copy 482913"): Title only sends none (SR-19-02)
+        // Button titles can carry content ("Copy 482913"): Sender only sends none (SR-19-02)
         if (mirror == Mirror.Full) n.actions.orEmpty().forEachIndexed { i, a ->
             if (a !== reply && !a.title.isNullOrBlank() && out.buttonsCount < MAX_BUTTONS) {
                 out.addButtons(NotificationButton.newBuilder().setId(i.toString()).setTitle(a.title.toString()))

@@ -93,7 +93,7 @@ A footnote explains the clipboard: "Mac → phone is automatic. Phone → Mac is
 Settings › Notifications, also opened from Home.
 - **Show on your Mac**, a big primaryContainer card with its switch; off, the rest dims and can't be changed.
 - Dismiss on both, and Quiet while I'm using this phone.
-- A search field, then the apps, each with a mode chip (On, Title only, Off). Tapping one opens a sheet of radio cards; long-pressing one, or **Select**, starts picking several, with a floating toolbar to set them all at once and a snackbar saying what changed.
+- A search field, then the apps, each with a mode chip (On, Sender only, Off). Tapping one opens a sheet of radio cards; long-pressing one, or **Select**, starts picking several, with a floating toolbar to set them all at once and a snackbar saying what changed.
 - The access row ("Allow") shows only while notification access is off.
 
 ## Moving between screens (built)

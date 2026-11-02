@@ -59,13 +59,13 @@ import java.util.Date
 fun notificationsShort(enabled: Boolean, apps: List<AppEntry>): String =
     if (enabled) "On · ${apps.count { it.mode != AppMode.Off }} apps" else "Off"
 
-/** Settings' line: "6 of 10 apps · Title only for Monzo", the apps named when there are one or two. */
+/** Settings' line: "6 of 10 apps · Sender only for Monzo", the apps named when there are one or two. */
 fun notificationsLong(enabled: Boolean, apps: List<AppEntry>): String {
     val titleOnly = apps.filter { it.mode == AppMode.TitleOnly }.map { it.name }
     val names = when (titleOnly.size) {
         0 -> null
-        1, 2 -> "Title only for " + titleOnly.joinToString(" and ")
-        else -> "Title only for ${titleOnly.size} apps"
+        1, 2 -> "Sender only for " + titleOnly.joinToString(" and ")
+        else -> "Sender only for ${titleOnly.size} apps"
     }
     return listOfNotNull("Off".takeIf { !enabled }, appCount(apps), names).joinToString(" · ")
 }
@@ -75,7 +75,7 @@ fun appCount(apps: List<AppEntry>) = "${apps.count { it.mode != AppMode.Off }} o
 
 internal val AppMode.label get() = when (this) {
     AppMode.On -> "On"
-    AppMode.TitleOnly -> "Title only"
+    AppMode.TitleOnly -> "Sender only"
     AppMode.Off -> "Off"
 }
 
@@ -136,7 +136,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
                 SwitchItem("Quiet while I'm using this phone", "Your Mac stays quiet while it's unlocked in your hand", prefs.quietWhileUsingPhone, feature::setQuietWhileUsingPhone, enabled = on)
             }
             Section(
-                null, footnote = "Title only shows who it's from, never what it says. New apps start off.",
+                null, footnote = "Sender only shows who it's from, never what it says. New apps start off.",
                 above = if (prefs.apps.isEmpty()) null else ({ SearchField(query) { query = it } }),
             ) {
                 if (prefs.apps.isEmpty()) Item("No apps yet", "Apps that can notify show here once notification access is on")

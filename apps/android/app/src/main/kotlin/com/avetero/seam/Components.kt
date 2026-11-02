@@ -325,7 +325,7 @@ internal fun SeamSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, enable
     thumbContent = if (checked) ({ Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }) else null,
 )
 
-/** A small label chip ("On", "Title only"): 12.5 sp, 9 dp corners; its colour says the same as its words. */
+/** A small label chip ("On", "Sender only"): 12.5 sp, 9 dp corners; its colour says the same as its words. */
 @Composable
 internal fun Chip(text: String, bg: Color, fg: Color) {
     Box(Modifier.clip(RoundedCornerShape(9.dp)).background(bg).padding(horizontal = 11.dp, vertical = 5.dp)) {

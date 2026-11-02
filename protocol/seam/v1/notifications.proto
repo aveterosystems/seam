@@ -7,7 +7,7 @@ option java_multiple_files = true;
 option java_package = "com.avetero.seam.protocol.v1";
 
 // A phone notification mirrored to the Mac. Per-app filtering happens on the phone before sending;
-// sensitive apps send title only.
+// sensitive apps send only who it is from.
 message Notification {
   string key = 1; // Android's notification key; used to reply or dismiss
   string app_id = 2;

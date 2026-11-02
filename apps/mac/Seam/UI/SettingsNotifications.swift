@@ -23,7 +23,7 @@ struct NotificationsSettingsPane: View {
                 switches(s).rise(0, shown, pane: true)
                 appsTitle(s).rise(1, shown, pane: true)
                 apps(s).rise(2, shown, pane: true)
-                GroupFootnote { Text("Title only shows who a notification is from, never what it says.") }.rise(3, shown, pane: true)
+                GroupFootnote { Text("Sender only shows who a notification is from, never what it says.") }.rise(3, shown, pane: true)
                 Spacer().frame(height: 40) // room above the bulk bar
             } else {
                 SettingsGroup {
@@ -146,14 +146,14 @@ struct NotificationsSettingsPane: View {
     }
 }
 
-/// On / Title only / Off, drawn to the prototype's `.seg`: a faint track and a raised thumb that
+/// On / Sender only / Off, drawn to the prototype's `.seg`: a faint track and a raised thumb that
 /// slides between segments on a 350 ms spring. Nil selects nothing (the bulk bar until a mode is
 /// picked). VoiceOver sees a standard picker.
 private struct ModePicker: View {
     @Binding var mode: Seam_V1_NotificationMode?
     @Namespace private var thumb
     @Environment(\.isEnabled) private var enabled
-    private static let modes: [(Seam_V1_NotificationMode, String)] = [(.on, "On"), (.titleOnly, "Title only"), (.off, "Off")]
+    private static let modes: [(Seam_V1_NotificationMode, String)] = [(.on, "On"), (.titleOnly, "Sender only"), (.off, "Off")]
 
     var body: some View {
         HStack(spacing: 0) {
