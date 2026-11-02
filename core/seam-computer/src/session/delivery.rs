@@ -54,6 +54,10 @@ impl Core {
     /// on disk before it left, so a restart sends it again either way.
     fn attempt(&mut self, envelope: &Envelope, save: bool) -> bool {
         let hello = self.hellos.contains(&envelope.msg_id);
+        // Paused on the phone: what was queued before waits for the resume; only a Hello goes
+        if self.paused() && !hello {
+            return false;
+        }
         let (Some(phone), Some(path)) = (self.phone.as_ref(), self.route(hello)) else {
             return false;
         };

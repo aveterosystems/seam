@@ -743,3 +743,43 @@ async fn through_another_device() {
         Some(server_frame::Frame::Deliver(back))
     );
 }
+
+/// While one phone's pairing connection is open, a second one with the same code is refused, so
+/// a request held on the first can never be answered on the second.
+#[tokio::test]
+async fn a_second_pairing_connection_cant_replace_the_first() {
+    let mut mac = Device::generate().unwrap();
+    let offer = mac.start_pairing();
+    let relay_key = mac.relay_key();
+    let (server, mut events, _) = test_server(mac);
+    let port = server.start().await.unwrap();
+    let mut first = TestPhone::pair(&Device::generate().unwrap(), relay_key, &offer.token, port)
+        .await
+        .unwrap();
+    assert_eq!(
+        collect(&mut events, 1, FIVE).await,
+        [LanEvent::Authenticated(PAIRING.into())]
+    );
+    // Someone else who saw the code: the computer proves itself, then closes their connection
+    if let Some(mut second) =
+        TestPhone::pair(&Device::generate().unwrap(), relay_key, &offer.token, port).await
+    {
+        assert!(
+            closed(&mut second.socket, Duration::from_secs(3)).await,
+            "refused"
+        );
+    }
+    assert!(
+        collect(&mut events, 1, Duration::from_millis(500))
+            .await
+            .is_empty(),
+        "the first never closed"
+    );
+    let accept = env(&[5; 16]);
+    assert!(server.send(&deliver(&accept), PAIRING));
+    assert_eq!(
+        first.receive_frame().await,
+        Some(server_frame::Frame::Deliver(accept)),
+        "it goes to the first"
+    );
+}

@@ -215,6 +215,11 @@ impl Shared {
             let _ = link.writes.send(Write::Bytes(out.send));
         }
         if let Some(peer) = out.authenticated {
+            // One pairing connection at a time, the first: a request held on it can only be
+            // answered there, never on a later one from someone else who has the code
+            if peer == PAIRING && state.authed.contains_key(PAIRING) {
+                return false;
+            }
             state.pending.retain(|l| l.id != link.id);
             *lock(&link.peer) = Some(peer.clone());
             // First, so the old link's close isn't reported

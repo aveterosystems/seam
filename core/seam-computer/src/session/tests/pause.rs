@@ -159,3 +159,39 @@ async fn a_pause_near_the_end_of_time_is_still_a_pause() {
     rig.advance(60.0).await;
     assert_eq!(rig.session.state().paused_until, Some(i64::MAX - 1));
 }
+
+/// What was queued before the phone paused waits until it resumes: the Hello that carries the
+/// pause doesn't flush it out, and nothing else does either.
+#[tokio::test]
+async fn what_was_queued_before_a_pause_waits_for_the_resume() {
+    let mut rig = Rig::new().await;
+    rig.tor_up().await;
+    rig.send_something(1).await;
+    assert_eq!(numbers(&rig.on_tor()), [1], "before the pause it goes");
+    for e in rig.tor.delivered() {
+        let acked = crate::lan::LanEvent::Delivered(rig.phone_id(), e.msg_id);
+        rig.event(acked, seam_core::links::Path::Tor).await;
+    }
+    rig.event(
+        crate::lan::LanEvent::Closed(rig.phone_id()),
+        seam_core::links::Path::Tor,
+    )
+    .await;
+    rig.send_something(2).await; // queued while the phone is away
+    let paused = rig.phone_hello(true, true, UNTIL_RESUMED, None);
+    rig.session.received(paused).await; // the pause arrives, and its Hello flushes the queue
+    rig.tor_up().await;
+    rig.advance(1.0).await;
+    assert_eq!(numbers(&rig.on_tor()), [1], "nothing more while paused");
+    assert!(
+        rig.on_tor().iter().any(is_hello),
+        "the computer's Hello still goes"
+    );
+    let resumed = rig.phone_hello(true, true, 0, None);
+    rig.session.received(resumed).await;
+    assert_eq!(
+        numbers(&rig.on_tor()),
+        [1, 2],
+        "after the resume what waited goes"
+    );
+}
