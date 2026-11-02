@@ -49,6 +49,18 @@ public struct PhoneStatusLook: Equatable, Sendable {
     public let meta: String?
     /// The phone is in Do Not Disturb (only while connected: an old status may be wrong).
     public let dnd: Bool
+    /// SF Symbol for the battery: fills to the level, with a bolt while charging.
+    public let batterySymbol: String
+    /// SF Symbol for the network, while connected: `wifi`, or `cellularbars` filled to `signal`.
+    public let networkSymbol: String?
+    /// Mobile signal, 0...1, for `cellularbars`' variable value; full (1) when the phone sends no
+    /// bars (0, which Android doesn't yet), since without a value the symbol draws partly empty.
+    /// Nil on Wi‑Fi.
+    public let signal: Double?
+    /// Free space, short ("112 GB"), and in full for the tooltip ("112 GB free of 256 GB").
+    /// Nil from a phone that doesn't send storage.
+    public let storage: String?
+    public let storageDetail: String?
 
     public init(_ s: Seam_V1_Status, connected: Bool, at: Date?) {
         percent = Int(s.batteryPct)
@@ -58,7 +70,30 @@ public struct PhoneStatusLook: Equatable, Sendable {
         let names = ["wifi": "Wi‑Fi", "cellular": "Mobile data"]
         network = connected ? names[s.network] : nil
         meta = connected ? network : at.map { "as of " + $0.formatted(date: .omitted, time: .shortened) }
+        let level = min(Int(s.batteryPct), 100) / 25 * 25
+        batterySymbol = s.charging ? "battery.100percent.bolt" : "battery.\(level)percent"
+        networkSymbol = connected ? ["wifi": "wifi", "cellular": "cellularbars"][s.network] : nil
+        signal = networkSymbol != "cellularbars" ? nil : s.signalBars > 0 ? min(Double(s.signalBars) / 4, 1) : 1
+        if s.storageTotalBytes > 0 {
+            let free = Self.size(min(s.storageFreeBytes, s.storageTotalBytes))
+            storage = free
+            storageDetail = "\(free) free of \(Self.size(s.storageTotalBytes))"
+        } else {
+            storage = nil
+            storageDetail = nil
+        }
     }
+
+    /// Whole GB (or MB under 1 GB, TB to one place over 1 TB), the way phones label storage.
+    public static func size(_ bytes: UInt64) -> String {
+        let b = Double(bytes)
+        if b >= 1e12 { return String(format: "%g TB", (b / 1e11).rounded() / 10) }
+        if b >= 1e9 { return "\(Int((b / 1e9).rounded())) GB" }
+        return "\(Int((b / 1e6).rounded())) MB"
+    }
+
+    /// The battery in full, for its tooltip.
+    public var batteryDetail: String { "\(percent)%" + (charging ? ", charging" : "") }
 
     public var spoken: String {
         "battery \(percent) percent" + (charging ? ", charging" : "") + (dnd ? ", Do Not Disturb" : "")

@@ -12,7 +12,7 @@ The app is deliberately small. Most of Seam on Android is system surfaces (A07):
 - A 56 dp bar: the Seam mark and wordmark, and **Settings**.
 - The update card when a newer Seam is out (GitHub build, tertiaryContainer, "Seam 0.3 is ready to install", **Update**), or the once-only "Check for updates automatically?" card.
 - The **cookie hero** (196 dp): the Mac and this phone joined by three stitches, on the 9-scallop cookie. Connected, it's primaryContainer and turns once every 40 s; paused, it springs to a softer tertiaryContainer cookie and stops; otherwise it's a still grey circle. The shape morphs on the prototype's bouncy curve (0.8 s).
-- The Mac's name (30 sp), the status chip ("● Connected · Same Wi‑Fi"; the dot sends out a ring every 2.4 s while connected; tertiary while paused, "Paused · until 14:44"), and "Encrypted   Mac battery 64%" ("—" while the Mac is out of reach, hidden until it has ever sent its battery).
+- The Mac's name (30 sp), the status chip ("● Connected · Same Wi‑Fi"; the dot sends out a ring every 2.4 s while connected; tertiary while paused, "Paused · until 14:44"), and a shield (end-to-end encrypted) then "Mac battery 64%" ("—" while the Mac is out of reach, hidden until it has ever sent its battery).
 - A button group: **Send clipboard** (primary) and **Pause** (tonal), 4 : 1. Pressing one widens it and tightens its corners. Paused, Pause folds away and the main button becomes **Resume**.
 - "Copied on your Mac · just now" with **Paste**, while a Mac copy is fresh. Paste turns green and says "✓ Pasted", then the card folds away.
 - A grouped list: **Notifications on Mac ›** ("On · 6 apps") and **Automatic clipboard**, highlighted in primaryContainer while on.

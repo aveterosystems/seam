@@ -164,13 +164,13 @@ private fun StatusChip(look: LinkLook) {
     }
 }
 
-/** "Encrypted   Mac battery 64%": 12.5 sp, 14 dp apart, the number in tabular digits, amber at 15% or less while not charging. */
+/** A shield (end-to-end encrypted), then "Mac battery 64%": 12.5 sp, 14 dp apart, the number in tabular digits, amber at 15% or less while not charging. */
 @Composable
 private fun Meta(battery: String?, low: Boolean) {
     val scheme = MaterialTheme.colorScheme
     val style = TextStyle(fontSize = 12.5.sp, fontFeatureSettings = "tnum")
-    Row(Modifier.padding(top = 10.dp, bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Encrypted", style = style, fontWeight = FontWeight.Medium, color = scheme.onSurfaceVariant)
+    Row(Modifier.padding(top = 10.dp, bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(painterResource(R.drawable.ic_shield), "End-to-end encrypted", Modifier.size(14.dp), tint = scheme.onSurfaceVariant)
         if (battery != null) {
             val color = pick(low, scheme.onSurfaceVariant, warnColor, Motion.ease(400))
             Row(Modifier.semantics(mergeDescendants = true) {}) {

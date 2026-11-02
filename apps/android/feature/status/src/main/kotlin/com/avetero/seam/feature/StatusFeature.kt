@@ -2,6 +2,7 @@
 package com.avetero.seam.feature
 
 import android.app.NotificationManager
+import android.app.usage.StorageStatsManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,12 +13,16 @@ import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
+import android.os.StatFs
+import android.os.SystemClock
+import android.os.storage.StorageManager
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.session.Feature
 import com.avetero.seam.session.SessionApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.util.concurrent.Executors
 
 /** The Mac's battery as it last sent it, and when (ms), for the home screen. */
 data class MacStatus(val batteryPct: Int, val charging: Boolean, val at: Long) {
@@ -28,8 +33,8 @@ data class MacStatus(val batteryPct: Int, val charging: Boolean, val at: Long) {
 }
 
 /**
- * Sends the phone's battery, whether it's on Wi‑Fi or mobile data, and Do Not Disturb to the Mac:
- * on connect, and when any changes. Keeps the Mac's battery when the Mac sends it.
+ * Sends the phone's battery, whether it's on Wi‑Fi or mobile data, Do Not Disturb and free storage
+ * to the Mac: on connect, and when any changes. Storage rides along; it never sends by itself. Keeps the Mac's battery when the Mac sends it.
  * The Wi‑Fi's name isn't sent: Android only gives it to apps with location access.
  */
 class StatusFeature(context: Context) : Feature {
@@ -38,6 +43,7 @@ class StatusFeature(context: Context) : Feature {
     private val _mac = MutableStateFlow<MacStatus?>(null)
     val mac: StateFlow<MacStatus?> = _mac
 
+    // What decides a send. Storage isn't in it: it rides along with the latest reading, never sends by itself
     private data class Sent(val pct: Int, val charging: Boolean, val network: String, val dnd: Boolean)
 
     private var session: SessionApi? = null
@@ -46,6 +52,35 @@ class StatusFeature(context: Context) : Feature {
     private val main = Handler(Looper.getMainLooper())
     private val connectivity = app.getSystemService(ConnectivityManager::class.java)
     private val notificationManager = app.getSystemService(NotificationManager::class.java)
+
+    // Storage, as the phone's own Settings shows it (256 GB, free including cache it can clear).
+    // Asking can take seconds, so it's read off the main thread at most once a minute, and the
+    // status sends whatever was last read (0 until then, which the Mac treats as not sent). Each
+    // connection's first completed reading sends once; later ones wait for the next battery,
+    // network or DND change, so storage never keeps the connection awake (rule 8).
+    private val storageStats = app.getSystemService(StorageStatsManager::class.java)
+    private val worker = Executors.newSingleThreadExecutor()
+    private var storage = 0L to 0L // free (rounded), total
+    private var storageReadAt = 0L
+    private var storageRead = false
+
+    private fun refreshStorage() {
+        val now = SystemClock.elapsedRealtime()
+        if (storageReadAt != 0L && now - storageReadAt < 60_000) return
+        storageReadAt = now
+        worker.execute {
+            val fs = StatFs(app.filesDir.path)
+            val total = runCatching { storageStats.getTotalBytes(StorageManager.UUID_DEFAULT) }.getOrElse { fs.totalBytes }
+            val free = runCatching { storageStats.getFreeBytes(StorageManager.UUID_DEFAULT) }.getOrElse { fs.availableBytes }
+            main.post {
+                storage = roundedFree(free) to total
+                if (!storageRead) {
+                    storageRead = true
+                    update(force = true)
+                }
+            }
+        }
+    }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -67,7 +102,12 @@ class StatusFeature(context: Context) : Feature {
 
     override fun onConnected(session: SessionApi) {
         this.session = session
-        main.post { update(force = true) }
+        main.post {
+            // A fresh storage reading for this connection, sent once when it's in
+            storageRead = false
+            storageReadAt = 0L
+            update(force = true)
+        }
     }
 
     override fun receive(payload: Payload, fromPeer: String) {
@@ -92,6 +132,7 @@ class StatusFeature(context: Context) : Feature {
     }
 
     private fun update(force: Boolean) {
+        refreshStorage()
         val intent = latest ?: return
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
@@ -109,8 +150,14 @@ class StatusFeature(context: Context) : Feature {
         lastSent = now
         s.send(
             Payload.newBuilder().setStatus(
-                Status.newBuilder().setBatteryPct(now.pct).setCharging(now.charging).setNetwork(now.network).setDnd(now.dnd),
+                Status.newBuilder().setBatteryPct(now.pct).setCharging(now.charging).setNetwork(now.network).setDnd(now.dnd)
+                    .setStorageFreeBytes(storage.first).setStorageTotalBytes(storage.second),
             ).build(),
         )
     }
 }
+
+private const val STEP = 100_000_000L
+
+/** Free space to the nearest 100 MB: precise enough to show, and battery ticks don't resend it. */
+internal fun roundedFree(bytes: Long) = (bytes + STEP / 2) / STEP * STEP
