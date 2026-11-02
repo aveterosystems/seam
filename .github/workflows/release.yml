@@ -272,7 +272,7 @@ jobs:
           { echo "A nightly build of main: the newest work, less tested than a release. Seam offers it only with Settings › Updates › Nightly builds on."
             echo; echo "## What's changed"; echo
             # sed, not grep -v: an empty list (only a Release commit since) must not fail under pipefail
-            git log --format='- %s' "$since..$GITHUB_SHA" | sed -e '/^- Release [0-9]/d' -e 's/ (#[0-9]*)$//' | head -50
+            git log --format='- %s' "$since..$GITHUB_SHA" | sed -e '/^- Release [0-9]/d' -e 's/ (#[0-9]*)$//' | sed -n '1,50p'
           } > "$RUNNER_TEMP/notes.md"
           gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
             --title "Seam $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
