@@ -407,6 +407,17 @@ pub fn until_words(until_ms: i64, now_ms: i64, time: Arc<dyn TimeWords>) -> Stri
     looks::words::until(until, now_ms, &AppTime(time)).unwrap_or_else(|| "until you resume".into())
 }
 
+/// Asked before Nightly builds turns on: the title, then the warning.
+#[uniffi::export]
+pub fn nightly_warning_title() -> String {
+    looks::words::NIGHTLY_TITLE.into()
+}
+
+#[uniffi::export]
+pub fn nightly_warning() -> String {
+    looks::words::NIGHTLY_WARNING.into()
+}
+
 /// The queue bar: "3 waiting".
 #[uniffi::export]
 pub fn waiting_words(count: u32) -> String {

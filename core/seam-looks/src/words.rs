@@ -37,6 +37,10 @@ pub fn ago(at_ms: i64, now_ms: i64, time: &dyn TimeWords, just_now: &str) -> Str
     }
 }
 
+/// Asked before Updates › Nightly builds turns on, in both apps.
+pub const NIGHTLY_TITLE: &str = "Turn on nightly builds?";
+pub const NIGHTLY_WARNING: &str = "Nightly builds are Seam's newest work, built each night from what changed that day. They're less tested than releases and may have bugs, including ones that stop syncing. Turning this off later keeps the nightly you have until a newer release comes out.";
+
 /// The popover's queue bar: "3 waiting".
 pub fn waiting(n: u32) -> String {
     format!("{n} waiting")
