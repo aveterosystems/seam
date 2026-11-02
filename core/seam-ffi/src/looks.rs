@@ -374,6 +374,12 @@ pub fn notifications_phone_short(settings_bytes: Vec<u8>) -> String {
     looks::notifications::phone_short(s.enabled, &s.apps)
 }
 
+/// The phone's master card: "6 of 10 apps".
+#[uniffi::export]
+pub fn notifications_phone_count(settings_bytes: Vec<u8>) -> String {
+    looks::notifications::phone_app_count(&settings(&settings_bytes).apps)
+}
+
 /// The phone's Settings line: "6 of 10 apps · Sender only for Monzo".
 #[uniffi::export]
 pub fn notifications_phone_long(settings_bytes: Vec<u8>) -> String {
@@ -391,6 +397,14 @@ pub fn clipboard_subtitle(sync_on: bool, connected: bool) -> String {
 #[uniffi::export]
 pub fn size_words(bytes: u64) -> String {
     looks::words::size(bytes)
+}
+
+/// When a pause ends: "until 14:44", "until tomorrow 14:44", "until 3 Nov 14:44", or "until you
+/// resume" for i64::MAX.
+#[uniffi::export]
+pub fn until_words(until_ms: i64, now_ms: i64, time: Arc<dyn TimeWords>) -> String {
+    let until = (until_ms != looks::link::UNTIL_RESUMED).then_some(until_ms);
+    looks::words::until(until, now_ms, &AppTime(time)).unwrap_or_else(|| "until you resume".into())
 }
 
 /// The queue bar: "3 waiting".

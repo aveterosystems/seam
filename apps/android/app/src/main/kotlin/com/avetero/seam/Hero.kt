@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
-import androidx.compose.runtime.getValue
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -30,6 +30,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.avetero.seam.crypto.LinkLook
+import com.avetero.seam.crypto.LookLine
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -43,7 +45,7 @@ data class CookieLook(val radius: Float, val scallop: Float, val fill: Fill, val
 }
 
 fun LinkLook.cookie(): CookieLook = when {
-    paused -> CookieLook(104f, 5f, CookieLook.Fill.Paused, turning = false)
+    pausedHere -> CookieLook(104f, 5f, CookieLook.Fill.Paused, turning = false)
     connected -> CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true)
     else -> CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false)
 }
@@ -86,15 +88,15 @@ fun Hero(macName: String, look: LinkLook, size: Dp = 196.dp) {
 }
 
 @Composable
-private fun Stitches(line: LinkLook.Line, size: Dp, reduced: Boolean, teal: Color, grey: Color) {
+private fun Stitches(line: LookLine, size: Dp, reduced: Boolean, teal: Color, grey: Color) {
     // Same Wi‑Fi draws each line left to right, 80 ms apart, as the link forms or the screen opens
-    val drawn = remember { List(3) { Animatable(if (line == LinkLook.Line.Solid && !reduced) 0f else 1f) } }
-    if (line == LinkLook.Line.Solid && !reduced) {
+    val drawn = remember { List(3) { Animatable(if (line == LookLine.SOLID && !reduced) 0f else 1f) } }
+    if (line == LookLine.SOLID && !reduced) {
         drawn.forEachIndexed { i, a -> LaunchedEffect(a) { a.animateTo(1f, Motion.emphasized(700, 80 * i)) } }
     }
     // Tor's dashes flow along, 11 units every 0.9 s; connecting, the dots travel from this phone to the Mac at the same pace
     val phase = remember { Animatable(0f) }
-    if ((line == LinkLook.Line.Dashed || line == LinkLook.Line.Dotted) && !reduced) LaunchedEffect(line) {
+    if ((line == LookLine.DASHED || line == LookLine.DOTTED) && !reduced) LaunchedEffect(line) {
         while (true) { phase.snapTo(0f); phase.animateTo(11f, tween(Motion.DASH_FLOW_MS, easing = LinearEasing)) }
     }
     Canvas(Modifier.size(size)) {
@@ -102,11 +104,11 @@ private fun Stitches(line: LinkLook.Line, size: Dp, reduced: Boolean, teal: Colo
         translate20x50(k) {
             listOf(44f, 58f, 72f).forEachIndexed { i, y ->
                 val (color, effect, to) = when (line) {
-                    LinkLook.Line.Solid -> Triple(teal, null, 122f + 24f * drawn[i].value)
-                    LinkLook.Line.Dashed -> Triple(teal, PathEffect.dashPathEffect(floatArrayOf(5 * k, 6 * k), -phase.value * k), 146f)
+                    LookLine.SOLID -> Triple(teal, null, 122f + 24f * drawn[i].value)
+                    LookLine.DASHED -> Triple(teal, PathEffect.dashPathEffect(floatArrayOf(5 * k, 6 * k), -phase.value * k), 146f)
                     // A 5.5-unit period, so the 11-unit loop repeats seamlessly
-                    LinkLook.Line.Dotted -> Triple(grey, PathEffect.dashPathEffect(floatArrayOf(0.1f * k, 5.4f * k), phase.value * k), 146f)
-                    LinkLook.Line.Broken -> Triple(grey, PathEffect.dashPathEffect(floatArrayOf(4 * k, 7 * k)), 146f)
+                    LookLine.DOTTED -> Triple(grey, PathEffect.dashPathEffect(floatArrayOf(0.1f * k, 5.4f * k), phase.value * k), 146f)
+                    LookLine.BROKEN -> Triple(grey, PathEffect.dashPathEffect(floatArrayOf(4 * k, 7 * k)), 146f)
                 }
                 drawLine(color, Offset(122 * k, y * k), Offset(to * k, y * k), 5 * k, StrokeCap.Round, effect)
             }

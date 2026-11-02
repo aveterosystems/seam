@@ -71,10 +71,10 @@ class GalleryActivity : ComponentActivity() {
                 var wifi by remember { mutableStateOf(true) }
                 var tor by remember { mutableStateOf(true) }
                 val look = when (link) {
-                    "tor" -> LinkLook.ThroughTor
-                    "offline" -> LinkLook.Offline
-                    "paused" -> LinkLook.paused(now + 30 * 60_000L, now)
-                    else -> LinkLook.SameWifi
+                    "tor" -> Looks.throughTor
+                    "offline" -> Looks.offline
+                    "paused" -> Looks.paused(now + 30 * 60_000L, now)
+                    else -> Looks.sameWifi
                 }
                 CompositionLocalProvider(LocalSnacks provides snacks) {
                     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {

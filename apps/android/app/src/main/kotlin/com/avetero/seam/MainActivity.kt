@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 val tor by app.tor.state.collectAsStateWithLifecycle()
-                val look = LinkLook.of(state, route, connection, tor, now)
+                val look = Looks.link(state, route, connection, tor, now)
                 val fromMac by clipboard.fromMac.collectAsStateWithLifecycle()
                 val macStatus by status.mac.collectAsStateWithLifecycle()
                 val pairedAt by app.pairedAt.collectAsStateWithLifecycle()

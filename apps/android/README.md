@@ -84,7 +84,7 @@ cd apps/android
 | `SmallTests` | The saved list of what the Mac hasn't acked, a frame sent just before close, local-only addresses, the pairing code (a relay-era code is refused), and backoff |
 | `ClipPreviewTest`, `CopyMatchTest`, `LogMatchTest` | The share preview shows hidden characters (the clipboard rules themselves are tested in the core), a Mac copy stops showing after 10 minutes; what counts as a copy for the automatic clipboard |
 | `NotificationRulesTest`, `NotificationPrefsTest` | What's mirrored and once; lock-screen secrets show the sender only; the Mac can act only on what it was sent; apps start off; settings survive saving |
-| `PauseTest`, `LookTest`, `LinkLookTest`, `AgoTest` | Pause choices end when they say; the status lines and words |
+| `PauseTest`, `LookTest`, `AgoTest` | Pause choices end when they say; the phone fills in the shared looks (`Looks.kt`: its names, clock and icons; the looks' rules and words are tested in `core/seam-looks`) |
 | `ScreensTest` | Renders every screen state, light and dark, to compare with the design prototype (only with `-Pscreens`) |
 | `UpdateFeedTest` | Only a newer, complete, published release from this repo is offered, with its checksum |
 | `QrDecoderTest` | A QR code is read from a padded camera frame; an empty frame reads nothing |

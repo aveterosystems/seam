@@ -10021,6 +10021,17 @@ public func notificationModeWord(mode: Int32) -> String  {
 })
 }
 /**
+ * The phone's master card: "6 of 10 apps".
+ */
+public func notificationsPhoneCount(settingsBytes: Data) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_notifications_phone_count(
+        FfiConverterData.lower(settingsBytes),uniffiCallStatus
+    )
+})
+}
+/**
  * The phone's Settings line: "6 of 10 apps · Sender only for Monzo".
  */
 public func notificationsPhoneLong(settingsBytes: Data) -> String  {
@@ -10072,6 +10083,20 @@ public func sizeWords(bytes: UInt64) -> String  {
         uniffiCallStatus in
     uniffi_seam_ffi_fn_func_size_words(
         FfiConverterUInt64.lower(bytes),uniffiCallStatus
+    )
+})
+}
+/**
+ * When a pause ends: "until 14:44", "until tomorrow 14:44", "until 3 Nov 14:44", or "until you
+ * resume" for i64::MAX.
+ */
+public func untilWords(untilMs: Int64, nowMs: Int64, time: TimeWords) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_until_words(
+        FfiConverterInt64.lower(untilMs),
+        FfiConverterInt64.lower(nowMs),
+        FfiConverterTypeTimeWords_lower(time),uniffiCallStatus
     )
 })
 }
@@ -10177,6 +10202,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_func_notification_mode_word() != 38055) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_func_notifications_phone_count() != 2341) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_func_notifications_phone_long() != 12132) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10190,6 +10218,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_size_words() != 47019) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_until_words() != 50263) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_waiting_words() != 9954) {

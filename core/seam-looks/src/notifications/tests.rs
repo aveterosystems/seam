@@ -49,6 +49,7 @@ fn counts_treat_sender_only_as_on() {
         "Off · 3 of 4 apps · Sender only for Monzo and Gmail"
     );
     assert_eq!(phone_long(true, &apps()[..1]), "1 of 1 apps");
+    assert_eq!(phone_app_count(&apps()), "3 of 4 apps");
     let many: Vec<_> = (0..3)
         .map(|i| app(&format!("App {i}"), NotificationMode::TitleOnly))
         .collect();

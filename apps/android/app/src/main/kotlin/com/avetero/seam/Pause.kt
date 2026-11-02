@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import com.avetero.seam.crypto.untilWords
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -28,14 +29,4 @@ enum class PauseFor(val label: String) {
 }
 
 /** "Paused until 15:30", "Paused until tomorrow 08:00", or "Paused until you resume". */
-fun pausedLabel(until: Long, now: Long, zone: ZoneId = ZoneId.systemDefault()): String {
-    if (until == Long.MAX_VALUE) return "Paused until you resume"
-    val end = Instant.ofEpochMilli(until).atZone(zone)
-    val time = end.format(DateTimeFormatter.ofPattern("HH:mm"))
-    val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-    return when (end.toLocalDate()) {
-        today -> "Paused until $time"
-        today.plusDays(1) -> "Paused until tomorrow $time"
-        else -> "Paused until ${end.format(DateTimeFormatter.ofPattern("d MMM HH:mm"))}"
-    }
-}
+fun pausedLabel(until: Long, now: Long, zone: ZoneId = ZoneId.systemDefault()): String = "Paused " + untilWords(until, now, SystemTime(zone))
