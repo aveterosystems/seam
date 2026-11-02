@@ -43,7 +43,7 @@ struct PhonePane: View {
                 }
             }
             .rise(2, shown, pane: true)
-            GroupFootnote { SwapText(Words.connectionsFootnote(wifi: controller.wifiOn, tor: controller.torOn), lines: nil, pane: true) }
+            GroupFootnote { SwapText(Looks.connectionsFootnote(wifi: controller.wifiOn, tor: controller.torOn), lines: nil, pane: true) }
                 .rise(3, shown, pane: true)
             if let phone = controller.phone {
                 GroupTitle("Pairing").rise(4, shown, pane: true)
@@ -93,15 +93,15 @@ private struct PhoneCard: View {
 
     var body: some View {
         let look = controller.link
-        let status = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt, sameWifi: look == .sameWifi) }
+        let status = controller.status.status.flatMap { Looks.phone($0, link: look, at: controller.status.statusAt) }
         HStack(spacing: 16) {
-            PhoneGlyph(level: status?.percent, low: status?.low == true, on: look.connected)
+            PhoneGlyph(level: status.map { Int($0.percent) }, low: status?.low == true, on: look.connected)
             VStack(alignment: .leading, spacing: 0) {
                 Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 19, weight: .bold)).foregroundStyle(SeamStyle.Win.fg)
                 TimelineView(.periodic(from: .now, by: 30)) { tl in
                     HStack(spacing: 6) {
                         StatusDot(on: look.connected)
-                        SwapText(look.heroLine(lastSeen: controller.lastSeen, now: tl.date), pane: true)
+                        SwapText(controller.link(at: tl.date).heroLine, pane: true)
                         PathIcon(look: look)
                     }
                 }
@@ -109,19 +109,19 @@ private struct PhoneCard: View {
                 .frame(height: 17).padding(.top, 3)
                 Stitch(line: look.line, replay: replay).padding(.top, 10).padding(.bottom, 9)
                 HStack(spacing: 14) {
-                    stat(status?.batterySymbol ?? "battery.100percent", help: status?.batteryDetail ?? "Battery") {
-                        Text(status.map { "\($0.percent)%" } ?? "—").contentTransition(.numericText(value: Double(status?.percent ?? 0)))
+                    stat(status?.batteryIcon.symbol ?? "battery.100percent", help: status?.batteryDetail ?? "Battery") {
+                        Text(status?.battery ?? "—").contentTransition(.numericText(value: Double(status?.percent ?? 0)))
                     }
-                    if let symbol = status?.networkSymbol, let network = status?.network {
-                        stat(symbol, value: status?.signal, help: network) { SwapText(network, pane: true) }
+                    if let icon = status?.networkIcon, let network = status?.network {
+                        stat(icon.symbol, value: icon.variableValue, help: network) { SwapText(network, pane: true) }
                             .transition(.opacity)
                     }
                     if let storage = status?.storage, let detail = status?.storageDetail {
-                        stat("internaldrive", help: detail) { SwapText(storage, pane: true) }
+                        stat(LookIcon.storage.symbol, help: detail) { SwapText(storage, pane: true) }
                             .transition(.opacity)
                     }
                     if status?.dnd == true {
-                        Image(systemName: "moon.fill").foregroundStyle(SeamStyle.glow)
+                        Image(systemName: LookIcon.doNotDisturb.symbol).foregroundStyle(SeamStyle.glow)
                             .transition(.opacity)
                             .help("Do Not Disturb is on")
                             .accessibilityLabel("Do Not Disturb is on")

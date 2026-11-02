@@ -650,6 +650,15 @@ internal open class UniffiForeignFutureResultVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceTimeWordsMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`ms`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceTimeWordsMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`ms`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceTimeWordsMethod2 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`ms`: Long,`nowMs`: Long,`uniffiOutReturn`: IntByReference,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceTorConnectListenerMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`stream`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
@@ -664,6 +673,31 @@ internal interface UniffiCallbackInterfaceTorStreamListenerMethod0 : com.sun.jna
 }
 internal interface UniffiCallbackInterfaceTorStreamListenerMethod1 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "time", "date", "daysBetween")
+internal open class UniffiVTableCallbackInterfaceTimeWords(
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+    @JvmField internal var `time`: UniffiCallbackInterfaceTimeWordsMethod0? = null,
+    @JvmField internal var `date`: UniffiCallbackInterfaceTimeWordsMethod1? = null,
+    @JvmField internal var `daysBetween`: UniffiCallbackInterfaceTimeWordsMethod2? = null,
+) : Structure() {
+    class UniffiByValue(
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+        `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+        `time`: UniffiCallbackInterfaceTimeWordsMethod0? = null,
+        `date`: UniffiCallbackInterfaceTimeWordsMethod1? = null,
+        `daysBetween`: UniffiCallbackInterfaceTimeWordsMethod2? = null,
+    ): UniffiVTableCallbackInterfaceTimeWords(`uniffiFree`,`uniffiClone`,`time`,`date`,`daysBetween`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceTimeWords) {
+        `uniffiFree` = other.`uniffiFree`
+        `uniffiClone` = other.`uniffiClone`
+        `time` = other.`time`
+        `date` = other.`date`
+        `daysBetween` = other.`daysBetween`
+    }
+
 }
 @Structure.FieldOrder("uniffiFree", "uniffiClone", "onOpen", "onFailed")
 internal open class UniffiVTableCallbackInterfaceTorConnectListener(
@@ -761,6 +795,36 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_func_clip_max_bytes(
     ): Int
+    external fun uniffi_seam_ffi_checksum_func_ago_words(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_clipboard_subtitle(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_connections_footnote(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_device_status_look(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_link_look(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_notification_apps_on(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_notification_apps_on_count(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_notification_mode_explanation(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_notification_mode_word(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_notifications_phone_long(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_notifications_phone_short(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_notifications_tile(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_sender_only_footnote(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_size_words(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_waiting_words(
+    ): Int
     external fun uniffi_seam_ffi_checksum_func_tor_discovery_public(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_tor_new_secret(
@@ -847,6 +911,12 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_method_cliprules_reset(
     ): Int
+    external fun uniffi_seam_ffi_checksum_method_timewords_time(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_timewords_date(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_method_timewords_days_between(
+    ): Int
     external fun uniffi_seam_ffi_checksum_method_tor_connect(
     ): Int
     external fun uniffi_seam_ffi_checksum_method_tor_host(
@@ -911,6 +981,7 @@ internal object UniffiLib {
 
     init {
         Native.register(UniffiLib::class.java, findLibraryName(componentName = "seam_ffi"))
+        uniffiCallbackInterfaceTimeWords.register(this)
         uniffiCallbackInterfaceTorConnectListener.register(this)
         uniffiCallbackInterfaceTorStateListener.register(this)
         uniffiCallbackInterfaceTorStreamListener.register(this)
@@ -1034,6 +1105,18 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_method_cliprules_reset(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_seam_ffi_fn_clone_timewords(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_seam_ffi_fn_free_timewords(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_seam_ffi_fn_init_callback_vtable_timewords(`vtable`: UniffiVTableCallbackInterfaceTimeWords,
+    ): Unit
+    external fun uniffi_seam_ffi_fn_method_timewords_time(`ptr`: Long,`ms`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_timewords_date(`ptr`: Long,`ms`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_method_timewords_days_between(`ptr`: Long,`ms`: Long,`nowMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Int
     external fun uniffi_seam_ffi_fn_clone_tor(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun uniffi_seam_ffi_fn_free_tor(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1104,6 +1187,36 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_clip_max_bytes(uniffi_out_err: UniffiRustCallStatus, 
     ): Int
+    external fun uniffi_seam_ffi_fn_func_ago_words(`atMs`: Long,`nowMs`: Long,`justNow`: RustBuffer.ByValue,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_clipboard_subtitle(`syncOn`: Byte,`connected`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_connections_footnote(`lanOn`: Byte,`torOn`: Byte,`names`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_device_status_look(`status`: RustBuffer.ByValue,`connected`: Byte,`atMs`: RustBuffer.ByValue,`sameWifi`: Byte,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_link_look(`input`: RustBuffer.ByValue,`names`: RustBuffer.ByValue,`lastSeenMs`: RustBuffer.ByValue,`nowMs`: Long,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_notification_apps_on(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_notification_apps_on_count(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Int
+    external fun uniffi_seam_ffi_fn_func_notification_mode_explanation(`mode`: Int,`canReply`: Byte,`names`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_notification_mode_word(`mode`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_notifications_phone_long(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_notifications_phone_short(`settingsBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_notifications_tile(`settingsBytes`: RustBuffer.ByValue,`showing`: Int,`nowMs`: Long,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_sender_only_footnote(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_size_words(`bytes`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_waiting_words(`count`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_tor_discovery_public(`discoverySecret`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_tor_new_secret(uniffi_out_err: UniffiRustCallStatus, 
@@ -1241,6 +1354,51 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_seam_ffi_checksum_func_clip_max_bytes() and 0xFFFF) != 30606) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_seam_ffi_checksum_func_ago_words() and 0xFFFF) != 35036) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_clipboard_subtitle() and 0xFFFF) != 26400) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_connections_footnote() and 0xFFFF) != 41593) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_device_status_look() and 0xFFFF) != 17410) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_link_look() and 0xFFFF) != 58522) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_notification_apps_on() and 0xFFFF) != 53662) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_notification_apps_on_count() and 0xFFFF) != 20489) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_notification_mode_explanation() and 0xFFFF) != 29913) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_notification_mode_word() and 0xFFFF) != 38055) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_notifications_phone_long() and 0xFFFF) != 12132) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_notifications_phone_short() and 0xFFFF) != 26700) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_notifications_tile() and 0xFFFF) != 39273) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_sender_only_footnote() and 0xFFFF) != 9368) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_size_words() and 0xFFFF) != 47019) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_waiting_words() and 0xFFFF) != 9954) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_seam_ffi_checksum_func_tor_discovery_public() and 0xFFFF) != 59638) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1368,6 +1526,15 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_cliprules_reset() and 0xFFFF) != 35432) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_timewords_time() and 0xFFFF) != 8766) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_timewords_date() and 0xFFFF) != 9383) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_method_timewords_days_between() and 0xFFFF) != 20929) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_method_tor_connect() and 0xFFFF) != 49519) {
@@ -1683,6 +1850,29 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 /**
  * @suppress
  */
+public object FfiConverterInt: FfiConverter<Int, Int> {
+    override fun lift(value: Int): Int {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Int {
+        return buf.getInt()
+    }
+
+    override fun lower(value: Int): Int {
+        return value
+    }
+
+    override fun allocationSize(value: Int) = 4UL
+
+    override fun write(value: Int, buf: ByteBuffer) {
+        buf.putInt(value)
+    }
+}
+
+/**
+ * @suppress
+ */
 public object FfiConverterULong: FfiConverter<ULong, Long> {
     override fun lift(value: Long): ULong {
         return value.toULong()
@@ -1723,6 +1913,29 @@ public object FfiConverterLong: FfiConverter<Long, Long> {
 
     override fun write(value: Long, buf: ByteBuffer) {
         buf.putLong(value)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterFloat: FfiConverter<Float, Float> {
+    override fun lift(value: Float): Float {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Float {
+        return buf.getFloat()
+    }
+
+    override fun lower(value: Float): Float {
+        return value
+    }
+
+    override fun allocationSize(value: Float) = 4UL
+
+    override fun write(value: Float, buf: ByteBuffer) {
+        buf.putFloat(value)
     }
 }
 
@@ -4108,6 +4321,402 @@ public object FfiConverterTypeSeamDevice: FfiConverter<SeamDevice, Long> {
 
 
 /**
+ * The app's own clock and calendar words, in the user's locale and time zone.
+ */
+public interface TimeWords {
+    
+    /**
+     * "14:02"
+     */
+    fun `time`(`ms`: kotlin.Long): kotlin.String
+    
+    /**
+     * "3 Nov"
+     */
+    fun `date`(`ms`: kotlin.Long): kotlin.String
+    
+    /**
+     * Calendar days from `ms` to `now_ms`: 0 the same day, 1 yesterday, -1 tomorrow.
+     */
+    fun `daysBetween`(`ms`: kotlin.Long, `nowMs`: kotlin.Long): kotlin.Int
+    
+    companion object
+}
+
+/**
+ * The app's own clock and calendar words, in the user's locale and time zone.
+ */
+open class TimeWordsImpl: Disposable, AutoCloseable, TimeWords
+{
+
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
+    }
+
+    /**
+     * @suppress
+     *
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
+    }
+
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    /**
+     * Whether the current object has been destroyed and its reference is gone in the Rust side.
+     */
+    val uniffiIsDestroyed: Boolean get() = wasDestroyed.get()
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the handle being freed concurrently.
+        try {
+            return block(this.uniffiCloneHandle())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
+        override fun run() {
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_seam_ffi_fn_free_timewords(handle, status)
+            }
+        }
+    }
+
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
+        return uniffiRustCall() { status ->
+            UniffiLib.uniffi_seam_ffi_fn_clone_timewords(handle, status)
+        }
+    }
+
+    
+    /**
+     * "14:02"
+     */override fun `time`(`ms`: kotlin.Long): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_timewords_time(
+        it,
+        
+        FfiConverterLong.lower(`ms`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * "3 Nov"
+     */override fun `date`(`ms`: kotlin.Long): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_timewords_date(
+        it,
+        
+        FfiConverterLong.lower(`ms`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Calendar days from `ms` to `now_ms`: 0 the same day, 1 yesterday, -1 tomorrow.
+     */override fun `daysBetween`(`ms`: kotlin.Long, `nowMs`: kotlin.Long): kotlin.Int {
+            return FfiConverterInt.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_method_timewords_days_between(
+        it,
+        
+        FfiConverterLong.lower(`ms`),
+        FfiConverterLong.lower(`nowMs`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+
+
+    
+    
+    /**
+     * @suppress
+     */
+    companion object
+    
+}
+
+
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceTimeWords {
+    internal object `time`: UniffiCallbackInterfaceTimeWordsMethod0 {
+        override fun callback(`uniffiHandle`: Long,`ms`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeTimeWords.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`time`(
+                    FfiConverterLong.lift(`ms`),
+                )
+            }
+            val writeReturn = { value: kotlin.String -> uniffiOutReturn.setValue(FfiConverterString.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `date`: UniffiCallbackInterfaceTimeWordsMethod1 {
+        override fun callback(`uniffiHandle`: Long,`ms`: Long,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeTimeWords.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`date`(
+                    FfiConverterLong.lift(`ms`),
+                )
+            }
+            val writeReturn = { value: kotlin.String -> uniffiOutReturn.setValue(FfiConverterString.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `daysBetween`: UniffiCallbackInterfaceTimeWordsMethod2 {
+        override fun callback(`uniffiHandle`: Long,`ms`: Long,`nowMs`: Long,`uniffiOutReturn`: IntByReference,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeTimeWords.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`daysBetween`(
+                    FfiConverterLong.lift(`ms`),
+                    FfiConverterLong.lift(`nowMs`),
+                )
+            }
+            val writeReturn = { value: kotlin.Int -> uniffiOutReturn.setValue(FfiConverterInt.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeTimeWords.handleMap.remove(handle)
+        }
+    }
+
+    internal object uniffiClone: UniffiCallbackInterfaceClone {
+        override fun callback(handle: Long): Long {
+            return FfiConverterTypeTimeWords.handleMap.clone(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceTimeWords.UniffiByValue(
+        uniffiFree,
+        uniffiClone,
+        `time`,
+        `date`,
+        `daysBetween`,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_seam_ffi_fn_init_callback_vtable_timewords(vtable)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeTimeWords: FfiConverter<TimeWords, Long> {
+    internal val handleMap = UniffiHandleMap<TimeWords>()
+
+    override fun lower(value: TimeWords): Long {
+        if (value is TimeWordsImpl) {
+             // Rust-implemented object.  Clone the handle and return it
+            return value.uniffiCloneHandle()
+         } else {
+            // Kotlin object, generate a new vtable handle and return that.
+            return handleMap.insert(value)
+         }
+    }
+
+    override fun lift(value: Long): TimeWords {
+        if ((value and 1.toLong()) == 0.toLong()) {
+            // Rust-generated handle, construct a new class that uses the handle to implement the
+            // interface
+            return TimeWordsImpl(UniffiWithHandle, value)
+        } else {
+            // Kotlin-generated handle, get the object from the handle map
+            return handleMap.remove(value)
+        }
+    }
+
+    override fun read(buf: ByteBuffer): TimeWords {
+        return lift(buf.getLong())
+    }
+
+    override fun allocationSize(value: TimeWords) = 8UL
+
+    override fun write(value: TimeWords, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a handle
+// to the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its handle should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the handle, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+/**
  * Tor for one app. Create once; `start` before `host` or `connect`.
  */
 public interface TorInterface {
@@ -6072,6 +6681,107 @@ public object FfiConverterTypeAppData: FfiConverterRustBuffer<AppData> {
 
 
 /**
+ * The other device's battery, network, storage and Do Not Disturb, ready to draw.
+ */
+data class DeviceStatusLook (
+    var `percent`: kotlin.UInt
+    , 
+    var `charging`: kotlin.Boolean
+    , 
+    var `low`: kotlin.Boolean
+    , 
+    var `battery`: kotlin.String
+    , 
+    var `batteryIcon`: LookIcon
+    , 
+    var `batteryDetail`: kotlin.String
+    , 
+    var `network`: kotlin.String?
+    , 
+    var `networkIcon`: LookIcon?
+    , 
+    var `storage`: kotlin.String?
+    , 
+    var `storageDetail`: kotlin.String?
+    , 
+    var `dnd`: kotlin.Boolean
+    , 
+    var `stale`: kotlin.Boolean
+    , 
+    var `meta`: kotlin.String?
+    , 
+    var `spoken`: kotlin.String
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceStatusLook> {
+    override fun read(buf: ByteBuffer): DeviceStatusLook {
+        return DeviceStatusLook(
+            FfiConverterUInt.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterTypeLookIcon.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeLookIcon.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: DeviceStatusLook) = (
+            FfiConverterUInt.allocationSize(value.`percent`) +
+            FfiConverterBoolean.allocationSize(value.`charging`) +
+            FfiConverterBoolean.allocationSize(value.`low`) +
+            FfiConverterString.allocationSize(value.`battery`) +
+            FfiConverterTypeLookIcon.allocationSize(value.`batteryIcon`) +
+            FfiConverterString.allocationSize(value.`batteryDetail`) +
+            FfiConverterOptionalString.allocationSize(value.`network`) +
+            FfiConverterOptionalTypeLookIcon.allocationSize(value.`networkIcon`) +
+            FfiConverterOptionalString.allocationSize(value.`storage`) +
+            FfiConverterOptionalString.allocationSize(value.`storageDetail`) +
+            FfiConverterBoolean.allocationSize(value.`dnd`) +
+            FfiConverterBoolean.allocationSize(value.`stale`) +
+            FfiConverterOptionalString.allocationSize(value.`meta`) +
+            FfiConverterString.allocationSize(value.`spoken`)
+    )
+
+    override fun write(value: DeviceStatusLook, buf: ByteBuffer) {
+            FfiConverterUInt.write(value.`percent`, buf)
+            FfiConverterBoolean.write(value.`charging`, buf)
+            FfiConverterBoolean.write(value.`low`, buf)
+            FfiConverterString.write(value.`battery`, buf)
+            FfiConverterTypeLookIcon.write(value.`batteryIcon`, buf)
+            FfiConverterString.write(value.`batteryDetail`, buf)
+            FfiConverterOptionalString.write(value.`network`, buf)
+            FfiConverterOptionalTypeLookIcon.write(value.`networkIcon`, buf)
+            FfiConverterOptionalString.write(value.`storage`, buf)
+            FfiConverterOptionalString.write(value.`storageDetail`, buf)
+            FfiConverterBoolean.write(value.`dnd`, buf)
+            FfiConverterBoolean.write(value.`stale`, buf)
+            FfiConverterOptionalString.write(value.`meta`, buf)
+            FfiConverterString.write(value.`spoken`, buf)
+    }
+}
+
+
+
+/**
  * What this device says about itself in its next Hello.
  */
 data class HelloFacts (
@@ -6194,6 +6904,270 @@ public object FfiConverterTypeLanOutput: FfiConverterRustBuffer<LanOutput> {
             FfiConverterByteArray.write(value.`send`, buf)
             FfiConverterSequenceByteArray.write(value.`frames`, buf)
             FfiConverterOptionalString.write(value.`authenticated`, buf)
+    }
+}
+
+
+
+/**
+ * What the link look is made from.
+ */
+data class LinkInput (
+    var `route`: PeerPath?
+    , 
+    var `lanAllowed`: kotlin.Boolean
+    , 
+    var `torAllowed`: kotlin.Boolean
+    , 
+    var `tor`: TorState
+    , 
+    /**
+     * Unix ms; i64::MAX for until resumed.
+     */
+    var `pausedUntilMs`: kotlin.Long?
+    , 
+    /**
+     * The phone showing its own pause.
+     */
+    var `pausedHere`: kotlin.Boolean
+    , 
+    var `reconnect`: LinkReconnect?
+    , 
+    var `idle`: kotlin.Boolean
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLinkInput: FfiConverterRustBuffer<LinkInput> {
+    override fun read(buf: ByteBuffer): LinkInput {
+        return LinkInput(
+            FfiConverterOptionalTypePeerPath.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterTypeTorState.read(buf),
+            FfiConverterOptionalLong.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterOptionalTypeLinkReconnect.read(buf),
+            FfiConverterBoolean.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: LinkInput) = (
+            FfiConverterOptionalTypePeerPath.allocationSize(value.`route`) +
+            FfiConverterBoolean.allocationSize(value.`lanAllowed`) +
+            FfiConverterBoolean.allocationSize(value.`torAllowed`) +
+            FfiConverterTypeTorState.allocationSize(value.`tor`) +
+            FfiConverterOptionalLong.allocationSize(value.`pausedUntilMs`) +
+            FfiConverterBoolean.allocationSize(value.`pausedHere`) +
+            FfiConverterOptionalTypeLinkReconnect.allocationSize(value.`reconnect`) +
+            FfiConverterBoolean.allocationSize(value.`idle`)
+    )
+
+    override fun write(value: LinkInput, buf: ByteBuffer) {
+            FfiConverterOptionalTypePeerPath.write(value.`route`, buf)
+            FfiConverterBoolean.write(value.`lanAllowed`, buf)
+            FfiConverterBoolean.write(value.`torAllowed`, buf)
+            FfiConverterTypeTorState.write(value.`tor`, buf)
+            FfiConverterOptionalLong.write(value.`pausedUntilMs`, buf)
+            FfiConverterBoolean.write(value.`pausedHere`, buf)
+            FfiConverterOptionalTypeLinkReconnect.write(value.`reconnect`, buf)
+            FfiConverterBoolean.write(value.`idle`, buf)
+    }
+}
+
+
+
+/**
+ * The link, ready to draw.
+ */
+data class LinkLook (
+    var `kind`: LinkKind
+    , 
+    var `line`: LookLine
+    , 
+    var `icon`: LookIcon?
+    , 
+    var `label`: kotlin.String
+    , 
+    var `connected`: kotlin.Boolean
+    , 
+    var `pausedHere`: kotlin.Boolean
+    , 
+    var `detail`: kotlin.String?
+    , 
+    /**
+     * Beside the icon: "Connected", or the reason.
+     */
+    var `short`: kotlin.String
+    , 
+    /**
+     * In full, for screen readers: "Connected · Same Wi‑Fi".
+     */
+    var `sentence`: kotlin.String
+    , 
+    /**
+     * Under the other device's name: "Last seen 12 min ago" on the computer when it knows.
+     */
+    var `statusLine`: kotlin.String
+    , 
+    /**
+     * The same with room to say what happens next.
+     */
+    var `heroLine`: kotlin.String
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLinkLook: FfiConverterRustBuffer<LinkLook> {
+    override fun read(buf: ByteBuffer): LinkLook {
+        return LinkLook(
+            FfiConverterTypeLinkKind.read(buf),
+            FfiConverterTypeLookLine.read(buf),
+            FfiConverterOptionalTypeLookIcon.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: LinkLook) = (
+            FfiConverterTypeLinkKind.allocationSize(value.`kind`) +
+            FfiConverterTypeLookLine.allocationSize(value.`line`) +
+            FfiConverterOptionalTypeLookIcon.allocationSize(value.`icon`) +
+            FfiConverterString.allocationSize(value.`label`) +
+            FfiConverterBoolean.allocationSize(value.`connected`) +
+            FfiConverterBoolean.allocationSize(value.`pausedHere`) +
+            FfiConverterOptionalString.allocationSize(value.`detail`) +
+            FfiConverterString.allocationSize(value.`short`) +
+            FfiConverterString.allocationSize(value.`sentence`) +
+            FfiConverterString.allocationSize(value.`statusLine`) +
+            FfiConverterString.allocationSize(value.`heroLine`)
+    )
+
+    override fun write(value: LinkLook, buf: ByteBuffer) {
+            FfiConverterTypeLinkKind.write(value.`kind`, buf)
+            FfiConverterTypeLookLine.write(value.`line`, buf)
+            FfiConverterOptionalTypeLookIcon.write(value.`icon`, buf)
+            FfiConverterString.write(value.`label`, buf)
+            FfiConverterBoolean.write(value.`connected`, buf)
+            FfiConverterBoolean.write(value.`pausedHere`, buf)
+            FfiConverterOptionalString.write(value.`detail`, buf)
+            FfiConverterString.write(value.`short`, buf)
+            FfiConverterString.write(value.`sentence`, buf)
+            FfiConverterString.write(value.`statusLine`, buf)
+            FfiConverterString.write(value.`heroLine`, buf)
+    }
+}
+
+
+
+/**
+ * How the app names itself ("this Mac") and the other device ("your phone").
+ */
+data class LookNames (
+    var `side`: LookSide
+    , 
+    var `this`: kotlin.String
+    , 
+    var `peer`: kotlin.String
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLookNames: FfiConverterRustBuffer<LookNames> {
+    override fun read(buf: ByteBuffer): LookNames {
+        return LookNames(
+            FfiConverterTypeLookSide.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: LookNames) = (
+            FfiConverterTypeLookSide.allocationSize(value.`side`) +
+            FfiConverterString.allocationSize(value.`this`) +
+            FfiConverterString.allocationSize(value.`peer`)
+    )
+
+    override fun write(value: LookNames, buf: ByteBuffer) {
+            FfiConverterTypeLookSide.write(value.`side`, buf)
+            FfiConverterString.write(value.`this`, buf)
+            FfiConverterString.write(value.`peer`, buf)
+    }
+}
+
+
+
+data class NotificationsTile (
+    var `mode`: NotificationsTileMode
+    , 
+    var `subtitle`: kotlin.String
+    , 
+    var `icon`: LookIcon
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeNotificationsTile: FfiConverterRustBuffer<NotificationsTile> {
+    override fun read(buf: ByteBuffer): NotificationsTile {
+        return NotificationsTile(
+            FfiConverterTypeNotificationsTileMode.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterTypeLookIcon.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: NotificationsTile) = (
+            FfiConverterTypeNotificationsTileMode.allocationSize(value.`mode`) +
+            FfiConverterString.allocationSize(value.`subtitle`) +
+            FfiConverterTypeLookIcon.allocationSize(value.`icon`)
+    )
+
+    override fun write(value: NotificationsTile, buf: ByteBuffer) {
+            FfiConverterTypeNotificationsTileMode.write(value.`mode`, buf)
+            FfiConverterString.write(value.`subtitle`, buf)
+            FfiConverterTypeLookIcon.write(value.`icon`, buf)
     }
 }
 
@@ -6546,6 +7520,393 @@ public object FfiConverterTypePeerInfo: FfiConverterRustBuffer<PeerInfo> {
             FfiConverterBoolean.write(value.`confirmed`, buf)
     }
 }
+
+
+
+
+enum class LinkKind {
+    
+    SAME_WIFI,
+    THROUGH_TOR,
+    PAUSED,
+    NO_SHARED_PATH,
+    TOR_CLOCK,
+    TOR_BLOCKED,
+    TOR_FAILED,
+    RECONNECTING,
+    WAKE_PEER,
+    IDLE,
+    WAITING_ON_WIFI,
+    CONNECTING_TOR,
+    OFFLINE;
+
+    
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLinkKind: FfiConverterRustBuffer<LinkKind> {
+    override fun read(buf: ByteBuffer) = try {
+        LinkKind.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: LinkKind) = 4UL
+
+    override fun write(value: LinkKind, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class LinkReconnect {
+    
+    ASKED,
+    PEER_UNREACHABLE;
+
+    
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLinkReconnect: FfiConverterRustBuffer<LinkReconnect> {
+    override fun read(buf: ByteBuffer) = try {
+        LinkReconnect.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: LinkReconnect) = 4UL
+
+    override fun write(value: LinkReconnect, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+/**
+ * An icon as a meaning; each app maps it to its own icon set.
+ */
+sealed class LookIcon {
+    
+    object SameWifi : LookIcon()
+    
+    
+    object ThroughTor : LookIcon()
+    
+    
+    object Paused : LookIcon()
+    
+    
+    data class Battery(
+        val `level`: kotlin.UByte, 
+        val `charging`: kotlin.Boolean) : LookIcon()
+        
+    {
+        
+
+        companion object
+    }
+    
+    object Wifi : LookIcon()
+    
+    
+    data class MobileSignal(
+        val `fraction`: kotlin.Float) : LookIcon()
+        
+    {
+        
+
+        companion object
+    }
+    
+    object Storage : LookIcon()
+    
+    
+    object DoNotDisturb : LookIcon()
+    
+    
+    object Notifications : LookIcon()
+    
+    
+    object NotificationsOff : LookIcon()
+    
+    
+
+    
+
+    
+    
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLookIcon : FfiConverterRustBuffer<LookIcon>{
+    override fun read(buf: ByteBuffer): LookIcon {
+        return when(buf.getInt()) {
+            1 -> LookIcon.SameWifi
+            2 -> LookIcon.ThroughTor
+            3 -> LookIcon.Paused
+            4 -> LookIcon.Battery(
+                FfiConverterUByte.read(buf),
+                FfiConverterBoolean.read(buf),
+                )
+            5 -> LookIcon.Wifi
+            6 -> LookIcon.MobileSignal(
+                FfiConverterFloat.read(buf),
+                )
+            7 -> LookIcon.Storage
+            8 -> LookIcon.DoNotDisturb
+            9 -> LookIcon.Notifications
+            10 -> LookIcon.NotificationsOff
+            else -> throw RuntimeException("invalid enum value, something is very wrong!!")
+        }
+    }
+
+    override fun allocationSize(value: LookIcon): ULong = when(value) {
+        is LookIcon.SameWifi -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.ThroughTor -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.Paused -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.Battery -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+                + FfiConverterUByte.allocationSize(value.`level`)
+                + FfiConverterBoolean.allocationSize(value.`charging`)
+            )
+        }
+        is LookIcon.Wifi -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.MobileSignal -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+                + FfiConverterFloat.allocationSize(value.`fraction`)
+            )
+        }
+        is LookIcon.Storage -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.DoNotDisturb -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.Notifications -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is LookIcon.NotificationsOff -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+    }
+
+    override fun write(value: LookIcon, buf: ByteBuffer) {
+        when(value) {
+            is LookIcon.SameWifi -> {
+                buf.putInt(1)
+                Unit
+            }
+            is LookIcon.ThroughTor -> {
+                buf.putInt(2)
+                Unit
+            }
+            is LookIcon.Paused -> {
+                buf.putInt(3)
+                Unit
+            }
+            is LookIcon.Battery -> {
+                buf.putInt(4)
+                FfiConverterUByte.write(value.`level`, buf)
+                FfiConverterBoolean.write(value.`charging`, buf)
+                Unit
+            }
+            is LookIcon.Wifi -> {
+                buf.putInt(5)
+                Unit
+            }
+            is LookIcon.MobileSignal -> {
+                buf.putInt(6)
+                FfiConverterFloat.write(value.`fraction`, buf)
+                Unit
+            }
+            is LookIcon.Storage -> {
+                buf.putInt(7)
+                Unit
+            }
+            is LookIcon.DoNotDisturb -> {
+                buf.putInt(8)
+                Unit
+            }
+            is LookIcon.Notifications -> {
+                buf.putInt(9)
+                Unit
+            }
+            is LookIcon.NotificationsOff -> {
+                buf.putInt(10)
+                Unit
+            }
+        }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
+    }
+}
+
+
+
+
+
+
+enum class LookLine {
+    
+    SOLID,
+    DASHED,
+    DOTTED,
+    BROKEN;
+
+    
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLookLine: FfiConverterRustBuffer<LookLine> {
+    override fun read(buf: ByteBuffer) = try {
+        LookLine.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: LookLine) = 4UL
+
+    override fun write(value: LookLine, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class LookSide {
+    
+    PHONE,
+    COMPUTER;
+
+    
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLookSide: FfiConverterRustBuffer<LookSide> {
+    override fun read(buf: ByteBuffer) = try {
+        LookSide.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: LookSide) = 4UL
+
+    override fun write(value: LookSide, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class NotificationsTileMode {
+    
+    WAITING,
+    ON,
+    PAUSED,
+    OFF;
+
+    
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeNotificationsTileMode: FfiConverterRustBuffer<NotificationsTileMode> {
+    override fun read(buf: ByteBuffer) = try {
+        NotificationsTileMode.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: NotificationsTileMode) = 4UL
+
+    override fun write(value: NotificationsTileMode, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
 
 
 
@@ -6951,6 +8312,38 @@ public object FfiConverterTypeTorState : FfiConverterRustBuffer<TorState>{
 /**
  * @suppress
  */
+public object FfiConverterOptionalLong: FfiConverterRustBuffer<kotlin.Long?> {
+    override fun read(buf: ByteBuffer): kotlin.Long? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterLong.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Long?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterLong.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Long?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterLong.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?> {
     override fun read(buf: ByteBuffer): kotlin.String? {
         if (buf.get().toInt() == 0) {
@@ -7079,6 +8472,38 @@ public object FfiConverterOptionalTypeAppData: FfiConverterRustBuffer<AppData?> 
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceStatusLook?> {
+    override fun read(buf: ByteBuffer): DeviceStatusLook? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeDeviceStatusLook.read(buf)
+    }
+
+    override fun allocationSize(value: DeviceStatusLook?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeDeviceStatusLook.allocationSize(value)
+        }
+    }
+
+    override fun write(value: DeviceStatusLook?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeDeviceStatusLook.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypePeerHello: FfiConverterRustBuffer<PeerHello?> {
     override fun read(buf: ByteBuffer): PeerHello? {
         if (buf.get().toInt() == 0) {
@@ -7101,6 +8526,70 @@ public object FfiConverterOptionalTypePeerHello: FfiConverterRustBuffer<PeerHell
         } else {
             buf.put(1)
             FfiConverterTypePeerHello.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeLinkReconnect: FfiConverterRustBuffer<LinkReconnect?> {
+    override fun read(buf: ByteBuffer): LinkReconnect? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeLinkReconnect.read(buf)
+    }
+
+    override fun allocationSize(value: LinkReconnect?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeLinkReconnect.allocationSize(value)
+        }
+    }
+
+    override fun write(value: LinkReconnect?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeLinkReconnect.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeLookIcon: FfiConverterRustBuffer<LookIcon?> {
+    override fun read(buf: ByteBuffer): LookIcon? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeLookIcon.read(buf)
+    }
+
+    override fun allocationSize(value: LookIcon?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeLookIcon.allocationSize(value)
+        }
+    }
+
+    override fun write(value: LookIcon?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeLookIcon.write(value, buf)
         }
     }
 }
@@ -7329,6 +8818,223 @@ public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<Peer
     UniffiLib.uniffi_seam_ffi_fn_func_clip_max_bytes(
     
         _status)
+}
+    )
+    }
+    
+
+        /**
+         * "12 min ago", "today at 14:02"; `just_now` for under a minute ("just now", or "now").
+         */ fun `agoWords`(`atMs`: kotlin.Long, `nowMs`: kotlin.Long, `justNow`: kotlin.String, `time`: TimeWords): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_ago_words(
+    
+        
+        FfiConverterLong.lower(`atMs`),
+        FfiConverterLong.lower(`nowMs`),
+        FfiConverterString.lower(`justNow`),
+        FfiConverterTypeTimeWords.lower(`time`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * The clipboard tile: Syncing, On or Off.
+         */ fun `clipboardSubtitle`(`syncOn`: kotlin.Boolean, `connected`: kotlin.Boolean): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_clipboard_subtitle(
+    
+        
+        FfiConverterBoolean.lower(`syncOn`),
+        FfiConverterBoolean.lower(`connected`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Under the connection switches: why the last one on can't be turned off.
+         */ fun `connectionsFootnote`(`lanOn`: kotlin.Boolean, `torOn`: kotlin.Boolean, `names`: LookNames): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_connections_footnote(
+    
+        
+        FfiConverterBoolean.lower(`lanOn`),
+        FfiConverterBoolean.lower(`torOn`),
+        FfiConverterTypeLookNames.lower(`names`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * From a seam.v1.Status; None if the bytes aren't one.
+         */ fun `deviceStatusLook`(`status`: kotlin.ByteArray, `connected`: kotlin.Boolean, `atMs`: kotlin.Long?, `sameWifi`: kotlin.Boolean, `time`: TimeWords): DeviceStatusLook? {
+            return FfiConverterOptionalTypeDeviceStatusLook.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_device_status_look(
+    
+        
+        FfiConverterByteArray.lower(`status`),
+        FfiConverterBoolean.lower(`connected`),
+        FfiConverterOptionalLong.lower(`atMs`),
+        FfiConverterBoolean.lower(`sameWifi`),
+        FfiConverterTypeTimeWords.lower(`time`),_status)
+}
+    )
+    }
+    
+ fun `linkLook`(`input`: LinkInput, `names`: LookNames, `lastSeenMs`: kotlin.Long?, `nowMs`: kotlin.Long, `time`: TimeWords): LinkLook {
+            return FfiConverterTypeLinkLook.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_link_look(
+    
+        
+        FfiConverterTypeLinkInput.lower(`input`),
+        FfiConverterTypeLookNames.lower(`names`),
+        FfiConverterOptionalLong.lower(`lastSeenMs`),
+        FfiConverterLong.lower(`nowMs`),
+        FfiConverterTypeTimeWords.lower(`time`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * "6 of 10 on".
+         */ fun `notificationAppsOn`(`settingsBytes`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notification_apps_on(
+    
+        
+        FfiConverterByteArray.lower(`settingsBytes`),_status)
+}
+    )
+    }
+    
+ fun `notificationAppsOnCount`(`settingsBytes`: kotlin.ByteArray): kotlin.UInt {
+            return FfiConverterUInt.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notification_apps_on_count(
+    
+        
+        FfiConverterByteArray.lower(`settingsBytes`),_status)
+}
+    )
+    }
+    
+ fun `notificationModeExplanation`(`mode`: kotlin.Int, `canReply`: kotlin.Boolean, `names`: LookNames): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notification_mode_explanation(
+    
+        
+        FfiConverterInt.lower(`mode`),
+        FfiConverterBoolean.lower(`canReply`),
+        FfiConverterTypeLookNames.lower(`names`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * On, Sender only or Off, for a seam.v1.NotificationMode value.
+         */ fun `notificationModeWord`(`mode`: kotlin.Int): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notification_mode_word(
+    
+        
+        FfiConverterInt.lower(`mode`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * The phone's Settings line: "6 of 10 apps · Sender only for Monzo".
+         */ fun `notificationsPhoneLong`(`settingsBytes`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notifications_phone_long(
+    
+        
+        FfiConverterByteArray.lower(`settingsBytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * The phone's home line: "On · 6 apps", or "Off".
+         */ fun `notificationsPhoneShort`(`settingsBytes`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notifications_phone_short(
+    
+        
+        FfiConverterByteArray.lower(`settingsBytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * The computer's Notifications tile, from the phone's seam.v1.NotificationSettings (None until
+         * it has sent them).
+         */ fun `notificationsTile`(`settingsBytes`: kotlin.ByteArray?, `showing`: kotlin.UInt, `nowMs`: kotlin.Long, `time`: TimeWords): NotificationsTile {
+            return FfiConverterTypeNotificationsTile.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_notifications_tile(
+    
+        
+        FfiConverterOptionalByteArray.lower(`settingsBytes`),
+        FfiConverterUInt.lower(`showing`),
+        FfiConverterLong.lower(`nowMs`),
+        FfiConverterTypeTimeWords.lower(`time`),_status)
+}
+    )
+    }
+    
+ fun `senderOnlyFootnote`(): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_sender_only_footnote(
+    
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * "112 GB".
+         */ fun `sizeWords`(`bytes`: kotlin.ULong): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_size_words(
+    
+        
+        FfiConverterULong.lower(`bytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * The queue bar: "3 waiting".
+         */ fun `waitingWords`(`count`: kotlin.UInt): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_waiting_words(
+    
+        
+        FfiConverterUInt.lower(`count`),_status)
 }
     )
     }

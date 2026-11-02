@@ -1,164 +1,98 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Foundation
+import SeamCore
 import SeamProtocol
 
-// The words the popover and Settings show for each state (docs/design/mac-screens.md, M01 and M03).
-// Like `LinkLook`, each look is one value the views draw from, so no view decides its own words.
+// What each state shows is decided once, in Rust, for every app (seam-looks, decision 0015). This
+// file only gives it this Mac's names and time words, and turns each icon meaning into an SF
+// Symbol (docs/design/design-system.md, "Icons"). No view decides a word or an icon itself.
 
-extension LinkLook {
-    /// The status line under the phone's name. Plain "offline" says when the phone was last here;
-    /// any other reason (Tor blocked, a pause, no shared path) stays in words, never hidden behind
-    /// a time.
-    public func statusLine(lastSeen: Date?, now: Date = Date(), calendar: Calendar = .current) -> String {
-        guard self == .away, let lastSeen else { return short }
-        return "Last seen " + LastSeen.text(lastSeen, now: now, calendar: calendar)
-    }
+extension LookNames {
+    /// How the Mac names itself and the phone.
+    public static let mac = LookNames(side: .computer, this: "this Mac", peer: "your phone")
+}
 
-    /// Settings' phone card has room to say what happens next, too.
-    public func heroLine(lastSeen: Date?, now: Date = Date(), calendar: Calendar = .current) -> String {
-        let line = statusLine(lastSeen: lastSeen, now: now, calendar: calendar)
-        return line.hasPrefix("Last seen") ? line + " · will send when it's back" : line
+/// This Mac's clock and calendar, in the user's locale and time zone.
+public final class SystemTime: TimeWords {
+    public static let shared = SystemTime()
+
+    public func time(ms: Int64) -> String { Date(ms: ms).formatted(date: .omitted, time: .shortened) }
+    public func date(ms: Int64) -> String { Date(ms: ms).formatted(date: .abbreviated, time: .omitted) }
+    public func daysBetween(ms: Int64, nowMs: Int64) -> Int32 {
+        let c = Calendar.current
+        return Int32(c.dateComponents([.day], from: c.startOfDay(for: Date(ms: ms)), to: c.startOfDay(for: Date(ms: nowMs))).day ?? 0)
     }
 }
 
-/// "just now", "12 min ago", "today at 14:02", "yesterday at 09:15", or a date. Notifications
-/// say "now" for the first minute (the popover prototype's format).
-public enum LastSeen {
-    public static func text(_ at: Date, now: Date = Date(), calendar: Calendar = .current, justNow: String = "just now") -> String {
-        let seconds = now.timeIntervalSince(at)
-        if seconds < 60 { return justNow }
-        if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
-        let time = at.formatted(date: .omitted, time: .shortened)
-        if calendar.isDate(at, inSameDayAs: now) { return "today at \(time)" }
-        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(at, inSameDayAs: yesterday) {
-            return "yesterday at \(time)"
-        }
-        return at.formatted(date: .abbreviated, time: .omitted)
-    }
+extension Date {
+    public init(ms: Int64) { self.init(timeIntervalSince1970: TimeInterval(ms) / 1000) }
+    public var ms: Int64 { Int64((timeIntervalSince1970 * 1000).rounded()) }
 }
 
-/// The phone's own status beside its name: the battery pill and the line under it.
-public struct PhoneStatusLook: Equatable, Sendable {
-    public let percent: Int
-    public let charging: Bool
-    /// 15% or below and not charging: the pill turns `warn`.
-    public let low: Bool
-    /// "Wi‑Fi" or "Mobile data", only while connected (never a network's name).
-    public let network: String?
-    /// The line under the pill: the network while connected, "as of 14:02" when the status is from before.
-    public let meta: String?
-    /// The phone is in Do Not Disturb (only while connected: an old status may be wrong).
-    public let dnd: Bool
-    /// SF Symbol for the battery: fills to the level, with a bolt while charging.
-    public let batterySymbol: String
-    /// SF Symbol for the network, while connected: `wifi`, or `cellularbars` filled to `signal`.
-    public let networkSymbol: String?
-    /// Mobile signal, 0...1, for `cellularbars`' variable value; full (1) when the phone sends no
-    /// bars (0, which Android doesn't yet), since without a value the symbol draws partly empty.
-    /// Nil on Wi‑Fi.
-    public let signal: Double?
-    /// Free space, short ("112 GB"), and in full for the tooltip ("112 GB free of 256 GB").
-    /// Nil from a phone that doesn't send storage.
-    public let storage: String?
-    public let storageDetail: String?
-
-    /// On Same Wi‑Fi the phone is on Wi‑Fi by definition, and the path icon already says so.
-    public init(_ s: Seam_V1_Status, connected: Bool, at: Date?, sameWifi: Bool = false) {
-        percent = Int(s.batteryPct)
-        charging = s.charging
-        low = s.batteryPct <= 15 && !s.charging
-        dnd = connected && s.dnd
-        let names = ["wifi": "Wi‑Fi", "cellular": "Mobile data"]
-        network = connected && !sameWifi ? names[s.network] : nil
-        meta = connected ? network : at.map { "as of " + $0.formatted(date: .omitted, time: .shortened) }
-        let level = min(Int(s.batteryPct), 100) / 25 * 25
-        batterySymbol = s.charging ? "battery.100percent.bolt" : "battery.\(level)percent"
-        networkSymbol = network == nil ? nil : ["wifi": "wifi", "cellular": "cellularbars"][s.network]
-        signal = networkSymbol != "cellularbars" ? nil : s.signalBars > 0 ? min(Double(s.signalBars) / 4, 1) : 1
-        if s.storageTotalBytes > 0 {
-            let free = Self.size(min(s.storageFreeBytes, s.storageTotalBytes))
-            storage = free
-            storageDetail = "\(free) free of \(Self.size(s.storageTotalBytes))"
-        } else {
-            storage = nil
-            storageDetail = nil
-        }
-    }
-
-    /// Whole GB (or MB under 1 GB, TB to one place over 1 TB), the way phones label storage.
-    public static func size(_ bytes: UInt64) -> String {
-        let b = Double(bytes)
-        if b >= 1e12 { return String(format: "%g TB", (b / 1e11).rounded() / 10) }
-        if b >= 1e9 { return "\(Int((b / 1e9).rounded())) GB" }
-        return "\(Int((b / 1e6).rounded())) MB"
-    }
-
-    /// The battery in full, for its tooltip.
-    public var batteryDetail: String { "\(percent)%" + (charging ? ", charging" : "") }
-
-    public var spoken: String {
-        "battery \(percent) percent" + (charging ? ", charging" : "") + (dnd ? ", Do Not Disturb" : "")
-    }
+extension LinkInput {
+    /// Not connected, both paths allowed, nothing else going on: before the first snapshot.
+    public static let offline = LinkInput(route: nil, lanAllowed: true, torAllowed: true, tor: .ready,
+                                          pausedUntilMs: nil, pausedHere: false, reconnect: nil, idle: false)
 }
 
-/// The popover's Notifications tile and its menu. The phone owns the settings, so until it has
-/// sent them the tile waits.
-public struct NotificationsLook: Equatable, Sendable {
-    public enum Mode: Equatable, Sendable { case waiting, on, paused, off }
-
-    public let mode: Mode
-    public let subtitle: String
-
-    public init(_ s: Seam_V1_NotificationSettings?, showing: Int, now: Date = Date(), calendar: Calendar = .current) {
-        guard let s else {
-            mode = .waiting
-            subtitle = "Waiting for phone"
-            return
-        }
-        let until = Date(timeIntervalSince1970: TimeInterval(s.pausedUntil) / 1000)
-        if s.enabled, until > now {
-            mode = .paused
-            // A later day fits the tile only as a word; the menu bar tile has no room for both
-            subtitle = "Paused · " + (calendar.isDate(until, inSameDayAs: now) ? until.formatted(date: .omitted, time: .shortened) : "tomorrow")
-        } else if s.enabled {
-            mode = .on
-            subtitle = showing > 0 ? "On · \(showing) showing" : "On"
-        } else {
-            mode = .off
-            subtitle = "Off"
-        }
+/// The shared looks with this Mac's names and clock filled in.
+public enum Looks {
+    public static func link(_ input: LinkInput, lastSeen: Date? = nil, now: Date = Date()) -> LinkLook {
+        linkLook(input: input, names: .mac, lastSeenMs: lastSeen?.ms, nowMs: now.ms, time: SystemTime.shared)
     }
 
-    public var symbol: String { mode == .on ? "bell" : "bell.slash" }
-}
-
-/// The popover's Clipboard tile.
-public enum ClipboardLook {
-    public static func subtitle(syncOn: Bool, connected: Bool) -> String {
-        syncOn ? (connected ? "Syncing" : "On") : "Off"
-    }
-}
-
-/// Small sentences that depend on a count or a switch.
-public enum Words {
-    /// The popover's queue bar.
-    public static func waiting(_ n: Int) -> String { "\(n) waiting" }
-
-    /// Settings' Apps header: "6 of 10 on". Sender only counts as on.
-    public static func appsOn(_ apps: [Seam_V1_NotificationApp]) -> String {
-        "\(appsOnCount(apps)) of \(apps.count) on"
+    /// The phone's battery, network, storage and Do Not Disturb, as `link` affects them.
+    public static func phone(_ status: Seam_V1_Status, link: LinkLook, at: Date?) -> DeviceStatusLook? {
+        guard let bytes = try? status.serializedData() else { return nil }
+        return deviceStatusLook(status: bytes, connected: link.connected, atMs: at?.ms, sameWifi: link.kind == .sameWifi, time: SystemTime.shared)
     }
 
-    public static func appsOnCount(_ apps: [Seam_V1_NotificationApp]) -> Int {
-        apps.filter { $0.mode == .on || $0.mode == .titleOnly }.count
+    public static func notificationsTile(_ settings: Seam_V1_NotificationSettings?, showing: Int, now: Date = Date()) -> NotificationsTile {
+        SeamCore.notificationsTile(settingsBytes: settings.flatMap { try? $0.serializedData() }, showing: UInt32(showing), nowMs: now.ms, time: SystemTime.shared)
     }
 
-    /// Under the connection switches: why the last one on can't be turned off.
+    /// "6 of 10 on".
+    public static func appsOn(_ settings: Seam_V1_NotificationSettings) -> String {
+        notificationAppsOn(settingsBytes: (try? settings.serializedData()) ?? Data())
+    }
+
+    public static func appsOnCount(_ settings: Seam_V1_NotificationSettings) -> Int {
+        Int(notificationAppsOnCount(settingsBytes: (try? settings.serializedData()) ?? Data()))
+    }
+
+    /// On, Sender only or Off.
+    public static func modeWord(_ mode: Seam_V1_NotificationMode) -> String {
+        notificationModeWord(mode: Int32(mode.rawValue))
+    }
+
+    /// "12 min ago", "today at 14:02".
+    public static func ago(_ at: Date, now: Date = Date(), justNow: String = "just now") -> String {
+        agoWords(atMs: at.ms, nowMs: now.ms, justNow: justNow, time: SystemTime.shared)
+    }
+
     public static func connectionsFootnote(wifi: Bool, tor: Bool) -> String {
-        switch (wifi, tor) {
-        case (true, false): "Your phone connects only on this Mac's network. Turn on Tor to reach it anywhere."
-        case (false, true): "Through Tor even at home. Same Wi‑Fi is faster for big files."
-        default: "One always stays on. The encryption is the same on both."
+        SeamCore.connectionsFootnote(lanOn: wifi, torOn: tor, names: .mac)
+    }
+}
+
+extension LookIcon {
+    /// The SF Symbol for this meaning.
+    public var symbol: String {
+        switch self {
+        case .sameWifi, .wifi: "wifi"
+        case .throughTor: "globe"
+        case .paused: "pause.circle"
+        case .battery(let level, let charging): charging ? "battery.100percent.bolt" : "battery.\(level)percent"
+        case .mobileSignal: "cellularbars"
+        case .storage: "internaldrive"
+        case .doNotDisturb: "moon.fill"
+        case .notifications: "bell"
+        case .notificationsOff: "bell.slash"
         }
+    }
+
+    /// For symbols that fill to a value (the mobile signal's bars).
+    public var variableValue: Double? {
+        if case .mobileSignal(let fraction) = self { Double(fraction) } else { nil }
     }
 }

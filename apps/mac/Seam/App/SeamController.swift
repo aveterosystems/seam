@@ -33,8 +33,10 @@ final class SeamController {
     var requestedSettingsPane: SettingsView.Pane?
     /// Set to open the main window at a pane (the popover's links); the window clears it.
     var requestedMainPane: MainWindow.Pane?
+    /// What the link is made of; `link` is how it looks (seam-looks decides the line, icon and words).
+    private(set) var linkInput = LinkInput.offline
     /// How the link looks everywhere it's shown: the stitch, the icon and the words.
-    private(set) var link = LinkLook.away
+    private(set) var link = Looks.link(.offline)
     /// Paused on the phone (only the phone pauses and resumes); the link says until when.
     private(set) var paused = false
     /// When the link last went from connected to not, for "Last seen 12 min ago". This run only.
@@ -61,6 +63,8 @@ final class SeamController {
 
     /// The phone can be reached now, on a path both ends allow.
     var connected: Bool { link.connected }
+    /// The link as it reads at `now`: "Last seen 12 min ago" moves on with the clock.
+    func link(at now: Date) -> LinkLook { Looks.link(linkInput, lastSeen: lastSeen, now: now) }
 
     /// Starts Seam; `whenOpen` hears once the saved data has opened (or couldn't).
     func start(whenOpen: @escaping (SeamController) -> Void = { _ in }) {
@@ -162,8 +166,10 @@ final class SeamController {
 
     private func refreshLink() {
         guard let session = last?.session else { return }
-        let until = session.pausedUntilMs.map(Self.date)
-        let new = LinkLook.of(route: session.route, allowed: session.allowed, tor: torState, pausedUntil: until, reconnect: reconnecting)
+        linkInput = LinkInput(route: session.route, lanAllowed: session.allowed.contains(.lan), torAllowed: session.allowed.contains(.tor),
+                              tor: torState, pausedUntilMs: session.pausedUntilMs, pausedHere: false,
+                              reconnect: reconnecting.map { $0 == .asked ? .asked : .peerUnreachable }, idle: false)
+        let new = Looks.link(linkInput, lastSeen: lastSeen)
         if new != link { link = new }
     }
 
@@ -301,12 +307,14 @@ final class SeamController {
 
     /// SEAM_DEMO (Demo.swift): made-up phone state for looking at every state without a phone.
     /// Nothing is saved or sent: Seam never starts.
-    func showDemo(phone: Phone, status: Seam_V1_Status, look: LinkLook, waiting: Int, settings: Seam_V1_NotificationSettings,
+    func showDemo(phone: Phone, status: Seam_V1_Status, look input: LinkInput, waiting: Int, settings: Seam_V1_NotificationSettings,
                   notifications: [Seam_V1_Notification], clips: [Clip]) {
         self.phone = phone
         self.status.showDemo(status, at: Date().addingTimeInterval(-12 * 60))
+        let look = Looks.link(input)
         if link.connected, !look.connected { lastSeen = Date() }
-        link = look
+        linkInput = input
+        link = Looks.link(input, lastSeen: lastSeen)
         self.waiting = waiting
         self.notifications.showDemo(settings: settings, shown: notifications)
         clipboard.showDemo(clips: clips)

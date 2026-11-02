@@ -15,6 +15,7 @@ mod clipboard;
 #[cfg(feature = "computer")]
 mod computer;
 mod hello;
+mod looks;
 #[cfg(feature = "computer")]
 mod notifications;
 #[cfg(feature = "computer")]
@@ -25,6 +26,7 @@ pub use clipboard::*;
 #[cfg(feature = "computer")]
 pub use computer::*;
 pub use hello::*;
+pub use looks::*;
 #[cfg(feature = "computer")]
 pub use notifications::*;
 #[cfg(feature = "computer")]

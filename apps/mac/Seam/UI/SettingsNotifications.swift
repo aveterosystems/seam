@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import AppKit
+import SeamCore
 import SeamProtocol
 import SeamSession
 import SwiftUI
@@ -23,7 +24,7 @@ struct NotificationsSettingsPane: View {
                 switches(s).rise(0, shown, pane: true)
                 appsTitle(s).rise(1, shown, pane: true)
                 apps(s).rise(2, shown, pane: true)
-                GroupFootnote { Text("Sender only shows who a notification is from, never what it says.") }.rise(3, shown, pane: true)
+                GroupFootnote { Text(senderOnlyFootnote()) }.rise(3, shown, pane: true)
                 Spacer().frame(height: 40) // room above the bulk bar
             } else {
                 SettingsGroup {
@@ -65,7 +66,7 @@ struct NotificationsSettingsPane: View {
     /// "Apps 6 of 10 on", the filter and Select (the prototype's `.gt` with its controls).
     private func appsTitle(_ s: Seam_V1_NotificationSettings) -> some View {
         GroupTitle(title: "Apps") {
-            SwapText(Words.appsOn(s.apps), pane: true).font(.system(size: 12)).foregroundStyle(SeamStyle.Win.fg2).monospacedDigit()
+            SwapText(Looks.appsOn(s), pane: true).font(.system(size: 12)).foregroundStyle(SeamStyle.Win.fg2).monospacedDigit()
             Spacer()
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").font(.system(size: 10, weight: .medium)).foregroundStyle(SeamStyle.Win.fg3)
@@ -153,7 +154,7 @@ private struct ModePicker: View {
     @Binding var mode: Seam_V1_NotificationMode?
     @Namespace private var thumb
     @Environment(\.isEnabled) private var enabled
-    private static let modes: [(Seam_V1_NotificationMode, String)] = [(.on, "On"), (.titleOnly, "Sender only"), (.off, "Off")]
+    private static let modes: [(Seam_V1_NotificationMode, String)] = [Seam_V1_NotificationMode.on, .titleOnly, .off].map { ($0, Looks.modeWord($0)) }
 
     var body: some View {
         HStack(spacing: 0) {

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "seam-looks"
+version = "0.1.0"
+description = "What every Seam screen shows for each state: words, icon meanings and line styles, shared by every app"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+seam-core = { path = "../seam-core" }

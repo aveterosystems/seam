@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import SeamCore
 import SeamSession
 import SwiftUI
 
@@ -13,16 +14,16 @@ struct PopoverTiles: View {
 
     var body: some View {
         let sync = controller.clipboardSync
-        let n = NotificationsLook(controller.notifications.settings, showing: controller.notifications.shown.count)
+        let n = Looks.notificationsTile(controller.notifications.settings, showing: controller.notifications.shown.count)
         HStack(spacing: 8) {
-            Tile(title: "Clipboard", subtitle: ClipboardLook.subtitle(syncOn: sync, connected: controller.connected),
+            Tile(title: "Clipboard", subtitle: clipboardSubtitle(syncOn: sync, connected: controller.connected),
                  symbol: "doc.on.doc", tint: sync ? .on : .off, bounce: clipBounce) {
                 controller.setClipboardSync(!sync)
                 clipBounce += 1
             }
             .frame(maxWidth: .infinity)
             // The phone holds the setting, so until it has sent it the tile waits, and says so
-            Tile(title: "Notifications", subtitle: n.subtitle, symbol: n.symbol,
+            Tile(title: "Notifications", subtitle: n.subtitle, symbol: n.icon.symbol,
                  tint: n.mode == .on ? .on : n.mode == .paused ? .paused : .off,
                  ring: bellRing + controller.notifications.arrivals, bounce: bellBounce) {
                 toggle(n.mode)
@@ -36,7 +37,7 @@ struct PopoverTiles: View {
         .padding(EdgeInsets(top: 12, leading: 12, bottom: 6, trailing: 12))
     }
 
-    private func toggle(_ mode: NotificationsLook.Mode) {
+    private func toggle(_ mode: NotificationsTileMode) {
         switch mode {
         case .on:
             controller.notifications.setEnabled(false)
@@ -53,7 +54,7 @@ struct PopoverTiles: View {
     }
 
     /// The system menu (catalogue 9): it brings its own animation.
-    private func menu(_ mode: NotificationsLook.Mode) -> some View {
+    private func menu(_ mode: NotificationsTileMode) -> some View {
         Menu {
             if mode == .paused {
                 Button("Resume now") { toggle(.paused) }

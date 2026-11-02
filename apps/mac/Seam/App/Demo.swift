@@ -58,11 +58,12 @@ enum Demo {
             Clip(text: "https://github.com/aveterosystems/seam/pull/37", at: now.addingTimeInterval(-2 * minute), fromPhone: true),
             Clip(text: "Meeting moved to 3pm, room 4B", at: now.addingTimeInterval(-40 * minute), fromPhone: true),
         ]
-        let look: LinkLook = mode == "tor" ? .throughTor : .sameWifi
+        var look = LinkInput.offline
+        look.route = mode == "tor" ? .tor : .lan
         controller.showDemo(phone: phone, status: status, look: look, waiting: 0, settings: settings, notifications: notifications, clips: clips)
         if mode == "offline" || mode == "low" {
             // Connected, then not: the popover says when it was last seen
-            controller.showDemo(phone: phone, status: status, look: .away, waiting: 3, settings: settings, notifications: notifications, clips: clips)
+            controller.showDemo(phone: phone, status: status, look: .offline, waiting: 3, settings: settings, notifications: notifications, clips: clips)
         }
         controller.requestedSettingsPane = env["SEAM_DEMO_PANE"].flatMap { name in SettingsView.Pane.allCases.first { "\($0)" == name } }
 
