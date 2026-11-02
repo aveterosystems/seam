@@ -243,6 +243,91 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureRes
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_PASTEBOARD_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_PASTEBOARD_METHOD0
+typedef void (*UniffiCallbackInterfacePasteboardMethod0)(uint64_t, UniffiForeignFutureCompleteI64 _Nonnull, uint64_t, UniffiForeignFutureDroppedCallbackStruct* _Nonnull
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_PASTEBOARD_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_PASTEBOARD_METHOD1
+typedef void (*UniffiCallbackInterfacePasteboardMethod1)(uint64_t, int64_t, UniffiForeignFutureCompleteRustBuffer _Nonnull, uint64_t, UniffiForeignFutureDroppedCallbackStruct* _Nonnull
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_PASTEBOARD_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_PASTEBOARD_METHOD2
+typedef void (*UniffiCallbackInterfacePasteboardMethod2)(uint64_t, RustBuffer, UniffiForeignFutureCompleteI64 _Nonnull, uint64_t, UniffiForeignFutureDroppedCallbackStruct* _Nonnull
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_COMPUTER_LISTENER_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_COMPUTER_LISTENER_METHOD0
+typedef void (*UniffiCallbackInterfaceComputerListenerMethod0)(uint64_t, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_COMPUTER_LISTENER_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_COMPUTER_LISTENER_METHOD1
+typedef void (*UniffiCallbackInterfaceComputerListenerMethod1)(uint64_t, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_KEY_STORE_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_KEY_STORE_METHOD0
+typedef void (*UniffiCallbackInterfaceKeyStoreMethod0)(uint64_t, int8_t, RustBuffer* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_SAME_WIFI_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_SAME_WIFI_METHOD0
+typedef void (*UniffiCallbackInterfaceSameWifiMethod0)(uint64_t, uint16_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_SAME_WIFI_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_SAME_WIFI_METHOD1
+typedef void (*UniffiCallbackInterfaceSameWifiMethod1)(uint64_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_SAME_WIFI_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_SAME_WIFI_METHOD2
+typedef void (*UniffiCallbackInterfaceSameWifiMethod2)(uint64_t, RustBuffer, int8_t* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD0
+typedef void (*UniffiCallbackInterfaceNotificationCentreMethod0)(uint64_t, RustBuffer, RustBuffer, UniffiForeignFutureCompleteVoid _Nonnull, uint64_t, UniffiForeignFutureDroppedCallbackStruct* _Nonnull
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD1
+typedef void (*UniffiCallbackInterfaceNotificationCentreMethod1)(uint64_t, RustBuffer, UniffiForeignFutureCompleteVoid _Nonnull, uint64_t, UniffiForeignFutureDroppedCallbackStruct* _Nonnull
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_NOTIFICATION_CENTRE_METHOD2
+typedef void (*UniffiCallbackInterfaceNotificationCentreMethod2)(uint64_t, UniffiForeignFutureCompleteVoid _Nonnull, uint64_t, UniffiForeignFutureDroppedCallbackStruct* _Nonnull
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_BATTERY_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_BATTERY_METHOD0
+typedef void (*UniffiCallbackInterfaceBatteryMethod0)(uint64_t, RustBuffer* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER_METHOD0
 typedef void (*UniffiCallbackInterfaceTorConnectListenerMethod0)(uint64_t, uint64_t, void* _Nonnull, 
@@ -276,6 +361,67 @@ typedef void (*UniffiCallbackInterfaceTorStreamListenerMethod0)(uint64_t, RustBu
 typedef void (*UniffiCallbackInterfaceTorStreamListenerMethod1)(uint64_t, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_PASTEBOARD
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_PASTEBOARD
+typedef struct UniffiVTableCallbackInterfacePasteboard {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfacePasteboardMethod0 _Nonnull changeCount;
+    UniffiCallbackInterfacePasteboardMethod1 _Nonnull firstItem;
+    UniffiCallbackInterfacePasteboardMethod2 _Nonnull write;
+} UniffiVTableCallbackInterfacePasteboard;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_COMPUTER_LISTENER
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_COMPUTER_LISTENER
+typedef struct UniffiVTableCallbackInterfaceComputerListener {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceComputerListenerMethod0 _Nonnull onSnapshot;
+    UniffiCallbackInterfaceComputerListenerMethod1 _Nonnull onEvent;
+} UniffiVTableCallbackInterfaceComputerListener;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_KEY_STORE
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_KEY_STORE
+typedef struct UniffiVTableCallbackInterfaceKeyStore {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceKeyStoreMethod0 _Nonnull storageKey;
+} UniffiVTableCallbackInterfaceKeyStore;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_SAME_WIFI
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_SAME_WIFI
+typedef struct UniffiVTableCallbackInterfaceSameWifi {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceSameWifiMethod0 _Nonnull announce;
+    UniffiCallbackInterfaceSameWifiMethod1 _Nonnull stopAnnouncing;
+    UniffiCallbackInterfaceSameWifiMethod2 _Nonnull isLanAddress;
+} UniffiVTableCallbackInterfaceSameWifi;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_NOTIFICATION_CENTRE
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_NOTIFICATION_CENTRE
+typedef struct UniffiVTableCallbackInterfaceNotificationCentre {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceNotificationCentreMethod0 _Nonnull show;
+    UniffiCallbackInterfaceNotificationCentreMethod1 _Nonnull dismiss;
+    UniffiCallbackInterfaceNotificationCentreMethod2 _Nonnull removeAll;
+} UniffiVTableCallbackInterfaceNotificationCentre;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_BATTERY
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_BATTERY
+typedef struct UniffiVTableCallbackInterfaceBattery {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceBatteryMethod0 _Nonnull read;
+} UniffiVTableCallbackInterfaceBattery;
 
 #endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_TOR_CONNECT_LISTENER
@@ -600,6 +746,231 @@ RustBuffer uniffi_seam_ffi_fn_method_cliprules_outgoing(uint64_t ptr, RustBuffer
 void uniffi_seam_ffi_fn_method_cliprules_reset(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_PASTEBOARD
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_PASTEBOARD
+uint64_t uniffi_seam_ffi_fn_clone_pasteboard(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_PASTEBOARD
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_PASTEBOARD
+void uniffi_seam_ffi_fn_free_pasteboard(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_PASTEBOARD
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_PASTEBOARD
+void uniffi_seam_ffi_fn_init_callback_vtable_pasteboard(const UniffiVTableCallbackInterfacePasteboard* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_PASTEBOARD_CHANGE_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_PASTEBOARD_CHANGE_COUNT
+uint64_t uniffi_seam_ffi_fn_method_pasteboard_change_count(uint64_t ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_PASTEBOARD_FIRST_ITEM
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_PASTEBOARD_FIRST_ITEM
+uint64_t uniffi_seam_ffi_fn_method_pasteboard_first_item(uint64_t ptr, int64_t if_still
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_PASTEBOARD_WRITE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_PASTEBOARD_WRITE
+uint64_t uniffi_seam_ffi_fn_method_pasteboard_write(uint64_t ptr, RustBuffer text
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_COMPUTER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_COMPUTER
+uint64_t uniffi_seam_ffi_fn_clone_computer(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_COMPUTER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_COMPUTER
+void uniffi_seam_ffi_fn_free_computer(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_COMPUTER_NEW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CONSTRUCTOR_COMPUTER_NEW
+uint64_t uniffi_seam_ffi_fn_constructor_computer_new(RustBuffer settings, uint64_t keys, uint64_t pasteboard, uint64_t notifications, uint64_t battery, uint64_t same_wifi, uint64_t listener, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_CANCEL_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_CANCEL_PAIRING
+void uniffi_seam_ffi_fn_method_computer_cancel_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_CONFIRM_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_CONFIRM_PAIRING
+void uniffi_seam_ffi_fn_method_computer_confirm_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_FEATURE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_FEATURE
+void uniffi_seam_ffi_fn_method_computer_feature(uint64_t ptr, RustBuffer command, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_ICONS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_ICONS
+RustBuffer uniffi_seam_ffi_fn_method_computer_icons(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_RECONNECT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_RECONNECT
+void uniffi_seam_ffi_fn_method_computer_reconnect(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_RESET
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_RESET
+void uniffi_seam_ffi_fn_method_computer_reset(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_SET_TOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_SET_TOR
+void uniffi_seam_ffi_fn_method_computer_set_tor(uint64_t ptr, int8_t on, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_SET_WIFI
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_SET_WIFI
+void uniffi_seam_ffi_fn_method_computer_set_wifi(uint64_t ptr, int8_t on, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_START_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_START_PAIRING
+void uniffi_seam_ffi_fn_method_computer_start_pairing(uint64_t ptr, RustBuffer name, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_UNPAIR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_UNPAIR
+void uniffi_seam_ffi_fn_method_computer_unpair(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_WOKE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_WOKE
+void uniffi_seam_ffi_fn_method_computer_woke(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_COMPUTERLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_COMPUTERLISTENER
+uint64_t uniffi_seam_ffi_fn_clone_computerlistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_COMPUTERLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_COMPUTERLISTENER
+void uniffi_seam_ffi_fn_free_computerlistener(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_COMPUTERLISTENER
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_COMPUTERLISTENER
+void uniffi_seam_ffi_fn_init_callback_vtable_computerlistener(const UniffiVTableCallbackInterfaceComputerListener* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTERLISTENER_ON_SNAPSHOT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTERLISTENER_ON_SNAPSHOT
+void uniffi_seam_ffi_fn_method_computerlistener_on_snapshot(uint64_t ptr, RustBuffer snapshot, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTERLISTENER_ON_EVENT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTERLISTENER_ON_EVENT
+void uniffi_seam_ffi_fn_method_computerlistener_on_event(uint64_t ptr, RustBuffer event, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_KEYSTORE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_KEYSTORE
+uint64_t uniffi_seam_ffi_fn_clone_keystore(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_KEYSTORE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_KEYSTORE
+void uniffi_seam_ffi_fn_free_keystore(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_KEYSTORE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_KEYSTORE
+void uniffi_seam_ffi_fn_init_callback_vtable_keystore(const UniffiVTableCallbackInterfaceKeyStore* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_KEYSTORE_STORAGE_KEY
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_KEYSTORE_STORAGE_KEY
+RustBuffer uniffi_seam_ffi_fn_method_keystore_storage_key(uint64_t ptr, int8_t create, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_SAMEWIFI
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_SAMEWIFI
+uint64_t uniffi_seam_ffi_fn_clone_samewifi(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_SAMEWIFI
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_SAMEWIFI
+void uniffi_seam_ffi_fn_free_samewifi(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_SAMEWIFI
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_SAMEWIFI
+void uniffi_seam_ffi_fn_init_callback_vtable_samewifi(const UniffiVTableCallbackInterfaceSameWifi* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SAMEWIFI_ANNOUNCE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SAMEWIFI_ANNOUNCE
+void uniffi_seam_ffi_fn_method_samewifi_announce(uint64_t ptr, uint16_t port, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SAMEWIFI_STOP_ANNOUNCING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SAMEWIFI_STOP_ANNOUNCING
+void uniffi_seam_ffi_fn_method_samewifi_stop_announcing(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SAMEWIFI_IS_LAN_ADDRESS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_SAMEWIFI_IS_LAN_ADDRESS
+int8_t uniffi_seam_ffi_fn_method_samewifi_is_lan_address(uint64_t ptr, RustBuffer ip, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_NOTIFICATIONCENTRE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_NOTIFICATIONCENTRE
+uint64_t uniffi_seam_ffi_fn_clone_notificationcentre(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_NOTIFICATIONCENTRE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_NOTIFICATIONCENTRE
+void uniffi_seam_ffi_fn_free_notificationcentre(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_NOTIFICATIONCENTRE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_NOTIFICATIONCENTRE
+void uniffi_seam_ffi_fn_init_callback_vtable_notificationcentre(const UniffiVTableCallbackInterfaceNotificationCentre* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_NOTIFICATIONCENTRE_SHOW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_NOTIFICATIONCENTRE_SHOW
+uint64_t uniffi_seam_ffi_fn_method_notificationcentre_show(uint64_t ptr, RustBuffer notification, RustBuffer icon
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_NOTIFICATIONCENTRE_DISMISS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_NOTIFICATIONCENTRE_DISMISS
+uint64_t uniffi_seam_ffi_fn_method_notificationcentre_dismiss(uint64_t ptr, RustBuffer key
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_NOTIFICATIONCENTRE_REMOVE_ALL
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_NOTIFICATIONCENTRE_REMOVE_ALL
+uint64_t uniffi_seam_ffi_fn_method_notificationcentre_remove_all(uint64_t ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_BATTERY
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_BATTERY
+uint64_t uniffi_seam_ffi_fn_clone_battery(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_BATTERY
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FREE_BATTERY
+void uniffi_seam_ffi_fn_free_battery(uint64_t handle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_BATTERY
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_INIT_CALLBACK_VTABLE_BATTERY
+void uniffi_seam_ffi_fn_init_callback_vtable_battery(const UniffiVTableCallbackInterfaceBattery* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_BATTERY_READ
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_BATTERY_READ
+RustBuffer uniffi_seam_ffi_fn_method_battery_read(uint64_t ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TOR
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_CLONE_TOR
 uint64_t uniffi_seam_ffi_fn_clone_tor(uint64_t handle, RustCallStatus *_Nonnull out_status
@@ -776,6 +1147,11 @@ RustBuffer uniffi_seam_ffi_fn_func_payload_rules(RustBuffer payload, RustCallSta
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_MAX_BYTES
 uint32_t uniffi_seam_ffi_fn_func_clip_max_bytes(RustCallStatus *_Nonnull out_status
     
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_OPENABLE_URL
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_OPENABLE_URL
+RustBuffer uniffi_seam_ffi_fn_func_clip_openable_url(RustBuffer text, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_TOR_DISCOVERY_PUBLIC
@@ -1078,6 +1454,12 @@ uint16_t uniffi_seam_ffi_checksum_func_clip_max_bytes(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIP_OPENABLE_URL
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_CLIP_OPENABLE_URL
+uint16_t uniffi_seam_ffi_checksum_func_clip_openable_url(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_DISCOVERY_PUBLIC
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_TOR_DISCOVERY_PUBLIC
 uint16_t uniffi_seam_ffi_checksum_func_tor_discovery_public(void
@@ -1336,6 +1718,150 @@ uint16_t uniffi_seam_ffi_checksum_method_cliprules_reset(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_PASTEBOARD_CHANGE_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_PASTEBOARD_CHANGE_COUNT
+uint16_t uniffi_seam_ffi_checksum_method_pasteboard_change_count(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_PASTEBOARD_FIRST_ITEM
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_PASTEBOARD_FIRST_ITEM
+uint16_t uniffi_seam_ffi_checksum_method_pasteboard_first_item(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_PASTEBOARD_WRITE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_PASTEBOARD_WRITE
+uint16_t uniffi_seam_ffi_checksum_method_pasteboard_write(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_CANCEL_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_CANCEL_PAIRING
+uint16_t uniffi_seam_ffi_checksum_method_computer_cancel_pairing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_CONFIRM_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_CONFIRM_PAIRING
+uint16_t uniffi_seam_ffi_checksum_method_computer_confirm_pairing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_FEATURE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_FEATURE
+uint16_t uniffi_seam_ffi_checksum_method_computer_feature(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_ICONS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_ICONS
+uint16_t uniffi_seam_ffi_checksum_method_computer_icons(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_RECONNECT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_RECONNECT
+uint16_t uniffi_seam_ffi_checksum_method_computer_reconnect(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_RESET
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_RESET
+uint16_t uniffi_seam_ffi_checksum_method_computer_reset(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_SET_TOR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_SET_TOR
+uint16_t uniffi_seam_ffi_checksum_method_computer_set_tor(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_SET_WIFI
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_SET_WIFI
+uint16_t uniffi_seam_ffi_checksum_method_computer_set_wifi(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_START_PAIRING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_START_PAIRING
+uint16_t uniffi_seam_ffi_checksum_method_computer_start_pairing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_UNPAIR
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_UNPAIR
+uint16_t uniffi_seam_ffi_checksum_method_computer_unpair(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_WOKE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_WOKE
+uint16_t uniffi_seam_ffi_checksum_method_computer_woke(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTERLISTENER_ON_SNAPSHOT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTERLISTENER_ON_SNAPSHOT
+uint16_t uniffi_seam_ffi_checksum_method_computerlistener_on_snapshot(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTERLISTENER_ON_EVENT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTERLISTENER_ON_EVENT
+uint16_t uniffi_seam_ffi_checksum_method_computerlistener_on_event(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_KEYSTORE_STORAGE_KEY
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_KEYSTORE_STORAGE_KEY
+uint16_t uniffi_seam_ffi_checksum_method_keystore_storage_key(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_ANNOUNCE
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_ANNOUNCE
+uint16_t uniffi_seam_ffi_checksum_method_samewifi_announce(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_STOP_ANNOUNCING
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_STOP_ANNOUNCING
+uint16_t uniffi_seam_ffi_checksum_method_samewifi_stop_announcing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_IS_LAN_ADDRESS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_SAMEWIFI_IS_LAN_ADDRESS
+uint16_t uniffi_seam_ffi_checksum_method_samewifi_is_lan_address(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_NOTIFICATIONCENTRE_SHOW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_NOTIFICATIONCENTRE_SHOW
+uint16_t uniffi_seam_ffi_checksum_method_notificationcentre_show(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_NOTIFICATIONCENTRE_DISMISS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_NOTIFICATIONCENTRE_DISMISS
+uint16_t uniffi_seam_ffi_checksum_method_notificationcentre_dismiss(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_NOTIFICATIONCENTRE_REMOVE_ALL
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_NOTIFICATIONCENTRE_REMOVE_ALL
+uint16_t uniffi_seam_ffi_checksum_method_notificationcentre_remove_all(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_BATTERY_READ
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_BATTERY_READ
+uint16_t uniffi_seam_ffi_checksum_method_battery_read(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_CONNECT
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_TOR_CONNECT
 uint16_t uniffi_seam_ffi_checksum_method_tor_connect(void
@@ -1471,6 +1997,12 @@ uint16_t uniffi_seam_ffi_checksum_constructor_seamdevice_restore(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_CLIPRULES_NEW
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_CLIPRULES_NEW
 uint16_t uniffi_seam_ffi_checksum_constructor_cliprules_new(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_COMPUTER_NEW
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_CONSTRUCTOR_COMPUTER_NEW
+uint16_t uniffi_seam_ffi_checksum_constructor_computer_new(void
     
 );
 #endif

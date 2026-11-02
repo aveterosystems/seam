@@ -332,6 +332,26 @@ impl TorStream {
     }
 }
 
+/// seam-computer's Tor state, as the apps see it.
+#[cfg(feature = "computer")]
+pub(crate) fn tor_state(s: seam_computer::tor::TorState) -> TorState {
+    use seam_computer::tor::{TorBlock as B, TorState as S};
+    match s {
+        S::Off => TorState::Off,
+        S::Starting(percent) => TorState::Starting { percent },
+        S::Ready => TorState::Ready,
+        S::Blocked(b) => TorState::Blocked {
+            reason: match b {
+                B::Offline => TorBlock::Offline,
+                B::Filtered => TorBlock::Filtered,
+                B::ClockSkewed => TorBlock::ClockSkewed,
+                B::Other => TorBlock::Other,
+            },
+        },
+        S::Failed => TorState::Failed,
+    }
+}
+
 /// A fresh 32-byte Tor secret: the Mac's onion service seed, or a phone's discovery secret.
 #[uniffi::export]
 pub fn tor_new_secret() -> Vec<u8> {

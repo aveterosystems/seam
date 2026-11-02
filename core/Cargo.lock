@@ -4027,6 +4027,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "seam-computer"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "libc",
+ "prost",
+ "rand 0.9.5",
+ "seam-core",
+ "seam-tor",
+ "socket2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+]
+
+[[package]]
 name = "seam-core"
 version = "0.1.0"
 dependencies = [
@@ -4048,9 +4065,12 @@ dependencies = [
 name = "seam-ffi"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "prost",
+ "seam-computer",
  "seam-core",
  "seam-tor",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "uniffi",

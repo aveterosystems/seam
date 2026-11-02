@@ -44,5 +44,7 @@ jobs:
         with: { workspaces: core, save-if: "${{ github.ref == 'refs/heads/main' }}" }
       # rustup reads core/rust-toolchain.toml and installs the pinned toolchain
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      # Every feature: the Mac's computer side too
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      # Every feature: the Mac's computer side too
+      - run: cargo test --all-features

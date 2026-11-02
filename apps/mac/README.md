@@ -8,23 +8,24 @@ A native macOS menu bar app in Swift 6 and SwiftUI, for macOS 14 and later. It s
 
 ```mermaid
 flowchart TB
-    App["Seam.app<br/>menu bar · pairing window · storage"] --> SS["SeamSession<br/>session · Same Wi‑Fi and Tor paths · pairing QR"]
+    App["Seam.app<br/>menu bar · pairing window · the Mac's side of each OS interface"] --> SS["SeamSession<br/>the features as the screens see them · link looks · words"]
     App --> SC
     SS --> SC["SeamCore<br/>generated Swift bindings"]
     SS --> SP["SeamProtocol<br/>generated messages"]
-    SC --> FFI["SeamCoreFFI.xcframework<br/>the Rust core and Tor, built locally"]
+    SC --> FFI["SeamCoreFFI.xcframework<br/>the Rust core: seam-computer (session, paths, pairing, features), seam-core, Tor"]
     SP --> SPB["SwiftProtobuf 1.39.0"]
 ```
 
 | Folder | What |
 |---|---|
 | `project.yml` | XcodeGen spec for the app target. The `.xcodeproj` is generated from it and never committed. |
-| `Seam/App/` | Entry point and menu (`SeamApp.swift`), and `SeamController`: builds the session, its features and its `Paths` (SeamSession: runs the Same Wi‑Fi listener and the onion services the switches allow, in a tested order), keeps the settings, and shows the session's state; the screens watch the features directly |
-| `Seam/Storage/` | `Keychain` (the 32-byte storage key) and `Store` (the sealed state file and outbox, next to Tor's own folder) |
+| `Seam/App/` | Entry point and menu (`SeamApp.swift`), and `SeamController`: starts the core's `Computer` (`core/seam-computer`, decision 0014: the session, its paths, pairing, the features' logic and the saved settings) and turns its snapshots into what the screens show; the screens watch the features directly. Also `MacBattery`, the core's battery |
+| `Seam/Storage/` | `Keychain` (the 32-byte storage key), as the core's `KeyStore` |
 | `Seam/Pairing/` | The pairing window (board M02) and QR rendering |
-| `Seam/Notifications/` | `PhoneNotifications`: the phone's notifications as banners, and what you do to them sent back |
+| `Seam/Notifications/` | `PhoneNotifications`: the phone's notifications as banners, and what you do to them sent back; `BannerCentre`, the core's notification centre |
+| `Seam/Clipboard/` | `SystemPasteboard` (the core's pasteboard) and the automatic clipboard setup |
 | `Seam/UI/` | The popover, the main window (the phone's notifications and the clipboard history), Settings, and `Components.swift`: the shared pieces (module button, settings group and row) every screen is built from |
-| `Packages/SeamSession/` | `Session` (the actor that owns delivery, the phone's pause, forgetting the phone and pairing, and hosts the features; which path a message may take, each message's time limit and the Hello are the core's), the features (`ClipboardFeature`, `NotificationsFeature`, `StatusFeature`: each owns its state, which the screens watch, and its actions, behind the `Feature` interface), `Paths` (runs the carriers and onion services the switches allow), `LanServer` (the direct link over both carriers: the Same Wi‑Fi listener, Bonjour `_seam._tcp`, and streams from the onion service; crypto in the core's `LanChannel`), `SeamTor` (the core's Tor), the outbox, `PairingFlow`, the pairing QR format, the status lines (`Looks`), and their tests |
+| `Packages/SeamSession/` | The features as the screens see them (`ClipboardFeature`, `NotificationsFeature`, `StatusFeature`: mirrors of the core's snapshot, passing what the user does back to it), `MacSameWifi` (the Bonjour announcement `_seam._tcp`, and which addresses are Wi‑Fi or wired), `LinkLook` and the status lines (`Looks`), the pairing window's states, the automatic clipboard setup's adb steps (`AdbSetup`), and their tests |
 | `Packages/SeamCore/` | Swift bindings to the Rust core (`Sources/SeamCore/SeamCore.swift`, generated), the C header and module map (`FFI/include/`), and the tests |
 | `Packages/SeamProtocol/` | The generated message types (`Sources/SeamProtocol/Generated/`) and the golden-vector tests |
 
@@ -56,6 +57,7 @@ Debug builds are **Seam Debug** (`com.avetero.seam.debug`), with their own data 
 |---|---|
 | Identity, peers, Signal sessions, prekeys, the onion service's secret | `~/Library/Application Support/Seam/state.bin`, sealed with AES-256-GCM by the Rust core, file mode 0600 |
 | Messages not yet delivered to the phone | `outbox.bin` next to it, sealed for the phone |
+| The connection switches, the clipboard setting, the phone's pause and when it was paired | `preferences` next to it (not secrets). The first launch after 0.2.4 copies them across from the app's old preferences once |
 | Tor's own state (directory cache, no keys) | `tor/` in the same folder |
 | The key that seals it | The login Keychain, service `com.avetero.seam` (local to this Mac) |
 
@@ -69,29 +71,18 @@ Seam never overwrites saved data it can't open. If `state.bin` is damaged or its
 scripts/build-mac-core.sh
 swift test --package-path apps/mac/Packages/SeamCore       # the Rust core through the Swift bindings
 swift test --package-path apps/mac/Packages/SeamProtocol   # the golden vector, shared with Android
-swift test --package-path apps/mac/Packages/SeamSession    # the session, both paths, pairing, the pairing QR
+swift test --package-path apps/mac/Packages/SeamSession    # the link looks, words, adb steps, Same Wi‑Fi
+(cd core && cargo test -p seam-computer)                   # the session, both paths, pairing, features, the files
 ```
 
 | Suite | What it proves |
 |---|---|
 | `SeamCoreTests` | Swift pairs through the Rust core (request, confirmation, PairAccept) and talks after a restart; an unconfirmed phone isn't saved; app data is sealed with the state; file chunks open only in order and a cut-short file fails |
 | `GoldenVectorTests` | Swift decodes the shared golden vector byte for byte, re-encodes it to the same bytes, and `Hello` carries the connection policy |
-| `PairingQRTests` | The version 2 code round-trips and uses only unreserved characters; a version 1 relay code, wrong schemes and wrong lengths are refused |
-| `LanServerTests` | Only the paired phone authenticates; strangers, slow and silent sockets are closed; idle sockets can't lock the phone out; nobody gets in while no phone is paired; a new link replaces the old; only private and link-local addresses are accepted |
-| `LanPairingTests` | A pairing channel carries the pairing exchange and nothing else; the wrong code, or no open code, gets no channel |
-| `LanNetworkTests` | A phone finds and uses the real listener |
-| `PathsTests` | The last switch can't go off; onion services are published once Tor is ready and only on a change; switching Tor off stops the services but never Tor; carriers run only while a phone is paired or pairing |
-| `SessionDeliveryTests` | Through the session with fake paths and a real phone: sealed, saved, then sent; Same Wi‑Fi first; unacked messages go again through Tor, in order, when a link drops; switched-off paths never used, but a Hello always gets through; expired messages dropped; the outbox capped and reloaded after a restart |
-| `LinkFailoverTests` | A link the phone's Hello doesn't list is closed and what it held goes on the other; a link that leaves a message unacked 8 s while another is up is given up; one link alone, or an older phone's Hello, closes nothing; every Hello lists the open links |
-| `SessionFeatureTests` | Clipboard not echoed and sent only with sync on; password manager copies never sent; icons asked for 40 at a time, once; dismiss-both; the battery clamp; this Mac's battery goes on connect and on change, never while paused or with no battery; only what arrives from the phone is announced; forgetting the phone clears every feature; unpair tells the phone once on the path that's up |
-| `SessionPairingTests` | Each code is version 2 and names a new onion service; it lasts 5 minutes, then its service stops; cancel stops it; confirming swaps the old service for the new; a PairAccept never acked, or a pairing link that drops first, undoes the pairing; Same Wi‑Fi still pairs with Tor off |
-| `PauseTests` | A pause from the phone stops copies and says until when; nothing but control is sent while paused, and a copy made meanwhile never goes later; it survives a restart and ends with forgetting the phone; a late or replayed pause can't re-pause a resumed Mac |
-| `AppStateTests` | Codes expire after 5 minutes; Pair works once and can't race Cancel; late events can't skip a step |
-| `ClipboardTests` | Copies sent once, never echoed, empty and oversized skipped, stale ones dropped; files aren't sent as text; the automatic clipboard set-up finds `adb` only in known places and grants only the full build |
-| `ConnectionTests` | The outbox tracks what waits and what was sent, requeues what wasn't acked, caps, drops what expired, and its file is private and survives damage |
-| `StateFileTests` | Only a missing file looks like a first launch; a failed write keeps the old state; a reset keeps the old files |
+| `seam-computer` (Rust, `core/seam-computer`) | Everything the session does, each test ported from the Swift tests this app had:<br/>**delivery**: sealed, saved, then sent; Same Wi‑Fi first; unacked messages go again, in order, when a link drops; switched-off paths never used, but a Hello always gets through; expired messages dropped; the outbox capped and reloaded after a restart<br/>**failover**: a link the phone's Hello doesn't list is closed and what it held goes on the other; a link that leaves a message unacked 8 s while another is up is given up<br/>**pairing**: each code is version 2 and names a new onion service; it lasts 5 minutes; cancel stops it; confirming swaps the old service for the new; a PairAccept never acked undoes the pairing; the code never prints<br/>**pause**: nothing but control is sent while paused, a copy made meanwhile never goes later, and a late or replayed pause can't re-pause a resumed Mac<br/>**Reconnect**: asked on every open link, never queued; a second tap does nothing; it shows for the usual connect time<br/>**features**: clipboard not echoed, sent only with sync on, password manager copies never sent; icons asked 40 at a time, once, PNGs only; dismiss-both; the battery clamp; forgetting the phone clears every feature<br/>**the Same Wi‑Fi listener** on real sockets: only the paired phone authenticates; strangers, slow and silent sockets are closed; idle sockets can't lock the phone out; only private and link-local addresses, on Wi‑Fi or wired interfaces; what was sent before a close still arrives<br/>**the paths**: carriers only while a phone is paired or pairing; a late close never takes away the carrier that replaced it<br/>**the files**: only a missing file looks like a first launch; a failed write keeps the old state; the outbox the Swift app wrote reads and writes back byte for byte; the old preferences are copied once<br/>**timers**: one that came due while the Mac slept fires on wake |
+| `SameWifiTests` | Loopback, VPN tunnels and addresses this Mac doesn't have are never Same Wi‑Fi; a phone finds Seam on Bonjour under the fixed name "Seam" |
+| `AdbSetupTests` | The automatic clipboard set-up finds `adb` only in known places, lists only authorised devices, and grants only the full build |
 | `LinkLookTests`, `LooksTests` | Each path has its own line, icon and words; offline says why, including Tor being blocked; a pause comes first; no label trails off |
-| `BackoffTests` | Retries double from 1 s and cap at 60 s |
 
 ## Generated code
 

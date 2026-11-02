@@ -7,39 +7,35 @@ import SeamSession
 /// asks it to change them (`NotificationsFeature.change`).
 extension NotificationsFeature {
     func setEnabled(_ enabled: Bool) {
-        ask(.with { $0.enabled = enabled })
+        change(.with { $0.enabled = enabled })
     }
 
     func setQuietWhileUsingPhone(_ on: Bool) {
-        ask(.with { $0.quietWhileUsingPhone = on })
+        change(.with { $0.quietWhileUsingPhone = on })
     }
 
     func setDismissBoth(_ on: Bool) {
-        ask(.with { $0.dismissBoth = on })
+        change(.with { $0.dismissBoth = on })
     }
 
     /// Until a time, or nil to resume. The phone holds it, so a paused phone sends nothing.
     func pause(until: Date?) {
         let ms = until.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0
-        ask(.with { $0.pausedUntil = ms })
+        change(.with { $0.pausedUntil = ms })
     }
 
     func setMode(_ mode: Seam_V1_NotificationMode, for appIDs: Set<String>) {
         guard !appIDs.isEmpty else { return }
-        ask(.with { $0.apps = appIDs.sorted().map { id in .with { $0.appID = id; $0.mode = mode } } })
+        change(.with { $0.apps = appIDs.sorted().map { id in .with { $0.appID = id; $0.mode = mode } } })
     }
 
     /// A button or reply on one of the phone's notifications, here.
     func send(_ action: Seam_V1_NotificationAction) {
-        Task { await act(action) }
+        act(action)
     }
 
     /// The main window's dismiss: the banner goes too.
     func dismiss(_ n: Seam_V1_Notification) {
-        Task { await dismiss(key: n.key) }
-    }
-
-    private func ask(_ change: Seam_V1_NotificationSettingsChange) {
-        Task { await self.change(change) }
+        dismiss(key: n.key)
     }
 }

@@ -11,10 +11,11 @@ swift_ffi="$root/apps/mac/Packages/SeamCore/FFI/include"
 kotlin_out="$root/apps/android/core/crypto/src/main/kotlin"
 
 cd "$core"
-cargo build -p seam-ffi
 lib="$core/target/debug/libseam_ffi.dylib"
 bindgen() { cargo run -q -p seam-ffi --features bindgen --bin uniffi-bindgen -- generate --library "$lib" --no-format "$@"; }
 
+# Swift has the computer side (seam-computer); the phone's Kotlin doesn't
+cargo build -p seam-ffi --features computer
 tmp="$(mktemp -d)"
 bindgen --language swift --out-dir "$tmp"
 mkdir -p "$swift_src" "$swift_ffi"
@@ -24,6 +25,7 @@ cp "$tmp/SeamCoreFFI.h" "$swift_ffi/"
 cp "$tmp/SeamCoreFFI.modulemap" "$swift_ffi/module.modulemap"
 echo "Swift  → ${swift_src#"$root"/}"
 
+cargo build -p seam-ffi
 rm -rf "$kotlin_out/com/avetero/seam/crypto"
 bindgen --language kotlin --out-dir "$kotlin_out"
 echo "Kotlin → ${kotlin_out#"$root"/}"

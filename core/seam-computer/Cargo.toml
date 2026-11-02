@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "seam-computer"
+version = "0.1.0"
+description = "The computer side of Seam's session: paths, pairing, delivery and features, shared by every computer app"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+seam-core = { path = "../seam-core" }
+seam-tor = { path = "../seam-tor" }
+async-trait = "0.1"
+base64 = "0.23"
+prost = "0.14"
+rand = "0.9.4"
+socket2 = "0.6"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "io-util", "time", "net"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["test-util"] }

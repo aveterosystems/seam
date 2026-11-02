@@ -65,7 +65,7 @@ struct MainWindow: View {
     }
 
     /// Board M04's device card, at the bottom of the sidebar: the phone, its battery, and the stitch.
-    private func phoneCard(_ phone: PeerInfo) -> some View {
+    private func phoneCard(_ phone: Phone) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "iphone").foregroundStyle(SeamStyle.teal)

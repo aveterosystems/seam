@@ -91,7 +91,12 @@ Disputed threads stay open on purpose: an author doesn't get to dismiss a findin
 
 ## Adding a feature
 
-A feature is one Protobuf message in `protocol/seam/v1/` (taking the next free block of ten field numbers), one module per app behind the `Feature` interface (receive, on connected, reset when the other device is forgotten), listed in each app's session (`Session` on the Mac, `SeamApplication` on Android). Capability strings in `Hello`, so a feature stays off until both devices support it, are planned but not built yet.
+A feature is one Protobuf message in `protocol/seam/v1/` (taking the next free block of ten field numbers), its shared rules in `core/seam-core/src/features/<feature>/` ([decision 0011](docs/decisions/0011-feature-logic-in-seam-core.md)), and one module per side:
+
+- **Computers** (the Mac, and Linux later): `core/seam-computer/src/features/<feature>.rs`, with its `Command` and `View`, a field in `Features` and its line in each of `Features`' hooks (receive, connected, reset, command, view). Any OS hook is a small trait the app implements; the app shows the `View` and sends the `Command`.
+- **The phone:** a module behind Android's `Feature` interface (receive, on connected, reset when the other device is forgotten), listed in `SeamApplication`.
+
+A feature's capability string goes in the core's catalogue (`catalogue::CAPABILITIES`), so the other device knows what it can send.
 
 ## Releasing
 
