@@ -17,14 +17,12 @@ enum MacBattery {
         if let used = memoryUsed() {
             s.memoryUsedBytes = used
             s.memoryTotalBytes = ProcessInfo.processInfo.physicalMemory
-            // The last minute's load across every core, as Activity Monitor's CPU load reads it
-            var load = [Double](repeating: 0, count: 1)
-            if getloadavg(&load, 1) == 1 {
-                s.cpuPct = UInt32(min(100, max(0, load[0] / Double(ProcessInfo.processInfo.activeProcessorCount) * 100)))
-            }
+            if let busy = cpu.busyPercent() { s.cpuPct = busy }
         }
         return s
     }
+
+    private static let cpu = CPUTime()
 
     /// Memory in use as Activity Monitor counts it: app memory, wired and compressed.
     private static func memoryUsed() -> UInt64? {
@@ -73,5 +71,30 @@ enum MacBattery {
 final class MacBatteryReader: Battery, @unchecked Sendable {
     func read() -> Data? {
         try? MacBattery.read().serializedData()
+    }
+}
+
+/// The share of time every core was busy since the last reading (the phone's sheet asks every
+/// 10 s), as Activity Monitor's CPU load counts it; since startup on the first reading.
+private final class CPUTime: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last: (busy: UInt32, idle: UInt32)?
+
+    func busyPercent() -> UInt32? {
+        var info = host_cpu_load_info()
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count) }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        let t = info.cpu_ticks // user, system, idle, nice
+        let busy = t.0 &+ t.1 &+ t.3, idle = t.2
+        lock.lock()
+        defer { lock.unlock() }
+        // The tick counters wrap, so differences wrap too
+        let (db, di) = last.map { (busy &- $0.busy, idle &- $0.idle) } ?? (busy, idle)
+        last = (busy, idle)
+        let total = UInt64(db) + UInt64(di)
+        return total == 0 ? nil : UInt32(UInt64(db) * 100 / total)
     }
 }

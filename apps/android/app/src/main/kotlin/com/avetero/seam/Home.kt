@@ -59,6 +59,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.avetero.seam.crypto.DeviceStatusLook
 import com.avetero.seam.crypto.LinkLook
 import com.avetero.seam.crypto.encryptedWords
@@ -221,13 +224,17 @@ private fun MetaStat(@DrawableRes icon: Int?, value: String, style: TextStyle, c
     }
 }
 
-/** The Mac's battery, storage, CPU and memory in full, asked for afresh every 10 s while open. */
+/** The Mac's battery, storage, CPU and memory in full, asked for afresh every 10 s while it's on screen. */
 @Composable
 private fun MacSheet(name: String, mac: DeviceStatusLook?, onRequest: () -> Unit, onDismiss: () -> Unit) {
-    LaunchedEffect(Unit) {
-        while (true) {
-            onRequest()
-            delay(10_000)
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        // Only while Seam is in view: a sheet left open behind another app asks for nothing
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                onRequest()
+                delay(10_000)
+            }
         }
     }
     SeamSheet(name, mac?.meta?.takeIf { mac.stale }, onDismiss) {

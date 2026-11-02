@@ -59,9 +59,9 @@ object Looks {
         idle = state is SessionState.Idle,
     )
 
-    /** The Mac's battery, storage, CPU and memory; read as of when it came while out of reach. */
+    /** The Mac's battery, storage, CPU and memory; "as of" when it came unless connected (paused can't refresh it). */
     fun mac(mac: MacStatus, link: LinkLook): DeviceStatusLook? =
-        deviceStatusLook(mac.status.toByteArray(), link.connected || link.pausedHere, mac.at, false, SystemTime())
+        deviceStatusLook(mac.status.toByteArray(), link.connected, mac.at, false, SystemTime())
 
     /** "12 min ago", "today at 14:02". */
     fun ago(at: Long, now: Long = System.currentTimeMillis(), time: TimeWords = SystemTime()): String = agoWords(at, now, "just now", time)

@@ -52,6 +52,7 @@ class LookTest {
         assertEquals("9 GB of 24 GB in use", now.memoryDetail)
         assertEquals(R.drawable.ic_battery_50, now.batteryIcon?.drawable)
         assertTrue("out of reach, it's from before", Looks.mac(mac, Looks.offline)!!.stale)
+        assertTrue("paused can't refresh it either", Looks.mac(mac, Looks.paused(Long.MAX_VALUE, 0))!!.stale)
     }
 
     @Test fun notificationLinesCountTheAppsThatAreOn() {
