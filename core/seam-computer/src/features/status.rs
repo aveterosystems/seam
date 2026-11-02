@@ -88,7 +88,7 @@ impl Status {
             return;
         };
         s.battery_pct = s.battery_pct.min(100);
-        s.cpu_pct = s.cpu_pct.min(100);
+        s.cpu_pct = s.cpu_pct.map(|c| c.min(100));
         host.send(Payload {
             body: Some(Body::Status(s)),
         });

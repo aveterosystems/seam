@@ -48,8 +48,15 @@ public nonisolated struct Seam_V1_Status: Sendable {
   /// 0 from a device that doesn't send storage
   public var storageTotalBytes: UInt64 = 0
 
-  /// the computer's CPU in use, 0–100 (valid only with memory_total_bytes)
-  public var cpuPct: UInt32 = 0
+  /// the computer's CPU in use, 0–100; unset when it couldn't be read
+  public var cpuPct: UInt32 {
+    get {_cpuPct ?? 0}
+    set {_cpuPct = newValue}
+  }
+  /// Returns true if `cpuPct` has been explicitly set.
+  public var hasCpuPct: Bool {self._cpuPct != nil}
+  /// Clears the value of `cpuPct`. Subsequent reads from it will return its default value.
+  public mutating func clearCpuPct() {self._cpuPct = nil}
 
   public var memoryUsedBytes: UInt64 = 0
 
@@ -62,6 +69,8 @@ public nonisolated struct Seam_V1_Status: Sendable {
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
+
+  fileprivate var _cpuPct: UInt32? = nil
 }
 
 /// The phone asks for the computer's status now: its sheet of the computer's resources is open.
@@ -97,7 +106,7 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
       case 5: try { try decoder.decodeSingularBoolField(value: &self.dnd) }()
       case 6: try { try decoder.decodeSingularUInt64Field(value: &self.storageFreeBytes) }()
       case 7: try { try decoder.decodeSingularUInt64Field(value: &self.storageTotalBytes) }()
-      case 8: try { try decoder.decodeSingularUInt32Field(value: &self.cpuPct) }()
+      case 8: try { try decoder.decodeSingularUInt32Field(value: &self._cpuPct) }()
       case 9: try { try decoder.decodeSingularUInt64Field(value: &self.memoryUsedBytes) }()
       case 10: try { try decoder.decodeSingularUInt64Field(value: &self.memoryTotalBytes) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.noBattery) }()
@@ -107,6 +116,10 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if self.batteryPct != 0 {
       try visitor.visitSingularUInt32Field(value: self.batteryPct, fieldNumber: 1)
     }
@@ -128,9 +141,9 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if self.storageTotalBytes != 0 {
       try visitor.visitSingularUInt64Field(value: self.storageTotalBytes, fieldNumber: 7)
     }
-    if self.cpuPct != 0 {
-      try visitor.visitSingularUInt32Field(value: self.cpuPct, fieldNumber: 8)
-    }
+    try { if let v = self._cpuPct {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 8)
+    } }()
     if self.memoryUsedBytes != 0 {
       try visitor.visitSingularUInt64Field(value: self.memoryUsedBytes, fieldNumber: 9)
     }
@@ -151,7 +164,7 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if lhs.dnd != rhs.dnd {return false}
     if lhs.storageFreeBytes != rhs.storageFreeBytes {return false}
     if lhs.storageTotalBytes != rhs.storageTotalBytes {return false}
-    if lhs.cpuPct != rhs.cpuPct {return false}
+    if lhs._cpuPct != rhs._cpuPct {return false}
     if lhs.memoryUsedBytes != rhs.memoryUsedBytes {return false}
     if lhs.memoryTotalBytes != rhs.memoryTotalBytes {return false}
     if lhs.noBattery != rhs.noBattery {return false}

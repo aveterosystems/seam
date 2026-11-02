@@ -75,12 +75,24 @@ final class MacBatteryReader: Battery, @unchecked Sendable {
 }
 
 /// The share of time every core was busy since the last reading (the phone's sheet asks every
-/// 10 s), as Activity Monitor's CPU load counts it; since startup on the first reading.
+/// 10 s), as Activity Monitor's CPU load counts it. A last reading older than 30 s would average
+/// over all that time, so then it reads twice, a quarter of a second apart.
 private final class CPUTime: @unchecked Sendable {
     private let lock = NSLock()
-    private var last: (busy: UInt32, idle: UInt32)?
+    private var last: (busy: UInt32, idle: UInt32, at: Date)?
 
     func busyPercent() -> UInt32? {
+        lock.lock()
+        let stale = last.map { Date().timeIntervalSince($0.at) > 30 } ?? true
+        lock.unlock()
+        if stale {
+            _ = sample()
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        return sample()
+    }
+
+    private func sample() -> UInt32? {
         var info = host_cpu_load_info()
         var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size)
         let result = withUnsafeMutablePointer(to: &info) {
@@ -93,7 +105,7 @@ private final class CPUTime: @unchecked Sendable {
         defer { lock.unlock() }
         // The tick counters wrap, so differences wrap too
         let (db, di) = last.map { (busy &- $0.busy, idle &- $0.idle) } ?? (busy, idle)
-        last = (busy, idle)
+        last = (busy, idle, Date())
         let total = UInt64(db) + UInt64(di)
         return total == 0 ? nil : UInt32(UInt64(db) * 100 / total)
     }

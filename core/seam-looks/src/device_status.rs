@@ -86,7 +86,7 @@ pub fn look(
         let used = words::memory(s.memory_used_bytes.min(s.memory_total_bytes));
         let detail = format!("{used} of {} in use", words::memory(s.memory_total_bytes));
         (
-            Some(format!("{}%", s.cpu_pct.min(100))),
+            s.cpu_pct.map(|c| format!("{}%", c.min(100))),
             Some(used),
             Some(detail),
         )

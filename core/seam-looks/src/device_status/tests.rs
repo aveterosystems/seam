@@ -144,7 +144,7 @@ fn storage_shows_free_space_short_and_in_full() {
 fn a_computer_sends_cpu_and_memory_and_may_have_no_battery() {
     let mac = on(&status(|s| {
         s.no_battery = true;
-        s.cpu_pct = 12;
+        s.cpu_pct = Some(12);
         s.memory_used_bytes = 9 << 30;
         s.memory_total_bytes = 16 << 30;
     }));

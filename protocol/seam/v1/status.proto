@@ -17,7 +17,7 @@ message Status {
   bool dnd = 5; // Do Not Disturb is on
   uint64 storage_free_bytes = 6; // free space, to the nearest 100 MB
   uint64 storage_total_bytes = 7; // 0 from a device that doesn't send storage
-  uint32 cpu_pct = 8; // the computer's CPU in use, 0–100 (valid only with memory_total_bytes)
+  optional uint32 cpu_pct = 8; // the computer's CPU in use, 0–100; unset when it couldn't be read
   uint64 memory_used_bytes = 9;
   uint64 memory_total_bytes = 10; // 0 from a device that doesn't send CPU and memory
   bool no_battery = 11; // a computer without a battery (battery_pct and charging mean nothing)
