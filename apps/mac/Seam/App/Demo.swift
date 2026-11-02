@@ -33,6 +33,8 @@ enum Demo {
             $0.charging = mode == "online"
             $0.network = mode == "tor" ? "cellular" : "wifi"
             $0.dnd = mode == "online"
+            $0.storageFreeBytes = 112_000_000_000
+            $0.storageTotalBytes = 256_000_000_000
         }
         let settings = Seam_V1_NotificationSettings.with { s in
             s.enabled = true

@@ -144,7 +144,7 @@ private struct PhoneCard: View {
     /// An icon and its short value; hover shows it in full, and VoiceOver reads it in full.
     private func stat<V: View>(_ symbol: String, value: Double? = nil, help: String, @ViewBuilder content: () -> V) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: symbol, variableValue: value).symbolRenderingMode(.hierarchical).contentTransition(.symbolEffect(.replace))
+            Image(systemName: symbol, variableValue: value).symbolRenderingMode(.monochrome).contentTransition(.symbolEffect(.replace))
             HStack(spacing: 2) { content() }.fontWeight(.semibold).monospacedDigit().foregroundStyle(SeamStyle.Win.fg)
         }
         .help(help)
