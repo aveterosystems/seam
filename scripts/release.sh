@@ -42,7 +42,12 @@ scripts/set-version.sh "$version" "$new"
 # What changed: drafted from the PR titles since the last release, then edited by you
 if ! scripts/changes.sh "$version" >/dev/null 2>&1; then
   previous="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
-  draft="$(git log --format='- %s' ${previous:+"$previous"..}HEAD | grep -v '^- Release [0-9]' | sed 's/ (#[0-9]*)$//' || true)"
+  # PR titles are `type(scope): sentence` (CONTRIBUTING.md): users see feat, fix and perf, as plain
+  # sentences; chore, ci, docs, refactor, test, build and style stay out. Older bare titles stay in
+  draft="$(git log --format='%s' ${previous:+"$previous"..}HEAD | sed -E \
+    -e '/^Release [0-9]/d' -e '/^(chore|ci|docs|refactor|test|build|style)(\([^)]*\))?!?: /d' \
+    -e 's/^(feat|fix|perf)(\([^)]*\))?!?: //' -e 's/ \(#[0-9]+\)$//' \
+    | awk '{ print "- " toupper(substr($0, 1, 1)) substr($0, 2) }')"
   head="## $version" body="$draft" awk '!done && /^## / { print ENVIRON["head"] "\n\n" ENVIRON["body"] "\n"; done = 1 } 1' CHANGELOG.md > CHANGELOG.md.new
   mv CHANGELOG.md.new CHANGELOG.md
 fi
