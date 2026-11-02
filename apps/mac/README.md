@@ -2,7 +2,7 @@
 
 A native macOS menu bar app in Swift 6 and SwiftUI, for macOS 14 and later. It shows your phone's notifications, syncs the clipboard, and shows the phone's battery and status; texts and files are planned. It follows macOS's own design and lives in the menu bar, with no Dock icon.
 
-> **Status:** 0.3.0. Pairs with a phone by QR code, connects on the same Wi‑Fi or through Tor (a private onion service only the paired phone can find), syncs the clipboard both ways, shows the phone's battery in the menu bar, shows the phone's notifications as banners with reply and dismiss (settings in Settings › Notifications, on/off and pause in the popover), and keeps its keys sealed on disk under a Keychain key. The menu bar popover (board M01), pairing window (M02) and Settings with About (M03) follow the designs. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
+> **Status:** 0.3.0. Pairs with a phone by QR code, connects on the same Wi‑Fi or through Tor (a private onion service only the paired phone can find), syncs the clipboard both ways, shows the phone's battery in the menu bar, shows the phone's notifications as banners with reply and dismiss (settings in Settings › Notifications, on/off and pause in the popover), has a Reconnect button for when the link is stuck, and keeps its keys sealed on disk under a Keychain key. The menu bar popover (board M01), pairing window (M02) and Settings with About (M03) follow the designs. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
 
 ## How it's put together
 
@@ -95,7 +95,7 @@ Don't edit these by hand. CI fails if they drift from their sources.
 
 ## Planned
 
-The Messages and Files windows, the Share extension and a Finder File Provider, each as a feature module behind the shared `Feature` interface. Moving the storage key to the data-protection keychain, wrapped by a Secure Enclave key, which needs an Apple Developer signature. Releases are signed with Seam's own certificate but not notarized, so the first download needs Open Anyway once; notarization comes with an Apple Developer account.
+The Messages and Files windows, the Share extension and a Finder File Provider, each as a feature in `core/seam-computer` with its screens here (see [Adding a feature](../../CONTRIBUTING.md#adding-a-feature)). Moving the storage key to the data-protection keychain, wrapped by a Secure Enclave key, which needs an Apple Developer signature. Releases are signed with Seam's own certificate but not notarized, so the first download needs Open Anyway once; notarization comes with an Apple Developer account.
 
 ## Updates
 

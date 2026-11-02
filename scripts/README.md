@@ -14,6 +14,7 @@ Helpers for code generation, builds and releases. Run them from anywhere; they f
 | `changes.sh` | Prints `CHANGELOG.md`'s section for a version; fails if there isn't one | Used by `release.sh`, `check-release.sh`, `make-appcast.sh` and the release workflow |
 | `make-appcast.sh` | Writes Sparkle's `appcast.xml` for a release (with its `CHANGELOG.md` section as the release notes), signs the Mac update and the feed with the update key, and checks the key matches the app's `SUPublicEDKey` | Run by the release workflow |
 | `make-update-key.sh` | One-time: makes the Mac update key in the release-keys disk image, stores it as a `release` secret, writes its public half to `apps/mac/Config/Release-Info.plist` | Once, by the maintainer, after `make-release-keys.sh` |
+| `make-mac-icon.swift` | Draws the Mac app icon (design board 00) at every size into `apps/mac/Seam/Assets.xcassets/AppIcon.appiconset` | `swift scripts/make-mac-icon.swift`, after changing the icon design |
 | `make-release-keys.sh` | One-time: protects releases on GitHub, makes the signing keys in an encrypted disk image, sets them as `release` environment secrets, and writes the fingerprints to `release/` | Once, by the maintainer (done for 0.1.0) |
 
 ```mermaid

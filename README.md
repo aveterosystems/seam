@@ -198,7 +198,7 @@ Not today. iOS doesn't let apps read other apps' notifications or the clipboard 
 
 Seam is one Rust core with a native app on each platform: SwiftUI on the Mac and Jetpack Compose on Android so far. Each part has its own README:
 
-[Core](core/README.md) · [Mac app](apps/mac/README.md) · [Android app](apps/android/README.md) · [Protocol](protocol/README.md)
+[Core](core/README.md) · [Mac app](apps/mac/README.md) · [Android app](apps/android/README.md) · [Protocol](protocol/README.md) · [Scripts](scripts/README.md)
 
 ## Contributing
 

@@ -2,7 +2,7 @@
 
 A native Android app in Kotlin and Jetpack Compose (Material 3), for Android 12 (API 31) and later. It mirrors notifications to your Mac, syncs the clipboard, and sends the phone's battery and status; texts and files are planned.
 
-> **Status:** 0.3.0. Pairs with a Mac by scanning its QR code, connects on the same Wi‑Fi or through Tor (Arti, inside the app), syncs the clipboard both ways, sends the battery level, Wi‑Fi or mobile data and Do Not Disturb (and shows the Mac's battery), mirrors the notifications of the apps you choose (with reply and dismiss from the Mac), can be paused from the phone or its Quick Settings tile, and connects only when there's something to move. Tested on a Galaxy S25 Ultra running Android 17. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
+> **Status:** 0.3.0. Pairs with a Mac by scanning its QR code, connects on the same Wi‑Fi or through Tor (Arti, inside the app), syncs the clipboard both ways, sends the battery level, Wi‑Fi or mobile data and Do Not Disturb (and shows the Mac's battery), mirrors the notifications of the apps you choose (with reply and dismiss from the Mac), can be paused from the phone or its Quick Settings tile, has a Reconnect button for when the link is stuck, and connects only when there's something to move. Tested on a Galaxy S25 Ultra running Android 17. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
 
 ## Screens
 
@@ -77,7 +77,7 @@ cd apps/android
 |---|---|
 | `SeamCoreTest` | Kotlin pairs through the Rust core and talks after a restart; a wrong pairing code, an unknown sender and bad state are refused; file chunks open only in order and a cut-short file fails |
 | `ProtocolTest` | The golden vector decodes and re-encodes byte for byte; fields from newer apps don't break parsing |
-| `SessionTest` | Pairing through Tor or on Same Wi‑Fi (both tried, only one pairs; someone else's Mac can't take it), Codes don't match (including just after the Mac accepted), delivery and acks, Same Wi‑Fi first and Tor when it drops, the switches and Hellos, unpairing, pause, when the phone connects and goes idle, a relay-era pairing asked to pair again, and a dead link given up in seconds (the Mac's Hello doesn't list it, or 8 s with no ack while Tor is up) |
+| `SessionTest` | Pairing through Tor or on Same Wi‑Fi (both tried, only one pairs; someone else's Mac can't take it), Codes don't match (including just after the Mac accepted), delivery and acks, Same Wi‑Fi first and Tor when it drops, the switches and Hellos, unpairing, pause, Reconnect (drops the link and dials again at once), when the phone connects and goes idle, a relay-era pairing asked to pair again, and a dead link given up in seconds (the Mac's Hello doesn't list it, or 8 s with no ack while Tor is up) |
 | `OutboxTest` | Only the latest clipboard or status waits, the queue is capped, expired messages drop, and a status alone never wakes the radio |
 | `LanPathTest` | A handshake that takes too long is given up and tried again later; the phone never looks for the Mac when no connection is wanted |
 | `TorLanTest` | Tor starts once, is dormant whenever no stream is open and nothing is looking, dials only the current onion address, and shows why it's blocked |
