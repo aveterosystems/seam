@@ -52,6 +52,27 @@ import Testing
         #expect(off.network == nil && !off.dnd, "an old status doesn't claim the network or DND now")
     }
 
+    @Test func iconsFollowTheLevelAndTheNetwork() {
+        #expect(PhoneStatusLook(.with { $0.batteryPct = 82 }, connected: true, at: now).batterySymbol == "battery.75percent")
+        #expect(PhoneStatusLook(.with { $0.batteryPct = 100 }, connected: true, at: now).batterySymbol == "battery.100percent")
+        #expect(PhoneStatusLook(.with { $0.batteryPct = 10 }, connected: true, at: now).batterySymbol == "battery.0percent")
+        #expect(PhoneStatusLook(.with { $0.batteryPct = 10; $0.charging = true }, connected: true, at: now).batterySymbol == "battery.100percent.bolt")
+        let cell = PhoneStatusLook(.with { $0.network = "cellular"; $0.signalBars = 3 }, connected: true, at: now)
+        #expect(cell.networkSymbol == "cellularbars" && cell.signal == 0.75)
+        #expect(PhoneStatusLook(.with { $0.network = "cellular" }, connected: true, at: now).signal == nil, "no bars sent: full, not empty")
+        #expect(PhoneStatusLook(.with { $0.network = "wifi" }, connected: true, at: now).signal == nil, "Wi‑Fi draws full, not empty bars")
+        #expect(PhoneStatusLook(.with { $0.network = "wifi" }, connected: false, at: now).networkSymbol == nil)
+    }
+
+    @Test func storageShowsFreeSpaceShortAndInFull() {
+        let s = PhoneStatusLook(.with { $0.storageFreeBytes = 112_000_000_000; $0.storageTotalBytes = 256_000_000_000 }, connected: true, at: now)
+        #expect(s.storage == "112 GB" && s.storageDetail == "112 GB free of 256 GB")
+        #expect(PhoneStatusLook(.with { $0.batteryPct = 50 }, connected: true, at: now).storage == nil, "an older phone sends no storage")
+        #expect(PhoneStatusLook.size(400_000_000) == "400 MB")
+        #expect(PhoneStatusLook.size(1_000_000_000_000) == "1 TB")
+        #expect(PhoneStatusLook.size(1_500_000_000_000) == "1.5 TB")
+    }
+
     @Test func notificationsTileSaysItsStateInWords() {
         #expect(NotificationsLook(nil, showing: 0, now: now).subtitle == "Waiting for phone")
         #expect(NotificationsLook(nil, showing: 0, now: now).mode == .waiting)

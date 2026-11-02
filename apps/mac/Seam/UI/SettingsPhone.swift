@@ -85,7 +85,7 @@ struct PhonePane: View {
 }
 
 /// The phone's live card (board M03): a phone with its battery filling it, the link in words and
-/// as the stitch, and its battery, network and Do Not Disturb.
+/// as the stitch, and its battery, network, storage and Do Not Disturb as icons with short values.
 private struct PhoneCard: View {
     let controller: SeamController
     let phone: Phone
@@ -107,15 +107,22 @@ private struct PhoneCard: View {
                 .font(.system(size: 12.5)).foregroundStyle(SeamStyle.Win.fg2)
                 .frame(height: 17).padding(.top, 3)
                 Stitch(line: look.line, replay: replay).padding(.top, 10).padding(.bottom, 9)
-                HStack(spacing: 16) {
-                    stat("Battery") {
+                HStack(spacing: 14) {
+                    stat(status?.batterySymbol ?? "battery.100percent", help: status?.batteryDetail ?? "Battery") {
                         Text(status.map { "\($0.percent)%" } ?? "—").contentTransition(.numericText(value: Double(status?.percent ?? 0)))
-                        if status?.charging == true { Image(systemName: "bolt.fill").foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
                     }
-                    stat("Network") { SwapText(status?.network ?? "—", pane: true) }
-                    if status?.dnd == true {
-                        HStack(spacing: 6) { Image(systemName: "moon.fill").foregroundStyle(SeamStyle.glow); Text("DND").fontWeight(.semibold).foregroundStyle(SeamStyle.Win.fg) }
+                    if let symbol = status?.networkSymbol, let network = status?.network {
+                        stat(symbol, value: status?.signal, help: network) { SwapText(network, pane: true) }
                             .transition(.opacity)
+                    }
+                    if let storage = status?.storage, let detail = status?.storageDetail {
+                        stat("internaldrive", help: detail) { SwapText(storage, pane: true) }
+                            .transition(.opacity)
+                    }
+                    if status?.dnd == true {
+                        Image(systemName: "moon.fill").foregroundStyle(SeamStyle.glow)
+                            .transition(.opacity)
+                            .help("Do Not Disturb is on")
                             .accessibilityLabel("Do Not Disturb is on")
                     }
                 }
@@ -134,11 +141,15 @@ private struct PhoneCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func stat<V: View>(_ name: String, @ViewBuilder value: () -> V) -> some View {
+    /// An icon and its short value; hover shows it in full, and VoiceOver reads it in full.
+    private func stat<V: View>(_ symbol: String, value: Double? = nil, help: String, @ViewBuilder content: () -> V) -> some View {
         HStack(spacing: 4) {
-            Text(name)
-            HStack(spacing: 2) { value() }.fontWeight(.semibold).monospacedDigit().foregroundStyle(SeamStyle.Win.fg)
+            Image(systemName: symbol, variableValue: value).symbolRenderingMode(.hierarchical).contentTransition(.symbolEffect(.replace))
+            HStack(spacing: 2) { content() }.fontWeight(.semibold).monospacedDigit().foregroundStyle(SeamStyle.Win.fg)
         }
+        .help(help)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(help)
     }
 }
 

@@ -2,6 +2,7 @@
 package com.avetero.seam.feature
 
 import android.app.NotificationManager
+import android.app.usage.StorageStatsManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,8 @@ import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
+import android.os.StatFs
+import android.os.storage.StorageManager
 import com.avetero.seam.protocol.v1.Payload
 import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.session.Feature
@@ -28,8 +31,8 @@ data class MacStatus(val batteryPct: Int, val charging: Boolean, val at: Long) {
 }
 
 /**
- * Sends the phone's battery, whether it's on Wi‑Fi or mobile data, and Do Not Disturb to the Mac:
- * on connect, and when any changes. Keeps the Mac's battery when the Mac sends it.
+ * Sends the phone's battery, whether it's on Wi‑Fi or mobile data, Do Not Disturb and free storage
+ * to the Mac: on connect, and when any changes. Storage rides along; it never sends by itself. Keeps the Mac's battery when the Mac sends it.
  * The Wi‑Fi's name isn't sent: Android only gives it to apps with location access.
  */
 class StatusFeature(context: Context) : Feature {
@@ -38,7 +41,7 @@ class StatusFeature(context: Context) : Feature {
     private val _mac = MutableStateFlow<MacStatus?>(null)
     val mac: StateFlow<MacStatus?> = _mac
 
-    private data class Sent(val pct: Int, val charging: Boolean, val network: String, val dnd: Boolean)
+    private data class Sent(val pct: Int, val charging: Boolean, val network: String, val dnd: Boolean, val free: Long, val total: Long)
 
     private var session: SessionApi? = null
     private var lastSent: Sent? = null
@@ -46,6 +49,12 @@ class StatusFeature(context: Context) : Feature {
     private val main = Handler(Looper.getMainLooper())
     private val connectivity = app.getSystemService(ConnectivityManager::class.java)
     private val notificationManager = app.getSystemService(NotificationManager::class.java)
+
+    // The size the phone's own Settings shows (256 GB), not the smaller formatted size; it never changes
+    private val totalBytes by lazy {
+        runCatching { app.getSystemService(StorageStatsManager::class.java).getTotalBytes(StorageManager.UUID_DEFAULT) }
+            .getOrElse { StatFs(app.filesDir.path).totalBytes }
+    }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -103,14 +112,22 @@ class StatusFeature(context: Context) : Feature {
             },
             network = network(),
             dnd = dnd(),
+            free = roundedFree(StatFs(app.filesDir.path).availableBytes),
+            total = totalBytes,
         )
         if (!force && lastSent == now) return
         val s = session ?: return
         lastSent = now
         s.send(
             Payload.newBuilder().setStatus(
-                Status.newBuilder().setBatteryPct(now.pct).setCharging(now.charging).setNetwork(now.network).setDnd(now.dnd),
+                Status.newBuilder().setBatteryPct(now.pct).setCharging(now.charging).setNetwork(now.network).setDnd(now.dnd)
+                    .setStorageFreeBytes(now.free).setStorageTotalBytes(now.total),
             ).build(),
         )
     }
 }
+
+private const val STEP = 100_000_000L
+
+/** Free space to the nearest 100 MB: precise enough to show, and battery ticks don't resend it. */
+internal fun roundedFree(bytes: Long) = (bytes + STEP / 2) / STEP * STEP
