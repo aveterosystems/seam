@@ -2,6 +2,16 @@
 
 What changed in each release. `scripts/release.sh` drafts the next section from the merged PR titles and opens it for you to edit; the release, the Mac update window and the Android update card show that section.
 
+## 0.3.0
+
+- The Mac runs on seam-computer: one session layer in Rust for every computer
+- Decision 0012: Linux clipboard, portal on KDE and a Shell extension on GNOME
+- CodeRabbit reviews every pull request, against Seam's security rules
+- Mac tests: the expired-message test no longer races the real clock
+- Reconnect on both devices, for when you know it's stuck
+- The phone follows the Mac's clipboard switch; Settings' How often row gets its icon
+- Mac: the clipboard setup dialog mentions the no-cable way first
+
 ## 0.2.4
 
 - Android: a switch in Settings to send copies apps mark sensitive (passwords, card numbers), off by default

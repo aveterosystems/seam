@@ -2,7 +2,7 @@
 
 A native macOS menu bar app in Swift 6 and SwiftUI, for macOS 14 and later. It shows your phone's notifications, syncs the clipboard, and shows the phone's battery and status; texts and files are planned. It follows macOS's own design and lives in the menu bar, with no Dock icon.
 
-> **Status:** 0.2.4. Pairs with a phone by QR code, connects on the same Wi‑Fi or through Tor (a private onion service only the paired phone can find), syncs the clipboard both ways, shows the phone's battery in the menu bar, shows the phone's notifications as banners with reply and dismiss (settings in Settings › Notifications, on/off and pause in the popover), and keeps its keys sealed on disk under a Keychain key. The menu bar popover (board M01), pairing window (M02) and Settings with About (M03) follow the designs. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
+> **Status:** 0.3.0. Pairs with a phone by QR code, connects on the same Wi‑Fi or through Tor (a private onion service only the paired phone can find), syncs the clipboard both ways, shows the phone's battery in the menu bar, shows the phone's notifications as banners with reply and dismiss (settings in Settings › Notifications, on/off and pause in the popover), and keeps its keys sealed on disk under a Keychain key. The menu bar popover (board M01), pairing window (M02) and Settings with About (M03) follow the designs. Get it from [Releases](https://github.com/aveterosystems/seam/releases/latest).
 
 ## How it's put together
 
