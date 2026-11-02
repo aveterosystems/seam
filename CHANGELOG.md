@@ -2,6 +2,17 @@
 
 What changed in each release. `scripts/release.sh` drafts the next section from the merged PR titles and opens it for you to edit; the release, the Mac update window and the Android update card show that section.
 
+## 0.4.0
+
+- Nightly builds, and a Nightly builds switch on both apps
+- Android draws from the shared looks; one wording for both apps
+- Shared looks: what every screen shows, in one Rust crate; the Mac draws from it
+- Design system: one icon table for every app, with a Linux column
+- Connected beside the path's icon, which explains itself when clicked
+- The phone's storage on the Mac; status rows use icons instead of words
+- "Title only" is now "Sender only" on every screen
+- READMEs match 0.3.0: Reconnect, features in seam-computer, the icon script
+
 ## 0.3.0
 
 - The Mac runs on seam-computer: one session layer in Rust for every computer
