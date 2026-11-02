@@ -10,6 +10,7 @@ import com.avetero.seam.session.SessionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LinkLookTest {
@@ -26,6 +27,10 @@ class LinkLookTest {
         assertEquals(LinkLook.Line.Dashed, tor.line)
         assertEquals(R.drawable.ic_globe, tor.icon)
         assertEquals("Connected · Through Tor", tor.sentence)
+        for (l in listOf(wifi, tor)) {
+            assertEquals("the icon beside it names the path", "Connected", l.short)
+            assertTrue(l.detail!!.startsWith(l.label))
+        }
     }
 
     @Test fun notConnectedIsBrokenAndSaysWhy() {
@@ -39,6 +44,7 @@ class LinkLookTest {
             assertFalse(l.connected)
             assertNull(l.icon)
             assertEquals(l.label, l.sentence)
+            assertEquals(l.label, l.short)
         }
     }
 

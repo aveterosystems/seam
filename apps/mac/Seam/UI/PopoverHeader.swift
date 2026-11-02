@@ -16,7 +16,7 @@ struct PopoverHeader: View {
 
     var body: some View {
         let look = controller.link
-        let battery = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt) }
+        let battery = controller.status.status.map { PhoneStatusLook($0, connected: look.connected, at: controller.status.statusAt, sameWifi: look == .sameWifi) }
         VStack(alignment: .leading, spacing: 0) {
             TimelineView(.periodic(from: .now, by: 30)) { tl in
                 let line = look.statusLine(lastSeen: controller.lastSeen, now: tl.date)
@@ -31,7 +31,13 @@ struct PopoverHeader: View {
                         HStack(spacing: 5) {
                             StatusDot(on: look.connected)
                             SwapText(line)
-                            if look.detail != nil { InfoButton(open: $why, label: "Why", turns: false) }
+                            if look.connected, let symbol = look.symbol {
+                                // The path as an icon; clicking it says which path, in words
+                                Button { why.toggle() } label: { Image(systemName: symbol).contentTransition(.symbolEffect(.replace)) }
+                                    .buttonStyle(.plain).help(look.sentence)
+                            } else if look.detail != nil {
+                                InfoButton(open: $why, label: "Why", turns: false)
+                            }
                         }
                         .font(.system(size: 11.5))
                         .foregroundStyle(SeamStyle.Pop.fg2)
@@ -42,7 +48,7 @@ struct PopoverHeader: View {
                 }
                 .padding(EdgeInsets(top: 14, leading: 14, bottom: 10, trailing: 14))
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel([name, line.replacingOccurrences(of: " · ", with: ", "), battery?.spoken].compactMap { $0 }.joined(separator: ", "))
+                .accessibilityLabel([name, (look.connected ? look.sentence : line).replacingOccurrences(of: " · ", with: ", "), battery?.spoken].compactMap { $0 }.joined(separator: ", "))
                 .accessibilityAction(named: "Why") { why.toggle() }
             }
             .rise(rise.0, rise.1)

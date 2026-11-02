@@ -176,6 +176,25 @@ struct AppIcon: View {
     }
 }
 
+/// While connected, the path as an icon beside "Connected": hover names it, a click explains it.
+struct PathIcon: View {
+    let look: LinkLook
+    @State private var showing = false
+
+    var body: some View {
+        if look.connected, let symbol = look.symbol {
+            Button { showing = true } label: { Image(systemName: symbol).contentTransition(.symbolEffect(.replace)) }
+                .buttonStyle(.plain)
+                .help(look.sentence)
+                .accessibilityLabel(look.label)
+                .popover(isPresented: $showing, arrowEdge: .bottom) {
+                    Text(look.detail ?? look.sentence).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 240, alignment: .leading).padding(12)
+                }
+        }
+    }
+}
+
 /// The status line beside the stitch: a dot, then "Connected" with the path's icon, or the reason
 /// when not connected. Everything comes from the `LinkLook`; the tooltip and VoiceOver get the words.
 /// With a `detail`, a click shows the whole reason and what happens next.
@@ -187,9 +206,9 @@ struct LinkStatus: View {
         Button { showing = true } label: {
             HStack(spacing: 6) {
                 Circle().fill(look.connected ? SeamStyle.live : SeamStyle.Win.fg3).frame(width: 8, height: 8)
-                Text(look.connected ? "Connected" : look.label)
+                Text(look.short)
                 if let symbol = look.symbol { Image(systemName: symbol) }
-                if look.detail != nil { Image(systemName: "info.circle") }
+                if look.detail != nil && !look.connected { Image(systemName: "info.circle") }
             }
             .contentShape(Rectangle())
         }

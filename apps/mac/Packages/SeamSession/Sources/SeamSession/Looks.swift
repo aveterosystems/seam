@@ -10,7 +10,7 @@ extension LinkLook {
     /// any other reason (Tor blocked, a pause, no shared path) stays in words, never hidden behind
     /// a time.
     public func statusLine(lastSeen: Date?, now: Date = Date(), calendar: Calendar = .current) -> String {
-        guard self == .away, let lastSeen else { return sentence }
+        guard self == .away, let lastSeen else { return short }
         return "Last seen " + LastSeen.text(lastSeen, now: now, calendar: calendar)
     }
 
@@ -62,17 +62,18 @@ public struct PhoneStatusLook: Equatable, Sendable {
     public let storage: String?
     public let storageDetail: String?
 
-    public init(_ s: Seam_V1_Status, connected: Bool, at: Date?) {
+    /// On Same Wi‑Fi the phone is on Wi‑Fi by definition, and the path icon already says so.
+    public init(_ s: Seam_V1_Status, connected: Bool, at: Date?, sameWifi: Bool = false) {
         percent = Int(s.batteryPct)
         charging = s.charging
         low = s.batteryPct <= 15 && !s.charging
         dnd = connected && s.dnd
         let names = ["wifi": "Wi‑Fi", "cellular": "Mobile data"]
-        network = connected ? names[s.network] : nil
+        network = connected && !sameWifi ? names[s.network] : nil
         meta = connected ? network : at.map { "as of " + $0.formatted(date: .omitted, time: .shortened) }
         let level = min(Int(s.batteryPct), 100) / 25 * 25
         batterySymbol = s.charging ? "battery.100percent.bolt" : "battery.\(level)percent"
-        networkSymbol = connected ? ["wifi": "wifi", "cellular": "cellularbars"][s.network] : nil
+        networkSymbol = network == nil ? nil : ["wifi": "wifi", "cellular": "cellularbars"][s.network]
         signal = networkSymbol != "cellularbars" ? nil : s.signalBars > 0 ? min(Double(s.signalBars) / 4, 1) : 1
         if s.storageTotalBytes > 0 {
             let free = Self.size(min(s.storageFreeBytes, s.storageTotalBytes))

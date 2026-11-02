@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -35,11 +35,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -131,7 +134,7 @@ internal fun Home(
 }
 
 /**
- * "● Connected · Same Wi‑Fi" in a 32 dp chip, tertiary while paused. While connected the dot
+ * "● Connected" and the path's icon in a 32 dp chip, tertiary while paused; a tap names the path. While connected the dot
  * sends out a ring: 1 → 2.8× while fading from 60%, ease-out over the first 70% of 2.4 s.
  */
 @Composable
@@ -148,8 +151,12 @@ private fun StatusChip(look: LinkLook) {
             delay(Motion.PULSE_MS * 3L / 10)
         }
     } else LaunchedEffect(Unit) { ring.snapTo(0f) }
+    val snack = rememberSnack()
+    val detail = look.detail
     Row(
-        Modifier.height(32.dp).background(bg, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp)
+        Modifier.height(32.dp).clip(RoundedCornerShape(16.dp)).background(bg)
+            .then(if (detail != null) Modifier.clickable(onClickLabel = "Which connection") { snack(detail) } else Modifier)
+            .padding(horizontal = 14.dp)
             // TalkBack reads the whole line, and again when it changes
             .semantics(mergeDescendants = true) { contentDescription = look.sentence; liveRegion = LiveRegionMode.Polite },
         verticalAlignment = Alignment.CenterVertically,
@@ -160,7 +167,12 @@ private fun StatusChip(look: LinkLook) {
             drawCircle(dot)
         })
         Spacer(Modifier.width(7.dp))
-        Swap(look.sentence) { Text(it, fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = ink, maxLines = 1) }
+        Swap(look.short) { Text(it, fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = ink, maxLines = 1) }
+        val icon = look.icon
+        if (look.connected && icon != null) {
+            Spacer(Modifier.width(6.dp))
+            Crossfade(icon, label = "path") { Icon(painterResource(it), null, Modifier.size(15.dp), tint = ink) }
+        }
     }
 }
 

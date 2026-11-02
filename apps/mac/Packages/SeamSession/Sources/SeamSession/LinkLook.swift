@@ -18,9 +18,11 @@ public struct LinkLook: Equatable, Sendable {
     /// Why, and what happens next: shown when the status is clicked. Nil when the label says it all.
     public var detail: String? = nil
 
-    public static let sameWifi = LinkLook(line: .solid, symbol: "wifi", label: "Same Wi‑Fi", connected: true)
+    public static let sameWifi = LinkLook(line: .solid, symbol: "wifi", label: "Same Wi‑Fi", connected: true,
+        detail: "Same Wi‑Fi: straight to your phone on this network. Nothing leaves it.")
     /// A neutral globe, not the Tor onion (that needs the Tor Project's permission; docs/tor/11-wording.md).
-    public static let throughTor = LinkLook(line: .dashed, symbol: "globe", label: "Through Tor", connected: true)
+    public static let throughTor = LinkLook(line: .dashed, symbol: "globe", label: "Through Tor", connected: true,
+        detail: "Through Tor: reaches your phone anywhere and hides where you are.")
     public static let connectingTor = LinkLook(line: .dotted, symbol: "globe", label: "Connecting through Tor", connected: false)
     public static let torBlocked = LinkLook.offline("Tor is blocked on this network",
         detail: "This network stops Tor connections. Your phone can still connect on the same Wi‑Fi.")
@@ -87,8 +89,10 @@ public struct LinkLook: Equatable, Sendable {
         return reconnect == .asked ? .reconnecting : .wakePhone
     }
 
-    /// The whole line in words, for VoiceOver and anywhere there's no room for the icon.
+    /// The whole line in words, for VoiceOver, tooltips and anywhere there's no room for the icon.
     public var sentence: String { connected ? "Connected · \(label)" : label }
+    /// What's written beside the icon: "Connected" (the icon names the path), or the reason.
+    public var short: String { connected ? "Connected" : label }
 }
 
 extension PeerPath {
