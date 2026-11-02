@@ -59,7 +59,7 @@ import Testing
         #expect(PhoneStatusLook(.with { $0.batteryPct = 10; $0.charging = true }, connected: true, at: now).batterySymbol == "battery.100percent.bolt")
         let cell = PhoneStatusLook(.with { $0.network = "cellular"; $0.signalBars = 3 }, connected: true, at: now)
         #expect(cell.networkSymbol == "cellularbars" && cell.signal == 0.75)
-        #expect(PhoneStatusLook(.with { $0.network = "cellular" }, connected: true, at: now).signal == nil, "no bars sent: full, not empty")
+        #expect(PhoneStatusLook(.with { $0.network = "cellular" }, connected: true, at: now).signal == 1, "no bars sent: full, not partly empty")
         #expect(PhoneStatusLook(.with { $0.network = "wifi" }, connected: true, at: now).signal == nil, "Wi‑Fi draws full, not empty bars")
         #expect(PhoneStatusLook(.with { $0.network = "wifi" }, connected: false, at: now).networkSymbol == nil)
     }

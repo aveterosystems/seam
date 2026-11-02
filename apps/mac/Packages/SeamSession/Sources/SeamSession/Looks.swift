@@ -53,8 +53,9 @@ public struct PhoneStatusLook: Equatable, Sendable {
     public let batterySymbol: String
     /// SF Symbol for the network, while connected: `wifi`, or `cellularbars` filled to `signal`.
     public let networkSymbol: String?
-    /// Mobile signal, 0...1, for `cellularbars`' variable value. Nil on Wi‑Fi and when the phone
-    /// sends no bars (0, which Android doesn't yet): nil draws the bars full, not empty.
+    /// Mobile signal, 0...1, for `cellularbars`' variable value; full (1) when the phone sends no
+    /// bars (0, which Android doesn't yet), since without a value the symbol draws partly empty.
+    /// Nil on Wi‑Fi.
     public let signal: Double?
     /// Free space, short ("112 GB"), and in full for the tooltip ("112 GB free of 256 GB").
     /// Nil from a phone that doesn't send storage.
@@ -72,7 +73,7 @@ public struct PhoneStatusLook: Equatable, Sendable {
         let level = min(Int(s.batteryPct), 100) / 25 * 25
         batterySymbol = s.charging ? "battery.100percent.bolt" : "battery.\(level)percent"
         networkSymbol = connected ? ["wifi": "wifi", "cellular": "cellularbars"][s.network] : nil
-        signal = networkSymbol == "cellularbars" && s.signalBars > 0 ? min(Double(s.signalBars) / 4, 1) : nil
+        signal = networkSymbol != "cellularbars" ? nil : s.signalBars > 0 ? min(Double(s.signalBars) / 4, 1) : 1
         if s.storageTotalBytes > 0 {
             let free = Self.size(min(s.storageFreeBytes, s.storageTotalBytes))
             storage = free
