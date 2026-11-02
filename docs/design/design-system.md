@@ -118,12 +118,12 @@ Anything that hovers over a screen (a toast, a snackbar, a selection toolbar, a 
 
 ## The stitch: how a connection is shown
 
-Every place that shows the link between the devices (the menu bar header, the sidebar device card, the Android home) uses the same line under the device name.
+Every place that shows the link between the devices (the menu bar header, the sidebar device card, the Android home) uses the same line under the device name. While connected the words say only "Connected" and the path's icon names the path: hover or tap it for the words, and screen readers read "Connected · Same Wi‑Fi".
 
 | Line | Label | Meaning |
 |---|---|---|
-| Solid teal | **Connected · Same Wi‑Fi** | Direct, fastest; big files go this way |
-| Dashed teal | **Connected · Through Seam relay** | Anywhere, end-to-end encrypted |
+| Solid teal | **Connected** + Wi‑Fi icon (Same Wi‑Fi) | Direct, fastest; big files go this way |
+| Dashed teal | **Connected** + globe icon (Through Tor) | Anywhere, end-to-end encrypted |
 | Dotted grey | **Nearby** | Bluetooth sees the device; waking up to connect |
 | Broken grey | **Offline** | "Will send when your phone is back" |
 
