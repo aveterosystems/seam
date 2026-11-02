@@ -96,12 +96,13 @@ impl Session {
         }
     }
 
-    /// A path to the phone came up: what waited, then this computer's switches, then the features'.
+    /// A path to the phone came up: this computer's switches, then the features'.
+    /// What waited goes once the phone's Hello is in, not before: it may have paused since, and
+    /// it sends its Hello first on every connection.
     pub(super) fn path_came_up(&mut self) {
         if self.core.phone.is_none() {
             return;
         }
-        self.core.flush();
         self.core.send_hello();
         self.features.connected(&mut self.core);
     }

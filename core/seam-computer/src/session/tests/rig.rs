@@ -288,6 +288,8 @@ pub struct Rig {
     pub sync_on: Arc<AtomicBool>,
     pub session: Session,
     opened: HashMap<Vec<u8>, Payload>,
+    /// The phone's pause as its last Hello said, which it says again on every connection.
+    phone_paused: i64,
     _dir: tempfile::TempDir,
 }
 
@@ -370,6 +372,7 @@ impl Rig {
             sync_on: Arc::new(AtomicBool::new(true)),
             session: placeholder(),
             opened: HashMap::new(),
+            phone_paused: 0,
             _dir: dir,
         };
         rig.session = rig.make_session(o.wifi, o.tor);
@@ -444,17 +447,32 @@ impl Rig {
     /// The phone connected through the computer's onion service.
     pub async fn tor_up(&mut self) {
         self.session.set_link(Some(self.tor.clone()), Path::Tor);
-        let id = self.phone_id();
-        self.session
-            .link_event(LanEvent::Authenticated(id), Path::Tor)
-            .await;
+        self.phone_connects(Path::Tor).await;
     }
 
     pub async fn lan_up(&mut self) {
         self.session.set_link(Some(self.lan.clone()), Path::Lan);
+        self.phone_connects(Path::Lan).await;
+    }
+
+    /// The phone paused while it was out of reach: this computer hears when it next connects.
+    pub fn phone_pauses_while_away(&mut self, until_ms: i64) {
+        self.phone_paused = until_ms;
+    }
+
+    /// The phone authenticates on `path` and, as it does on every connection, sends its Hello
+    /// first, with its pause as it stands.
+    pub async fn phone_connects(&mut self, path: Path) {
         let id = self.phone_id();
         self.session
-            .link_event(LanEvent::Authenticated(id), Path::Lan)
+            .link_event(LanEvent::Authenticated(id.clone()), path)
+            .await;
+        if self.phone.app_data().is_none() {
+            return; // not paired: nothing to say
+        }
+        let hello = self.phone_hello(true, true, self.phone_paused, None);
+        self.session
+            .link_event(LanEvent::Envelope(id, hello), path)
             .await;
     }
 
@@ -514,6 +532,7 @@ impl Rig {
         paused_until_ms: i64,
         open_links: Option<Vec<Path>>,
     ) -> Envelope {
+        self.phone_paused = paused_until_ms;
         let mut enabled = Vec::new();
         if wifi {
             enabled.push(Path::Lan);

@@ -186,7 +186,8 @@ impl Session {
     pub async fn due(&mut self, due: Due) {
         match due {
             Due::AckOverdue { msg_id, path } => self.core.ack_overdue(&msg_id, path),
-            Due::PauseEnded => {} // `state` reads the clock: the pause shows as over now
+            // `state` reads the clock, so the pause shows as over; what waited out the pause goes
+            Due::PauseEnded => self.core.flush(),
             Due::PairingExpired => self.core.pairing_expired(),
             Due::AcceptOverdue(msg_id) => self.core.accept_overdue(&msg_id),
             Due::ClipboardPoll => self.features.clipboard.poll(&mut self.core).await,

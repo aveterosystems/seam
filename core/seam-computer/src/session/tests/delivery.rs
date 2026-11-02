@@ -69,8 +69,7 @@ async fn a_new_link_picks_up_what_the_old_one_never_got_acked() {
     let mut rig = Rig::new().await;
     rig.lan_up().await;
     rig.send_something(1).await;
-    rig.event(LanEvent::Authenticated(rig.phone_id()), Path::Lan)
-        .await; // replaced without a close
+    rig.phone_connects(Path::Lan).await; // replaced without a close
     assert_eq!(numbers(&rig.on_lan()), [1, 1]);
 }
 
@@ -96,8 +95,7 @@ async fn a_send_the_tor_stream_refused_waits_for_the_phone_to_reconnect() {
     rig.tor
         .failing
         .store(false, std::sync::atomic::Ordering::SeqCst);
-    rig.event(LanEvent::Authenticated(rig.phone_id()), Path::Tor)
-        .await;
+    rig.phone_connects(Path::Tor).await;
     assert_eq!(numbers(&rig.on_tor()), [1, 2], "in order");
 }
 
@@ -143,7 +141,10 @@ async fn a_path_switched_off_is_never_used() {
     .await;
     rig.lan_up().await;
     rig.send_something(1).await;
-    assert!(rig.lan.frames().is_empty());
+    assert!(
+        rig.lan.delivered().is_empty(),
+        "only the phone's Hello is acked there"
+    );
     rig.session.set_switches(true, false);
     rig.tor_up().await;
     assert!(rig.on_tor().is_empty());
@@ -188,10 +189,9 @@ async fn an_expired_message_is_dropped_not_sent_late() {
     rig.advance(660.0).await; // the core stamps sentAt with the real clock, just after the rig began
     rig.tor_up().await;
     assert!(numbers(&rig.on_tor()).is_empty());
-    assert_eq!(
-        rig.session.state().waiting,
-        1,
-        "only the new Hello, until the phone acks it"
+    assert!(
+        rig.outbox.load(rig.now()).waiting().is_empty(),
+        "dropped, not kept"
     );
 }
 
@@ -203,9 +203,10 @@ async fn the_outbox_is_capped() {
     }
     assert_eq!(rig.session.state().waiting, CAP);
     rig.tor_up().await;
+    // The computer's Hello on connecting takes a place too, so one more of the oldest goes
     assert_eq!(
         numbers(&rig.on_tor()),
-        (6..=CAP as i64 + 5).collect::<Vec<_>>(),
+        (7..=CAP as i64 + 5).collect::<Vec<_>>(),
         "the oldest went"
     );
 }

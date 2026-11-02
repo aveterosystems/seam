@@ -195,3 +195,41 @@ async fn what_was_queued_before_a_pause_waits_for_the_resume() {
         "after the resume what waited goes"
     );
 }
+
+/// The phone paused while it was out of reach. When it comes back, what waited here stays
+/// waiting: nothing goes before its Hello, which it sends first, says it's paused.
+#[tokio::test]
+async fn a_phone_that_paused_while_away_gets_nothing_on_its_way_back() {
+    let mut rig = Rig::new().await;
+    rig.tor_up().await;
+    rig.event(
+        crate::lan::LanEvent::Closed(rig.phone_id()),
+        seam_core::links::Path::Tor,
+    )
+    .await;
+    rig.send_something(1).await; // waits for the phone
+    rig.phone_pauses_while_away(UNTIL_RESUMED);
+    rig.tor_up().await;
+    assert!(numbers(&rig.on_tor()).is_empty());
+    assert_eq!(rig.session.state().paused_until, Some(UNTIL_RESUMED));
+}
+
+/// A timed pause ends while the link is still up: what waited it out goes then, before it can
+/// expire, with no other traffic needed to send it.
+#[tokio::test]
+async fn what_waited_out_a_timed_pause_goes_when_it_ends() {
+    let mut rig = Rig::new().await;
+    rig.tor_up().await;
+    rig.event(
+        crate::lan::LanEvent::Closed(rig.phone_id()),
+        seam_core::links::Path::Tor,
+    )
+    .await;
+    rig.send_something(1).await;
+    let until = rig.now() + 60_000;
+    rig.phone_pauses_while_away(until);
+    rig.tor_up().await;
+    assert!(numbers(&rig.on_tor()).is_empty(), "paused");
+    rig.advance(61.0).await;
+    assert_eq!(numbers(&rig.on_tor()), [1], "the pause ended: it goes");
+}
