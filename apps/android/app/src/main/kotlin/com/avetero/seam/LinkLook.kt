@@ -21,15 +21,22 @@ data class LinkLook(
     @DrawableRes val icon: Int? = null,
     /** Paused on this phone: the hero and the status chip turn tertiary, and say until when. */
     val paused: Boolean = false,
+    /** While connected, the path in words, for a tap on the status chip. */
+    val detail: String? = null,
 ) {
     enum class Line { Solid, Dashed, Dotted, Broken }
 
     /** The whole line in words, for TalkBack and wherever there's no room for the icon. */
     val sentence: String get() = if (connected) "Connected · $label" else label
 
+    /** What's written beside the icon: "Connected" (the icon names the path), or the reason. */
+    val short: String get() = if (connected) "Connected" else label
+
     companion object {
-        val SameWifi = LinkLook(Line.Solid, "Same Wi‑Fi", true, R.drawable.ic_wifi)
-        val ThroughTor = LinkLook(Line.Dashed, "Through Tor", true, R.drawable.ic_globe)
+        val SameWifi = LinkLook(Line.Solid, "Same Wi‑Fi", true, R.drawable.ic_wifi,
+            detail = "Same Wi‑Fi: straight to your Mac on this network. Nothing leaves it.")
+        val ThroughTor = LinkLook(Line.Dashed, "Through Tor", true, R.drawable.ic_globe,
+            detail = "Through Tor: reaches your Mac anywhere and hides where you are.")
         val Idle = LinkLook(Line.Broken, "Paired · connects when there's something to sync", false)
         val Offline = LinkLook(Line.Broken, "Offline · will send when it's back", false)
         /** "Reconnect" was tapped (here or on the Mac): dots travel along the line until it connects or gives up. */

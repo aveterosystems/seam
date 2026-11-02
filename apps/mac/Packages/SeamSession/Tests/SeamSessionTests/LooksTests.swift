@@ -12,7 +12,7 @@ import Testing
         #expect(LinkLook.away.statusLine(lastSeen: now.addingTimeInterval(-20), now: now) == "Last seen just now")
         #expect(LinkLook.away.statusLine(lastSeen: now.addingTimeInterval(-12 * 60), now: now) == "Last seen 12 min ago")
         #expect(LinkLook.away.statusLine(lastSeen: nil, now: now) == LinkLook.away.label, "never seen this run: the reason")
-        #expect(LinkLook.sameWifi.statusLine(lastSeen: now, now: now) == "Connected · Same Wi‑Fi")
+        #expect(LinkLook.sameWifi.statusLine(lastSeen: now, now: now) == "Connected", "the icon beside it names the path")
         #expect(LinkLook.away.heroLine(lastSeen: now, now: now) == "Last seen just now · will send when it's back")
         #expect(LinkLook.torBlocked.heroLine(lastSeen: now, now: now) == LinkLook.torBlocked.label)
     }
@@ -50,6 +50,10 @@ import Testing
         let off = PhoneStatusLook(wifi, connected: false, at: now)
         #expect(off.meta?.hasPrefix("as of ") == true)
         #expect(off.network == nil && !off.dnd, "an old status doesn't claim the network or DND now")
+        let home = PhoneStatusLook(wifi, connected: true, at: now, sameWifi: true)
+        #expect(home.network == nil && home.networkSymbol == nil && home.meta == nil, "Same Wi‑Fi's icon already says Wi‑Fi")
+        let cell = PhoneStatusLook(.with { $0.network = "cellular" }, connected: true, at: now, sameWifi: false)
+        #expect(cell.network == "Mobile data")
     }
 
     @Test func iconsFollowTheLevelAndTheNetwork() {
