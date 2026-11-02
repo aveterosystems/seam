@@ -72,6 +72,8 @@ pub enum LookIcon {
     MobileSignal { fraction: f32 },
     Storage,
     DoNotDisturb,
+    Cpu,
+    Memory,
     Notifications,
     NotificationsOff,
 }
@@ -88,6 +90,8 @@ impl From<looks::Icon> for LookIcon {
             I::MobileSignal { fraction } => Self::MobileSignal { fraction },
             I::Storage => Self::Storage,
             I::DoNotDisturb => Self::DoNotDisturb,
+            I::Cpu => Self::Cpu,
+            I::Memory => Self::Memory,
             I::Notifications => Self::Notifications,
             I::NotificationsOff => Self::NotificationsOff,
         }
@@ -252,13 +256,16 @@ pub struct DeviceStatusLook {
     pub percent: u32,
     pub charging: bool,
     pub low: bool,
-    pub battery: String,
-    pub battery_icon: LookIcon,
-    pub battery_detail: String,
+    pub battery: Option<String>,
+    pub battery_icon: Option<LookIcon>,
+    pub battery_detail: Option<String>,
     pub network: Option<String>,
     pub network_icon: Option<LookIcon>,
     pub storage: Option<String>,
     pub storage_detail: Option<String>,
+    pub cpu: Option<String>,
+    pub memory: Option<String>,
+    pub memory_detail: Option<String>,
     pub dnd: bool,
     pub stale: bool,
     pub meta: Option<String>,
@@ -281,12 +288,15 @@ pub fn device_status_look(
         charging: l.charging,
         low: l.low,
         battery: l.battery,
-        battery_icon: l.battery_icon.into(),
+        battery_icon: l.battery_icon.map(Into::into),
         battery_detail: l.battery_detail,
         network: l.network,
         network_icon: l.network_icon.map(Into::into),
         storage: l.storage,
         storage_detail: l.storage_detail,
+        cpu: l.cpu,
+        memory: l.memory,
+        memory_detail: l.memory_detail,
         dnd: l.dnd,
         stale: l.stale,
         meta: l.meta,
@@ -407,6 +417,12 @@ pub fn until_words(until_ms: i64, now_ms: i64, time: Arc<dyn TimeWords>) -> Stri
     looks::words::until(until, now_ms, &AppTime(time)).unwrap_or_else(|| "until you resume".into())
 }
 
+/// What the shield means: "End-to-end encrypted: only this phone and your Mac can read what Seam sends."
+#[uniffi::export]
+pub fn encrypted_words(names: LookNames) -> String {
+    looks::words::encrypted(&(&names).into())
+}
+
 /// Asked before Nightly builds turns on: the title, then the warning.
 #[uniffi::export]
 pub fn nightly_warning_title() -> String {
@@ -504,8 +520,8 @@ mod tests {
         let d =
             device_status_look(status.encode_to_vec(), true, None, false, Arc::new(Utc)).unwrap();
         assert_eq!(
-            (d.battery.as_str(), d.storage.as_deref()),
-            ("82%", Some("112 GB"))
+            (d.battery.as_deref(), d.storage.as_deref()),
+            (Some("82%"), Some("112 GB"))
         );
         assert_eq!(
             notifications_tile(None, 0, 0, Arc::new(Utc)).subtitle,

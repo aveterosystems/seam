@@ -13,17 +13,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.longClick
 import androidx.test.core.app.ApplicationProvider
 import com.avetero.seam.crypto.LinkLook
 import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.clipboard.FromMac
 import com.avetero.seam.feature.notifications.NotificationsFeature
+import com.avetero.seam.protocol.v1.Status
 import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
 import com.github.takahirom.roborazzi.captureScreenRoboImage
@@ -100,7 +101,7 @@ class ScreensTest(private val dark: Boolean) {
         onConfirm = {}, onCancelConfirm = {}, onScan = {},
         onSendClipboard = { SendFeedback(label = "✓ Sent to Mac") },
         fromMac = if (clip) FromMac("harbour-lights-42", now) else null, now = now,
-        mac = MacStatus(64, false, now), notifications = notifications, clipboard = clipboard,
+        mac = MacStatus(Status.newBuilder().setBatteryPct(64).setStorageFreeBytes(140_000_000_000).setStorageTotalBytes(500_000_000_000).setCpuPct(12).setMemoryUsedBytes(9L shl 30).setMemoryTotalBytes(24L shl 30).build(), now), notifications = notifications, clipboard = clipboard,
         update = if (update) Release("0.3", "", "", "") else null, look = look,
     )
 
@@ -112,8 +113,16 @@ class ScreensTest(private val dark: Boolean) {
 
     @Test fun homeWifi() {
         show { home(Looks.sameWifi) }
-        rule.onNodeWithContentDescription("End-to-end encrypted").assertExists() // the shield speaks
+        rule.onNodeWithContentDescription("End-to-end encrypted", substring = true).assertExists() // the shield speaks
         shot("home-wifi")
+    }
+    @Test fun macSheet() {
+        show { home(Looks.sameWifi) }
+        rule.mainClock.advanceTimeBy(500)
+        rule.onNodeWithText("64%").performClick()
+        rule.mainClock.advanceTimeBy(1000)
+        rule.onNodeWithText("9 GB of 24 GB in use").assertExists() // the sheet, from the shared looks
+        shot("mac-sheet")
     }
     @Test fun homeTor() { show { home(Looks.throughTor) }; shot("home-tor") }
     @Test fun homeOffline() { show { home(Looks.offline) }; shot("home-offline") }

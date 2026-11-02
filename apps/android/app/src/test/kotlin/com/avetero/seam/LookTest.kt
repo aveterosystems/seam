@@ -45,12 +45,14 @@ class LookTest {
         assertEquals(SendFeedback(snack = "Your Mac has Sync the clipboard turned off"), sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro", offOnMac = true))
     }
 
-    @Test fun theMacsBatteryShowsWhileReachableADashWhenNotAndNothingBeforeItsKnown() {
-        val mac = MacStatus(64, false, 0)
-        assertEquals("64%", macBattery(Looks.sameWifi, mac))
-        assertEquals("64%", macBattery(Looks.paused(Long.MAX_VALUE, 0), mac))
-        assertEquals("—", macBattery(Looks.offline, mac))
-        assertNull(macBattery(Looks.sameWifi, null))
+    @Test fun theMacsStatusComesFromTheSharedLooks() {
+        val mac = MacStatus(com.avetero.seam.protocol.v1.Status.newBuilder().setBatteryPct(64).setCpuPct(12).setMemoryUsedBytes(9L shl 30).setMemoryTotalBytes(24L shl 30).build(), 0)
+        val now = Looks.mac(mac, Looks.sameWifi)!!
+        assertEquals("64%" to "12%", now.battery to now.cpu)
+        assertEquals("9 GB of 24 GB in use", now.memoryDetail)
+        assertEquals(R.drawable.ic_battery_50, now.batteryIcon?.drawable)
+        assertTrue("out of reach, it's from before", Looks.mac(mac, Looks.offline)!!.stale)
+        assertTrue("paused can't refresh it either", Looks.mac(mac, Looks.paused(Long.MAX_VALUE, 0))!!.stale)
     }
 
     @Test fun notificationLinesCountTheAppsThatAreOn() {

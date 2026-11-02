@@ -5780,13 +5780,16 @@ public struct DeviceStatusLook: Equatable, Hashable {
     public var percent: UInt32
     public var charging: Bool
     public var low: Bool
-    public var battery: String
-    public var batteryIcon: LookIcon
-    public var batteryDetail: String
+    public var battery: String?
+    public var batteryIcon: LookIcon?
+    public var batteryDetail: String?
     public var network: String?
     public var networkIcon: LookIcon?
     public var storage: String?
     public var storageDetail: String?
+    public var cpu: String?
+    public var memory: String?
+    public var memoryDetail: String?
     public var dnd: Bool
     public var stale: Bool
     public var meta: String?
@@ -5794,7 +5797,7 @@ public struct DeviceStatusLook: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(percent: UInt32, charging: Bool, low: Bool, battery: String, batteryIcon: LookIcon, batteryDetail: String, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
+    public init(percent: UInt32, charging: Bool, low: Bool, battery: String?, batteryIcon: LookIcon?, batteryDetail: String?, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, cpu: String?, memory: String?, memoryDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
         self.percent = percent
         self.charging = charging
         self.low = low
@@ -5805,6 +5808,9 @@ public struct DeviceStatusLook: Equatable, Hashable {
         self.networkIcon = networkIcon
         self.storage = storage
         self.storageDetail = storageDetail
+        self.cpu = cpu
+        self.memory = memory
+        self.memoryDetail = memoryDetail
         self.dnd = dnd
         self.stale = stale
         self.meta = meta
@@ -5830,13 +5836,16 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
                 percent: FfiConverterUInt32.read(from: &buf), 
                 charging: FfiConverterBool.read(from: &buf), 
                 low: FfiConverterBool.read(from: &buf), 
-                battery: FfiConverterString.read(from: &buf), 
-                batteryIcon: FfiConverterTypeLookIcon.read(from: &buf), 
-                batteryDetail: FfiConverterString.read(from: &buf), 
+                battery: FfiConverterOptionString.read(from: &buf), 
+                batteryIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
+                batteryDetail: FfiConverterOptionString.read(from: &buf), 
                 network: FfiConverterOptionString.read(from: &buf), 
                 networkIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
                 storage: FfiConverterOptionString.read(from: &buf), 
                 storageDetail: FfiConverterOptionString.read(from: &buf), 
+                cpu: FfiConverterOptionString.read(from: &buf), 
+                memory: FfiConverterOptionString.read(from: &buf), 
+                memoryDetail: FfiConverterOptionString.read(from: &buf), 
                 dnd: FfiConverterBool.read(from: &buf), 
                 stale: FfiConverterBool.read(from: &buf), 
                 meta: FfiConverterOptionString.read(from: &buf), 
@@ -5848,13 +5857,16 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.percent, into: &buf)
         FfiConverterBool.write(value.charging, into: &buf)
         FfiConverterBool.write(value.low, into: &buf)
-        FfiConverterString.write(value.battery, into: &buf)
-        FfiConverterTypeLookIcon.write(value.batteryIcon, into: &buf)
-        FfiConverterString.write(value.batteryDetail, into: &buf)
+        FfiConverterOptionString.write(value.battery, into: &buf)
+        FfiConverterOptionTypeLookIcon.write(value.batteryIcon, into: &buf)
+        FfiConverterOptionString.write(value.batteryDetail, into: &buf)
         FfiConverterOptionString.write(value.network, into: &buf)
         FfiConverterOptionTypeLookIcon.write(value.networkIcon, into: &buf)
         FfiConverterOptionString.write(value.storage, into: &buf)
         FfiConverterOptionString.write(value.storageDetail, into: &buf)
+        FfiConverterOptionString.write(value.cpu, into: &buf)
+        FfiConverterOptionString.write(value.memory, into: &buf)
+        FfiConverterOptionString.write(value.memoryDetail, into: &buf)
         FfiConverterBool.write(value.dnd, into: &buf)
         FfiConverterBool.write(value.stale, into: &buf)
         FfiConverterOptionString.write(value.meta, into: &buf)
@@ -7891,6 +7903,8 @@ public enum LookIcon: Equatable, Hashable {
     )
     case storage
     case doNotDisturb
+    case cpu
+    case memory
     case notifications
     case notificationsOff
 
@@ -7932,9 +7946,13 @@ public struct FfiConverterTypeLookIcon: FfiConverterRustBuffer {
         
         case 8: return .doNotDisturb
         
-        case 9: return .notifications
+        case 9: return .cpu
         
-        case 10: return .notificationsOff
+        case 10: return .memory
+        
+        case 11: return .notifications
+        
+        case 12: return .notificationsOff
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -7979,12 +7997,20 @@ public struct FfiConverterTypeLookIcon: FfiConverterRustBuffer {
             writeInt(&buf, Int32(8))
         
         
-        case .notifications:
+        case .cpu:
             writeInt(&buf, Int32(9))
         
         
-        case .notificationsOff:
+        case .memory:
             writeInt(&buf, Int32(10))
+        
+        
+        case .notifications:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .notificationsOff:
+            writeInt(&buf, Int32(12))
         
         }
     }
@@ -9968,6 +9994,17 @@ public func deviceStatusLook(status: Data, connected: Bool, atMs: Int64?, sameWi
     )
 })
 }
+/**
+ * What the shield means: "End-to-end encrypted: only this phone and your Mac can read what Seam sends."
+ */
+public func encryptedWords(names: LookNames) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_encrypted_words(
+        FfiConverterTypeLookNames_lower(names),uniffiCallStatus
+    )
+})
+}
 public func linkLook(input: LinkInput, names: LookNames, lastSeenMs: Int64?, nowMs: Int64, time: TimeWords) -> LinkLook  {
     return try!  FfiConverterTypeLinkLook_lift(try! rustCall() {
         uniffiCallStatus in
@@ -10202,6 +10239,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_device_status_look() != 17410) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_encrypted_words() != 55404) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_func_link_look() != 58522) {

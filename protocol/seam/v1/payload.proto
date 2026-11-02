@@ -43,6 +43,7 @@ message Payload {
     MessageSync message_sync = 40; // 40–49: messages
     MessageSend message_send = 41;
     Status status = 50; // 50–59: status
+    StatusRequest status_request = 51;
     FindPhone find_phone = 60; // 60–69: find my phone
   }
 }

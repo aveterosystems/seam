@@ -37,21 +37,21 @@ fn the_battery_warns_at_fifteen_only_when_not_charging() {
 #[test]
 fn the_battery_icon_follows_the_level() {
     assert_eq!(
-        on(&status(|s| s.battery_pct = 82)).battery_icon,
+        on(&status(|s| s.battery_pct = 82)).battery_icon.unwrap(),
         Icon::Battery {
             level: 75,
             charging: false
         }
     );
     assert_eq!(
-        on(&status(|s| s.battery_pct = 100)).battery_icon,
+        on(&status(|s| s.battery_pct = 100)).battery_icon.unwrap(),
         Icon::Battery {
             level: 100,
             charging: false
         }
     );
     assert_eq!(
-        on(&status(|s| s.battery_pct = 10)).battery_icon,
+        on(&status(|s| s.battery_pct = 10)).battery_icon.unwrap(),
         Icon::Battery {
             level: 0,
             charging: false
@@ -62,13 +62,13 @@ fn the_battery_icon_follows_the_level() {
         s.charging = true
     }));
     assert_eq!(
-        charging.battery_icon,
+        charging.battery_icon.unwrap(),
         Icon::Battery {
             level: 100,
             charging: true
         }
     );
-    assert_eq!(charging.battery_detail, "10%, charging");
+    assert_eq!(charging.battery_detail.unwrap(), "10%, charging");
 }
 
 #[test]
@@ -137,5 +137,34 @@ fn storage_shows_free_space_short_and_in_full() {
         on(&status(|s| s.battery_pct = 50)).storage,
         None,
         "an older device sends no storage"
+    );
+}
+
+#[test]
+fn a_computer_sends_cpu_and_memory_and_may_have_no_battery() {
+    let mac = on(&status(|s| {
+        s.no_battery = true;
+        s.cpu_pct = Some(12);
+        s.memory_used_bytes = 9 << 30;
+        s.memory_total_bytes = 16 << 30;
+    }));
+    assert_eq!(
+        (mac.battery, mac.battery_icon, mac.low),
+        (None, None, false),
+        "a Mac mini has no battery to show"
+    );
+    assert_eq!(
+        (mac.cpu.as_deref(), mac.memory.as_deref()),
+        (Some("12%"), Some("9 GB"))
+    );
+    assert_eq!(mac.memory_detail.as_deref(), Some("9 GB of 16 GB in use"));
+    assert_eq!(
+        mac.spoken, "",
+        "nothing to say about a battery it hasn't got"
+    );
+    assert_eq!(
+        on(&status(|s| s.battery_pct = 50)).cpu,
+        None,
+        "a phone sends no CPU"
     );
 }

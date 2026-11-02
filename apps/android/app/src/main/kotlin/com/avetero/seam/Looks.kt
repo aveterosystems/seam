@@ -2,6 +2,7 @@
 package com.avetero.seam
 
 import androidx.annotation.DrawableRes
+import com.avetero.seam.crypto.DeviceStatusLook
 import com.avetero.seam.crypto.LinkInput
 import com.avetero.seam.crypto.LinkLook
 import com.avetero.seam.crypto.LinkReconnect
@@ -12,7 +13,9 @@ import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.TimeWords
 import com.avetero.seam.crypto.TorState
 import com.avetero.seam.crypto.agoWords
+import com.avetero.seam.crypto.deviceStatusLook
 import com.avetero.seam.crypto.linkLook
+import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.protocol.v1.Transport
 import com.avetero.seam.session.ConnectionSettings
 import com.avetero.seam.session.SessionState
@@ -56,6 +59,10 @@ object Looks {
         idle = state is SessionState.Idle,
     )
 
+    /** The Mac's battery, storage, CPU and memory; "as of" when it came unless connected (paused can't refresh it). */
+    fun mac(mac: MacStatus, link: LinkLook): DeviceStatusLook? =
+        deviceStatusLook(mac.status.toByteArray(), link.connected, mac.at, false, SystemTime())
+
     /** "12 min ago", "today at 14:02". */
     fun ago(at: Long, now: Long = System.currentTimeMillis(), time: TimeWords = SystemTime()): String = agoWords(at, now, "just now", time)
 
@@ -78,5 +85,15 @@ val LookIcon.drawable: Int?
         LookIcon.SameWifi, LookIcon.Wifi -> R.drawable.ic_wifi
         LookIcon.ThroughTor -> R.drawable.ic_globe
         LookIcon.Paused -> R.drawable.ic_pause
+        is LookIcon.Battery -> if (charging) R.drawable.ic_battery_charging else when (level.toInt()) {
+            100 -> R.drawable.ic_battery_100
+            75 -> R.drawable.ic_battery_75
+            50 -> R.drawable.ic_battery_50
+            25 -> R.drawable.ic_battery_25
+            else -> R.drawable.ic_battery_0
+        }
+        LookIcon.Storage -> R.drawable.ic_storage
+        LookIcon.Cpu -> R.drawable.ic_cpu
+        LookIcon.Memory -> R.drawable.ic_memory
         else -> null
     }

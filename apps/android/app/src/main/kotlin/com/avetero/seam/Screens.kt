@@ -48,6 +48,8 @@ fun SeamScreen(
     onOpenSettings: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     mac: MacStatus? = null,
+    /** The sheet of the Mac's resources is open: ask it for a fresh reading. */
+    onRequestMac: () -> Unit = {},
     notifications: NotificationsFeature? = null,
     clipboard: ClipboardStatus = ClipboardStatus.Manual,
     onCodesDontMatch: () -> Unit = {},
@@ -92,6 +94,7 @@ fun SeamScreen(
             return@Surface Home(
                 name, look, scanError, mac, onSendClipboard, fromMac, now, onPasteFromMac, onOpenSettings, onOpenNotifications,
                 notifications, clipboard, onPause, onResume,
+                onRequestMac = onRequestMac,
                 banner = {
                     Unfold(askUpdates) { AskUpdatesCard(onAnswerUpdates) }
                     val last = remember { mutableStateOf(update) }

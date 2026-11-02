@@ -2,7 +2,7 @@
 use super::*;
 use crate::proto::v1::{
     Clipboard, Control, Hello, Notification, NotificationAction, NotificationSettings,
-    NotificationSettingsChange, Status, Unpair,
+    NotificationSettingsChange, Status, StatusRequest, Unpair,
 };
 
 fn of(body: Body) -> Rules {
@@ -34,6 +34,13 @@ fn delivery_rules_table() {
             false,
         ),
         ("status", Body::Status(Status::default()), 120, true, true),
+        (
+            "status request",
+            Body::StatusRequest(StatusRequest::default()),
+            60,
+            true,
+            false,
+        ),
         (
             "notification",
             Body::Notification(Notification::default()),

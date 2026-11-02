@@ -6,14 +6,23 @@ package seam.v1;
 option java_multiple_files = true;
 option java_package = "com.avetero.seam.protocol.v1";
 
-// Each device's battery for the other's screen. The phone also sends network, dnd and storage;
-// the Mac sends battery only, and nothing at all without a battery.
+// Each device's status for the other's screen. The phone sends battery, network, dnd and storage;
+// the computer sends battery (or no_battery), storage, CPU and memory: when the phone connects,
+// when its battery changes, and in answer to a StatusRequest.
 message Status {
   uint32 battery_pct = 1;
   bool charging = 2;
   string network = 3; // "wifi" | "cellular" | "" (never the Wi‑Fi's name)
   uint32 signal_bars = 4;
   bool dnd = 5; // Do Not Disturb is on
-  uint64 storage_free_bytes = 6; // the phone's free space, to the nearest 100 MB
-  uint64 storage_total_bytes = 7; // 0 from a phone that doesn't send storage
+  uint64 storage_free_bytes = 6; // free space, to the nearest 100 MB
+  uint64 storage_total_bytes = 7; // 0 from a device that doesn't send storage
+  optional uint32 cpu_pct = 8; // the computer's CPU in use, 0–100; unset when it couldn't be read
+  uint64 memory_used_bytes = 9;
+  uint64 memory_total_bytes = 10; // 0 from a device that doesn't send CPU and memory
+  bool no_battery = 11; // a computer without a battery (battery_pct and charging mean nothing)
 }
+
+// The phone asks for the computer's status now: its sheet of the computer's resources is open.
+// An older computer ignores it.
+message StatusRequest {}

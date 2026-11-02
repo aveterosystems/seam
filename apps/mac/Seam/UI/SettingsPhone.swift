@@ -109,7 +109,7 @@ private struct PhoneCard: View {
                 .frame(height: 17).padding(.top, 3)
                 Stitch(line: look.line, replay: replay).padding(.top, 10).padding(.bottom, 9)
                 HStack(spacing: 14) {
-                    stat(status?.batteryIcon.symbol ?? "battery.100percent", help: status?.batteryDetail ?? "Battery") {
+                    stat(status?.batteryIcon?.symbol ?? "battery.100percent", help: status?.batteryDetail ?? "Battery") {
                         Text(status?.battery ?? "—").contentTransition(.numericText(value: Double(status?.percent ?? 0)))
                     }
                     if let icon = status?.networkIcon, let network = status?.network {

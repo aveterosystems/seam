@@ -273,7 +273,17 @@ impl TorStream {
                         Some(bytes) if write.write_all(&bytes).await.is_ok() && write.flush().await.is_ok() => {}
                         _ => break,
                     },
-                    () = stopped(halt.clone()) => break,
+                    () = stopped(halt.clone()) => {
+                        // `biased` alone doesn't guarantee it: what was queued before the shutdown
+                        // still goes (an Unpair goodbye), then the stream closes
+                        while let Ok(bytes) = queued.try_recv() {
+                            if write.write_all(&bytes).await.is_err() {
+                                break;
+                            }
+                        }
+                        let _ = write.flush().await;
+                        break;
+                    }
                 }
             }
             let _ = write.shutdown().await;

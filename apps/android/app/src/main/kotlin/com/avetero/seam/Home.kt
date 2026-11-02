@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -57,7 +59,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import com.avetero.seam.crypto.DeviceStatusLook
 import com.avetero.seam.crypto.LinkLook
+import com.avetero.seam.crypto.encryptedWords
 import com.avetero.seam.feature.MacStatus
 import com.avetero.seam.feature.clipboard.FromMac
 import com.avetero.seam.feature.notifications.NotificationsFeature
@@ -80,11 +87,6 @@ fun sendFeedback(sent: Boolean, state: SessionState, macName: String, offOnMac: 
  * "Mac battery 64%" while connected or paused (as last sent), "—" while it's out of reach, and
  * nothing at all before the Mac has ever sent it.
  */
-fun macBattery(look: LinkLook, mac: MacStatus?): String? = when {
-    mac == null -> null
-    look.connected || look.pausedHere -> "${mac.batteryPct}%"
-    else -> "—"
-}
 
 /** Board A01, as the approved prototype draws it: the Mac, how it's connected, and the two things to do. */
 @Composable
@@ -104,7 +106,12 @@ internal fun Home(
     onPause: (PauseFor) -> Unit,
     onResume: () -> Unit,
     banner: @Composable () -> Unit,
+    /** The sheet of the Mac's resources is open: ask it for a fresh reading. */
+    onRequestMac: () -> Unit = {},
 ) {
+    val macLook = mac?.let { Looks.mac(it, look) }
+    var macOpen by remember { mutableStateOf(false) }
+    if (macOpen) MacSheet(macName, macLook, onRequestMac) { macOpen = false }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 40.dp)) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_seam_mark), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
@@ -122,7 +129,7 @@ internal fun Home(
                 textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
             )
             StatusChip(look)
-            Meta(macBattery(look, mac), mac?.let { it.batteryPct <= 15 && !it.charging } == true && look.connected)
+            Meta(macLook, low = macLook?.low == true && look.connected) { macOpen = true }
             if (notice != null) Text(notice, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 12.dp))
         }
         Actions(look.pausedHere, onSend, onPause, onResume)
@@ -177,20 +184,65 @@ private fun StatusChip(look: LinkLook) {
     }
 }
 
-/** A shield (end-to-end encrypted), then "Mac battery 64%": 12.5 sp, 14 dp apart, the number in tabular digits, amber at 15% or less while not charging. */
+/**
+ * The shield (tap: what end-to-end encrypted means), then the Mac's battery and storage as icons
+ * with short values (tap: everything, in a sheet): 12.5 sp, 14 dp apart, numbers in tabular
+ * digits, the battery amber at 15% or less while not charging.
+ */
 @Composable
-private fun Meta(battery: String?, low: Boolean) {
+private fun Meta(mac: DeviceStatusLook?, low: Boolean, onOpen: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val style = TextStyle(fontSize = 12.5.sp, fontFeatureSettings = "tnum")
-    Row(Modifier.padding(top = 10.dp, bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(painterResource(R.drawable.ic_shield), "End-to-end encrypted", Modifier.size(14.dp), tint = scheme.onSurfaceVariant)
-        if (battery != null) {
-            val color = pick(low, scheme.onSurfaceVariant, warnColor, Motion.ease(400))
-            Row(Modifier.semantics(mergeDescendants = true) {}) {
-                Text("Mac battery ", style = style, color = scheme.outline)
-                Swap(battery) { Text(it, style = style, fontWeight = FontWeight.Medium, color = color) }
+    val style = TextStyle(fontSize = 12.5.sp, fontFeatureSettings = "tnum", fontWeight = FontWeight.Medium)
+    val snack = rememberSnack()
+    val encrypted = encryptedWords(PhoneNames)
+    Row(Modifier.padding(top = 4.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_shield), encrypted,
+            Modifier.clip(CircleShape).clickable(onClickLabel = "What this means") { snack(encrypted) }.padding(9.dp).size(14.dp),
+            tint = scheme.onSurfaceVariant,
+        )
+        if (mac != null) {
+            val battery = pick(low, scheme.onSurfaceVariant, warnColor, Motion.ease(400))
+            Row(
+                Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClickLabel = "Show your Mac's battery, storage, CPU and memory", onClick = onOpen)
+                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically,
+            ) {
+                mac.battery?.let { MetaStat(mac.batteryIcon?.drawable, it, style, battery) }
+                mac.storage?.let { MetaStat(R.drawable.ic_storage, it, style, scheme.onSurfaceVariant) }
+                if (mac.battery == null && mac.storage == null) mac.cpu?.let { MetaStat(R.drawable.ic_cpu, it, style, scheme.onSurfaceVariant) }
             }
         }
+    }
+}
+
+@Composable
+private fun MetaStat(@DrawableRes icon: Int?, value: String, style: TextStyle, color: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) Icon(painterResource(icon), null, Modifier.size(15.dp), tint = color)
+        Swap(value) { Text(it, style = style, color = color) }
+    }
+}
+
+/** The Mac's battery, storage, CPU and memory in full, asked for afresh every 10 s while it's on screen. */
+@Composable
+private fun MacSheet(name: String, mac: DeviceStatusLook?, onRequest: () -> Unit, onDismiss: () -> Unit) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        // Only while Seam is in view: a sheet left open behind another app asks for nothing
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                onRequest()
+                delay(10_000)
+            }
+        }
+    }
+    SeamSheet(name, mac?.meta?.takeIf { mac.stale }, onDismiss) {
+        mac?.batteryDetail?.let { Item("Battery", it, lead = painterResource(mac.batteryIcon?.drawable ?: R.drawable.ic_battery_100)) }
+        mac?.storageDetail?.let { Item("Storage", it, lead = painterResource(R.drawable.ic_storage)) }
+        mac?.cpu?.let { Item("CPU", "$it in use", lead = painterResource(R.drawable.ic_cpu)) }
+        mac?.memoryDetail?.let { Item("Memory", it, lead = painterResource(R.drawable.ic_memory)) }
+        if (mac?.cpu == null) Item("CPU and memory", "Update Seam on your Mac to see them", lead = painterResource(R.drawable.ic_cpu))
     }
 }
 
