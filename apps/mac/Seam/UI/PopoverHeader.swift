@@ -8,7 +8,7 @@ import SwiftUI
 /// same Wi‑Fi, battery 82 percent".
 struct PopoverHeader: View {
     let controller: SeamController
-    let phone: PeerInfo
+    let phone: Phone
     /// The header's slot in the opening stagger; the tip under it isn't part of it.
     let rise: (Int, Bool)
     @State private var why = false

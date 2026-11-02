@@ -52,7 +52,7 @@ struct PhonePane: View {
         }
     }
 
-    private func pairing(_ phone: PeerInfo) -> some View {
+    private func pairing(_ phone: Phone) -> some View {
         let name = phone.name.isEmpty ? "your phone" : phone.name
         return SettingsGroup {
             if let code = controller.phoneCode() {
@@ -88,7 +88,7 @@ struct PhonePane: View {
 /// as the stitch, and its battery, network and Do Not Disturb.
 private struct PhoneCard: View {
     let controller: SeamController
-    let phone: PeerInfo
+    let phone: Phone
     let replay: Int
 
     var body: some View {

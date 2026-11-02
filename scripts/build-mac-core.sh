@@ -25,12 +25,13 @@ for arch in $archs; do
     x86_64) triple=x86_64-apple-darwin ;;
     *) echo "unknown arch: $arch" >&2; exit 1 ;;
   esac
-  # The host builds without --target, into the same folder as gen-bindings.sh, so nothing compiles twice
+  # The host builds without --target, into the same folder as gen-bindings.sh, so nothing compiles twice.
+  # With the computer side (seam-computer): the Mac is a computer
   if [ "$arch" = "$(uname -m)" ]; then
-    (cd "$core" && cargo build $flag -p seam-ffi)
+    (cd "$core" && cargo build $flag -p seam-ffi --features computer)
     libs+=("$core/target/$profile/libseam_ffi.a")
   else
-    (cd "$core" && rustup target add "$triple" >/dev/null && cargo build $flag -p seam-ffi --target "$triple")
+    (cd "$core" && rustup target add "$triple" >/dev/null && cargo build $flag -p seam-ffi --features computer --target "$triple")
     libs+=("$core/target/$triple/$profile/libseam_ffi.a")
   fi
 done

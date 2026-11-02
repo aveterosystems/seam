@@ -27,7 +27,7 @@ enum Demo {
         }
         let now = Date()
         let minute: TimeInterval = 60
-        let phone = PeerInfo(id: "demo", name: "Pixel 9", relayKey: Data(), confirmed: true)
+        let phone = Phone(id: "demo", name: "Pixel 9", safetyCode: "482 913", pairedAt: nil)
         let status = Seam_V1_Status.with {
             $0.batteryPct = mode == "low" ? 14 : 82
             $0.charging = mode == "online"

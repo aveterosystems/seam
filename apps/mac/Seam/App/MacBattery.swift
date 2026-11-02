@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Foundation
 import IOKit.ps
+import SeamCore
 import SeamProtocol
 
 /// This Mac's battery, for the phone's home screen. A Mac without one reports nothing.
@@ -33,5 +34,12 @@ enum MacBattery {
     private final class Callback {
         let run: () -> Void
         init(_ run: @escaping () -> Void) { self.run = run }
+    }
+}
+
+/// The battery, as the core's.
+final class MacBatteryReader: Battery, @unchecked Sendable {
+    func read() -> Data? {
+        try? MacBattery.read()?.serializedData()
     }
 }

@@ -126,11 +126,3 @@ public enum Words {
         }
     }
 }
-
-/// What just arrived from the phone, for the menu bar icon's bounce and VoiceOver.
-public enum Arrival {
-    /// A notification that's new, or updated (a new message in a chat), since `old`. Dismissals aren't arrivals.
-    public static func notification(old: [Seam_V1_Notification], new: [Seam_V1_Notification]) -> Seam_V1_Notification? {
-        new.first { n in !old.contains { $0.key == n.key && $0.postedAt == n.postedAt } }
-    }
-}
