@@ -151,18 +151,19 @@ struct Stitch: View {
     var replay = 0
     @Environment(\.accessibilityReduceMotion) private var reduce
     @State private var drawn: CGFloat = 1
+    @State private var visible = true
 
     var body: some View {
         ZStack {
             Rule().trim(from: 0, to: drawn).stroke(SeamStyle.teal, lineWidth: 2)
                 .opacity(line == .solid ? 1 : 0)
-            TimelineView(.animation(paused: reduce || line != .dashed)) { tl in
+            TimelineView(.animation(paused: reduce || !visible || line != .dashed)) { tl in
                 let phase = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1) * 11
                 Rule().stroke(SeamStyle.teal, style: StrokeStyle(lineWidth: 2, dash: [7, 4], dashPhase: reduce ? 0 : -phase))
             }
             .opacity(line == .dashed ? 1 : 0)
             // Connecting: the dots travel along at the Tor dashes' pace (11 pt/s, one 7 pt period at a time)
-            TimelineView(.animation(paused: reduce || line != .dotted)) { tl in
+            TimelineView(.animation(paused: reduce || !visible || line != .dotted)) { tl in
                 let phase = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 7.0 / 11) * 11
                 Rule().stroke(SeamStyle.Pop.fg3, style: StrokeStyle(lineWidth: 2, dash: line == .dotted ? [2, 5] : [3, 5],
                                                                     dashPhase: line == .dotted && !reduce ? -phase : 0))
@@ -170,6 +171,7 @@ struct Stitch: View {
             .opacity(line == .broken || line == .dotted ? 1 : 0)
         }
         .frame(height: 2)
+        .background(OnScreen(visible: $visible))
         .animation(Motion.lineFade, value: line)
         .onAppear(perform: draw)
         .onChange(of: line) { if line == .solid { draw() } }
@@ -196,19 +198,21 @@ struct Stitch: View {
 struct StatusDot: View {
     let on: Bool
     @Environment(\.accessibilityReduceMotion) private var reduce
+    @State private var visible = true
 
     var body: some View {
         Circle().fill(on ? SeamStyle.live : SeamStyle.Pop.fg3)
             .frame(width: 7, height: 7)
             .background {
                 if on && !reduce {
-                    TimelineView(.animation) { tl in
+                    TimelineView(.animation(paused: !visible)) { tl in
                         let k = min(1, tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.4) / 2.4 / 0.7)
                         let eased = 1 - (1 - k) * (1 - k)
                         Circle().fill(SeamStyle.live).scaleEffect(1 + 1.8 * eased).opacity(0.6 * (1 - eased))
                     }
                 }
             }
+            .background(OnScreen(visible: $visible))
             .animation(Motion.ease(0.4), value: on)
             .accessibilityHidden(true)
     }
@@ -307,5 +311,41 @@ struct PhoneOutline: View {
             .frame(width: width, height: height)
             .overlay(alignment: .top) { Capsule().frame(width: width * 0.3, height: 1.2).padding(.top, 2) }
             .accessibilityHidden(true)
+    }
+}
+
+/// Whether this view's window is on screen. Looping animations pause when it isn't: the popover
+/// keeps its views alive while closed, and a frame-by-frame timeline there kept drawing unseen.
+struct OnScreen: NSViewRepresentable {
+    @Binding var visible: Bool
+
+    func makeNSView(context: Context) -> Watcher { Watcher { visible = $0 } }
+    func updateNSView(_ nsView: Watcher, context: Context) {}
+
+    final class Watcher: NSView {
+        let report: (Bool) -> Void
+
+        init(report: @escaping (Bool) -> Void) {
+            self.report = report
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { fatalError() }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            // Selector observers are dropped by the system when this view is freed
+            NotificationCenter.default.removeObserver(self)
+            if let window {
+                NotificationCenter.default.addObserver(self, selector: #selector(check),
+                                                       name: NSWindow.didChangeOcclusionStateNotification, object: window)
+            }
+            check()
+        }
+
+        @objc private func check() {
+            let now = window?.occlusionState.contains(.visible) ?? false
+            DispatchQueue.main.async { self.report(now) } // never set SwiftUI state mid-update
+        }
     }
 }
