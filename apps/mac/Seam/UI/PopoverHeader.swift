@@ -94,10 +94,11 @@ struct PopoverHeader: View {
 struct QueueBar: View {
     let count: Int
     @Environment(\.accessibilityReduceMotion) private var reduce
+    @State private var visible = true
 
     var body: some View {
         HStack(spacing: 8) {
-            TimelineView(.animation(paused: reduce)) { tl in
+            TimelineView(.animation(paused: reduce || !visible)) { tl in
                 Image(systemName: "clock").font(.system(size: 12))
                     .rotationEffect(.degrees(reduce ? 0 : tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 6) / 6 * 360))
             }
@@ -112,6 +113,7 @@ struct QueueBar: View {
         .background(RoundedRectangle(cornerRadius: 10).fill(SeamStyle.Pop.fill2))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
         .padding(EdgeInsets(top: 10, leading: 12, bottom: 0, trailing: 12))
+        .background(OnScreen(visible: $visible))
         .animation(Motion.settle, value: count)
         .accessibilityElement(children: .combine)
     }
