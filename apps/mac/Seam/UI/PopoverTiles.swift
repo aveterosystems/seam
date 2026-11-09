@@ -15,13 +15,14 @@ struct PopoverTiles: View {
     var body: some View {
         let sync = controller.clipboardSync
         let n = Looks.notificationsTile(controller.notifications.settings, showing: controller.notifications.shown.count)
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Tile(title: "Clipboard", subtitle: clipboardSubtitle(syncOn: sync, connected: controller.connected),
                  symbol: "doc.on.doc", tint: sync ? .on : .off, bounce: clipBounce) {
                 controller.setClipboardSync(!sync)
                 clipBounce += 1
             }
             .frame(maxWidth: .infinity)
+            .layoutPriority(1) // its title never truncates for the Notifications subtitle
             // The phone holds the setting, so until it has sent it the tile waits, and says so
             Tile(title: "Notifications", subtitle: n.subtitle, symbol: n.icon.symbol,
                  tint: n.mode == .on ? .on : n.mode == .paused ? .paused : .off,

@@ -61,7 +61,7 @@ struct Tile<Accessory: View>: View {
                 Spacer(minLength: 0)
             }
             .padding(9)
-            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 24) // the chevron (20 pt) and the gap before it
+            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 21) // the chevron (20 pt) and a hair before it
             .background(RoundedRectangle(cornerRadius: 12).fill(hovering ? SeamStyle.Pop.fill : SeamStyle.Pop.fill2))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
         }
@@ -105,13 +105,15 @@ struct BatteryPill: View {
     var body: some View {
         HStack(spacing: 3) {
             if look.charging { Image(systemName: "bolt.fill").foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
-            Text("\(look.percent)").monospacedDigit().contentTransition(.numericText(value: Double(look.percent)))
-            Text("%")
+            HStack(spacing: 0) {
+                Text("\(look.percent)").monospacedDigit().contentTransition(.numericText(value: Double(look.percent)))
+                Text("%")
+            }
         }
-        .font(.system(size: 11, weight: .semibold))
+        .font(.system(size: 11, weight: look.low ? .bold : .semibold))
         .padding(.horizontal, 8)
         .frame(height: 20)
-        .background(Capsule().fill(look.low ? SeamStyle.warn.opacity(0.18) : selected ? SeamStyle.teal.opacity(0.15) : SeamStyle.Pop.fill))
+        .background(Capsule().fill(look.low ? SeamStyle.warn.opacity(0.22) : selected ? SeamStyle.teal.opacity(0.15) : SeamStyle.Pop.fill))
         .foregroundStyle(look.low ? SeamStyle.warn : selected ? SeamStyle.tealInk : SeamStyle.Pop.fg2)
         .animation(Motion.ease(0.2), value: selected)
         .animation(Motion.css(0.35), value: look.charging)

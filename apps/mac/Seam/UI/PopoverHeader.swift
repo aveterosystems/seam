@@ -93,7 +93,8 @@ struct PopoverHeader: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10).padding(.vertical, 9)
             .background(RoundedRectangle(cornerRadius: 12).fill(SeamStyle.Pop.fill2))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
+            // Lit with the pill while it's the battery's: the two read as one control
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(power ? SeamStyle.teal.opacity(0.35) : SeamStyle.Pop.line, lineWidth: power ? 1 : 0.5))
             .padding(EdgeInsets(top: 0, leading: 14, bottom: 10, trailing: 14))
             .transition(.unfold(reduce))
     }
@@ -104,18 +105,20 @@ struct PopoverHeader: View {
     /// Connected, clicking the pill unfolds its power and time.
     private func batteryColumn(_ b: DeviceStatusLook, _ connected: Bool) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Button { power.toggle() } label: { BatteryPill(look: b, selected: power && connected) }
+            // Offline it can't open, but isn't disabled: that would fade a low battery's warning
+            Button { if connected { power.toggle() } } label: { BatteryPill(look: b, selected: power && connected) }
                 .buttonStyle(.plain)
-                .disabled(!connected)
-                .help(connected ? (b.power ?? "Battery details") : "")
-            // "Wi‑Fi · ☾", "Do Not Disturb ☾" when there's no network word, or "as of 14:02" offline
-            HStack(spacing: b.meta == nil ? 3 : 0) {
-                SwapText((b.meta ?? (b.dnd ? "Do Not Disturb" : "")) + (b.dnd && b.meta != nil ? " · " : ""))
-                if b.dnd { Image(systemName: "moon.fill").foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
+                .allowsHitTesting(connected)
+                .help([b.network.map { "Phone on \($0)" }, connected ? "Click for battery details" : nil].compactMap { $0 }.joined(separator: " · "))
+            // "Do Not Disturb ☾", or "as of 14:02" offline. The phone's network is in the pill's tooltip:
+            // here it read as the path, which the icon by "Connected" already shows
+            HStack(spacing: 3) {
+                SwapText(b.stale ? (b.meta ?? "") : b.dnd ? "Do Not Disturb" : "")
+                if b.dnd { Image(systemName: "moon.fill").font(.system(size: 9)).foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
             }
             .font(.system(size: 10.5))
             .foregroundStyle(SeamStyle.Pop.fg3)
-            .frame(height: b.dnd ? 17 : 13) // the prototype's moon makes its line taller
+            .frame(height: 13)
             .animation(Motion.spring, value: b.dnd)
         }
     }

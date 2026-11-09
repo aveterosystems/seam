@@ -110,7 +110,7 @@ struct SettingsView: View {
     }
 }
 
-private extension SettingsView.Pane {
+extension SettingsView.Pane { // the main window draws its entries with the same icons
     var symbol: String {
         switch self {
         case .general: "gearshape"

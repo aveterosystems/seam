@@ -16,10 +16,13 @@ struct MainWindow: View {
 
     var body: some View {
         SidebarWindow(title: pane == .notifications ? "Notifications" : "Clipboard") {
-            SidebarItem(title: "Notifications", symbol: "bell.badge", selected: pane == .notifications, count: controller.notifications.shown.count) {
-                pane = .notifications
-            }
-            SidebarItem(title: "Clipboard", symbol: "doc.on.clipboard", selected: pane == .clipboard) { pane = .clipboard }
+            // The same icon squares as Settings' entries for these features
+            SidebarItem(title: "Notifications", selected: pane == .notifications, count: controller.notifications.shown.count) {
+                TintedIcon(symbol: SettingsView.Pane.notifications.symbol, color: SettingsView.Pane.notifications.color, size: 20)
+            } action: { pane = .notifications }
+            SidebarItem(title: "Clipboard", selected: pane == .clipboard) {
+                TintedIcon(symbol: SettingsView.Pane.clipboard.symbol, color: SettingsView.Pane.clipboard.color, size: 20)
+            } action: { pane = .clipboard }
             Spacer()
             if let phone = controller.phone { phoneCard(phone) }
         } toolbar: {
@@ -69,9 +72,9 @@ struct MainWindow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "iphone").foregroundStyle(SeamStyle.teal)
-                Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 12, weight: .semibold)).lineLimit(1).layoutPriority(-1)
                 Spacer(minLength: 0)
-                if let s = controller.status.status.flatMap({ Looks.phone($0, link: controller.link, at: controller.status.statusAt) }) { BatteryPill(look: s) }
+                if let s = controller.status.status.flatMap({ Looks.phone($0, link: controller.link, at: controller.status.statusAt) }) { BatteryPill(look: s).fixedSize() }
             }
             Stitch(line: controller.link.line)
             LinkStatus(look: controller.link)
@@ -123,7 +126,7 @@ private struct NotificationsPane: View {
                 ? "Notifications you clear here stay on your phone."
                 : "Notifications you clear here are also cleared on your phone.")
                 .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14)
         }
     }
 
@@ -173,8 +176,11 @@ private struct NotificationRow: View {
                     TextField("Reply", text: $reply)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(send)
-                    Button("Send", action: send).buttonStyle(.bordered).buttonBorderShape(.capsule)
-                        .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    // Only once there's something to send: a dead button read as broken
+                    if !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button("Send", action: send).buttonStyle(.bordered).buttonBorderShape(.capsule)
+                            .transition(.opacity)
+                    }
                 }
                 ForEach(n.buttons, id: \.id) { b in
                     Button(b.title) { controller.notifications.send(.with { $0.key = n.key; $0.buttonID = b.id }) }
@@ -182,6 +188,7 @@ private struct NotificationRow: View {
                 }
                 if !n.canReply { Spacer(minLength: 0) }
             }
+            .animation(Motion.ease(0.2), value: reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .padding(EdgeInsets(top: 0, leading: 14, bottom: 10, trailing: 14))
         }
     }
@@ -219,7 +226,7 @@ private struct ClipboardPane: View {
                             .accessibilityLabel(clip.fromPhone ? "From your phone" : "From this Mac")
                     }) {
                         HStack(spacing: 8) {
-                            Text(clip.at, style: .relative).font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
+                            Text(clip.at, format: .relative(presentation: .named, unitsStyle: .abbreviated)).font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
                             if let url = clip.openableURL {
                                 Button("Open") { NSWorkspace.shared.open(url) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
                             }
@@ -231,7 +238,7 @@ private struct ClipboardPane: View {
         }
         Text("Kept in memory for a day, and gone when Seam quits. Passwords and anything apps mark as private are never synced.")
             .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14)
     }
 
     /// A clip can be 200 KB: the row shows enough to recognise it, on one or two lines.
