@@ -18,6 +18,9 @@ pub trait Battery: Send + Sync {
 pub enum Command {
     /// This computer's battery changed.
     BatteryChanged,
+    /// The phone's battery details are open: ask it for a fresh reading. Only while connected, so
+    /// it never wakes the phone or waits in the queue.
+    AskPhone,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +58,13 @@ impl Status {
     pub fn command(&mut self, command: Command, host: &mut dyn Host) {
         match command {
             Command::BatteryChanged => self.own_changed(host),
+            Command::AskPhone => {
+                if host.reach() == Reach::Connected {
+                    host.send(Payload {
+                        body: Some(Body::StatusRequest(v1::StatusRequest {})),
+                    });
+                }
+            }
         }
     }
 

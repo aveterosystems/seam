@@ -54,3 +54,14 @@ fn until_names_the_day() {
     );
     assert_eq!(until(None, NOW, &Utc), None);
 }
+
+#[test]
+fn power_and_battery_times_read_short() {
+    assert_eq!(watts(1_234), "1.2 W");
+    assert_eq!(watts(6_000), "6 W");
+    assert_eq!(watts(18_400), "18 W");
+    assert_eq!(duration(42), "42 min");
+    assert_eq!(duration(65), "1 hr 5 min");
+    assert_eq!(duration(420), "7 hr");
+    assert_eq!(duration(12 * 60 + 40), "13 hr");
+}

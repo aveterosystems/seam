@@ -219,6 +219,8 @@ pub enum FeatureCommand {
         key: String,
     },
     BatteryChanged,
+    /// The phone's battery details are open: ask it for a fresh reading (only while connected).
+    AskPhoneStatus,
 }
 
 /// Seam on this computer. Commands return at once; what they change arrives as a snapshot.
@@ -323,6 +325,7 @@ fn feature_command(c: FeatureCommand) -> Option<seam_computer::features::Command
             C::Notifications(notifications::Command::Dismiss(key))
         }
         FeatureCommand::BatteryChanged => C::Status(status::Command::BatteryChanged),
+        FeatureCommand::AskPhoneStatus => C::Status(status::Command::AskPhone),
     })
 }
 

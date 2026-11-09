@@ -30,35 +30,50 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 /// What actually gets encrypted. Every routing field is repeated here and must match the
 /// envelope, or the receiver drops the message: this binds the plaintext envelope to the
 /// ciphertext, so a relay can't re-address, re-time or re-route it.
-public nonisolated struct Seam_V1_Inner: Sendable {
+public nonisolated struct Seam_V1_Inner: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  public var msgID: Data = Data()
+  public var msgID: Data {
+    get {_storage._msgID}
+    set {_uniqueStorage()._msgID = newValue}
+  }
 
-  public var sentAt: Int64 = 0
+  public var sentAt: Int64 {
+    get {_storage._sentAt}
+    set {_uniqueStorage()._sentAt = newValue}
+  }
 
   public var payload: Seam_V1_Payload {
-    get {_payload ?? Seam_V1_Payload()}
-    set {_payload = newValue}
+    get {_storage._payload ?? Seam_V1_Payload()}
+    set {_uniqueStorage()._payload = newValue}
   }
   /// Returns true if `payload` has been explicitly set.
-  public var hasPayload: Bool {self._payload != nil}
+  public var hasPayload: Bool {_storage._payload != nil}
   /// Clears the value of `payload`. Subsequent reads from it will return its default value.
-  public mutating func clearPayload() {self._payload = nil}
+  public mutating func clearPayload() {_uniqueStorage()._payload = nil}
 
-  public var from: Data = Data()
+  public var from: Data {
+    get {_storage._from}
+    set {_uniqueStorage()._from = newValue}
+  }
 
-  public var to: Data = Data()
+  public var to: Data {
+    get {_storage._to}
+    set {_uniqueStorage()._to = newValue}
+  }
 
-  public var ttlS: UInt32 = 0
+  public var ttlS: UInt32 {
+    get {_storage._ttlS}
+    set {_uniqueStorage()._ttlS = newValue}
+  }
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
-  fileprivate var _payload: Seam_V1_Payload? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 /// One case per feature message. Each feature owns a block of ten numbers; a new feature takes
@@ -236,56 +251,102 @@ nonisolated extension Seam_V1_Inner: SwiftProtobuf.Message, SwiftProtobuf._Messa
   public static let protoMessageName: String = _protobuf_package + ".Inner"
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}msg_id\0\u{3}sent_at\0\u{1}payload\0\u{1}from\0\u{1}to\0\u{3}ttl_s\0")
 
+  fileprivate class _StorageClass {
+    var _msgID: Data = Data()
+    var _sentAt: Int64 = 0
+    var _payload: Seam_V1_Payload? = nil
+    var _from: Data = Data()
+    var _to: Data = Data()
+    var _ttlS: UInt32 = 0
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _msgID = source._msgID
+      _sentAt = source._sentAt
+      _payload = source._payload
+      _from = source._from
+      _to = source._to
+      _ttlS = source._ttlS
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularBytesField(value: &self.msgID) }()
-      case 2: try { try decoder.decodeSingularInt64Field(value: &self.sentAt) }()
-      case 3: try { try decoder.decodeSingularMessageField(value: &self._payload) }()
-      case 4: try { try decoder.decodeSingularBytesField(value: &self.from) }()
-      case 5: try { try decoder.decodeSingularBytesField(value: &self.to) }()
-      case 6: try { try decoder.decodeSingularUInt32Field(value: &self.ttlS) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularBytesField(value: &_storage._msgID) }()
+        case 2: try { try decoder.decodeSingularInt64Field(value: &_storage._sentAt) }()
+        case 3: try { try decoder.decodeSingularMessageField(value: &_storage._payload) }()
+        case 4: try { try decoder.decodeSingularBytesField(value: &_storage._from) }()
+        case 5: try { try decoder.decodeSingularBytesField(value: &_storage._to) }()
+        case 6: try { try decoder.decodeSingularUInt32Field(value: &_storage._ttlS) }()
+        default: break
+        }
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if !self.msgID.isEmpty {
-      try visitor.visitSingularBytesField(value: self.msgID, fieldNumber: 1)
-    }
-    if self.sentAt != 0 {
-      try visitor.visitSingularInt64Field(value: self.sentAt, fieldNumber: 2)
-    }
-    try { if let v = self._payload {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    } }()
-    if !self.from.isEmpty {
-      try visitor.visitSingularBytesField(value: self.from, fieldNumber: 4)
-    }
-    if !self.to.isEmpty {
-      try visitor.visitSingularBytesField(value: self.to, fieldNumber: 5)
-    }
-    if self.ttlS != 0 {
-      try visitor.visitSingularUInt32Field(value: self.ttlS, fieldNumber: 6)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if !_storage._msgID.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._msgID, fieldNumber: 1)
+      }
+      if _storage._sentAt != 0 {
+        try visitor.visitSingularInt64Field(value: _storage._sentAt, fieldNumber: 2)
+      }
+      try { if let v = _storage._payload {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+      } }()
+      if !_storage._from.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._from, fieldNumber: 4)
+      }
+      if !_storage._to.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._to, fieldNumber: 5)
+      }
+      if _storage._ttlS != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._ttlS, fieldNumber: 6)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Seam_V1_Inner, rhs: Seam_V1_Inner) -> Bool {
-    if lhs.msgID != rhs.msgID {return false}
-    if lhs.sentAt != rhs.sentAt {return false}
-    if lhs._payload != rhs._payload {return false}
-    if lhs.from != rhs.from {return false}
-    if lhs.to != rhs.to {return false}
-    if lhs.ttlS != rhs.ttlS {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._msgID != rhs_storage._msgID {return false}
+        if _storage._sentAt != rhs_storage._sentAt {return false}
+        if _storage._payload != rhs_storage._payload {return false}
+        if _storage._from != rhs_storage._from {return false}
+        if _storage._to != rhs_storage._to {return false}
+        if _storage._ttlS != rhs_storage._ttlS {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

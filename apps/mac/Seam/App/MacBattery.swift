@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Foundation
+import IOKit
 import IOKit.ps
 import SeamCore
 import SeamProtocol
 
-/// This Mac's status for the phone: its battery (or none, on a Mac without one), free storage, CPU
-/// and memory. Read when it's sent: on connect, when the battery changes, and when the phone asks.
+/// This Mac's status for the phone: its battery (or none, on a Mac without one) with its power and
+/// time left or to full, free storage, CPU and memory. Read when it's sent: on connect, when the battery changes, and when the phone asks.
 enum MacBattery {
     @Sendable static func read() -> Seam_V1_Status {
         var s = battery() ?? .with { $0.noBattery = true }
@@ -46,9 +47,26 @@ enum MacBattery {
             return .with {
                 $0.batteryPct = UInt32(min(100, Swift.max(0, level * 100 / max)))
                 $0.charging = d[kIOPSIsChargingKey] as? Bool ?? false || d[kIOPSPowerSourceStateKey] as? String == kIOPSACPowerValue && level >= max
+                if let mw = powerMw() { $0.powerMw = mw }
+                // macOS's own estimates, in minutes: -1 while it's working them out, 0 when there's none
+                if let full = d[kIOPSTimeToFullChargeKey] as? Int, full > 0 { $0.minutesToFull = UInt32(full) }
+                if let left = d[kIOPSTimeToEmptyKey] as? Int, left > 0 { $0.minutesLeft = UInt32(left) }
             }
         }
         return nil
+    }
+
+    /// The battery's power from its controller: amperage (mA, negative while draining) times voltage
+    /// (mV). The power source's own "Current" is always 0. None at 0 A (full on the adapter).
+    private static func powerMw() -> UInt32? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+        guard service != 0 else { return nil }
+        defer { IOObjectRelease(service) }
+        func int(_ key: String) -> Int? {
+            IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Int
+        }
+        guard let mA = int("Amperage"), let mV = int("Voltage"), mA != 0, mV > 0 else { return nil }
+        return UInt32(clamping: abs(mA) * mV / 1000)
     }
 
     /// Calls `changed` on the main run loop whenever the power source changes; keep the source.

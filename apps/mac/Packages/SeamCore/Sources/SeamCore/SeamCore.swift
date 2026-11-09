@@ -5783,6 +5783,10 @@ public struct DeviceStatusLook: Equatable, Hashable {
     public var battery: String?
     public var batteryIcon: LookIcon?
     public var batteryDetail: String?
+    /**
+     * "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
+     */
+    public var power: String?
     public var network: String?
     public var networkIcon: LookIcon?
     public var storage: String?
@@ -5797,13 +5801,17 @@ public struct DeviceStatusLook: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(percent: UInt32, charging: Bool, low: Bool, battery: String?, batteryIcon: LookIcon?, batteryDetail: String?, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, cpu: String?, memory: String?, memoryDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
+    public init(percent: UInt32, charging: Bool, low: Bool, battery: String?, batteryIcon: LookIcon?, batteryDetail: String?, 
+        /**
+         * "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
+         */power: String?, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, cpu: String?, memory: String?, memoryDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
         self.percent = percent
         self.charging = charging
         self.low = low
         self.battery = battery
         self.batteryIcon = batteryIcon
         self.batteryDetail = batteryDetail
+        self.power = power
         self.network = network
         self.networkIcon = networkIcon
         self.storage = storage
@@ -5839,6 +5847,7 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
                 battery: FfiConverterOptionString.read(from: &buf), 
                 batteryIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
                 batteryDetail: FfiConverterOptionString.read(from: &buf), 
+                power: FfiConverterOptionString.read(from: &buf), 
                 network: FfiConverterOptionString.read(from: &buf), 
                 networkIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
                 storage: FfiConverterOptionString.read(from: &buf), 
@@ -5860,6 +5869,7 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.battery, into: &buf)
         FfiConverterOptionTypeLookIcon.write(value.batteryIcon, into: &buf)
         FfiConverterOptionString.write(value.batteryDetail, into: &buf)
+        FfiConverterOptionString.write(value.power, into: &buf)
         FfiConverterOptionString.write(value.network, into: &buf)
         FfiConverterOptionTypeLookIcon.write(value.networkIcon, into: &buf)
         FfiConverterOptionString.write(value.storage, into: &buf)
@@ -7491,6 +7501,10 @@ public enum FeatureCommand: Equatable, Hashable {
     case dismissNotification(key: String
     )
     case batteryChanged
+    /**
+     * The phone's battery details are open: ask it for a fresh reading (only while connected).
+     */
+    case askPhoneStatus
 
 
 
@@ -7531,6 +7545,8 @@ public struct FfiConverterTypeFeatureCommand: FfiConverterRustBuffer {
         
         case 7: return .batteryChanged
         
+        case 8: return .askPhoneStatus
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -7570,6 +7586,10 @@ public struct FfiConverterTypeFeatureCommand: FfiConverterRustBuffer {
         
         case .batteryChanged:
             writeInt(&buf, Int32(7))
+        
+        
+        case .askPhoneStatus:
+            writeInt(&buf, Int32(8))
         
         }
     }

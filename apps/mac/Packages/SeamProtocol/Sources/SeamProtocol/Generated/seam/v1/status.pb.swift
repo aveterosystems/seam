@@ -24,7 +24,8 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 
 /// Each device's status for the other's screen. The phone sends battery, network, dnd and storage;
 /// the computer sends battery (or no_battery), storage, CPU and memory: when the phone connects,
-/// when its battery changes, and in answer to a StatusRequest.
+/// when its battery changes, and in answer to a StatusRequest. Power and times ride along: they
+/// never send by themselves.
 public nonisolated struct Seam_V1_Status: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -66,15 +67,49 @@ public nonisolated struct Seam_V1_Status: Sendable {
   /// a computer without a battery (battery_pct and charging mean nothing)
   public var noBattery: Bool = false
 
+  /// The battery's power right now, in milliwatts: into it while charging, out of it otherwise.
+  /// Unset when the device can't read it (or is older).
+  public var powerMw: UInt32 {
+    get {_powerMw ?? 0}
+    set {_powerMw = newValue}
+  }
+  /// Returns true if `powerMw` has been explicitly set.
+  public var hasPowerMw: Bool {self._powerMw != nil}
+  /// Clears the value of `powerMw`. Subsequent reads from it will return its default value.
+  public mutating func clearPowerMw() {self._powerMw = nil}
+
+  /// while charging; unset when not known yet
+  public var minutesToFull: UInt32 {
+    get {_minutesToFull ?? 0}
+    set {_minutesToFull = newValue}
+  }
+  /// Returns true if `minutesToFull` has been explicitly set.
+  public var hasMinutesToFull: Bool {self._minutesToFull != nil}
+  /// Clears the value of `minutesToFull`. Subsequent reads from it will return its default value.
+  public mutating func clearMinutesToFull() {self._minutesToFull = nil}
+
+  /// on battery, an estimate; unset when not known yet
+  public var minutesLeft: UInt32 {
+    get {_minutesLeft ?? 0}
+    set {_minutesLeft = newValue}
+  }
+  /// Returns true if `minutesLeft` has been explicitly set.
+  public var hasMinutesLeft: Bool {self._minutesLeft != nil}
+  /// Clears the value of `minutesLeft`. Subsequent reads from it will return its default value.
+  public mutating func clearMinutesLeft() {self._minutesLeft = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _cpuPct: UInt32? = nil
+  fileprivate var _powerMw: UInt32? = nil
+  fileprivate var _minutesToFull: UInt32? = nil
+  fileprivate var _minutesLeft: UInt32? = nil
 }
 
-/// The phone asks for the computer's status now: its sheet of the computer's resources is open.
-/// An older computer ignores it.
+/// Either device asks for the other's status now: its sheet of the other's resources, or its
+/// battery details, are open. An older device ignores it.
 public nonisolated struct Seam_V1_StatusRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -91,7 +126,7 @@ fileprivate nonisolated let _protobuf_package = "seam.v1"
 
 nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Status"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}battery_pct\0\u{1}charging\0\u{1}network\0\u{3}signal_bars\0\u{1}dnd\0\u{3}storage_free_bytes\0\u{3}storage_total_bytes\0\u{3}cpu_pct\0\u{3}memory_used_bytes\0\u{3}memory_total_bytes\0\u{3}no_battery\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}battery_pct\0\u{1}charging\0\u{1}network\0\u{3}signal_bars\0\u{1}dnd\0\u{3}storage_free_bytes\0\u{3}storage_total_bytes\0\u{3}cpu_pct\0\u{3}memory_used_bytes\0\u{3}memory_total_bytes\0\u{3}no_battery\0\u{3}power_mw\0\u{3}minutes_to_full\0\u{3}minutes_left\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -110,6 +145,9 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
       case 9: try { try decoder.decodeSingularUInt64Field(value: &self.memoryUsedBytes) }()
       case 10: try { try decoder.decodeSingularUInt64Field(value: &self.memoryTotalBytes) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.noBattery) }()
+      case 12: try { try decoder.decodeSingularUInt32Field(value: &self._powerMw) }()
+      case 13: try { try decoder.decodeSingularUInt32Field(value: &self._minutesToFull) }()
+      case 14: try { try decoder.decodeSingularUInt32Field(value: &self._minutesLeft) }()
       default: break
       }
     }
@@ -153,6 +191,15 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if self.noBattery != false {
       try visitor.visitSingularBoolField(value: self.noBattery, fieldNumber: 11)
     }
+    try { if let v = self._powerMw {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 12)
+    } }()
+    try { if let v = self._minutesToFull {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 13)
+    } }()
+    try { if let v = self._minutesLeft {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 14)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -168,6 +215,9 @@ nonisolated extension Seam_V1_Status: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if lhs.memoryUsedBytes != rhs.memoryUsedBytes {return false}
     if lhs.memoryTotalBytes != rhs.memoryTotalBytes {return false}
     if lhs.noBattery != rhs.noBattery {return false}
+    if lhs._powerMw != rhs._powerMw {return false}
+    if lhs._minutesToFull != rhs._minutesToFull {return false}
+    if lhs._minutesLeft != rhs._minutesLeft {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

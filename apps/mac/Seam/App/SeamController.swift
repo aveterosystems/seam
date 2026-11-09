@@ -265,6 +265,13 @@ final class SeamController {
         computer?.cancelPairing()
     }
 
+    // MARK: Status
+
+    /// The phone's battery details are open: ask it for a fresh reading (only while connected).
+    func askPhoneStatus() {
+        computer?.feature(command: .askPhoneStatus)
+    }
+
     // MARK: Clipboard
 
     func setClipboardSync(_ on: Bool) {

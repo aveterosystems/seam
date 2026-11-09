@@ -168,3 +168,63 @@ fn a_computer_sends_cpu_and_memory_and_may_have_no_battery() {
         "a phone sends no CPU"
     );
 }
+
+#[test]
+fn power_says_the_rate_and_the_time_either_way() {
+    let charging = on(&status(|s| {
+        s.battery_pct = 60;
+        s.charging = true;
+        s.power_mw = Some(18_400);
+        s.minutes_to_full = Some(42);
+        s.minutes_left = Some(300);
+    }));
+    assert_eq!(
+        charging.power.as_deref(),
+        Some("Charging at 18 W · full in 42 min")
+    );
+    let draining = on(&status(|s| {
+        s.battery_pct = 60;
+        s.power_mw = Some(1_234);
+        s.minutes_to_full = Some(42);
+        s.minutes_left = Some(420);
+    }));
+    assert_eq!(
+        draining.power.as_deref(),
+        Some("Using 1.2 W · about 7 hr left")
+    );
+    let time_only = on(&status(|s| s.minutes_left = Some(65)));
+    assert_eq!(time_only.power.as_deref(), Some("About 1 hr 5 min left"));
+    let rate_only = on(&status(|s| {
+        s.charging = true;
+        s.power_mw = Some(6_000)
+    }));
+    assert_eq!(rate_only.power.as_deref(), Some("Charging at 6 W"));
+}
+
+#[test]
+fn power_shows_nothing_old_absent_or_nonsense() {
+    assert_eq!(
+        on(&status(|s| s.battery_pct = 60)).power,
+        None,
+        "an older device"
+    );
+    let s = status(|s| {
+        s.power_mw = Some(5_000);
+        s.minutes_left = Some(60)
+    });
+    assert_eq!(
+        look(&s, false, Some(NOW), false, &Utc).power,
+        None,
+        "an old reading says nothing about now"
+    );
+    let no_battery = status(|s| {
+        s.no_battery = true;
+        s.power_mw = Some(5_000)
+    });
+    assert_eq!(on(&no_battery).power, None);
+    let nonsense = status(|s| {
+        s.power_mw = Some(9_000_000);
+        s.minutes_left = Some(0)
+    });
+    assert_eq!(on(&nonsense).power, None);
+}

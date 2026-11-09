@@ -17,6 +17,9 @@ pub struct DeviceStatusLook {
     pub battery_icon: Option<Icon>,
     /// In full, for a tooltip: "82%, charging".
     pub battery_detail: Option<String>,
+    /// The battery's power and time, only while connected: "Charging at 18 W · full in 42 min",
+    /// "Using 1.2 W · about 7 hr left". None when the device sent neither.
+    pub power: Option<String>,
     /// "Wi‑Fi" or "Mobile data", only while connected (never a network's name), and not on
     /// Same Wi‑Fi, where the path's icon already says it.
     pub network: Option<String>,
@@ -93,6 +96,9 @@ pub fn look(
     } else {
         (None, None, None)
     };
+    let power = (connected && has_battery)
+        .then(|| power_words(s, charging))
+        .flatten();
     let meta = if connected {
         network.clone()
     } else {
@@ -110,6 +116,7 @@ pub fn look(
         battery: has_battery.then(|| format!("{percent}%")),
         battery_icon: has_battery.then(|| Icon::battery(percent, charging)),
         battery_detail: has_battery.then(|| format!("{percent}%{charging_words}")),
+        power,
         network,
         network_icon,
         storage,
@@ -122,6 +129,49 @@ pub fn look(
         meta,
         spoken: spoken.into_iter().flatten().collect::<Vec<_>>().join(", "),
     }
+}
+
+/// Nonsense from a device that misreads its battery shows as nothing: no battery here takes
+/// 500 W, and no estimate runs past 4 days.
+const MAX_MW: u32 = 500_000;
+const MAX_MINUTES: u32 = 4 * 24 * 60;
+
+fn power_words(s: &Status, charging: bool) -> Option<String> {
+    let watts = s
+        .power_mw
+        .filter(|&mw| (100..=MAX_MW).contains(&mw))
+        .map(words::watts);
+    let minutes = if charging {
+        s.minutes_to_full
+    } else {
+        s.minutes_left
+    }
+    .filter(|&m| (1..=MAX_MINUTES).contains(&m))
+    .map(words::duration);
+    let (rate, time) = if charging {
+        (
+            watts.map(|w| format!("Charging at {w}")),
+            minutes.map(|m| format!("full in {m}")),
+        )
+    } else {
+        (
+            watts.map(|w| format!("Using {w}")),
+            minutes.map(|m| format!("about {m} left")),
+        )
+    };
+    match (rate, time) {
+        (Some(r), Some(t)) => Some(format!("{r} · {t}")),
+        (Some(r), None) => Some(r),
+        (None, Some(t)) => Some(capitalised(&t)),
+        (None, None) => None,
+    }
+}
+
+fn capitalised(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

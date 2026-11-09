@@ -35,6 +35,9 @@ enum Demo {
             $0.dnd = mode == "online"
             $0.storageFreeBytes = 112_000_000_000
             $0.storageTotalBytes = 256_000_000_000
+            // Charging online, on battery elsewhere: the battery details read both ways
+            $0.powerMw = mode == "online" ? 18_400 : 1_234
+            if mode == "online" { $0.minutesToFull = 42 } else { $0.minutesLeft = mode == "low" ? 65 : 420 }
         }
         let settings = Seam_V1_NotificationSettings.with { s in
             s.enabled = true

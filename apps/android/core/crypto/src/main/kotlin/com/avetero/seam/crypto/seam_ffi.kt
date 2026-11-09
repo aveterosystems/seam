@@ -6731,6 +6731,11 @@ data class DeviceStatusLook (
     , 
     var `batteryDetail`: kotlin.String?
     , 
+    /**
+     * "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
+     */
+    var `power`: kotlin.String?
+    , 
     var `network`: kotlin.String?
     , 
     var `networkIcon`: LookIcon?
@@ -6775,6 +6780,7 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalTypeLookIcon.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
             FfiConverterOptionalTypeLookIcon.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
@@ -6795,6 +6801,7 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalString.allocationSize(value.`battery`) +
             FfiConverterOptionalTypeLookIcon.allocationSize(value.`batteryIcon`) +
             FfiConverterOptionalString.allocationSize(value.`batteryDetail`) +
+            FfiConverterOptionalString.allocationSize(value.`power`) +
             FfiConverterOptionalString.allocationSize(value.`network`) +
             FfiConverterOptionalTypeLookIcon.allocationSize(value.`networkIcon`) +
             FfiConverterOptionalString.allocationSize(value.`storage`) +
@@ -6815,6 +6822,7 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalString.write(value.`battery`, buf)
             FfiConverterOptionalTypeLookIcon.write(value.`batteryIcon`, buf)
             FfiConverterOptionalString.write(value.`batteryDetail`, buf)
+            FfiConverterOptionalString.write(value.`power`, buf)
             FfiConverterOptionalString.write(value.`network`, buf)
             FfiConverterOptionalTypeLookIcon.write(value.`networkIcon`, buf)
             FfiConverterOptionalString.write(value.`storage`, buf)

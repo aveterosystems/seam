@@ -111,3 +111,19 @@ fn the_phone_asking_gets_a_fresh_reading_but_only_while_connected() {
     );
     assert_eq!(host.sent.len(), before);
 }
+
+#[test]
+fn asking_the_phone_goes_only_while_connected() {
+    let mut s = Status::new(Arc::new(Power::default()));
+    let mut host = FakeHost {
+        reach: Reach::Away,
+        ..Default::default()
+    };
+    s.command(Command::AskPhone, &mut host);
+    host.reach = Reach::Off;
+    s.command(Command::AskPhone, &mut host);
+    assert!(host.sent.is_empty(), "never wakes or queues for the phone");
+    host.reach = Reach::Connected;
+    s.command(Command::AskPhone, &mut host);
+    assert!(matches!(host.bodies().as_slice(), [Body::StatusRequest(_)]));
+}

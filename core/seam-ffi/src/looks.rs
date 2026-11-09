@@ -259,6 +259,8 @@ pub struct DeviceStatusLook {
     pub battery: Option<String>,
     pub battery_icon: Option<LookIcon>,
     pub battery_detail: Option<String>,
+    /// "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
+    pub power: Option<String>,
     pub network: Option<String>,
     pub network_icon: Option<LookIcon>,
     pub storage: Option<String>,
@@ -290,6 +292,7 @@ pub fn device_status_look(
         battery: l.battery,
         battery_icon: l.battery_icon.map(Into::into),
         battery_detail: l.battery_detail,
+        power: l.power,
         network: l.network,
         network_icon: l.network_icon.map(Into::into),
         storage: l.storage,

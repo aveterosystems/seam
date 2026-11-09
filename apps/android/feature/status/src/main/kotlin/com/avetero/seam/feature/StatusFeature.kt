@@ -24,17 +24,20 @@ import com.avetero.seam.session.SessionApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.Executors
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** The Mac's status as it last sent it (battery, storage, CPU, memory), and when (ms). The shared looks read it. */
 data class MacStatus(val status: Status, val at: Long)
 
 /**
  * Sends the phone's battery, whether it's on Wi‑Fi or mobile data, Do Not Disturb and free storage
- * to the Mac: on connect, and when any changes. Storage rides along; it never sends by itself. Keeps the Mac's status when the Mac sends it, and asks for a fresh one while its sheet is open.
+ * to the Mac: on connect, when any changes, and when the Mac asks (its battery details are open). Storage, the battery's power
+ * and its times ride along; they never send by themselves. Keeps the Mac's status when the Mac sends it, and asks for a fresh one while its sheet is open.
  * The Wi‑Fi's name isn't sent: Android only gives it to apps with location access.
  */
 class StatusFeature(context: Context) : Feature {
-    override val handles = setOf(Payload.BodyCase.STATUS)
+    override val handles = setOf(Payload.BodyCase.STATUS, Payload.BodyCase.STATUS_REQUEST)
 
     private val _mac = MutableStateFlow<MacStatus?>(null)
     val mac: StateFlow<MacStatus?> = _mac
@@ -48,6 +51,8 @@ class StatusFeature(context: Context) : Feature {
     private val main = Handler(Looper.getMainLooper())
     private val connectivity = app.getSystemService(ConnectivityManager::class.java)
     private val notificationManager = app.getSystemService(NotificationManager::class.java)
+    private val batteryManager = app.getSystemService(BatteryManager::class.java)
+    private val drain = Drain()
 
     // Storage, as the phone's own Settings shows it (256 GB, free including cache it can clear).
     // Asking can take seconds, so it's read off the main thread at most once a minute, and the
@@ -107,7 +112,7 @@ class StatusFeature(context: Context) : Feature {
     }
 
     override fun receive(payload: Payload, fromPeer: String) {
-        _mac.value = MacStatus(payload.status, System.currentTimeMillis())
+        if (payload.hasStatusRequest()) main.post { update(force = true) } else _mac.value = MacStatus(payload.status, System.currentTimeMillis())
     }
 
     /** The sheet of the Mac's resources is open: ask for a fresh reading. An older Mac ignores it. */
@@ -146,15 +151,22 @@ class StatusFeature(context: Context) : Feature {
             network = network(),
             dnd = dnd(),
         )
+        // Every level change comes through here, connected or not, so the drain rate is measured all along
+        val left = drain.minutesLeft(SystemClock.elapsedRealtime(), now.pct, now.charging)
         if (!force && lastSent == now) return
         val s = session ?: return
         lastSent = now
-        s.send(
-            Payload.newBuilder().setStatus(
-                Status.newBuilder().setBatteryPct(now.pct).setCharging(now.charging).setNetwork(now.network).setDnd(now.dnd)
-                    .setStorageFreeBytes(storage.first).setStorageTotalBytes(storage.second),
-            ).build(),
-        )
+        val status = Status.newBuilder().setBatteryPct(now.pct).setCharging(now.charging).setNetwork(now.network).setDnd(now.dnd)
+            .setStorageFreeBytes(storage.first).setStorageTotalBytes(storage.second)
+        powerMw(batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW), intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1))
+            ?.let { status.setPowerMw(it) }
+        if (now.charging) {
+            // -1 while Android is still working it out, 0 when full
+            batteryManager.computeChargeTimeRemaining().takeIf { it > 0 }?.let { status.setMinutesToFull(((it + 59_999) / 60_000).toInt()) }
+        } else {
+            left?.let { status.setMinutesLeft(it) }
+        }
+        s.send(Payload.newBuilder().setStatus(status).build())
     }
 }
 
@@ -162,3 +174,37 @@ private const val STEP = 100_000_000L
 
 /** Free space to the nearest 100 MB: precise enough to show, and battery ticks don't resend it. */
 internal fun roundedFree(bytes: Long) = (bytes + STEP / 2) / STEP * STEP
+
+/**
+ * The battery's power in mW from Android's current (µA) and voltage (mV), or null when the phone doesn't say. Makers
+ * disagree on the current's sign and some report mA: under 10 000 is read as mA, since no phone running Seam draws
+ * under 10 mA.
+ */
+internal fun powerMw(current: Int, voltageMv: Int): Int? {
+    if (current == Int.MIN_VALUE || current == 0 || voltageMv <= 0) return null
+    val microAmps = abs(current.toLong()).let { if (it < 10_000) it * 1000 else it }
+    return (microAmps * voltageMv / 1_000_000).toInt().takeIf { it > 0 }
+}
+
+/**
+ * Time left on battery, from how fast the level has fallen since it was unplugged (or since Seam started): Android
+ * keeps its own estimate from apps. Nothing until it has fallen 3 points, so a single tick isn't taken for a rate.
+ */
+internal class Drain {
+    private var from: Pair<Long, Int>? = null // (elapsed ms, level) when it went on battery
+
+    fun minutesLeft(nowMs: Long, pct: Int, charging: Boolean): Int? {
+        if (charging) {
+            from = null
+            return null
+        }
+        val (t0, p0) = from ?: (nowMs to pct).also { from = it }
+        if (pct > p0) { // it rose without charging being seen: start again
+            from = nowMs to pct
+            return null
+        }
+        val fallen = p0 - pct
+        if (fallen < 3) return null
+        return (pct * (nowMs - t0) / 60_000.0 / fallen).roundToInt()
+    }
+}
