@@ -4,7 +4,7 @@ import SeamSession
 import SwiftUI
 
 /// The popover's two tiles: Clipboard and Notifications, each with its state in words. The
-/// Notifications tile's ▾ holds what used to be on right-click: pause, resume, off, settings.
+/// Notifications tile's chevron holds what used to be on right-click: pause, resume, off, settings.
 struct PopoverTiles: View {
     let controller: SeamController
     let openSettings: (SettingsView.Pane?) -> Void
@@ -34,7 +34,7 @@ struct PopoverTiles: View {
             // Sized to its words, like the prototype's grid: Clipboard takes what's left
             .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(EdgeInsets(top: 12, leading: 12, bottom: 6, trailing: 12))
+        .padding(EdgeInsets(top: 10, leading: 14, bottom: 6, trailing: 14))
     }
 
     private func toggle(_ mode: NotificationsTileMode) {
@@ -74,13 +74,14 @@ struct PopoverTiles: View {
             }
             Button("Notification settings") { openSettings(.notifications) }
         } label: {
-            Text("▾").font(.system(size: 10))
+            Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .frame(width: 14)
-        .foregroundStyle(SeamStyle.Pop.fg3)
+        .frame(width: 20, height: 20)
+        .contentShape(Rectangle())
+        .foregroundStyle(SeamStyle.Pop.fg2)
         .help("Pause, turn off, or open notification settings")
         .accessibilityLabel("Notification options")
     }

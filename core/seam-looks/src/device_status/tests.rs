@@ -182,6 +182,15 @@ fn power_says_the_rate_and_the_time_either_way() {
         charging.power.as_deref(),
         Some("Charging at 18 W · full in 42 min")
     );
+    let figure = |r: Option<Readout>| r.map(|r| (r.value, r.label));
+    assert_eq!(
+        figure(charging.power_time),
+        Some(("42 min".into(), "until full".into()))
+    );
+    assert_eq!(
+        figure(charging.power_rate),
+        Some(("18 W".into(), "charging".into()))
+    );
     let draining = on(&status(|s| {
         s.battery_pct = 60;
         s.power_mw = Some(1_234);
@@ -191,6 +200,14 @@ fn power_says_the_rate_and_the_time_either_way() {
     assert_eq!(
         draining.power.as_deref(),
         Some("Using 1.2 W · about 7 hr left")
+    );
+    assert_eq!(
+        figure(draining.power_time),
+        Some(("7 hr".into(), "left".into()))
+    );
+    assert_eq!(
+        figure(draining.power_rate),
+        Some(("1.2 W".into(), "in use".into()))
     );
     let time_only = on(&status(|s| s.minutes_left = Some(65)));
     assert_eq!(time_only.power.as_deref(), Some("About 1 hr 5 min left"));

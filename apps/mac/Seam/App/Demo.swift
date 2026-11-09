@@ -68,6 +68,8 @@ enum Demo {
             // Connected, then not: the popover says when it was last seen
             controller.showDemo(phone: phone, status: status, look: .offline, waiting: 3, settings: settings, notifications: notifications, clips: clips)
         }
+        // SEAM_DEMO_MAIN=clipboard opens the main window on Clipboard; SEAM_DEMO_DETAILS opens the battery details
+        if env["SEAM_DEMO_MAIN"] == "clipboard" { controller.requestedMainPane = .clipboard }
         controller.requestedSettingsPane = env["SEAM_DEMO_PANE"].flatMap { name in SettingsView.Pane.allCases.first { "\($0)" == name } }
 
         // The popover in a plain window, and from it the real Settings window (its scene, its toolbar)

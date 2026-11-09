@@ -250,6 +250,22 @@ pub fn connections_footnote(lan_on: bool, tor_on: bool, names: LookNames) -> Str
     link::connections_footnote(lan_on, tor_on, &(&names).into())
 }
 
+/// A figure over what it is: "42 min" over "until full".
+#[derive(Debug, PartialEq, uniffi::Record)]
+pub struct Readout {
+    pub value: String,
+    pub label: String,
+}
+
+impl From<looks::device_status::Readout> for Readout {
+    fn from(r: looks::device_status::Readout) -> Self {
+        Self {
+            value: r.value,
+            label: r.label,
+        }
+    }
+}
+
 /// The other device's battery, network, storage and Do Not Disturb, ready to draw.
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct DeviceStatusLook {
@@ -261,6 +277,9 @@ pub struct DeviceStatusLook {
     pub battery_detail: Option<String>,
     /// "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
     pub power: Option<String>,
+    /// The time ("42 min" until full) and rate ("18 W" charging), each as a figure.
+    pub power_time: Option<Readout>,
+    pub power_rate: Option<Readout>,
     pub network: Option<String>,
     pub network_icon: Option<LookIcon>,
     pub storage: Option<String>,
@@ -293,6 +312,8 @@ pub fn device_status_look(
         battery_icon: l.battery_icon.map(Into::into),
         battery_detail: l.battery_detail,
         power: l.power,
+        power_time: l.power_time.map(Into::into),
+        power_rate: l.power_rate.map(Into::into),
         network: l.network,
         network_icon: l.network_icon.map(Into::into),
         storage: l.storage,

@@ -6,6 +6,13 @@ use seam_core::proto::v1::Status;
 
 use crate::{Icon, TimeWords, words};
 
+/// A figure and what it is, drawn as a value over a quieter label: "42 min" over "until full".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Readout {
+    pub value: String,
+    pub label: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeviceStatusLook {
     pub percent: u32,
@@ -20,6 +27,10 @@ pub struct DeviceStatusLook {
     /// The battery's power and time, only while connected: "Charging at 18 W · full in 42 min",
     /// "Using 1.2 W · about 7 hr left". None when the device sent neither.
     pub power: Option<String>,
+    /// The same as figures: the time ("42 min" until full, "7 hr" left) and the rate ("18 W"
+    /// charging, "1.2 W" in use). Each None when it wasn't sent.
+    pub power_time: Option<Readout>,
+    pub power_rate: Option<Readout>,
     /// "Wi‑Fi" or "Mobile data", only while connected (never a network's name), and not on
     /// Same Wi‑Fi, where the path's icon already says it.
     pub network: Option<String>,
@@ -96,9 +107,12 @@ pub fn look(
     } else {
         (None, None, None)
     };
-    let power = (connected && has_battery)
-        .then(|| power_words(s, charging))
-        .flatten();
+    let (power_time, power_rate) = if connected && has_battery {
+        readouts(s, charging)
+    } else {
+        (None, None)
+    };
+    let power = sentence(power_time.as_ref(), power_rate.as_ref(), charging);
     let meta = if connected {
         network.clone()
     } else {
@@ -117,6 +131,8 @@ pub fn look(
         battery_icon: has_battery.then(|| Icon::battery(percent, charging)),
         battery_detail: has_battery.then(|| format!("{percent}%{charging_words}")),
         power,
+        power_time,
+        power_rate,
         network,
         network_icon,
         storage,
@@ -136,29 +152,43 @@ pub fn look(
 const MAX_MW: u32 = 500_000;
 const MAX_MINUTES: u32 = 4 * 24 * 60;
 
-fn power_words(s: &Status, charging: bool) -> Option<String> {
-    let watts = s
+fn readouts(s: &Status, charging: bool) -> (Option<Readout>, Option<Readout>) {
+    let rate = s
         .power_mw
         .filter(|&mw| (100..=MAX_MW).contains(&mw))
-        .map(words::watts);
-    let minutes = if charging {
+        .map(|mw| Readout {
+            value: words::watts(mw),
+            label: if charging { "charging" } else { "in use" }.to_string(),
+        });
+    let time = if charging {
         s.minutes_to_full
     } else {
         s.minutes_left
     }
     .filter(|&m| (1..=MAX_MINUTES).contains(&m))
-    .map(words::duration);
-    let (rate, time) = if charging {
-        (
-            watts.map(|w| format!("Charging at {w}")),
-            minutes.map(|m| format!("full in {m}")),
-        )
-    } else {
-        (
-            watts.map(|w| format!("Using {w}")),
-            minutes.map(|m| format!("about {m} left")),
-        )
-    };
+    .map(|m| Readout {
+        value: words::duration(m),
+        label: if charging { "until full" } else { "left" }.to_string(),
+    });
+    (time, rate)
+}
+
+/// "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left", or either half.
+fn sentence(time: Option<&Readout>, rate: Option<&Readout>, charging: bool) -> Option<String> {
+    let rate = rate.map(|r| {
+        if charging {
+            format!("Charging at {}", r.value)
+        } else {
+            format!("Using {}", r.value)
+        }
+    });
+    let time = time.map(|t| {
+        if charging {
+            format!("full in {}", t.value)
+        } else {
+            format!("about {} left", t.value)
+        }
+    });
     match (rate, time) {
         (Some(r), Some(t)) => Some(format!("{r} · {t}")),
         (Some(r), None) => Some(r),

@@ -13,7 +13,12 @@ struct PopoverHeader: View {
     /// The header's slot in the opening stagger; the tip under it isn't part of it.
     let rise: (Int, Bool)
     @State private var why = false
+    #if DEBUG
+    /// SEAM_DEMO_DETAILS: open with the battery's details showing, to capture them.
+    @State private var power = ProcessInfo.processInfo.environment["SEAM_DEMO_DETAILS"] != nil
+    #else
     @State private var power = false
+    #endif
     @State private var visible = true
     @Environment(\.accessibilityReduceMotion) private var reduce
 
@@ -57,12 +62,10 @@ struct PopoverHeader: View {
             }
             .rise(rise.0, rise.1)
             if why, let detail = look.detail {
-                unfolded(Text(detail))
+                unfolded(Text(detail).font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2).lineSpacing(11 * 0.45 - 2))
             }
             if power, look.connected, let battery {
-                // An older phone sends no power: say how to get it
-                unfolded(SwapText(battery.power ?? "Update Seam on your phone to see its charge rate"))
-                    .accessibilityElement(children: .combine)
+                unfolded(BatteryDetails(look: battery))
             }
         }
         .clipped()
@@ -82,17 +85,16 @@ struct PopoverHeader: View {
         }
     }
 
-    /// A box that unfolds under the header line (catalogue 7): why it's offline, or the battery's power.
+    /// A box that unfolds under the header line (catalogue 7), drawn like a tile: why it's
+    /// offline, or the battery's details. The stitch keeps its 10 pt below it.
     private func unfolded(_ content: some View) -> some View {
         content
-            .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)
-            .lineSpacing(11 * 0.45 - 2) // line-height 1.45
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 9).fill(SeamStyle.Pop.fill2))
-            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
-            .padding(EdgeInsets(top: 0, leading: 14, bottom: 2, trailing: 14))
+            .padding(.horizontal, 10).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 12).fill(SeamStyle.Pop.fill2))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
+            .padding(EdgeInsets(top: 0, leading: 14, bottom: 10, trailing: 14))
             .transition(.unfold(reduce))
     }
 
@@ -102,13 +104,13 @@ struct PopoverHeader: View {
     /// Connected, clicking the pill unfolds its power and time.
     private func batteryColumn(_ b: DeviceStatusLook, _ connected: Bool) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Button { power.toggle() } label: { BatteryPill(look: b) }
+            Button { power.toggle() } label: { BatteryPill(look: b, selected: power && connected) }
                 .buttonStyle(.plain)
                 .disabled(!connected)
                 .help(connected ? (b.power ?? "Battery details") : "")
-            // "Wi‑Fi · ☾", or "as of 14:02" offline
-            HStack(spacing: 0) {
-                SwapText((b.meta ?? "") + (b.dnd && b.meta != nil ? " · " : ""))
+            // "Wi‑Fi · ☾", "Do Not Disturb ☾" when there's no network word, or "as of 14:02" offline
+            HStack(spacing: b.meta == nil ? 3 : 0) {
+                SwapText((b.meta ?? (b.dnd ? "Do Not Disturb" : "")) + (b.dnd && b.meta != nil ? " · " : ""))
                 if b.dnd { Image(systemName: "moon.fill").foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
             }
             .font(.system(size: 10.5))
@@ -140,9 +142,9 @@ struct QueueBar: View {
         .font(.system(size: 11.5))
         .foregroundStyle(SeamStyle.Pop.fg2)
         .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 10).fill(SeamStyle.Pop.fill2))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
-        .padding(EdgeInsets(top: 10, leading: 12, bottom: 0, trailing: 12))
+        .background(RoundedRectangle(cornerRadius: 12).fill(SeamStyle.Pop.fill2))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
+        .padding(EdgeInsets(top: 10, leading: 14, bottom: 0, trailing: 14))
         .background(OnScreen(visible: $visible))
         .animation(Motion.settle, value: count)
         .accessibilityElement(children: .combine)
