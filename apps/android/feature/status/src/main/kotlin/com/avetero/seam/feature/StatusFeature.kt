@@ -183,7 +183,7 @@ internal fun roundedFree(bytes: Long) = (bytes + STEP / 2) / STEP * STEP
 internal fun powerMw(current: Int, voltageMv: Int): Int? {
     if (current == Int.MIN_VALUE || current == 0 || voltageMv <= 0) return null
     val microAmps = abs(current.toLong()).let { if (it < 10_000) it * 1000 else it }
-    return (microAmps * voltageMv / 1_000_000).toInt().takeIf { it > 0 }
+    return (microAmps * voltageMv / 1_000_000).coerceAtMost(Int.MAX_VALUE.toLong()).toInt().takeIf { it > 0 }
 }
 
 /**

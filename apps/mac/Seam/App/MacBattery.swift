@@ -66,7 +66,9 @@ enum MacBattery {
             IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Int
         }
         guard let mA = int("Amperage"), let mV = int("Voltage"), mA != 0, mV > 0 else { return nil }
-        return UInt32(clamping: abs(mA) * mV / 1000)
+        // A garbage reading must not trap: magnitude and the product never overflow
+        let (mW, over) = mA.magnitude.multipliedReportingOverflow(by: UInt(mV))
+        return UInt32(clamping: over ? UInt.max : mW / 1000)
     }
 
     /// Calls `changed` on the main run loop whenever the power source changes; keep the source.

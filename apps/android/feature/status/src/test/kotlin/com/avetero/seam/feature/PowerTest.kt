@@ -14,6 +14,7 @@ class PowerTest {
         assertNull(powerMw(Int.MIN_VALUE, 3800)) // not supported
         assertNull(powerMw(0, 3800))
         assertNull(powerMw(500_000, -1))
+        assertEquals("nonsense is capped, never wrapped", Int.MAX_VALUE, powerMw(Int.MAX_VALUE, Int.MAX_VALUE))
     }
 
     @Test
