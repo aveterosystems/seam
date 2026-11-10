@@ -35,6 +35,9 @@ enum Demo {
             $0.dnd = mode == "online"
             $0.storageFreeBytes = 112_000_000_000
             $0.storageTotalBytes = 256_000_000_000
+            // Charging online, on battery elsewhere: the battery details read both ways
+            $0.powerMw = mode == "online" ? 18_400 : 1_234
+            if mode == "online" { $0.minutesToFull = 42 } else { $0.minutesLeft = mode == "low" ? 65 : 420 }
         }
         let settings = Seam_V1_NotificationSettings.with { s in
             s.enabled = true
@@ -65,6 +68,8 @@ enum Demo {
             // Connected, then not: the popover says when it was last seen
             controller.showDemo(phone: phone, status: status, look: .offline, waiting: 3, settings: settings, notifications: notifications, clips: clips)
         }
+        // SEAM_DEMO_MAIN=clipboard opens the main window on Clipboard; SEAM_DEMO_DETAILS opens the battery details
+        if env["SEAM_DEMO_MAIN"] == "clipboard" { controller.requestedMainPane = .clipboard }
         controller.requestedSettingsPane = env["SEAM_DEMO_PANE"].flatMap { name in SettingsView.Pane.allCases.first { "\($0)" == name } }
 
         // The popover in a plain window, and from it the real Settings window (its scene, its toolbar)

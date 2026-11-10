@@ -8,7 +8,8 @@ option java_package = "com.avetero.seam.protocol.v1";
 
 // Each device's status for the other's screen. The phone sends battery, network, dnd and storage;
 // the computer sends battery (or no_battery), storage, CPU and memory: when the phone connects,
-// when its battery changes, and in answer to a StatusRequest.
+// when its battery changes, and in answer to a StatusRequest. Power and times ride along: they
+// never send by themselves.
 message Status {
   uint32 battery_pct = 1;
   bool charging = 2;
@@ -21,8 +22,13 @@ message Status {
   uint64 memory_used_bytes = 9;
   uint64 memory_total_bytes = 10; // 0 from a device that doesn't send CPU and memory
   bool no_battery = 11; // a computer without a battery (battery_pct and charging mean nothing)
+  // The battery's power right now, in milliwatts: into it while charging, out of it otherwise.
+  // Unset when the device can't read it (or is older).
+  optional uint32 power_mw = 12;
+  optional uint32 minutes_to_full = 13; // while charging; unset when not known yet
+  optional uint32 minutes_left = 14; // on battery, an estimate; unset when not known yet
 }
 
-// The phone asks for the computer's status now: its sheet of the computer's resources is open.
-// An older computer ignores it.
+// Either device asks for the other's status now: its sheet of the other's resources, or its
+// battery details, are open. An older device ignores it.
 message StatusRequest {}

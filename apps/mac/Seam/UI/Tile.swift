@@ -61,7 +61,7 @@ struct Tile<Accessory: View>: View {
                 Spacer(minLength: 0)
             }
             .padding(9)
-            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 24) // the ▾ (15 pt) and the gap before it
+            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 21) // the chevron (20 pt) and a hair before it
             .background(RoundedRectangle(cornerRadius: 12).fill(hovering ? SeamStyle.Pop.fill : SeamStyle.Pop.fill2))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
         }
@@ -99,22 +99,73 @@ extension Tile where Accessory == EmptyView {
 /// below while not charging the pill fades to `warn`.
 struct BatteryPill: View {
     let look: DeviceStatusLook
+    /// Its details are open: the pill is lit, like a selected button.
+    var selected = false
 
     var body: some View {
         HStack(spacing: 3) {
             if look.charging { Image(systemName: "bolt.fill").foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
-            Text("\(look.percent)").monospacedDigit().contentTransition(.numericText(value: Double(look.percent)))
-            Text("%")
+            HStack(spacing: 0) {
+                Text("\(look.percent)").monospacedDigit().contentTransition(.numericText(value: Double(look.percent)))
+                Text("%")
+            }
         }
-        .font(.system(size: 11, weight: .semibold))
+        .font(.system(size: 11, weight: look.low ? .bold : .semibold))
         .padding(.horizontal, 8)
         .frame(height: 20)
-        .background(Capsule().fill(look.low ? SeamStyle.warn.opacity(0.18) : SeamStyle.Pop.fill))
-        .foregroundStyle(look.low ? SeamStyle.warn : SeamStyle.Pop.fg2)
+        .background(Capsule().fill(look.low ? SeamStyle.warn.opacity(0.22) : selected ? SeamStyle.teal.opacity(0.15) : SeamStyle.Pop.fill))
+        .foregroundStyle(look.low ? SeamStyle.warn : selected ? SeamStyle.tealInk : SeamStyle.Pop.fg2)
+        .animation(Motion.ease(0.2), value: selected)
         .animation(Motion.css(0.35), value: look.charging)
         .animation(Motion.count, value: look.percent)
         .animation(Motion.ease(0.4), value: look.low)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Phone " + look.spoken)
+    }
+}
+
+/// The battery's details under the header: the time and the rate as figures (the tile's value over
+/// label), and the level as a bar in the pill's colours. An older phone that sends neither says
+/// how to get them.
+struct BatteryDetails: View {
+    let look: DeviceStatusLook
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if look.powerTime == nil && look.powerRate == nil {
+                Text("Update Seam on your phone to see its charge rate")
+                    .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)
+            } else {
+                HStack(alignment: .top) {
+                    figure(look.powerTime, .leading)
+                    Spacer(minLength: 8)
+                    figure(look.powerRate, .trailing)
+                }
+            }
+            GeometryReader { g in
+                Capsule().fill(SeamStyle.Pop.fill)
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(fill).frame(width: g.size.width * CGFloat(look.percent) / 100)
+                    }
+            }
+            .frame(height: 4)
+            .animation(Motion.count, value: look.percent)
+            .animation(Motion.ease(0.4), value: fill)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(look.power ?? "Update Seam on your phone to see its charge rate")
+    }
+
+    private var fill: Color { look.low ? SeamStyle.warn : look.charging ? SeamStyle.teal : SeamStyle.Pop.fg2 }
+
+    @ViewBuilder
+    private func figure(_ r: Readout?, _ edge: HorizontalAlignment) -> some View {
+        if let r {
+            VStack(alignment: edge, spacing: 1) {
+                SwapText(r.value).font(.system(size: 13, weight: .semibold)).monospacedDigit().foregroundStyle(SeamStyle.Pop.fg)
+                    .frame(height: 16)
+                Text(r.label).font(.system(size: 10.5)).foregroundStyle(SeamStyle.Pop.fg2)
+            }
+        }
     }
 }

@@ -36,6 +36,32 @@ pub fn memory(bytes: u64) -> String {
     }
 }
 
+/// Power, to one place under 10 W: "1.2 W", "6 W", "18 W".
+pub fn watts(mw: u32) -> String {
+    let w = mw as f64 / 1000.0;
+    if w < 10.0 {
+        let one = (w * 10.0).round() / 10.0;
+        if one.fract() == 0.0 {
+            format!("{} W", one as u64)
+        } else {
+            format!("{one} W")
+        }
+    } else {
+        format!("{} W", w.round() as u64)
+    }
+}
+
+/// A battery's time: "42 min", "1 hr 5 min", "7 hr"; whole hours from 10 hours on.
+pub fn duration(minutes: u32) -> String {
+    let (h, m) = (minutes / 60, minutes % 60);
+    match (h, m) {
+        (0, m) => format!("{m} min"),
+        (h, _) if h >= 10 => format!("{} hr", (minutes + 30) / 60),
+        (h, 0) => format!("{h} hr"),
+        (h, m) => format!("{h} hr {m} min"),
+    }
+}
+
 /// "just now", "12 min ago", "today at 14:02", "yesterday at 09:15", or a date. Notifications
 /// pass "now" for `just_now` (the popover prototype's format).
 pub fn ago(at_ms: i64, now_ms: i64, time: &dyn TimeWords, just_now: &str) -> String {

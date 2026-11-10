@@ -19,7 +19,9 @@ struct ClipboardSettingsPane: View {
                 SettingsRow("Never send passwords", "Copies a password manager marks private stay on this Mac") {
                     Image(systemName: "lock.fill").foregroundStyle(SeamStyle.Win.fg2).accessibilityLabel("Always on")
                 }
-                SettingsRow("Waiting copies", "Kept 10 minutes while your phone is asleep", info: $waitInfo) { EmptyView() }
+                SettingsRow("Waiting copies", "Kept while your phone is asleep", info: $waitInfo) {
+                    Text("10 minutes").font(.system(size: 13)).foregroundStyle(SeamStyle.Win.fg2)
+                }
                 if waitInfo {
                     InfoMore("When your phone is asleep, a copy waits on this Mac for up to 10 minutes and sends as soon as the phone wakes. After that it's dropped, so an old copy never lands on your phone by surprise.")
                         .transition(.unfold(reduce))
@@ -66,17 +68,9 @@ struct PrivacyPane: View {
                 }
             }
             .rise(0, shown, pane: true)
-            GroupTitle("Tor").rise(1, shown, pane: true)
-            SettingsGroup {
-                // The Tor Project's trademark guidelines ask for this wording, so it's longer than the prototype's
-                HStack {
-                    RowDetail("Seam uses Tor through Arti. It is produced independently from the Tor® anonymity software and carries no guarantee from The Tor Project about quality, suitability or anything else. It isn't endorsed by The Tor Project.")
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 14).padding(.vertical, 9)
-                .frame(minHeight: 42)
-            }
-            .rise(2, shown, pane: true)
+            // The Tor Project's trademark guidelines ask for this wording: a footnote, not a setting
+            GroupFootnote { Text("Seam uses Tor through Arti. It is produced independently from the Tor® anonymity software and carries no guarantee from The Tor Project about quality, suitability or anything else. It isn't endorsed by The Tor Project.") }
+                .rise(1, shown, pane: true)
         }
     }
 

@@ -4,7 +4,8 @@ import SeamSession
 import SwiftUI
 
 /// The popover's device header: the phone, its link in words, its battery and network. Offline,
-/// ⓘ unfolds why underneath (catalogue 7). VoiceOver reads it as one line: "Pixel 9, connected,
+/// ⓘ unfolds why underneath (catalogue 7). Connected, clicking the battery unfolds its power and
+/// time ("Using 1.2 W · about 7 hr left"), asked for afresh every 10 s while it's on screen. VoiceOver reads it as one line: "Pixel 9, connected,
 /// same Wi‑Fi, battery 82 percent".
 struct PopoverHeader: View {
     let controller: SeamController
@@ -12,6 +13,13 @@ struct PopoverHeader: View {
     /// The header's slot in the opening stagger; the tip under it isn't part of it.
     let rise: (Int, Bool)
     @State private var why = false
+    #if DEBUG
+    /// SEAM_DEMO_DETAILS: open with the battery's details showing, to capture them.
+    @State private var power = ProcessInfo.processInfo.environment["SEAM_DEMO_DETAILS"] != nil
+    #else
+    @State private var power = false
+    #endif
+    @State private var visible = true
     @Environment(\.accessibilityReduceMotion) private var reduce
 
     var body: some View {
@@ -44,46 +52,73 @@ struct PopoverHeader: View {
                         .frame(height: 15)
                     }
                     Spacer(minLength: 0)
-                    if let battery { batteryColumn(battery) }
+                    if let battery { batteryColumn(battery, look.connected) }
                 }
                 .padding(EdgeInsets(top: 14, leading: 14, bottom: 10, trailing: 14))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel([name, (look.connected ? look.sentence : line).replacingOccurrences(of: " · ", with: ", "), battery?.spoken].compactMap { $0 }.joined(separator: ", "))
                 .accessibilityAction(named: "Why") { why.toggle() }
+                .accessibilityAction(named: "Battery details") { if look.connected { power.toggle() } }
             }
             .rise(rise.0, rise.1)
             if why, let detail = look.detail {
-                Text(detail)
-                    .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)
-                    .lineSpacing(11 * 0.45 - 2) // line-height 1.45
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(SeamStyle.Pop.fill2))
-                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
-                    .padding(EdgeInsets(top: 0, leading: 14, bottom: 2, trailing: 14))
-                    .transition(.unfold(reduce))
+                unfolded(Text(detail).font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2).lineSpacing(11 * 0.45 - 2))
+            }
+            if power, look.connected, let battery {
+                unfolded(BatteryDetails(look: battery))
             }
         }
         .clipped()
+        .background(OnScreen(visible: $visible))
         .animation(Motion.spatial(reduce), value: why)
-        .onChange(of: look.connected) { if look.connected { why = false } }
+        .animation(Motion.spatial(reduce), value: power && look.connected)
+        .onChange(of: look.connected) { if look.connected { why = false } else { power = false } }
+        .onChange(of: why) { if why { power = false } }
+        .onChange(of: power) { if power { why = false } }
+        .task(id: power && visible && look.connected) {
+            // Only while the details are open and on screen: the closed popover asks for nothing
+            guard power && visible && look.connected else { return }
+            while !Task.isCancelled {
+                controller.askPhoneStatus()
+                try? await Task.sleep(for: .seconds(10))
+            }
+        }
+    }
+
+    /// A box that unfolds under the header line (catalogue 7), drawn like a tile: why it's
+    /// offline, or the battery's details. The stitch keeps its 10 pt below it.
+    private func unfolded(_ content: some View) -> some View {
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 12).fill(SeamStyle.Pop.fill2))
+            // Lit with the pill while it's the battery's: the two read as one control
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(power ? SeamStyle.teal.opacity(0.35) : SeamStyle.Pop.line, lineWidth: power ? 1 : 0.5))
+            .padding(EdgeInsets(top: 0, leading: 14, bottom: 10, trailing: 14))
+            .transition(.unfold(reduce))
     }
 
     private var name: String { phone.name.isEmpty ? "Your phone" : phone.name }
 
     /// The pill, and under it the network and a moon for Do Not Disturb, or "as of 14:02" offline.
-    private func batteryColumn(_ b: DeviceStatusLook) -> some View {
+    /// Connected, clicking the pill unfolds its power and time.
+    private func batteryColumn(_ b: DeviceStatusLook, _ connected: Bool) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
-            BatteryPill(look: b)
-            // "Wi‑Fi · ☾", or "as of 14:02" offline
-            HStack(spacing: 0) {
-                SwapText((b.meta ?? "") + (b.dnd && b.meta != nil ? " · " : ""))
-                if b.dnd { Image(systemName: "moon.fill").foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
+            // Offline it can't open, but isn't disabled: that would fade a low battery's warning
+            Button { if connected { power.toggle() } } label: { BatteryPill(look: b, selected: power && connected) }
+                .buttonStyle(.plain)
+                .allowsHitTesting(connected)
+                .help([b.network.map { "Phone on \($0)" }, connected ? "Click for battery details" : nil].compactMap { $0 }.joined(separator: " · "))
+            // "Do Not Disturb ☾", or "as of 14:02" offline. The phone's network is in the pill's tooltip:
+            // here it read as the path, which the icon by "Connected" already shows
+            HStack(spacing: 3) {
+                SwapText(b.stale ? (b.meta ?? "") : b.dnd ? "Do Not Disturb" : "")
+                if b.dnd { Image(systemName: "moon.fill").font(.system(size: 9)).foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
             }
             .font(.system(size: 10.5))
             .foregroundStyle(SeamStyle.Pop.fg3)
-            .frame(height: b.dnd ? 17 : 13) // the prototype's moon makes its line taller
+            .frame(height: 13)
             .animation(Motion.spring, value: b.dnd)
         }
     }
@@ -110,9 +145,9 @@ struct QueueBar: View {
         .font(.system(size: 11.5))
         .foregroundStyle(SeamStyle.Pop.fg2)
         .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 10).fill(SeamStyle.Pop.fill2))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
-        .padding(EdgeInsets(top: 10, leading: 12, bottom: 0, trailing: 12))
+        .background(RoundedRectangle(cornerRadius: 12).fill(SeamStyle.Pop.fill2))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
+        .padding(EdgeInsets(top: 10, leading: 14, bottom: 0, trailing: 14))
         .background(OnScreen(visible: $visible))
         .animation(Motion.settle, value: count)
         .accessibilityElement(children: .combine)

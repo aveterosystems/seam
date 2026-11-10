@@ -107,7 +107,7 @@ struct PopoverView: View {
         }
         .font(.system(size: 11))
         .foregroundStyle(SeamStyle.Pop.fg2)
-        .padding(EdgeInsets(top: 9, leading: 14, bottom: 10, trailing: 12))
+        .padding(EdgeInsets(top: 7, leading: 14, bottom: 8, trailing: 10))
         .overlay(alignment: .top) { Rectangle().fill(SeamStyle.Pop.line).frame(height: 0.5) }
         .padding(.top, 6)
     }
@@ -137,10 +137,11 @@ private struct GearButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "gearshape").font(.system(size: 10))
+            Image(systemName: "gearshape").font(.system(size: 12))
                 .rotationEffect(.degrees(hovering ? 60 : 0))
-                .frame(width: 24, height: 24)
+                .frame(width: 28, height: 28)
                 .background(Circle().fill(SeamStyle.Pop.fill))
+                .contentShape(Circle())
                 .foregroundStyle(hovering ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2)
         }
         .buttonStyle(PressableStyle(scale: 0.9))
@@ -176,8 +177,8 @@ private struct BannerView: View {
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(ink)
         .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.14)))
-        .padding(EdgeInsets(top: 10, leading: 10, bottom: 0, trailing: 10))
+        .background(RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.14)))
+        .padding(EdgeInsets(top: 10, leading: 14, bottom: 0, trailing: 14))
         .accessibilityElement(children: .combine)
     }
 

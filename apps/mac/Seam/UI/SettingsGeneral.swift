@@ -84,7 +84,7 @@ struct GeneralPane: View {
         let upToDate = updates.checkFailed == false && updates.found == nil
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Seam \(Bundle.main.shortVersion)").foregroundStyle(SeamStyle.Win.fg)
+                Text("Version \(Bundle.main.shortVersion)").foregroundStyle(SeamStyle.Win.fg)
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
                     HStack(spacing: 5) {
                         if updates.checking { ProgressView().controlSize(.mini) }

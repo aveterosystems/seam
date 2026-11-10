@@ -6731,6 +6731,18 @@ data class DeviceStatusLook (
     , 
     var `batteryDetail`: kotlin.String?
     , 
+    /**
+     * "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
+     */
+    var `power`: kotlin.String?
+    , 
+    /**
+     * The time ("42 min" until full) and rate ("18 W" charging), each as a figure.
+     */
+    var `powerTime`: Readout?
+    , 
+    var `powerRate`: Readout?
+    , 
     var `network`: kotlin.String?
     , 
     var `networkIcon`: LookIcon?
@@ -6775,6 +6787,9 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalTypeLookIcon.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeReadout.read(buf),
+            FfiConverterOptionalTypeReadout.read(buf),
+            FfiConverterOptionalString.read(buf),
             FfiConverterOptionalTypeLookIcon.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
@@ -6795,6 +6810,9 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalString.allocationSize(value.`battery`) +
             FfiConverterOptionalTypeLookIcon.allocationSize(value.`batteryIcon`) +
             FfiConverterOptionalString.allocationSize(value.`batteryDetail`) +
+            FfiConverterOptionalString.allocationSize(value.`power`) +
+            FfiConverterOptionalTypeReadout.allocationSize(value.`powerTime`) +
+            FfiConverterOptionalTypeReadout.allocationSize(value.`powerRate`) +
             FfiConverterOptionalString.allocationSize(value.`network`) +
             FfiConverterOptionalTypeLookIcon.allocationSize(value.`networkIcon`) +
             FfiConverterOptionalString.allocationSize(value.`storage`) +
@@ -6815,6 +6833,9 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalString.write(value.`battery`, buf)
             FfiConverterOptionalTypeLookIcon.write(value.`batteryIcon`, buf)
             FfiConverterOptionalString.write(value.`batteryDetail`, buf)
+            FfiConverterOptionalString.write(value.`power`, buf)
+            FfiConverterOptionalTypeReadout.write(value.`powerTime`, buf)
+            FfiConverterOptionalTypeReadout.write(value.`powerRate`, buf)
             FfiConverterOptionalString.write(value.`network`, buf)
             FfiConverterOptionalTypeLookIcon.write(value.`networkIcon`, buf)
             FfiConverterOptionalString.write(value.`storage`, buf)
@@ -7568,6 +7589,47 @@ public object FfiConverterTypePeerInfo: FfiConverterRustBuffer<PeerInfo> {
             FfiConverterString.write(value.`name`, buf)
             FfiConverterByteArray.write(value.`relayKey`, buf)
             FfiConverterBoolean.write(value.`confirmed`, buf)
+    }
+}
+
+
+
+/**
+ * A figure over what it is: "42 min" over "until full".
+ */
+data class Readout (
+    var `value`: kotlin.String
+    , 
+    var `label`: kotlin.String
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeReadout: FfiConverterRustBuffer<Readout> {
+    override fun read(buf: ByteBuffer): Readout {
+        return Readout(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: Readout) = (
+            FfiConverterString.allocationSize(value.`value`) +
+            FfiConverterString.allocationSize(value.`label`)
+    )
+
+    override fun write(value: Readout, buf: ByteBuffer) {
+            FfiConverterString.write(value.`value`, buf)
+            FfiConverterString.write(value.`label`, buf)
     }
 }
 
@@ -8604,6 +8666,38 @@ public object FfiConverterOptionalTypePeerHello: FfiConverterRustBuffer<PeerHell
         } else {
             buf.put(1)
             FfiConverterTypePeerHello.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeReadout: FfiConverterRustBuffer<Readout?> {
+    override fun read(buf: ByteBuffer): Readout? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeReadout.read(buf)
+    }
+
+    override fun allocationSize(value: Readout?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeReadout.allocationSize(value)
+        }
+    }
+
+    override fun write(value: Readout?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeReadout.write(value, buf)
         }
     }
 }

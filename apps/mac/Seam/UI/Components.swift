@@ -150,12 +150,21 @@ struct Stitch: View {
     /// Change it to draw the solid line again (a surface opened).
     var replay = 0
     @Environment(\.accessibilityReduceMotion) private var reduce
-    @State private var drawn: CGFloat = 1
+    /// Each draw replays 0 → 1 as keyframes, so draws close together always end drawn in full.
+    @State private var draws = 0
     @State private var visible = true
 
     var body: some View {
         ZStack {
-            Rule().trim(from: 0, to: drawn).stroke(SeamStyle.teal, lineWidth: 2)
+            Rule().stroke(SeamStyle.teal, lineWidth: 2)
+                .keyframeAnimator(initialValue: CGFloat(1), trigger: draws) { _, drawn in
+                    Rule().trim(from: 0, to: drawn).stroke(SeamStyle.teal, lineWidth: 2)
+                } keyframes: { _ in
+                    KeyframeTrack {
+                        LinearKeyframe(0, duration: 0)
+                        CubicKeyframe(1, duration: 0.7) // Motion.settle's length
+                    }
+                }
                 .opacity(line == .solid ? 1 : 0)
             TimelineView(.animation(paused: reduce || !visible || line != .dashed)) { tl in
                 let phase = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1) * 11
@@ -180,11 +189,8 @@ struct Stitch: View {
     }
 
     private func draw() {
-        guard line == .solid, !reduce else { drawn = 1; return }
-        var still = Transaction()
-        still.disablesAnimations = true
-        withTransaction(still) { drawn = 0 }
-        DispatchQueue.main.async { withAnimation(Motion.settle) { drawn = 1 } }
+        guard line == .solid, !reduce else { return }
+        draws += 1
     }
 
     private struct Rule: Shape {

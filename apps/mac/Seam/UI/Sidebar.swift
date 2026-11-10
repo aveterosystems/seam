@@ -38,7 +38,9 @@ struct SidebarWindow<Side: View, Toolbar: View, Content: View>: View {
                 }
                 .frame(height: 52)
                 .padding(.horizontal, 22)
+                .frame(maxWidth: 680) // over the content's capped width, so its button lines up with the cards
                 content
+                    .frame(maxWidth: 680, alignment: .topLeading) // a wide window keeps rows readable
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .clipped() // the pane scrolls below the title bar, never under it
             }
@@ -93,7 +95,7 @@ struct SidebarItem<Icon: View>: View {
                 Text(title).lineLimit(1)
                 Spacer(minLength: 0)
                 if let dot {
-                    Circle().fill(selected ? SeamStyle.onTeal : dot ? SeamStyle.ok : SeamStyle.Win.fg3).frame(width: 6, height: 6)
+                    Circle().fill(selected ? SeamStyle.onTint : dot ? SeamStyle.ok : SeamStyle.Win.fg3).frame(width: 6, height: 6)
                         .animation(Motion.ease(0.4), value: dot)
                         .accessibilityLabel(dot ? "Connected" : "Not connected")
                 } else if count > 0 {
@@ -101,9 +103,9 @@ struct SidebarItem<Icon: View>: View {
                 }
             }
             .font(.system(size: 13))
-            .foregroundStyle(selected ? SeamStyle.onTeal : SeamStyle.Win.fg)
+            .foregroundStyle(selected ? SeamStyle.onTint : SeamStyle.Win.fg)
             .padding(.horizontal, 7).padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 8).fill(selected ? SeamStyle.teal : hovering ? SeamStyle.Win.fill : .clear))
+            .background(RoundedRectangle(cornerRadius: 8).fill(selected ? SeamStyle.sideSelect : hovering ? SeamStyle.Win.fill : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -112,18 +114,6 @@ struct SidebarItem<Icon: View>: View {
         .onHover { h in withAnimation(Motion.ease(0.15)) { hovering = h } }
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
-}
-
-extension SidebarItem where Icon == SidebarSymbol {
-    /// The main window's entries: a teal symbol.
-    init(title: String, symbol: String, selected: Bool, count: Int = 0, action: @escaping () -> Void) {
-        self.init(title: title, selected: selected, count: count, icon: { SidebarSymbol(symbol: symbol) }, action: action)
-    }
-}
-
-struct SidebarSymbol: View {
-    let symbol: String
-    var body: some View { Image(systemName: symbol).foregroundStyle(SeamStyle.teal).frame(width: 20) }
 }
 
 /// A small heading between sidebar entries.

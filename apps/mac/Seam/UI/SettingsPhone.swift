@@ -70,8 +70,7 @@ struct PhonePane: View {
             }
             // Only phones paired since Seam kept the date have one
             SettingsRow(controller.pairedAt.map { "Paired \($0.formatted(date: .long, time: .omitted))" } ?? "Paired with this Mac", nil) {
-                // The prototype renders this grey at 11.5 pt (its row-detail style wins over its danger class)
-                Button { unpairing = true } label: { Text("Unpair").font(.system(size: 11.5)).foregroundStyle(SeamStyle.Win.fg2) }
+                Button { unpairing = true } label: { Text("Unpair").font(.system(size: 11.5)).foregroundStyle(SeamStyle.danger) }
                     .buttonStyle(CapButtonStyle())
             }
         }

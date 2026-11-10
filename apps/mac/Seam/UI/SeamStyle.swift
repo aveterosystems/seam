@@ -18,6 +18,8 @@ enum SeamStyle {
     static let onTeal = Color(light: 0xFFFFFF, dark: 0x04241F)
     /// Glyphs on the coloured sidebar and privacy squares: white in both themes, as drawn.
     static let onTint = Color(light: 0xFFFFFF, dark: 0xFFFFFF)
+    /// A selected sidebar entry: teal, muted in dark so it isn't the brightest thing in the window.
+    static let sideSelect = Color(light: 0x0B7F6F, dark: 0x1B7F70)
 
     /// The Settings and main windows' palette (docs/design/prototypes/mac-settings.html, `.win`).
     enum Win {

@@ -5783,6 +5783,15 @@ public struct DeviceStatusLook: Equatable, Hashable {
     public var battery: String?
     public var batteryIcon: LookIcon?
     public var batteryDetail: String?
+    /**
+     * "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
+     */
+    public var power: String?
+    /**
+     * The time ("42 min" until full) and rate ("18 W" charging), each as a figure.
+     */
+    public var powerTime: Readout?
+    public var powerRate: Readout?
     public var network: String?
     public var networkIcon: LookIcon?
     public var storage: String?
@@ -5797,13 +5806,22 @@ public struct DeviceStatusLook: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(percent: UInt32, charging: Bool, low: Bool, battery: String?, batteryIcon: LookIcon?, batteryDetail: String?, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, cpu: String?, memory: String?, memoryDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
+    public init(percent: UInt32, charging: Bool, low: Bool, battery: String?, batteryIcon: LookIcon?, batteryDetail: String?, 
+        /**
+         * "Charging at 18 W · full in 42 min", "Using 1.2 W · about 7 hr left"; only while connected.
+         */power: String?, 
+        /**
+         * The time ("42 min" until full) and rate ("18 W" charging), each as a figure.
+         */powerTime: Readout?, powerRate: Readout?, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, cpu: String?, memory: String?, memoryDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
         self.percent = percent
         self.charging = charging
         self.low = low
         self.battery = battery
         self.batteryIcon = batteryIcon
         self.batteryDetail = batteryDetail
+        self.power = power
+        self.powerTime = powerTime
+        self.powerRate = powerRate
         self.network = network
         self.networkIcon = networkIcon
         self.storage = storage
@@ -5839,6 +5857,9 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
                 battery: FfiConverterOptionString.read(from: &buf), 
                 batteryIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
                 batteryDetail: FfiConverterOptionString.read(from: &buf), 
+                power: FfiConverterOptionString.read(from: &buf), 
+                powerTime: FfiConverterOptionTypeReadout.read(from: &buf), 
+                powerRate: FfiConverterOptionTypeReadout.read(from: &buf), 
                 network: FfiConverterOptionString.read(from: &buf), 
                 networkIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
                 storage: FfiConverterOptionString.read(from: &buf), 
@@ -5860,6 +5881,9 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.battery, into: &buf)
         FfiConverterOptionTypeLookIcon.write(value.batteryIcon, into: &buf)
         FfiConverterOptionString.write(value.batteryDetail, into: &buf)
+        FfiConverterOptionString.write(value.power, into: &buf)
+        FfiConverterOptionTypeReadout.write(value.powerTime, into: &buf)
+        FfiConverterOptionTypeReadout.write(value.powerRate, into: &buf)
         FfiConverterOptionString.write(value.network, into: &buf)
         FfiConverterOptionTypeLookIcon.write(value.networkIcon, into: &buf)
         FfiConverterOptionString.write(value.storage, into: &buf)
@@ -7198,6 +7222,63 @@ public func FfiConverterTypePhone_lower(_ value: Phone) -> RustBuffer {
 }
 
 
+/**
+ * A figure over what it is: "42 min" over "until full".
+ */
+public struct Readout: Equatable, Hashable {
+    public var value: String
+    public var label: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(value: String, label: String) {
+        self.value = value
+        self.label = label
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension Readout: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeReadout: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Readout {
+        return
+            try Readout(
+                value: FfiConverterString.read(from: &buf), 
+                label: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: Readout, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.value, into: &buf)
+        FfiConverterString.write(value.label, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeReadout_lift(_ buf: RustBuffer) throws -> Readout {
+    return try FfiConverterTypeReadout.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeReadout_lower(_ value: Readout) -> RustBuffer {
+    return FfiConverterTypeReadout.lower(value)
+}
+
+
 public struct SessionSnapshot: Equatable, Hashable {
     public var phone: Phone?
     /**
@@ -7491,6 +7572,10 @@ public enum FeatureCommand: Equatable, Hashable {
     case dismissNotification(key: String
     )
     case batteryChanged
+    /**
+     * The phone's battery details are open: ask it for a fresh reading (only while connected).
+     */
+    case askPhoneStatus
 
 
 
@@ -7531,6 +7616,8 @@ public struct FfiConverterTypeFeatureCommand: FfiConverterRustBuffer {
         
         case 7: return .batteryChanged
         
+        case 8: return .askPhoneStatus
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -7570,6 +7657,10 @@ public struct FfiConverterTypeFeatureCommand: FfiConverterRustBuffer {
         
         case .batteryChanged:
             writeInt(&buf, Int32(7))
+        
+        
+        case .askPhoneStatus:
+            writeInt(&buf, Int32(8))
         
         }
     }
@@ -9427,6 +9518,30 @@ fileprivate struct FfiConverterOptionTypePhone: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypePhone.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeReadout: FfiConverterRustBuffer {
+    typealias SwiftType = Readout?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeReadout.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeReadout.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }

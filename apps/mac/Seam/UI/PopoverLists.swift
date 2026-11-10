@@ -261,7 +261,7 @@ private struct ClipRow: View {
         } label: {
             HStack(spacing: 10) {
                 Group {
-                    if url == nil { Text("¶").font(.system(size: 12)) } else { Image(systemName: "link").font(.system(size: 11, weight: .semibold)) }
+                    Image(systemName: url == nil ? "text.alignleft" : "link").font(.system(size: 11, weight: .semibold))
                 }
                 .frame(width: 24, height: 24)
                 .background(RoundedRectangle(cornerRadius: 6).fill(SeamStyle.Pop.fill))

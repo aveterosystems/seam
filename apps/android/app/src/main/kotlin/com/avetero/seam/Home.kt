@@ -224,7 +224,7 @@ private fun MetaStat(@DrawableRes icon: Int?, value: String, style: TextStyle, c
     }
 }
 
-/** The Mac's battery, storage, CPU and memory in full, asked for afresh every 10 s while it's on screen. */
+/** The Mac's battery (with its power and time left or to full), storage, CPU and memory in full, asked for afresh every 10 s while it's on screen. */
 @Composable
 private fun MacSheet(name: String, mac: DeviceStatusLook?, onRequest: () -> Unit, onDismiss: () -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -238,7 +238,11 @@ private fun MacSheet(name: String, mac: DeviceStatusLook?, onRequest: () -> Unit
         }
     }
     SeamSheet(name, mac?.meta?.takeIf { mac.stale }, onDismiss) {
-        mac?.batteryDetail?.let { Item("Battery", it, lead = painterResource(mac.batteryIcon?.drawable ?: R.drawable.ic_battery_100)) }
+        // "64% · Charging at 30 W · full in 1 hr 10 min" when the Mac sends its power, else "64%, charging"
+        mac?.batteryDetail?.let { detail ->
+            val line = mac.power?.let { listOfNotNull(mac.battery, it).joinToString(" · ") } ?: detail
+            Item("Battery", line, lead = painterResource(mac.batteryIcon?.drawable ?: R.drawable.ic_battery_100))
+        }
         mac?.storageDetail?.let { Item("Storage", it, lead = painterResource(R.drawable.ic_storage)) }
         mac?.cpu?.let { Item("CPU", "$it in use", lead = painterResource(R.drawable.ic_cpu)) }
         mac?.memoryDetail?.let { Item("Memory", it, lead = painterResource(R.drawable.ic_memory)) }
