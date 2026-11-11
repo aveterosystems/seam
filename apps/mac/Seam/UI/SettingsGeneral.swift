@@ -60,7 +60,7 @@ struct GeneralPane: View {
                 }
                 .alert(nightlyWarningTitle(), isPresented: $confirmNightly) {
                     Button("Cancel", role: .cancel) {}
-                    Button("Turn On") { updates.nightly = true; nightly = true }
+                    Button("Turn on") { updates.nightly = true; nightly = true }
                 } message: {
                     Text(nightlyWarning())
                 }

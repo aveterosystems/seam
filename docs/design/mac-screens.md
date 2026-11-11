@@ -14,9 +14,9 @@ The Mac app is a menu bar app (`LSUIElement`), so it has no Dock icon. The main 
 3. **The stitch**: it draws itself on the same Wi‑Fi, its dashes flow through Tor, it's broken and grey offline, and the styles crossfade.
 4. **Queue bar** (offline with copies waiting): "3 waiting · sends when your phone is back", with a turning clock.
 5. **Two tiles**: Clipboard ("Syncing", "On", "Off") and Notifications ("On · 2 showing", "Paused · 15:00", "Paused · tomorrow", "Off", "Waiting for phone"). Its ▾ menu has Pause for 1 hour, Pause until tomorrow, Resume now, Turn off (or Turn on) and Notification settings.
-6. **Notifications**: the latest three. Hover or focus shows Reply (or Open) and ✕. Reply opens a field in place: Return sends, Escape closes, then "✓ Sent from your phone" shows for 1.1 s and the row leaves. "All N ›" opens the main window.
+6. **Notifications**: the latest three ("All N ›" only when there are any). Hover or focus shows Reply (or Open) and ✕. Reply opens a field in place: Return sends, Escape closes, then "✓ Sent from your phone" shows for 1.1 s and the row leaves. "All N ›" opens the main window.
 7. **Clipboard from phone**: the last two. The whole row is clickable, with a link or ¶ icon. Text copies again and shows "✓ Copied"; a link opens and a pill confirms it. "History ›" opens the main window.
-8. **Footer**: "End-to-end encrypted", "Open Seam ⌘O" and one gear button (⌘,).
+8. **Footer**: "End-to-end encrypted", "Open Seam ⌘O" and a gear whose menu has Settings (⌘,), Check for updates and Quit Seam (⌘Q): a menu bar app has nowhere else to quit from.
 
 The words for every state come from SeamSession's `Looks.swift` (`statusLine`, `PhoneStatusLook`, `NotificationsLook`, `ClipboardLook`, `Words`), which has unit tests. The controller records when the link last went from connected to not.
 
@@ -34,6 +34,8 @@ The words for every state come from SeamSession's `Looks.swift` (`statusLine`, `
 
 **Data:** the QR code encodes the Mac's public keys, a one-time token and the relay URL. The code refreshes every 5 minutes.
 
+**Copy:** the waiting line is "Waiting for your phone · code expires in 4:59" over the stitch's travelling grey dots (waiting, never an amber warning). Step 1 links to the latest release. Buttons are Seam's capsules; Cancel stays the prominent default on the code check.
+
 **Behaviour:** when the phone scans, the code under the QR code is highlighted, and the user checks it matches the phone (A02). Once both sides confirm, the window becomes "Paired with Pixel 9", the menu bar icon appears, and the window closes after 2 s.
 
 **States:**
@@ -48,7 +50,7 @@ The words for every state come from SeamSession's `Looks.swift` (`statusLine`, `
 **Purpose:** the System Settings-style window.
 
 **Built** (`apps/mac/Seam/UI/Settings*.swift`, `Sidebar.swift`, `Rows.swift`): a fixed 700 × 540 window drawn to the prototype.
-- **Sidebar**: a floating panel holding the traffic lights and Search. Typing jumps to the first pane that matches and fades the rest.
+- **Sidebar**: a floating panel holding the traffic lights and Search. The phone comes first (like the account in System Settings, and the pane Settings opens on), then Features (Notifications, Clipboard), then Seam (General, Privacy & Security). Typing jumps to the first pane that matches and fades the rest.
 - **Title bar**: 52 pt, with the pane's title, and Show history on Notifications and Clipboard.
 - **Grouped rows** in the prototype's sizes, with its switch, segmented control and capsule buttons.
 
@@ -85,6 +87,8 @@ Switching panes fades the old one out, then the new one's sections rise in a sta
 ## M05 Notifications (`MacNotifications.dc.html`)
 
 **Purpose:** the history, and a place to act on several at once. Live ones also show in Notification Centre (M07).
+
+**Built** (`MainWindow.swift`): Clear all in the toolbar; one card per app; each row has its time, the phone's buttons, Reply (which unfolds the shared `ReplyField` in place, as in the popover) and dismiss. Empty, off and not-paired states are centred (`ContentUnavailableView`) with one action: Choose apps, Turn on, Show pairing code. The clipboard history's Copy says "✓ Copied" in place. The sidebar's phone card opens the phone's settings.
 
 **Layout:** All / Unread segmented control and Clear all in the toolbar. Grouped by app, each group is a section with app name and count. Messaging notifications have an inline reply field. Sensitive apps show a lock and "Content hidden. Open on your phone". Each row has a dismiss button.
 

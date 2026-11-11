@@ -69,7 +69,7 @@ enum ResetPrompt {
         alert.messageText = "Seam's data on this Mac can't be opened. Reset?"
         alert.informativeText = "Seam will start over with new keys, and you'll pair your phone again. The unreadable files are kept in Application Support/Seam."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Not Now")
+        alert.addButton(withTitle: "Not now")
         alert.addButton(withTitle: "Reset")
         NSApp.activate()
         guard alert.runModal() == .alertSecondButtonReturn else { return }
