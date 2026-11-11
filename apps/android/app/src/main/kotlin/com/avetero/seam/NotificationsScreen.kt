@@ -96,6 +96,18 @@ private fun String.unbroken() = replace("Sender only", "Sender\u00A0only")
 
 internal val AppMode.label: String get() = notificationModeWord(toProto().number)
 
+/** The Mac has paused notifications: true until [NotificationPrefs.pausedUntil], then false at that moment, so an open screen updates. */
+@Composable
+internal fun rememberNotificationsPaused(prefs: NotificationPrefs): Boolean {
+    val until = prefs.pausedUntil
+    var paused by remember(until) { mutableStateOf(prefs.paused(System.currentTimeMillis())) }
+    LaunchedEffect(until) {
+        delay(until - System.currentTimeMillis())
+        paused = false
+    }
+    return paused
+}
+
 /** Settings › Mac notifications: what reaches the Mac, app by app. The Mac's pane edits the same settings. */
 @Composable
 fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
@@ -106,6 +118,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
     var selected by remember { mutableStateOf(setOf<String>()) }
     var open by remember { mutableStateOf<String?>(null) }
     val access = rememberNotificationAccess()
+    val macPaused = rememberNotificationsPaused(prefs)
     fun matches(a: AppEntry) = query.isBlank() || a.name.contains(query.trim(), ignoreCase = true)
     fun stopSelecting() {
         selecting = false
@@ -170,7 +183,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
         if (!access) item("access") { Box(apart) { Section(null) { NotificationAccessItem(access) } } }
         item("master") {
             Box(apart.graphicsLayer { alpha = picking }) {
-                MasterCard(on, if (access) notificationsLine(prefs) else "Turn on access above first", access && !selecting, { locked }, feature::setEnabled,
+                MasterCard(on, if (access) notificationsLine(prefs, macPaused) else "Turn on access above first", access && !selecting, { locked }, feature::setEnabled,
                     // Light, picking: the card eases to the surface so only the toolbar stays mint; dark's dim already does it
                     quiet = selecting && MaterialTheme.colorScheme.surface.luminance() > 0.5f)
             }
@@ -183,7 +196,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
                 Modifier.fillMaxWidth().padding(top = 24.dp),
             )
         }
-        if (on && prefs.paused(System.currentTimeMillis())) item("paused") {
+        if (on && macPaused) item("paused") {
             val until = SystemTime().time(prefs.pausedUntil)
             Box(apart.then(stilled)) {
                 Section(null) {
@@ -396,7 +409,10 @@ private fun appIcon(pkg: String): Painter? {
 @Composable
 internal fun NotificationsItem(feature: NotificationsFeature, title: String = "Mac notifications", paused: Boolean = false, onOpen: () -> Unit) {
     val prefs by feature.prefs.collectAsStateWithLifecycle()
-    Item(title, notificationsLine(prefs, paused), lead = painterResource(R.drawable.ic_bell), onClick = onOpen) {
+    // Access revoked in Android's settings: the switch may still say on, but nothing can go over
+    val line = if (prefs.enabled && !rememberNotificationAccess()) "Needs notification access"
+        else notificationsLine(prefs, paused || rememberNotificationsPaused(prefs))
+    Item(title, line, lead = painterResource(R.drawable.ic_bell), onClick = onOpen) {
         Chevron()
     }
 }

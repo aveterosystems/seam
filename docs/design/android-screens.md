@@ -65,7 +65,7 @@ A footnote, centred as the page and sitting just above the action: "Mac copies r
 
 *Planned, not built:* Seam as a **direct share target** "MacBook Pro · Seam", first in the row; files, with the preview (stacked thumbnails, count, size) and an in-sheet progress card ("Sending to MacBook Pro · Same Wi‑Fi, direct · 5.1 of 8.3 MB", with Cancel); the transfer carrying on as a foreground-service notification after the sheet is dismissed, with the Mac's own banner on arrival; links opening on the Mac (Handoff-style).
 
-**Done when:** tapping the target and dismissing the sheet completes the send in the background, even if the source app is closed.
+**Done when:** tapping Send completes the send in the background, even if the source app is closed; dismissing the sheet before Send sends nothing.
 
 ## A05 Activity (`AndActivity.dc.html`)
 

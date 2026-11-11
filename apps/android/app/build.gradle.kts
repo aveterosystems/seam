@@ -25,6 +25,9 @@ val coreDir = rootDir.resolve("../../core")
 tasks.withType<Test>().configureEach {
     dependsOn(":core:crypto:cargoHost")
     systemProperty("jna.library.path", coreDir.resolve("target/debug").path)
+    // The core is loaded once per JVM and keeps one set of Kotlin callbacks (TimeWords): a Robolectric
+    // class loads its own copy of the bindings, so each test class gets its own JVM or they swap callbacks
+    forkEvery = 1
     // ScreensTest renders every screen state to app/build/screens/ for comparing with the approved
     // prototype; only with -Pscreens, so ordinary test runs stay quick
     if (project.hasProperty("screens")) {

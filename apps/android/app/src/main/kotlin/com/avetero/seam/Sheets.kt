@@ -94,11 +94,14 @@ import com.avetero.seam.crypto.untilWords
  * gets the open/closed state to animate on and a `close` that animates out before [onDismiss].
  */
 @Composable
-private fun Modal(onDismiss: () -> Unit, body: @Composable BoxScope.(shown: androidx.compose.animation.core.Transition<Boolean>, close: () -> Unit) -> Unit) {
+private fun Modal(onDismiss: () -> Unit, onClosing: () -> Unit = {}, body: @Composable BoxScope.(shown: androidx.compose.animation.core.Transition<Boolean>, close: () -> Unit) -> Unit) {
     val state = remember { MutableTransitionState(false) }
     LaunchedEffect(Unit) { state.targetState = true }
     LaunchedEffect(state.isIdle, state.currentState) { if (state.isIdle && !state.currentState && !state.targetState) onDismiss() }
-    val close = { state.targetState = false }
+    val close = {
+        if (state.targetState) onClosing()
+        state.targetState = false
+    }
     val scrim = scrimColor
     val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -146,8 +149,10 @@ internal fun SeamSheet(
     body: String?,
     onDismiss: () -> Unit,
     lead: (@Composable () -> Unit)? = null,
+    /** Runs the moment the sheet starts to close, not after its exit like [onDismiss]: for a choice that can't wait. */
+    onClosing: () -> Unit = {},
     content: @Composable ColumnScope.(close: () -> Unit) -> Unit,
-) = Modal(onDismiss) { t, close ->
+) = Modal(onDismiss, onClosing) { t, close ->
     val reduced = reducedMotion()
     val scheme = MaterialTheme.colorScheme
     // In dark, Low is as dark as the scrimmed screen behind it (the camera): one step up keeps its edge

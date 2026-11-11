@@ -65,7 +65,7 @@ internal fun Pill(text: String, onClick: () -> Unit, kind: PillKind = PillKind.T
         colors = ButtonDefaults.buttonColors(container, content, container, content),
         contentPadding = PaddingValues(horizontal = pad),
         modifier = modifier.then(if (LocalTrailing.current) Modifier.layoutId(if (bare) BARE_PILL else PILL) else Modifier).heightIn(min = 40.dp),
-    ) { Swap(text) { Text(it, style = MaterialTheme.typography.titleSmall, maxLines = 1) } }
+    ) { Swap(text) { Text(it, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center) } }
 }
 
 /** The system's confirm tick, only on the change to done, not when something already done comes on screen. */

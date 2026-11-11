@@ -528,7 +528,7 @@ private fun Actions(paused: Boolean, offOnMac: Boolean, onSend: () -> SendFeedba
                 onClick = {
                     if (paused) { onResume(); haptic.performHapticFeedback(HapticFeedbackType.Confirm); snack("Seam is back on") }
                     else onSend().let { f ->
-                        if (f.label != null) confirm = f
+                        confirm = f.takeIf { it.label != null }
                         if (f.done) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         f.snack?.let(snack)
                     }

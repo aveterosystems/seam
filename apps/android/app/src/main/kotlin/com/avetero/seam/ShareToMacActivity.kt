@@ -89,7 +89,9 @@ private fun macName(at: SessionState): String? =
  */
 @Composable
 internal fun ShareSheet(macName: String, text: String, look: LinkLook, refused: String?, onClose: () -> Unit, onSend: () -> SendFeedback) {
-    var problem by remember { mutableStateOf(refused) }
+    // A refusal from a send stays; one known before the tap follows the Mac (sync turned on while open brings Send back)
+    var sendRefused by remember { mutableStateOf<String?>(null) }
+    val problem = sendRefused ?: refused
     // Refused, the link's words ("will send when it's back") would promise what won't happen; the error card says why
     SeamSheet(if (problem == null) SendWords.sendTo(macName) else SendWords.cantSendTo(macName), null, onDismiss = onClose) { close ->
         val armed = armedAfterDelay()
@@ -125,7 +127,7 @@ internal fun ShareSheet(macName: String, text: String, look: LinkLook, refused: 
                         if (confirm != null) return@onClick // sent once; the confirmation is showing
                         val f = onSend()
                         if (f.label != null) confirm = f
-                        problem = f.snack
+                        sendRefused = f.snack
                     },
                     enabled = armed,
                     // Green, with the confirm tick, only when it really went; "Sending" isn't a success yet (SR-8-04)
