@@ -58,6 +58,12 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
     }
 
     /// "once a day": how often an interval is, in words.
+    /// What checking tells GitHub, said the same in General and in Privacy.
+    static func privacyLine(_ on: Bool) -> String {
+        guard shared.available else { return "Development builds never ask GitHub" }
+        return on ? "GitHub sees this Mac's IP address and Seam's version when Seam asks for a newer release" : "Off: Seam asks GitHub only when you click Check now"
+    }
+
     static func often(_ interval: TimeInterval) -> String {
         switch interval {
         case ..<3600: "every 30 minutes"

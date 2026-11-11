@@ -96,9 +96,10 @@ enum Demo {
 
     private struct OpenSettings: View {
         @Environment(\.openWindow) private var openWindow
+        @Environment(\.openSettings) private var openSettingsWindow
         var body: some View {
             Color.clear.onAppear {
-                openWindow(id: "settings")
+                openSettingsWindow()
                 if ProcessInfo.processInfo.environment["SEAM_DEMO_MAIN"] != nil { openWindow(id: "main") }
             }
         }
@@ -107,7 +108,20 @@ enum Demo {
     private static func open<V: View>(_ view: V, at origin: NSPoint) -> NSWindow {
         let window = KeyWindow(contentViewController: NSHostingController(rootView: view))
         window.styleMask = [.borderless]
-        window.backgroundColor = .windowBackgroundColor
+        // The menu bar panel's own material, which the popover lets show through. The content is
+        // pinned to it with constraints, so the window still grows and shrinks with the popover
+        let hosting = window.contentView!
+        let glass = NSVisualEffectView()
+        glass.material = .popover
+        glass.state = .active
+        window.contentView = glass
+        hosting.translatesAutoresizingMaskIntoConstraints = false
+        glass.addSubview(hosting)
+        NSLayoutConstraint.activate([
+            hosting.leadingAnchor.constraint(equalTo: glass.leadingAnchor), hosting.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
+            hosting.topAnchor.constraint(equalTo: glass.topAnchor), hosting.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+        ])
+        window.backgroundColor = .clear
         window.setFrameOrigin(origin)
         // SEAM_DEMO_FLOAT: above other windows, so macOS keeps drawing it while it's recorded
         if ProcessInfo.processInfo.environment["SEAM_DEMO_FLOAT"] != nil { window.level = .floating }

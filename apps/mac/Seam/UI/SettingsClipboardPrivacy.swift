@@ -4,78 +4,71 @@ import SwiftUI
 /// Clipboard: sync, what never goes, how long copies wait, and phone → Mac.
 struct ClipboardSettingsPane: View {
     let controller: SeamController
-    let shown: Bool
-    @State private var waitInfo = false
-    @State private var autoInfo = false
-    @Environment(\.accessibilityReduceMotion) private var reduce
+    private var phoneName: String { controller.phone.map { $0.name.isEmpty ? "your phone" : $0.name } ?? "your phone" }
 
     var body: some View {
-        PaneScroll {
-            SettingsGroup {
-                SettingsRow("Sync the clipboard", "Copy on one, paste on the other") {
-                    Toggle("Sync the clipboard", isOn: Binding(get: { controller.clipboardSync }, set: { controller.setClipboardSync($0) })).labelsHidden()
+        Form {
+            Section {
+                Toggle(isOn: Binding(get: { controller.clipboardSync }, set: { controller.setClipboardSync($0) })) {
+                    RowLabel("Sync the clipboard", "What you copy on this Mac goes to \(phoneName) by itself")
                 }
-                // Always on: there's no setting behind it, so it shows as a fact, not a switch (see the PR)
-                SettingsRow("Never send passwords", "Copies a password manager marks private stay on this Mac") {
-                    Image(systemName: "lock.fill").foregroundStyle(SeamStyle.Win.fg2).accessibilityLabel("Always on")
+                // Always on: there's no setting behind it, so it reads as a fact, with a status glyph
+                // A fact, not a setting: it has no control, so it says "Always" where one would be
+                LabeledContent {
+                    Text("Always").foregroundStyle(.secondary)
+                } label: {
+                    RowLabel("Passwords stay on this Mac", "Copies a password manager marks private are never sent")
                 }
-                SettingsRow("Waiting copies", "Kept while your phone is asleep", info: $waitInfo) {
-                    Text("10 minutes").font(.system(size: 13)).foregroundStyle(SeamStyle.Win.fg2)
-                }
-                if waitInfo {
-                    InfoMore("When your phone is asleep, a copy waits on this Mac for up to 10 minutes and sends as soon as the phone wakes. After that it's dropped, so an old copy never lands on your phone by surprise.")
-                        .transition(.unfold(reduce))
-                }
+            } footer: {
+                Text("While \(phoneName) is asleep, a copy waits here for up to 10 minutes, then it's dropped, so an old copy never lands by surprise.")
             }
-            .animation(Motion.reveal, value: waitInfo)
-            .rise(0, shown, pane: true)
-            GroupTitle("Phone → Mac").rise(1, shown, pane: true)
-            SettingsGroup {
-                // Whether the phone's own automatic clipboard is on isn't sent, so no "Off ·" here (see the PR)
-                SettingsRow("Automatic from your phone", "Copies on your phone come here when you share them", info: $autoInfo) {
-                    Button("Set up") { AutoClipboardSetup.run() }.buttonStyle(CapButtonStyle())
+            Section {
+                // Whether the phone's own automatic clipboard is on isn't sent, so no "Off" here
+                LabeledContent {
+                    Button("Set up") { AutoClipboardSetup.run() }
+                } label: {
+                    RowLabel("Copy automatically", "Copies arrive here without using Share. Turn it on here, or in Seam on your phone.")
                 }
-                if autoInfo {
-                    InfoMore("Mac → phone is always automatic. For phone → Mac, turn on Automatic clipboard in Seam on your phone. Rather not use Android's Accessibility? Set it up from here with the phone on USB or wireless debugging.")
-                        .transition(.unfold(reduce))
-                }
+            } header: {
+                Text("From \(phoneName) to this Mac")
             }
-            .animation(Motion.reveal, value: autoInfo)
-            .rise(2, shown, pane: true)
         }
+        .formStyle(.grouped)
     }
 }
 
 /// Privacy & Security: what protects what passes between the devices, and what Seam asks GitHub.
 struct PrivacyPane: View {
-    let shown: Bool
-    /// Change on the update-checks row: General has the switch.
-    let openGeneral: () -> Void
+    let controller: SeamController
+    @State private var checks = Updates.shared.checksAutomatically
 
     var body: some View {
-        PaneScroll {
-            SettingsGroup {
-                SettingsRow("End-to-end encrypted", "Signal Protocol with post-quantum keys. Only your Mac and phone can read what passes between them.") {
-                    TintedIcon(symbol: "checkmark.shield", color: Color(light: 0x30A46C, dark: 0x30A46C))
-                } trailing: { EmptyView() }
-                SettingsRow("Away from home, through Tor", "Neither Tor nor your network can read anything, and Tor hides where you are") {
-                    TintedIcon(symbol: "globe", color: Color(light: 0x6E56CF, dark: 0x6E56CF))
-                } trailing: { EmptyView() }
-                SettingsRow("Update checks", updateChecks) {
-                    TintedIcon(symbol: "arrow.down", color: Color(light: 0x8E8E93, dark: 0x8E8E93))
-                } trailing: {
-                    Button("Change", action: openGeneral).buttonStyle(CapButtonStyle())
+        Form {
+            Section {
+                fact("checkmark.shield.fill", "Always", "End-to-end encrypted", "Signal Protocol with post-quantum keys. Only your Mac and phone can read what passes between them.")
+                // Its switch is on the phone's tab; here, what it's set to
+                fact("globe", controller.torOn ? "On" : "Off", "Internet, through Tor", "Away from home, neither Tor nor your network can read anything, and Tor hides where you are")
+                // Its switch is in General; here, what it tells GitHub
+                LabeledContent {
+                    Text(checks && Updates.shared.available ? "On" : "Off").foregroundStyle(.secondary)
+                } label: {
+                    RowLabel("Update checks", Updates.privacyLine(checks) + (Updates.shared.available ? ". Change it in General." : ""))
                 }
+            } footer: {
+                // The Tor Project's trademark guidelines ask for this wording: a footnote, not a setting
+                Text("Seam uses Tor through Arti. It is produced independently from the Tor® anonymity software and carries no guarantee from The Tor Project about quality, suitability or anything else. It isn't endorsed by The Tor Project.")
             }
-            .rise(0, shown, pane: true)
-            // The Tor Project's trademark guidelines ask for this wording: a footnote, not a setting
-            GroupFootnote { Text("Seam uses Tor through Arti. It is produced independently from the Tor® anonymity software and carries no guarantee from The Tor Project about quality, suitability or anything else. It isn't endorsed by The Tor Project.") }
-                .rise(1, shown, pane: true)
         }
+        .formStyle(.grouped)
+        .onAppear { checks = Updates.shared.checksAutomatically } // General may have changed it
     }
 
-    private var updateChecks: String {
-        guard Updates.shared.checksAutomatically else { return "Off: Seam asks GitHub only when you click Check now" }
-        return "GitHub sees this Mac's IP address and Seam's version \(Updates.often(Updates.shared.checkInterval))"
+    /// A fact rather than a setting: its words, and its state where a control would be.
+    private func fact(_ symbol: String, _ state: String, _ title: String, _ detail: String) -> some View {
+        LabeledContent {
+            Label(state, systemImage: symbol).foregroundStyle(.secondary)
+        } label: {
+            RowLabel(title, detail)
+        }
     }
 }

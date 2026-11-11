@@ -8,6 +8,7 @@ import SwiftUI
 struct PopoverView: View {
     let controller: SeamController
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettingsWindow
     @Environment(\.accessibilityReduceMotion) private var reduce
     /// Catalogue 1: sections rise in a stagger, and the stitch draws, each time the popover opens.
     @State private var appeared = false
@@ -21,10 +22,9 @@ struct PopoverView: View {
                 Spacer().frame(height: 10)
             } else if let phone = controller.phone {
                 // The prototype's seven stagger slots: header, stitch, tiles, then each heading and its list
-                PopoverHeader(controller: controller, phone: phone, rise: (0, appeared))
-                Stitch(line: controller.link.line, replay: opens).padding(.horizontal, 14).rise(1, appeared)
+                PopoverHeader(controller: controller, phone: phone, rise: (0, appeared), replay: opens)
                 if controller.waiting > 0, !controller.connected {
-                    QueueBar(count: controller.waiting).transition(.unfold(reduce))
+                    QueueBar(count: controller.waiting, phone: phone.name.isEmpty ? "your phone" : phone.name).transition(.unfold(reduce))
                 }
                 PopoverTiles(controller: controller, openSettings: openSettings).rise(2, appeared)
                 PopoverNotifications(controller: controller, openMain: openMain, appeared: appeared)
@@ -34,10 +34,10 @@ struct PopoverView: View {
             }
             footer
         }
-        .frame(width: 340)
+        .frame(width: 320)
         .overlay(alignment: .bottom) {
             if let toast {
-                ToastPill(text: toast).padding(.bottom, 52)
+                ToastPill(text: toast).padding(.bottom, 112)
                     .transition(reduce ? .opacity : .offset(y: 10).combined(with: .opacity).animation(Motion.css(0.35)))
             }
         }
@@ -51,7 +51,7 @@ struct PopoverView: View {
         .offset(y: appeared || reduce ? 0 : -6)
         .opacity(appeared ? 1 : 0)
         .animation(appeared ? Motion.spatial(reduce) : nil, value: appeared)
-        .background(SeamStyle.Pop.background)
+        // No fill of its own: the menu bar's glass shows through, as in Apple's own menu bar extras
         .tint(SeamStyle.teal)
         .onAppear(perform: opened)
         .onDisappear { appeared = false }
@@ -82,34 +82,35 @@ struct PopoverView: View {
             Text("Pair your phone").font(.headline)
             Text("Scan a code with Seam on your Android phone. It takes a minute.")
                 .font(.callout).foregroundStyle(SeamStyle.Pop.fg2).multilineTextAlignment(.center)
-            Button("Show pairing code") { PairingWindow.show(controller) }.buttonStyle(CapButtonStyle(kind: .primary))
+            Button("Show pairing code") { PairingWindow.show(controller) }.buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity)
         .padding(20)
     }
 
+    /// The bottom of the popover, as every menu bar extra ends: a separator, then menu items with
+    /// their shortcuts. The security line sits above them, quiet.
     private var footer: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "checkmark.shield").font(.system(size: 11))
-            Text("End-to-end encrypted")
-            Spacer()
-            if controller.phone != nil {
-                Button { openMain(nil) } label: {
-                    HStack(spacing: 0) {
-                        Text("Open Seam").fontWeight(.semibold).foregroundStyle(SeamStyle.tealInk)
-                        KeyCap("⌘O")
-                    }
+        VStack(spacing: 0) {
+            Label("End-to-end encrypted", systemImage: "checkmark.shield")
+                .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(EdgeInsets(top: 10, leading: 14, bottom: 6, trailing: 14))
+            Rectangle().fill(SeamStyle.Pop.line).frame(height: 0.5).padding(.horizontal, 14)
+            VStack(spacing: 0) {
+                if controller.phone != nil {
+                    MenuRow(title: "Open Seam", keys: "⌘O") { openMain(nil) }.keyboardShortcut("o")
                 }
-                .buttonStyle(PressableStyle())
-                .keyboardShortcut("o")
+                MenuRow(title: "Settings", keys: "⌘,") { openSettings(nil) }.keyboardShortcut(",")
+                if Updates.shared.found == nil, Updates.shared.available {
+                    MenuRow(title: "Check for updates") { NSApp.activate(); Updates.shared.checkNow() }
+                        .disabled(!Updates.shared.canCheck)
+                }
+                MenuRow(title: "Quit Seam", keys: "⌘Q") { NSApp.terminate(nil) }.keyboardShortcut("q")
             }
-            GearButton { openSettings(nil) }
+            .padding(EdgeInsets(top: 5, leading: 6, bottom: 6, trailing: 6))
         }
-        .font(.system(size: 11))
-        .foregroundStyle(SeamStyle.Pop.fg2)
-        .padding(EdgeInsets(top: 7, leading: 14, bottom: 8, trailing: 10))
-        .overlay(alignment: .top) { Rectangle().fill(SeamStyle.Pop.line).frame(height: 0.5) }
-        .padding(.top, 6)
+        .padding(.top, 4)
     }
 
     private func show(_ text: String) {
@@ -126,46 +127,34 @@ struct PopoverView: View {
     private func openSettings(_ pane: SettingsView.Pane?) {
         controller.requestedSettingsPane = pane
         NSApp.activate() // a menu bar app's windows otherwise open behind the frontmost app
-        openWindow(id: "settings")
+        openSettingsWindow()
     }
 }
 
-/// The footer's gear: the system menu (catalogue 9) with Settings, updates and Quit, since a menu
-/// bar app has no other place to quit from. It turns a little when pointed at.
-private struct GearButton: View {
+/// A menu item, drawn as the system draws them in a menu bar extra: the title, its shortcut on the
+/// right, and a rounded highlight under the pointer.
+private struct MenuRow: View {
+    let title: String
+    var keys: String?
     let action: () -> Void
     @State private var hovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduce
+    @Environment(\.isEnabled) private var enabled
 
     var body: some View {
-        Menu {
-            Button("Settings", action: action).keyboardShortcut(",")
-            if Updates.shared.available {
-                Button("Check for updates") { NSApp.activate(); Updates.shared.checkNow() }.disabled(!Updates.shared.canCheck)
+        Button(action: action) {
+            HStack {
+                Text(title).foregroundStyle(enabled ? SeamStyle.Pop.fg : SeamStyle.Pop.fg3)
+                Spacer()
+                if let keys { Text(keys).foregroundStyle(SeamStyle.Pop.fg3).accessibilityHidden(true) }
             }
-            Divider()
-            Button("Quit Seam") { NSApp.terminate(nil) }.keyboardShortcut("q")
-        } label: {
-            Image(systemName: "gearshape").font(.system(size: 12))
+            .font(.system(size: 13))
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hovering && enabled ? SeamStyle.Pop.fill : .clear))
+            .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .tint(hovering ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2) // a menu's label takes the tint, not the foreground
-        .fixedSize()
-        .rotationEffect(.degrees(hovering && !reduce ? 60 : 0))
-        .frame(width: 28, height: 28)
-        .background(Circle().fill(SeamStyle.Pop.fill))
-        .contentShape(Circle())
-        .foregroundStyle(hovering ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2)
-        .padding(.leading, 6)
-        .onHover { h in withAnimation(Motion.css(0.5)) { hovering = h } }
-        // The menu's shortcuts only work while it's open: these keep ⌘, and ⌘Q working in the popover
-        .background {
-            Button("", action: action).keyboardShortcut(",").hidden()
-            Button("") { NSApp.terminate(nil) }.keyboardShortcut("q").hidden()
-        }
-        .help("Settings and Quit")
-        .accessibilityLabel("Seam menu")
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 

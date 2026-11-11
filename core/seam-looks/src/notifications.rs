@@ -111,7 +111,7 @@ pub fn tile(
             } else {
                 "tomorrow".into()
             };
-            (TileMode::Paused, format!("Paused · {when}"))
+            (TileMode::Paused, format!("Paused until {when}"))
         }
         Some(s) if s.enabled => (
             TileMode::On,

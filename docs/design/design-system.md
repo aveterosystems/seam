@@ -40,6 +40,7 @@ Each app looks like its own platform. The Mac app follows current macOS, and the
 | `text` / `text2` / `text3` | `#1D1D1F` / `#4E4E53` / `#636368` | `#F5F5F7` / `#CDCDD2` / `#A9A9AF` | Primary, secondary, captions |
 | `fill` / `fill2` | black 4.5% / 8% | white 6% / 11% | Grouped sections / fields, selected sidebar row |
 | `ok` / `warn` / `danger` | `#1C7C3A` / `#9A5200` / `#B4232F` | `#4ADE80` / `#F5A524` / `#FF7B86` | Status dots, destructive text |
+| `paused` | `#32628D` | `#5B8FC4` | Paused: the user's own choice, so a calm blue (Android's tertiary), never `warn` |
 
 If the user has set a system accent colour, controls follow it. Seam teal is the default, and it's always used for the icon and the stitch.
 
@@ -167,7 +168,7 @@ How every screen moves, and the finish it needs before it's done, is in [motion.
 ## Accessibility
 
 - Text contrast is at least 4.5:1, including 11–12 px captions. `accentInk` exists because teal on `accentSoft` fails otherwise.
-- Targets are at least 44 pt on the Mac popover and at least 48 dp on Android.
+- Targets are at least 44 pt on the Mac popover and at least 48 dp on Android. The popover's menu items (Open Seam, Settings, Quit) keep macOS's own menu row height, as every menu bar extra does; small controls get a larger invisible hit area rather than larger artwork.
 - Every icon-only button has a label (`.accessibilityLabel`, `contentDescription`).
 - The stitch is never the only signal: the text label always says the same thing.
 - Status colours also differ in lightness, not only in hue.

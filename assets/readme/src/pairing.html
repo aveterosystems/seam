@@ -29,8 +29,8 @@ body { font: 13px -apple-system, sans-serif; color: rgba(0,0,0,.85); }
       <div><div style="font-size:24px;font-weight:700">Pair your phone</div>
         <div class="sec" style="font-size:14px;margin-top:6px">Open Seam on your Android phone and scan this code. That's the whole setup.</div></div>
       <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="step"><span class="n">1</span><span>Get <b>Seam</b> on your phone</span></div>
-        <div class="step"><span class="n">2</span><span>Tap <b>Pair with a Mac</b> and point the camera here</span></div>
+        <div class="step"><span class="n">1</span><span>Get <b>Seam</b> on your phone from <span style="color:#07604F">GitHub</span></span></div>
+        <div class="step"><span class="n">2</span><span>Tap <b>Scan code</b> and point the camera here</span></div>
         <div class="step"><span class="n">3</span><span>Check both screens show the same code, then pair</span></div>
       </div>
       <div class="sec" style="margin-top:auto;font-size:10px;display:flex;gap:6px;align-items:center">
@@ -38,8 +38,9 @@ body { font: 13px -apple-system, sans-serif; color: rgba(0,0,0,.85); }
     </div>
     <div class="right">
       <div class="qr"><img src="qr.png"></div>
-      <div class="sec" style="font-size:10px;display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums">
-        <i style="width:8px;height:8px;border-radius:50%;background:#9A5200"></i>Waiting for your phone… code expires in 4:32</div>
+      <!-- PairingView.swift: the stitch's grey travelling dots over the line, never an amber warning -->
+      <div style="width:120px;height:0;border-top:2px dotted rgba(0,0,0,.4);margin-top:2px"></div>
+      <div class="sec" style="font-size:10px;font-variant-numeric:tabular-nums">Waiting for your phone · code expires in 4:32</div>
     </div>
   </div>
 </div>
