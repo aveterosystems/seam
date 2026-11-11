@@ -4,7 +4,7 @@ import SeamSession
 import SwiftUI
 
 /// The popover's two tiles: Clipboard and Notifications, each with its state in words. The
-/// Notifications tile's chevron holds what used to be on right-click: pause, resume, off, settings.
+/// Notifications row's ⋯ menu holds what used to be on right-click: pause, resume, off, settings.
 struct PopoverTiles: View {
     let controller: SeamController
     let openSettings: (SettingsView.Pane?) -> Void
@@ -15,15 +15,20 @@ struct PopoverTiles: View {
     var body: some View {
         let sync = controller.clipboardSync
         let n = Looks.notificationsTile(controller.notifications.settings, showing: controller.notifications.shown.count)
-        HStack(spacing: 6) {
+        // Control Centre's connectivity block: one rounded module, a row per feature
+        VStack(spacing: 0) {
             Tile(title: "Clipboard", subtitle: clipboardSubtitle(syncOn: sync, connected: controller.connected),
                  symbol: "doc.on.clipboard", tint: sync ? .on : .off, bounce: clipBounce) {
                 controller.setClipboardSync(!sync)
                 clipBounce += 1
+            } accessory: {
+                options("Clipboard options") {
+                    Button(sync ? "Turn off sync" : "Turn on sync") { controller.setClipboardSync(!sync); clipBounce += 1 }
+                    Divider()
+                    Button("Clipboard settings") { openSettings(.clipboard) }
+                }
             }
-            .frame(maxWidth: .infinity)
-            .layoutPriority(1) // its title never truncates for the Notifications subtitle
-            // The phone holds the setting, so until it has sent it the tile waits, and says so
+            // The phone holds the setting, so until it has sent it the row waits, and says so
             Tile(title: "Notifications", subtitle: n.subtitle, symbol: n.icon.symbol,
                  tint: n.mode == .on ? .on : n.mode == .paused ? .paused : .off,
                  ring: bellRing + controller.notifications.arrivals, bounce: bellBounce) {
@@ -32,10 +37,13 @@ struct PopoverTiles: View {
                 menu(n.mode)
             }
             .opacity(n.mode == .waiting ? 0.55 : 1)
-            // Sized to its words, like the prototype's grid: Clipboard takes what's left
-            .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(EdgeInsets(top: 10, leading: 14, bottom: 6, trailing: 14))
+        .padding(4)
+        // Still on, but nothing flows while the phone is out of reach: the module quietens
+        .saturation(controller.connected ? 1 : 0.35)
+        .animation(Motion.ease(0.5), value: controller.connected)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(SeamStyle.Pop.module))
+        .padding(EdgeInsets(top: 12, leading: 12, bottom: 4, trailing: 12))
     }
 
     private func toggle(_ mode: NotificationsTileMode) {
@@ -56,7 +64,7 @@ struct PopoverTiles: View {
 
     /// The system menu (catalogue 9): it brings its own animation.
     private func menu(_ mode: NotificationsTileMode) -> some View {
-        Menu {
+        options("Notification options") {
             if mode == .paused {
                 Button("Resume now") { toggle(.paused) }
             } else {
@@ -74,17 +82,22 @@ struct PopoverTiles: View {
                 .disabled(mode == .waiting)
             }
             Button("Notification settings") { openSettings(.notifications) }
-        } label: {
-            Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+        }
+    }
+
+    /// A row's ⋯: the system menu with what the row's own click doesn't do.
+    private func options<Items: View>(_ label: String, @ViewBuilder _ items: () -> Items) -> some View {
+        Menu(content: items) {
+            Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .frame(width: 20, height: 20)
+        .frame(width: 28, height: 28)
         .contentShape(Rectangle())
-        .foregroundStyle(SeamStyle.Pop.fg2)
-        .help("Pause, turn off, or open notification settings")
-        .accessibilityLabel("Notification options")
+        .tint(SeamStyle.Pop.fg) // a menu's label takes the tint, not the foreground
+        .help(label)
+        .accessibilityLabel(label)
     }
 
     private func pause(until: Date) {

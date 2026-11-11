@@ -94,12 +94,12 @@ fn the_tile_says_its_state_in_words() {
             t(Some(&in_an_hour), 0).mode,
             t(Some(&in_an_hour), 0).subtitle.as_str()
         ),
-        (TileMode::Paused, "Paused · 13:00")
+        (TileMode::Paused, "Paused until 13:00")
     );
     let tomorrow = NotificationSettings {
         enabled: true,
         paused_until: NOW + 20 * HOUR,
         ..Default::default()
     };
-    assert_eq!(t(Some(&tomorrow), 0).subtitle, "Paused · tomorrow");
+    assert_eq!(t(Some(&tomorrow), 0).subtitle, "Paused until tomorrow");
 }

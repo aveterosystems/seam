@@ -20,15 +20,11 @@ struct SeamApp: App {
         Window("Seam", id: "main") {
             MainWindow(controller: appDelegate.controller)
         }
-        .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 900, height: 620)
+        .defaultSize(width: 780, height: 560)
 
-        // Board M03 draws its own title and sidebar (SidebarWindow), so the window's title bar is hidden
-        Window("Seam Settings", id: "settings") {
+        Settings {
             SettingsView(controller: appDelegate.controller)
         }
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 SettingsCommand()
@@ -92,14 +88,14 @@ private struct OpenMainCommand: View {
     }
 }
 
-/// ⌘, opens Seam's Settings window.
+/// ⌘, opens Seam's Settings window ("Settings", without the system's "…").
 private struct SettingsCommand: View {
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Button("Settings") {
             NSApp.activate()
-            openWindow(id: "settings")
+            openSettings()
         }
         .keyboardShortcut(",")
     }

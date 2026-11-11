@@ -158,7 +158,7 @@ struct PairingView: View {
         VStack(spacing: 14) {
             Spacer()
             Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
-            Button(button, action: action).buttonStyle(CapButtonStyle(kind: .primary))
+            Button(button, action: action).buttonStyle(.borderedProminent).controlSize(.large)
             Spacer()
         }
     }
@@ -190,10 +190,10 @@ private struct ConfirmView: View {
                 // Cancel is the prominent, default button: Return cancels, and the look says so (SR-10-02)
                 Button("Cancel", role: .cancel) { PairingWindow.close() }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(CapButtonStyle(kind: .primary))
+                    .buttonStyle(.borderedProminent).controlSize(.large)
                     .disabled(sending)
                 Button("Pair") { controller.confirmPairing() }
-                    .buttonStyle(CapButtonStyle())
+                    .controlSize(.large)
                     .disabled(!armed || sending)
                 if sending { ProgressView().controlSize(.small) }
             }

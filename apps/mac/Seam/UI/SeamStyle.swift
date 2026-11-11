@@ -11,6 +11,8 @@ enum SeamStyle {
     static let warn = Color(light: 0x9A5200, dark: 0xF5A524)
     static let ok = Color(light: 0x1C7C3A, dark: 0x4ADE80)
     static let danger = Color(light: 0xB4232F, dark: 0xFF7B86)
+    /// Paused: the user's own choice, so a calm blue (Android's tertiary), never the warning amber.
+    static let paused = Color(light: 0x32628D, dark: 0x5B8FC4)
     /// The live dot and done ticks ("✓ Copied"): the same green in both themes, as in the prototypes.
     static let live = Color(light: 0x34C759, dark: 0x34C759)
     /// The bolt and the moon: the yellow of the prototypes' ⚡ and 🌙.
@@ -38,15 +40,14 @@ enum SeamStyle {
     /// and hairlines as alpha over its gradient, so both themes match the approved prototype.
     enum Pop {
         static let fg = Color(light: 0x1D1D1F, dark: 0xF2F2F2)
-        static let fg2 = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.55, darkAlpha: 0.6)
-        static let fg3 = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.4, darkAlpha: 0.38)
+        // At least 4.5:1 on the popover's lightest and darkest fill (design-system.md, text2/text3)
+        static let fg2 = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.68, darkAlpha: 0.74)
+        static let fg3 = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.58, darkAlpha: 0.6)
         static let fill = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.06, darkAlpha: 0.08)
         static let fill2 = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.035, darkAlpha: 0.05)
         static let line = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.09)
-        static let background = LinearGradient(colors: [
-            Color(light: 0xFAFAFB, dark: 0x303236, lightAlpha: 0.98, darkAlpha: 0.97),
-            Color(light: 0xF0F1F3, dark: 0x222427, lightAlpha: 0.99, darkAlpha: 0.98),
-        ], startPoint: .top, endPoint: .bottom)
+        /// A Control Centre module on the glass: a near-white lift in light, a faint one in dark.
+        static let module = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightAlpha: 0.55, darkAlpha: 0.07)
     }
 }
 

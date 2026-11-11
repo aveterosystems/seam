@@ -40,6 +40,7 @@ Each app looks like its own platform. The Mac app follows current macOS, and the
 | `text` / `text2` / `text3` | `#1D1D1F` / `#4E4E53` / `#636368` | `#F5F5F7` / `#CDCDD2` / `#A9A9AF` | Primary, secondary, captions |
 | `fill` / `fill2` | black 4.5% / 8% | white 6% / 11% | Grouped sections / fields, selected sidebar row |
 | `ok` / `warn` / `danger` | `#1C7C3A` / `#9A5200` / `#B4232F` | `#4ADE80` / `#F5A524` / `#FF7B86` | Status dots, destructive text |
+| `paused` | `#32628D` | `#5B8FC4` | Paused: the user's own choice, so a calm blue (Android's tertiary), never `warn` |
 
 If the user has set a system accent colour, controls follow it. Seam teal is the default, and it's always used for the icon and the stitch.
 

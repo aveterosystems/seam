@@ -5,8 +5,9 @@ import SwiftUI
 
 // Board M01's tile and battery pill: shared, animated, and drawn to the popover prototype.
 
-/// A wide tile (board M01): a round symbol, a title and its state in words. `ring` and `bounce`
-/// replay the symbol's emphasis (catalogue 2 and 5); only one is used per event.
+/// A row of the popover's control module, as Control Centre draws its connectivity block: a round
+/// button that fills with the accent when on, the feature's name, and its state in words.
+/// `ring` and `bounce` replay the symbol's emphasis (catalogue 2 and 5); only one is used per event.
 struct Tile<Accessory: View>: View {
     enum Tint { case on, paused, off }
 
@@ -23,9 +24,9 @@ struct Tile<Accessory: View>: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 9) {
+            HStack(spacing: 10) {
                 Image(systemName: symbol)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .medium))
                     .keyframeAnimator(initialValue: 1.0, trigger: reduce ? 0 : bounce) { icon, scale in
                         icon.scaleEffect(scale)
                     } keyframes: { _ in
@@ -47,26 +48,26 @@ struct Tile<Accessory: View>: View {
                             CubicKeyframe(0, duration: 0.12)
                         }
                     }
-                    .frame(width: 30, height: 30)
+                    .frame(width: 28, height: 28)
                     .background(Circle().fill(fill))
                     .foregroundStyle(ink)
                     .animation(Motion.fade, value: tint)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(SeamStyle.Pop.fg)
-                    SwapText(subtitle).font(.system(size: 10.5))
-                        .foregroundStyle(tint == .paused ? SeamStyle.warn : SeamStyle.Pop.fg2)
-                        .frame(height: 13, alignment: .leading)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(SeamStyle.Pop.fg)
+                    SwapText(subtitle).font(.system(size: 11))
+                        .foregroundStyle(SeamStyle.Pop.fg2)
+                        .frame(height: 14, alignment: .leading)
                 }
                 .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(9)
-            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 21) // the chevron (20 pt) and a hair before it
-            .background(RoundedRectangle(cornerRadius: 12).fill(hovering ? SeamStyle.Pop.fill : SeamStyle.Pop.fill2))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
+            .padding(.horizontal, 8).padding(.vertical, 6)
+            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 26) // the accessory and a hair before it
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(hovering ? SeamStyle.Pop.fill : .clear))
+            .contentShape(Rectangle())
         }
-        .buttonStyle(PressableStyle())
-        .overlay(alignment: .trailing) { accessory.padding(.trailing, 9) }
+        .buttonStyle(PressableStyle(scale: 0.98))
+        .overlay(alignment: .trailing) { accessory.padding(.trailing, 8) }
         .onHover { h in withAnimation(Motion.ease(0.15)) { hovering = h } }
         .accessibilityLabel(title)
         .accessibilityValue(subtitle)
@@ -75,7 +76,7 @@ struct Tile<Accessory: View>: View {
     private var fill: Color {
         switch tint {
         case .on: SeamStyle.teal
-        case .paused: SeamStyle.warn.opacity(0.22)
+        case .paused: SeamStyle.paused
         case .off: SeamStyle.Pop.fill
         }
     }
@@ -83,7 +84,7 @@ struct Tile<Accessory: View>: View {
     private var ink: Color {
         switch tint {
         case .on: SeamStyle.onTeal
-        case .paused: SeamStyle.warn
+        case .paused: Color(light: 0xFFFFFF, dark: 0xFFFFFF)
         case .off: SeamStyle.Pop.fg
         }
     }
@@ -95,30 +96,33 @@ extension Tile where Accessory == EmptyView {
     }
 }
 
-/// Catalogue 11: the phone's battery. The number counts, the bolt springs in and out, and at 15% or
-/// below while not charging the pill fades to `warn`.
+/// Catalogue 11: the phone's battery, the way the Mac's own Battery menu writes it: the battery
+/// symbol (a bolt while charging) and the number, which counts. At 15% or below while not charging
+/// it turns `warn`. Selected (its details open), it sits on a light accent fill.
 struct BatteryPill: View {
     let look: DeviceStatusLook
-    /// Its details are open: the pill is lit, like a selected button.
     var selected = false
 
     var body: some View {
-        HStack(spacing: 3) {
-            if look.charging { Image(systemName: "bolt.fill").foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
-            HStack(spacing: 0) {
-                Text("\(look.percent)").monospacedDigit().contentTransition(.numericText(value: Double(look.percent)))
-                Text("%")
-            }
+        HStack(spacing: 4) {
+            Text("\(look.percent)%").monospacedDigit().contentTransition(.numericText(value: Double(look.percent)))
+            // Low shows in the glyph and in words under it; the number stays legible on glass
+            Image(systemName: look.batteryIcon?.symbol ?? "battery.100percent")
+                .symbolRenderingMode(look.charging ? .multicolor : .monochrome)
+                .foregroundStyle(look.low ? AnyShapeStyle(SeamStyle.warn) : AnyShapeStyle(SeamStyle.Pop.fg2))
+                .font(.system(size: 13))
+                .contentTransition(.symbolEffect(.replace))
         }
-        .font(.system(size: 11, weight: look.low ? .bold : .semibold))
-        .padding(.horizontal, 8)
-        .frame(height: 20)
-        .background(Capsule().fill(look.low ? SeamStyle.warn.opacity(0.22) : selected ? SeamStyle.teal.opacity(0.15) : SeamStyle.Pop.fill))
-        .foregroundStyle(look.low ? SeamStyle.warn : selected ? SeamStyle.tealInk : SeamStyle.Pop.fg2)
+        .font(.system(size: 12, weight: look.low ? .semibold : .medium))
+        .padding(.leading, 8).padding(.trailing, 6)
+        .frame(height: 22)
+        .background(Capsule().fill(selected ? SeamStyle.teal.opacity(0.15) : .clear))
+        .foregroundStyle(look.low ? SeamStyle.warn : selected ? SeamStyle.tealInk : SeamStyle.Pop.fg)
         .animation(Motion.ease(0.2), value: selected)
-        .animation(Motion.css(0.35), value: look.charging)
         .animation(Motion.count, value: look.percent)
         .animation(Motion.ease(0.4), value: look.low)
+        .opacity(look.stale && !look.low ? 0.6 : 1) // the last reading, not a live one; "as of" says when. Low stays loud
+        .help(look.stale ? (look.meta ?? "") : "")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Phone " + look.spoken)
     }
@@ -137,9 +141,10 @@ struct BatteryDetails: View {
                     .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2)
             } else {
                 HStack(alignment: .top) {
-                    figure(look.powerTime, .leading)
+                    // The time leads; the rate is the detail behind it
+                    figure(look.powerTime, .leading, hero: true)
                     Spacer(minLength: 8)
-                    figure(look.powerRate, .trailing)
+                    figure(look.powerRate, .trailing, hero: false)
                 }
             }
             GeometryReader { g in
@@ -159,10 +164,11 @@ struct BatteryDetails: View {
     private var fill: Color { look.low ? SeamStyle.warn : look.charging ? SeamStyle.teal : SeamStyle.Pop.fg2 }
 
     @ViewBuilder
-    private func figure(_ r: Readout?, _ edge: HorizontalAlignment) -> some View {
+    private func figure(_ r: Readout?, _ edge: HorizontalAlignment, hero: Bool) -> some View {
         if let r {
             VStack(alignment: edge, spacing: 1) {
-                SwapText(r.value).font(.system(size: 13, weight: .semibold)).monospacedDigit().foregroundStyle(SeamStyle.Pop.fg)
+                SwapText(r.value).font(.system(size: hero ? 15 : 13, weight: hero ? .semibold : .medium)).monospacedDigit()
+                    .foregroundStyle(hero ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2)
                     .frame(height: 16)
                 Text(r.label).font(.system(size: 10.5)).foregroundStyle(SeamStyle.Pop.fg2)
             }

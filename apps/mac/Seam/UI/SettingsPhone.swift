@@ -3,75 +3,76 @@ import SeamCore
 import SeamSession
 import SwiftUI
 
-/// The phone, by name: a live card, which connections may reach it, and its pairing.
+/// The phone, by name: a live header like a device's in System Settings, which connections may
+/// reach it, and its pairing.
 struct PhonePane: View {
     let controller: SeamController
-    let shown: Bool
     @State private var showCode = false
     @State private var unpairing = false
 
     var body: some View {
-        PaneScroll {
+        Form {
             if let phone = controller.phone {
-                PhoneCard(controller: controller, phone: phone, replay: shown ? 1 : 0).rise(0, shown, pane: true)
+                Section { PhoneHeader(controller: controller, phone: phone) }
             } else {
-                SettingsGroup {
-                    SettingsRow("No phone is paired with this Mac", "Scan a code with Seam on your Android phone") {
-                        Button("Pair your phone") { PairingWindow.show(controller) }.buttonStyle(CapButtonStyle(kind: .primary))
+                Section {
+                    LabeledContent {
+                        Button("Show pairing code") { PairingWindow.show(controller) }.buttonStyle(.borderedProminent)
+                    } label: {
+                        RowLabel("No phone is paired with this Mac", "Scan a code with Seam on your Android phone")
                     }
                 }
-                .rise(0, shown, pane: true)
             }
-            // Which paths may reach the phone. The last one on can't be turned off,
-            // and the footnote says why.
-            GroupTitle("Connections").rise(1, shown, pane: true)
-            SettingsGroup {
-                SettingsRow("Same Wi‑Fi", "Straight to your phone on the same network. Nothing leaves it.") {
-                    Toggle("Same Wi‑Fi", isOn: Binding(get: { controller.wifiOn }, set: { controller.setWifi($0) })).labelsHidden()
-                        .disabled(controller.wifiOn && !controller.torOn)
+            // Which paths may reach the phone. The last one on can't be turned off, and the footnote says why
+            Section {
+                Toggle(isOn: Binding(get: { controller.wifiOn }, set: { controller.setWifi($0) })) {
+                    RowLabel("Same Wi‑Fi", "Straight to your phone on the same network. Nothing leaves it.")
                 }
-                SettingsRow("Internet, through Tor", "Reaches your phone anywhere and hides where you are") {
-                    Toggle("Internet, through Tor", isOn: Binding(get: { controller.torOn }, set: { controller.setTor($0) })).labelsHidden()
-                        .disabled(controller.torOn && !controller.wifiOn)
+                .disabled(controller.wifiOn && !controller.torOn)
+                Toggle(isOn: Binding(get: { controller.torOn }, set: { controller.setTor($0) })) {
+                    RowLabel("Internet, through Tor", "Reaches your phone anywhere and hides where you are")
                 }
+                .disabled(controller.torOn && !controller.wifiOn)
                 // For when you know it's stuck; a second press waits for the first (SR-55-03)
                 if controller.phone != nil {
-                    SettingsRow("Reconnect", controller.reconnecting == nil ? "If Seam seems stuck, try again now" : controller.link.label) {
-                        Button("Reconnect") { controller.reconnect() }.buttonStyle(CapButtonStyle())
-                            .disabled(controller.reconnecting != nil)
+                    LabeledContent {
+                        Button("Reconnect") { controller.reconnect() }.disabled(controller.reconnecting != nil)
+                    } label: {
+                        RowLabel("Connection stuck?", controller.reconnecting == nil ? "Seam tries every allowed path again, now" : controller.link.label)
                     }
                 }
+            } header: {
+                Text("Connections")
+            } footer: {
+                Text(Looks.connectionsFootnote(wifi: controller.wifiOn, tor: controller.torOn))
             }
-            .rise(2, shown, pane: true)
-            GroupFootnote { SwapText(Looks.connectionsFootnote(wifi: controller.wifiOn, tor: controller.torOn), lines: nil, pane: true) }
-                .rise(3, shown, pane: true)
-            if let phone = controller.phone {
-                GroupTitle("Pairing").rise(4, shown, pane: true)
-                pairing(phone).rise(5, shown, pane: true)
-            }
+            if let phone = controller.phone { pairing(phone) }
         }
+        .formStyle(.grouped)
     }
 
     private func pairing(_ phone: Phone) -> some View {
         let name = phone.name.isEmpty ? "your phone" : phone.name
-        return SettingsGroup {
+        return Section("Pairing") {
             if let code = controller.phoneCode() {
-                SettingsRow("Verification code", "Matches your phone if nobody came between them") {
-                    HStack(spacing: 12) {
-                        Text(code).font(.system(size: 13, design: .monospaced)).tracking(1.56)
+                LabeledContent {
+                    HStack(spacing: 10) {
+                        Text(code).font(.system(.body, design: .monospaced)).tracking(1.5)
                             .blur(radius: showCode ? 0 : 5)
                             .animation(Motion.ease(0.4), value: showCode)
-                            .onTapGesture { showCode.toggle() }
                             .accessibilityLabel(showCode ? code : "Hidden")
-                        Button { showCode.toggle() } label: { SwapText(showCode ? "Hide" : "Show", pane: true) }
-                            .buttonStyle(CapButtonStyle())
+                        Button(showCode ? "Hide" : "Show") { showCode.toggle() }
                     }
+                } label: {
+                    RowLabel("Verification code", "Should match the code on your phone")
                 }
             }
             // Only phones paired since Seam kept the date have one
-            SettingsRow(controller.pairedAt.map { "Paired \($0.formatted(date: .long, time: .omitted))" } ?? "Paired with this Mac", nil) {
-                Button { unpairing = true } label: { Text("Unpair").font(.system(size: 11.5)).foregroundStyle(SeamStyle.danger) }
-                    .buttonStyle(CapButtonStyle())
+            LabeledContent("Paired", value: controller.pairedAt.map { $0.formatted(date: .long, time: .omitted) } ?? "With this Mac")
+            LabeledContent {
+                Button("Unpair", role: .destructive) { unpairing = true }
+            } label: {
+                RowLabel("Unpair \(name)", "Both devices forget each other's keys")
             }
         }
         .alert("Unpair \(name)?", isPresented: $unpairing) {
@@ -83,97 +84,64 @@ struct PhonePane: View {
     }
 }
 
-/// The phone's live card (board M03): a phone with its battery filling it, the link in words and
-/// as the stitch, and its battery, network, storage and Do Not Disturb as icons with short values.
-private struct PhoneCard: View {
+/// The phone's header, like a device's in System Settings: the phone, its name, the link in words
+/// and as the stitch, then its battery (the popover's pill), network, storage and Do Not Disturb.
+private struct PhoneHeader: View {
     let controller: SeamController
     let phone: Phone
-    let replay: Int
 
     var body: some View {
         let look = controller.link
         let status = controller.status.status.flatMap { Looks.phone($0, link: look, at: controller.status.statusAt) }
-        HStack(spacing: 16) {
-            PhoneGlyph(level: status.map { Int($0.percent) }, low: status?.low == true, on: look.connected)
+        HStack(alignment: .center, spacing: 16) {
+            PhoneDisc(connected: look.connected, size: 56)
             VStack(alignment: .leading, spacing: 0) {
-                Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.system(size: 19, weight: .bold)).foregroundStyle(SeamStyle.Win.fg)
+                Text(phone.name.isEmpty ? "Your phone" : phone.name).font(.title2.weight(.semibold))
                 TimelineView(.periodic(from: .now, by: 30)) { tl in
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         StatusDot(on: look.connected)
-                        SwapText(controller.link(at: tl.date).heroLine, pane: true)
-                        PathIcon(look: look)
+                        SwapText(controller.link(at: tl.date).statusLine, pane: true)
+                        PathIcon(look: look).imageScale(.small)
                     }
                 }
-                .font(.system(size: 12.5)).foregroundStyle(SeamStyle.Win.fg2)
-                .frame(height: 17).padding(.top, 3)
-                Stitch(line: look.line, replay: replay).padding(.top, 10).padding(.bottom, 9)
+                .font(.callout).foregroundStyle(.secondary)
+                .frame(height: 17).padding(.top, 2)
+                Stitch(line: look.line).padding(.vertical, 10)
                 HStack(spacing: 14) {
-                    stat(status?.batteryIcon?.symbol ?? "battery.100percent", help: status?.batteryDetail ?? "Battery") {
-                        Text(status?.battery ?? "—").contentTransition(.numericText(value: Double(status?.percent ?? 0)))
+                    if let status {
+                        stat(status.batteryIcon?.symbol ?? "battery.100percent", help: status.batteryDetail ?? status.spoken) {
+                            // Offline it's the last reading, and says when it's from
+                            Text(status.stale ? "\(status.battery ?? "\(status.percent)%") · \(status.meta ?? "")" : status.battery ?? "\(status.percent)%")
+                                .contentTransition(.numericText(value: Double(status.percent)))
+                        }
+                        .foregroundStyle(status.low ? AnyShapeStyle(SeamStyle.warn) : AnyShapeStyle(.secondary))
+                        .animation(Motion.count, value: status.percent)
                     }
                     if let icon = status?.networkIcon, let network = status?.network {
-                        stat(icon.symbol, value: icon.variableValue, help: network) { SwapText(network, pane: true) }
-                            .transition(.opacity)
+                        stat(icon.symbol, value: icon.variableValue, help: network) { Text(network) }
                     }
                     if let storage = status?.storage, let detail = status?.storageDetail {
-                        stat(LookIcon.storage.symbol, help: detail) { SwapText(storage, pane: true) }
-                            .transition(.opacity)
+                        stat(LookIcon.storage.symbol, help: detail) { Text("\(storage) free") }
                     }
                     if status?.dnd == true {
-                        Image(systemName: LookIcon.doNotDisturb.symbol).foregroundStyle(SeamStyle.glow)
-                            .transition(.opacity)
-                            .help("Do Not Disturb is on")
-                            .accessibilityLabel("Do Not Disturb is on")
+                        Label("Do Not Disturb", systemImage: "moon") // outline, like the other stats
                     }
                 }
-                .font(.system(size: 12)).foregroundStyle(SeamStyle.Win.fg2)
-                .animation(Motion.count, value: status?.percent)
-                .animation(Motion.spring, value: status)
+                .font(.callout).foregroundStyle(.secondary)
             }
         }
-        .padding(18)
-        .background(RoundedRectangle(cornerRadius: 14).fill(look.connected
-            ? AnyShapeStyle(LinearGradient(colors: [SeamStyle.teal.opacity(0.16), SeamStyle.teal.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing))
-            : AnyShapeStyle(SeamStyle.Win.group)))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(look.connected ? SeamStyle.teal.opacity(0.3) : SeamStyle.Win.line, lineWidth: 0.5))
-        .animation(Motion.ease(0.5), value: look.connected)
-        .padding(.bottom, 16)
+        .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
     }
 
     /// An icon and its short value; hover shows it in full, and VoiceOver reads it in full.
     private func stat<V: View>(_ symbol: String, value: Double? = nil, help: String, @ViewBuilder content: () -> V) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: symbol, variableValue: value).symbolRenderingMode(.monochrome).contentTransition(.symbolEffect(.replace))
-            HStack(spacing: 2) { content() }.fontWeight(.semibold).monospacedDigit().foregroundStyle(SeamStyle.Win.fg)
+        HStack(spacing: 5) {
+            Image(systemName: symbol, variableValue: value)
+            content().monospacedDigit()
         }
         .help(help)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(help)
-    }
-}
-
-/// A phone outline whose inside fills to the battery level; amber when low, grey when offline.
-private struct PhoneGlyph: View {
-    let level: Int?
-    let low: Bool
-    let on: Bool
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 11)
-            .strokeBorder(on ? SeamStyle.tealInk : SeamStyle.Win.fg3, lineWidth: 2)
-            .frame(width: 46, height: 70)
-            .overlay(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(low ? SeamStyle.warn.opacity(0.4) : SeamStyle.teal.opacity(0.3))
-                    .frame(height: 62 * CGFloat(level ?? 0) / 100)
-                    .padding(4)
-                    .frame(height: 70, alignment: .bottom)
-            }
-            .overlay(alignment: .top) { Capsule().fill(SeamStyle.Win.fg.opacity(0.5)).frame(width: 12, height: 3).padding(.top, 5) }
-            .animation(Motion.settle, value: level)
-            .animation(Motion.fade, value: low)
-            .animation(Motion.ease(0.5), value: on)
-            .accessibilityHidden(true)
     }
 }

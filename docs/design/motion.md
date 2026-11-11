@@ -47,7 +47,7 @@ Each entry gives the event, what moves, and how it's built.
 - Press: scale to 0.96 while held, then spring back (`springFast`).
 - The fill crossfades between teal and neutral (`fade`).
 - The symbol bounces (scale dips to 0.7, then springs back). Swapping symbols, such as `bell` and `bell.slash`, morphs one into the other.
-- The subtitle says the new state in words ("On", "Off", "Paused · 15:00") using the value swap (entry 3).
+- The subtitle says the new state in words ("On", "Off", "Paused until 15:00") using the value swap (entry 3).
 - SwiftUI: one shared `PressableStyle` button style in `Components.swift`, plus `.symbolEffect(.bounce, value: on)` and `.contentTransition(.symbolEffect(.replace))`. Compose: `animateColorAsState`, a press scale, and the Expressive shape morph from design-system.md.
 
 ### 3. A value changes in place (status text, subtitles, labels)

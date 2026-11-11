@@ -4,7 +4,7 @@ import SeamProtocol
 import SeamSession
 import SwiftUI
 
-/// A small uppercase heading with its link on the right ("All 3 ›").
+/// A small heading, in sentence case like Control Centre's, with its link on the right ("All 3 ›").
 private struct SectionHeading: View {
     let title: String
     var link: String?
@@ -12,23 +12,28 @@ private struct SectionHeading: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title.uppercased()).font(.system(size: 10.5, weight: .bold)).tracking(0.63).foregroundStyle(SeamStyle.Pop.fg3)
+            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(SeamStyle.Pop.fg2)
                 .frame(height: 13)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             if let link {
-                Button(link, action: action).buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(SeamStyle.tealInk)
+                // A small capsule, as Notification Centre's "Show less": it reads as a button, not a heading
+                Button(action: action) {
+                    Text(link).font(.system(size: 11, weight: .medium)).foregroundStyle(SeamStyle.Pop.fg)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(Capsule().fill(SeamStyle.Pop.fill))
+                }
+                .buttonStyle(PressableStyle(scale: 0.94))
             }
         }
-        .padding(EdgeInsets(top: 10, leading: 14, bottom: 4, trailing: 14))
+        .padding(EdgeInsets(top: 12, leading: 14, bottom: 2, trailing: 14))
     }
 }
 
 /// A row's hover fill (catalogue 12), shared by both lists.
 private struct RowFill: View {
     let on: Bool
-    var body: some View { RoundedRectangle(cornerRadius: 8).fill(on ? SeamStyle.Pop.fill : .clear) }
+    var body: some View { RoundedRectangle(cornerRadius: 8, style: .continuous).fill(on ? SeamStyle.Pop.fill : .clear) }
 }
 
 /// The phone's latest notifications. New ones push in at the top, dismissed ones leave to the right.
@@ -47,7 +52,7 @@ struct PopoverNotifications: View {
         let showing = controller.notifications.shown.filter { !replied.contains($0.key) }
         let latest = Array(showing.prefix(3))
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeading(title: "Notifications", link: controller.notifications.shown.isEmpty ? nil : "All \(showing.count) ›") { openMain(.notifications) }
+            SectionHeading(title: "Recent notifications", link: controller.notifications.shown.isEmpty ? nil : "Show all") { openMain(.notifications) }
                 .rise(3, appeared)
             VStack(alignment: .leading, spacing: 0) {
                 if latest.isEmpty {
@@ -88,21 +93,26 @@ private struct NotificationRow: View {
     var body: some View {
         let actions = hovering || focus != nil || replying
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 Group {
-                    AppIcon(image: controller.notifications.images[n.appID], size: 24, name: n.appName).clipShape(RoundedRectangle(cornerRadius: 6)).scaleEffect(icon)
+                    AppIcon(image: controller.notifications.images[n.appID], size: 28, name: n.appName)
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous)).scaleEffect(icon)
                     VStack(alignment: .leading, spacing: 1) {
-                        (Text(n.title.isEmpty ? n.appName : n.title).fontWeight(.semibold) + Text(n.text.isEmpty ? "" : " — " + n.text))
-                            .font(.system(size: 12)).lineLimit(1).frame(height: 15)
-                        TimelineView(.periodic(from: .now, by: 30)) { tl in
-                            Text(n.postedAt > 0 ? "\(n.appName) · \(Looks.ago(Date(ms: n.postedAt), now: tl.date, justNow: "now"))" : n.appName)
-                        }
-                        .font(.system(size: 10.5)).foregroundStyle(SeamStyle.Pop.fg3).frame(height: 12)
+                        Text(n.title.isEmpty ? n.appName : n.title).font(.system(size: 13, weight: .semibold)).lineLimit(1).frame(height: 16)
+                        Text(n.text.isEmpty ? n.appName : n.text).font(.system(size: 12)).foregroundStyle(SeamStyle.Pop.fg2).lineLimit(1).frame(height: 15)
                     }
                 }
                 .allowsHitTesting(false) // a click there opens the row, behind
                 .accessibilityHidden(true)
                 Spacer(minLength: 0)
+                ZStack(alignment: .topTrailing) {
+                TimelineView(.periodic(from: .now, by: 30)) { tl in
+                    Text(n.postedAt > 0 ? Looks.ago(Date(ms: n.postedAt), now: tl.date, justNow: "now") : "")
+                }
+                .font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg3)
+                .padding(.top, 2) // on the title's line
+                .opacity(actions ? 0 : 1)
+                .accessibilityHidden(true)
                 HStack(spacing: 2) {
                     Button(n.canReply ? "Reply" : "Open") { n.canReply ? replying.toggle() : open() }
                         .buttonStyle(ActionStyle())
@@ -116,6 +126,7 @@ private struct NotificationRow: View {
                 .opacity(actions ? 1 : 0)
                 .offset(x: actions || reduce ? 0 : 6)
                 .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.2), value: actions)
+                }
             }
             .padding(.horizontal, 8).padding(.vertical, 7)
             .background {
@@ -142,7 +153,7 @@ private struct NotificationRow: View {
         ReplyField(prompt: "Reply to \(n.appName)", send: { text in
             controller.notifications.send(.with { $0.key = n.key; $0.replyText = text })
         }, close: { replying = false }, sent: sent)
-        .padding(EdgeInsets(top: 2, leading: 48, bottom: 8, trailing: 14))
+        .padding(EdgeInsets(top: 2, leading: 52, bottom: 8, trailing: 14))
     }
 }
 
@@ -185,7 +196,7 @@ struct PopoverClips: View {
     var body: some View {
         let recent = Array(controller.clipboard.clips.filter(\.fromPhone).prefix(2))
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeading(title: "Clipboard from phone", link: "History ›") { openMain(.clipboard) }
+            SectionHeading(title: "Recent copies", link: "Show all") { openMain(.clipboard) }
                 .rise(5, appeared)
             VStack(alignment: .leading, spacing: 0) {
                 if recent.isEmpty {
@@ -207,6 +218,7 @@ struct PopoverClips: View {
 private struct ClipRow: View {
     let clip: Clip
     let controller: SeamController
+    private var phoneName: String { controller.phone.map { $0.name.isEmpty ? "your phone" : $0.name } ?? "your phone" }
     let toast: (String) -> Void
     @State private var hovering = false
     @State private var copied = false
@@ -224,26 +236,24 @@ private struct ClipRow: View {
             }
         } label: {
             HStack(spacing: 10) {
-                Group {
-                    Image(systemName: url == nil ? "text.alignleft" : "link").font(.system(size: 11, weight: .semibold))
-                }
-                .frame(width: 24, height: 24)
-                .background(RoundedRectangle(cornerRadius: 6).fill(SeamStyle.Pop.fill))
-                .foregroundStyle(SeamStyle.Pop.fg2)
+                Image(systemName: url == nil ? "text.alignleft" : "link").font(.system(size: 12, weight: .medium))
+                    .frame(width: 28, height: 28)
+                    .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(SeamStyle.Pop.fill))
+                    .foregroundStyle(SeamStyle.Pop.fg2)
                 VStack(alignment: .leading, spacing: 1) {
-                    // Text in quotes, links as they are (the prototype's format)
-                    let flat = clip.text.prefix(200).split(whereSeparator: \.isNewline).joined(separator: " ")
-                    Text(url == nil ? "\"\(flat)\"" : flat.replacingOccurrences(of: "https://", with: "", options: .anchored))
-                        .font(.system(size: 12)).lineLimit(1).frame(height: 15)
-                    TimelineView(.periodic(from: .now, by: 30)) { tl in Text(Looks.ago(clip.at, now: tl.date)) }
-                        .font(.system(size: 10.5)).foregroundStyle(SeamStyle.Pop.fg3).frame(height: 12)
+                    Text(clip.preview).font(.system(size: 13)).lineLimit(1).frame(height: 16)
+                    TimelineView(.periodic(from: .now, by: 30)) { tl in Text("From \(phoneName) · \(Looks.ago(clip.at, now: tl.date))") }
+                        .font(.system(size: 12)).foregroundStyle(SeamStyle.Pop.fg2).frame(height: 15)
                 }
                 Spacer(minLength: 0)
-                SwapText(copied ? "✓ Copied" : url == nil ? "Copy" : "Open")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(copied ? SeamStyle.live : SeamStyle.tealInk)
-                    .frame(minWidth: 44, alignment: .trailing)
-                    .animation(Motion.ease(0.2), value: copied)
+                // What a click does, on hover, then what it did; at rest the copy has the whole width
+                if hovering || copied {
+                    SwapText(copied ? "✓ Copied" : url == nil ? "Copy" : "Open")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(copied ? SeamStyle.live : SeamStyle.tealInk)
+                        .frame(minWidth: 44, alignment: .trailing)
+                        .transition(.opacity)
+                }
             }
             .padding(.horizontal, 8).padding(.vertical, 7)
             .background(RowFill(on: hovering))

@@ -12,7 +12,10 @@ struct PopoverHeader: View {
     let phone: Phone
     /// The header's slot in the opening stagger; the tip under it isn't part of it.
     let rise: (Int, Bool)
+    /// Changes when the popover opens, to draw the stitch again.
+    let replay: Int
     @State private var why = false
+    @State private var batteryHover = false
     #if DEBUG
     /// SEAM_DEMO_DETAILS: open with the battery's details showing, to capture them.
     @State private var power = ProcessInfo.processInfo.environment["SEAM_DEMO_DETAILS"] != nil
@@ -28,15 +31,11 @@ struct PopoverHeader: View {
         VStack(alignment: .leading, spacing: 0) {
             TimelineView(.periodic(from: .now, by: 30)) { tl in
                 let line = controller.link(at: tl.date).statusLine
-                HStack(spacing: 11) {
-                    PhoneOutline()
-                        .frame(width: 38, height: 38)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(look.connected ? SeamStyle.teal.opacity(0.15) : SeamStyle.Pop.fill))
-                        .foregroundStyle(look.connected ? SeamStyle.tealInk : SeamStyle.Pop.fg2)
-                        .animation(Motion.ease(0.5), value: look.connected)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(name).font(.system(size: 14, weight: .semibold))
-                        HStack(spacing: 5) {
+                HStack(spacing: 10) {
+                    PhoneDisc(connected: look.connected)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(name).font(.system(size: 13, weight: .semibold))
+                        HStack(spacing: 8) { // room for the dot's ring
                             StatusDot(on: look.connected)
                             SwapText(line)
                             if look.connected, let symbol = look.icon?.symbol {
@@ -47,20 +46,22 @@ struct PopoverHeader: View {
                                 InfoButton(open: $why, label: "Why", turns: false)
                             }
                         }
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(SeamStyle.Pop.fg2)
                         .frame(height: 15)
                     }
                     Spacer(minLength: 0)
                     if let battery { batteryColumn(battery, look.connected) }
                 }
-                .padding(EdgeInsets(top: 14, leading: 14, bottom: 10, trailing: 14))
+                .padding(EdgeInsets(top: 12, leading: 14, bottom: 10, trailing: 12))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel([name, (look.connected ? look.sentence : line).replacingOccurrences(of: " · ", with: ", "), battery?.spoken].compactMap { $0 }.joined(separator: ", "))
                 .accessibilityAction(named: "Why") { why.toggle() }
                 .accessibilityAction(named: "Battery details") { if look.connected { power.toggle() } }
             }
             .rise(rise.0, rise.1)
+            // The stitch stays under the phone it belongs to; what unfolds goes below it
+            Stitch(line: look.line, replay: replay).padding(.horizontal, 14).padding(.bottom, why || power ? 10 : 0).rise(1, rise.1)
             if why, let detail = look.detail {
                 unfolded(Text(detail).font(.system(size: 11)).foregroundStyle(SeamStyle.Pop.fg2).lineSpacing(11 * 0.45 - 2))
             }
@@ -85,17 +86,15 @@ struct PopoverHeader: View {
         }
     }
 
-    /// A box that unfolds under the header line (catalogue 7), drawn like a tile: why it's
-    /// offline, or the battery's details. The stitch keeps its 10 pt below it.
+    /// A box that unfolds under the stitch (catalogue 7), drawn like the control module below it:
+    /// why it's offline, or the battery's details.
     private func unfolded(_ content: some View) -> some View {
         content
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10).padding(.vertical, 9)
-            .background(RoundedRectangle(cornerRadius: 12).fill(SeamStyle.Pop.fill2))
-            // Lit with the pill while it's the battery's: the two read as one control
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(power ? SeamStyle.teal.opacity(0.35) : SeamStyle.Pop.line, lineWidth: power ? 1 : 0.5))
-            .padding(EdgeInsets(top: 0, leading: 14, bottom: 10, trailing: 14))
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(SeamStyle.Pop.module))
+            .padding(.horizontal, 12)
             .transition(.unfold(reduce))
     }
 
@@ -106,19 +105,39 @@ struct PopoverHeader: View {
     private func batteryColumn(_ b: DeviceStatusLook, _ connected: Bool) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
             // Offline it can't open, but isn't disabled: that would fade a low battery's warning
-            Button { if connected { power.toggle() } } label: { BatteryPill(look: b, selected: power && connected) }
+            Button { if connected { power.toggle() } } label: {
+                HStack(spacing: 2) {
+                    BatteryPill(look: b)
+                    // A disclosure, as Apple's menus show one, so the battery reads as something to open
+                    if connected {
+                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(power ? SeamStyle.tealInk : SeamStyle.Pop.fg2)
+                            .rotationEffect(.degrees(power ? 180 : 0))
+                            .animation(Motion.springFast, value: power)
+                            .padding(.trailing, 6)
+                    }
+                }
+                // A faint capsule at rest, firmer on hover: it reads as something to open
+                // The same capsule in every state, so the battery never jumps; firmer on hover
+                .background(Capsule().fill(power && connected ? SeamStyle.teal.opacity(0.15) : batteryHover && connected ? SeamStyle.Pop.fill : SeamStyle.Pop.fill2))
+                .animation(Motion.ease(0.2), value: power)
+            }
                 .buttonStyle(.plain)
+                .onHover { h in withAnimation(Motion.ease(0.15)) { batteryHover = h } }
                 .allowsHitTesting(connected)
-                .help([b.network.map { "Phone on \($0)" }, connected ? "Click for battery details" : nil].compactMap { $0 }.joined(separator: " · "))
+                .help([connected ? "Battery details" : nil, b.network.map { "Phone on \($0)" }].compactMap { $0 }.joined(separator: " · "))
+                .accessibilityHint(connected ? "Shows the battery's charge rate and time" : "")
             // "Do Not Disturb ☾", or "as of 14:02" offline. The phone's network is in the pill's tooltip:
             // here it read as the path, which the icon by "Connected" already shows
             HStack(spacing: 3) {
-                SwapText(b.stale ? (b.meta ?? "") : b.dnd ? "Do Not Disturb" : "")
-                if b.dnd { Image(systemName: "moon.fill").font(.system(size: 9)).foregroundStyle(SeamStyle.glow).transition(.scale.combined(with: .opacity)) }
+                // The icon leads, as everywhere else; low is said in words too, not only in colour
+                if b.dnd && !b.low && !b.stale { Image(systemName: "moon.fill").font(.system(size: 9)).foregroundStyle(SeamStyle.Pop.fg2).transition(.scale.combined(with: .opacity)) }
+                if b.low { Text("Low").foregroundStyle(SeamStyle.warn).fontWeight(.medium) }
+                SwapText(b.low ? (b.stale ? "· \(b.meta ?? "")" : "battery") : b.stale ? (b.meta ?? "") : b.dnd ? "Do Not Disturb" : "")
+                    .foregroundStyle(SeamStyle.Pop.fg2)
             }
-            .font(.system(size: 10.5))
-            .foregroundStyle(SeamStyle.Pop.fg3)
-            .frame(height: 13)
+            .font(.system(size: 11))
+            .foregroundStyle(SeamStyle.Pop.fg2)
+            .frame(height: 14)
             .animation(Motion.spring, value: b.dnd)
         }
     }
@@ -128,6 +147,7 @@ struct PopoverHeader: View {
 /// once every 6 s (catalogue 10), and stops under Reduce Motion.
 struct QueueBar: View {
     let count: Int
+    var phone = "your phone"
     @Environment(\.accessibilityReduceMotion) private var reduce
     @State private var visible = true
 
@@ -137,7 +157,8 @@ struct QueueBar: View {
                 Image(systemName: "clock").font(.system(size: 12))
                     .rotationEffect(.degrees(reduce ? 0 : tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 6) / 6 * 360))
             }
-            Text("\(Text(waitingWords(count: UInt32(count))).foregroundStyle(SeamStyle.Pop.fg).fontWeight(.semibold)) · sends when your phone is back")
+            Text("\(Text(waitingWords(count: UInt32(count))).foregroundStyle(SeamStyle.Pop.fg).fontWeight(.semibold)) · sends when \(phone) is back")
+                .fixedSize(horizontal: false, vertical: true)
                 .monospacedDigit()
                 .contentTransition(.numericText(value: Double(count)))
             Spacer(minLength: 0)
@@ -145,8 +166,7 @@ struct QueueBar: View {
         .font(.system(size: 11.5))
         .foregroundStyle(SeamStyle.Pop.fg2)
         .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 12).fill(SeamStyle.Pop.fill2))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(SeamStyle.Pop.line, lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(SeamStyle.Pop.module))
         .padding(EdgeInsets(top: 10, leading: 14, bottom: 0, trailing: 14))
         .background(OnScreen(visible: $visible))
         .animation(Motion.settle, value: count)
