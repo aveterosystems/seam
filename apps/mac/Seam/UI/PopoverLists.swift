@@ -47,7 +47,7 @@ struct PopoverNotifications: View {
         let showing = controller.notifications.shown.filter { !replied.contains($0.key) }
         let latest = Array(showing.prefix(3))
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeading(title: "Notifications", link: showing.isEmpty ? nil : "All \(showing.count) ›") { openMain(.notifications) }
+            SectionHeading(title: "Notifications", link: controller.notifications.shown.isEmpty ? nil : "All \(showing.count) ›") { openMain(.notifications) }
                 .rise(3, appeared)
             VStack(alignment: .leading, spacing: 0) {
                 if latest.isEmpty {

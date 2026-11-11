@@ -135,6 +135,7 @@ struct PopoverView: View {
 private struct GearButton: View {
     let action: () -> Void
     @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduce
 
     var body: some View {
         Menu {
@@ -151,7 +152,7 @@ private struct GearButton: View {
         .menuIndicator(.hidden)
         .tint(hovering ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2) // a menu's label takes the tint, not the foreground
         .fixedSize()
-        .rotationEffect(.degrees(hovering ? 60 : 0))
+        .rotationEffect(.degrees(hovering && !reduce ? 60 : 0))
         .frame(width: 28, height: 28)
         .background(Circle().fill(SeamStyle.Pop.fill))
         .contentShape(Circle())

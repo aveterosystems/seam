@@ -14,7 +14,7 @@ The Mac app is a menu bar app (`LSUIElement`), so it has no Dock icon. The main 
 3. **The stitch**: it draws itself on the same Wi‑Fi, its dashes flow through Tor, it's broken and grey offline, and the styles crossfade.
 4. **Queue bar** (offline with copies waiting): "3 waiting · sends when your phone is back", with a turning clock.
 5. **Two tiles**: Clipboard ("Syncing", "On", "Off") and Notifications ("On · 2 showing", "Paused · 15:00", "Paused · tomorrow", "Off", "Waiting for phone"). Its ▾ menu has Pause for 1 hour, Pause until tomorrow, Resume now, Turn off (or Turn on) and Notification settings.
-6. **Notifications**: the latest three ("All N ›" only when there are any). Hover or focus shows Reply (or Open) and ✕. Reply opens a field in place: Return sends, Escape closes, then "✓ Sent from your phone" shows for 1.1 s and the row leaves. "All N ›" opens the main window.
+6. **Notifications**: the latest three ("All N ›" only when there are any). Hover or focus shows Reply (or Open) and ✕. Reply opens a field in place: Return sends, Escape closes, then "✓ Sent to your phone" shows for 1.1 s and the row leaves. "All N ›" opens the main window.
 7. **Clipboard from phone**: the last two. The whole row is clickable, with a link or ¶ icon. Text copies again and shows "✓ Copied"; a link opens and a pill confirms it. "History ›" opens the main window.
 8. **Footer**: "End-to-end encrypted", "Open Seam ⌘O" and a gear whose menu has Settings (⌘,), Check for updates and Quit Seam (⌘Q): a menu bar app has nowhere else to quit from.
 
@@ -88,7 +88,7 @@ Switching panes fades the old one out, then the new one's sections rise in a sta
 
 **Purpose:** the history, and a place to act on several at once. Live ones also show in Notification Centre (M07).
 
-**Built** (`MainWindow.swift`): Clear all in the toolbar; one card per app; each row has its time, the phone's buttons, Reply (which unfolds the shared `ReplyField` in place, as in the popover) and dismiss. Empty, off and not-paired states are centred (`ContentUnavailableView`) with one action: Choose apps, Turn on, Show pairing code. The clipboard history's Copy says "✓ Copied" in place. The sidebar's phone card opens the phone's settings.
+**Built** (`MainWindow.swift`): Clear all in the toolbar; one card per app; each row has its time, the phone's buttons, Reply (which unfolds the shared `ReplyField` in place, as in the popover) and dismiss. Empty, off, paused, waiting and not-paired states are centred (`ContentUnavailableView`) with one action where there is one: Choose apps, Turn on, Resume now, Show pairing code. The clipboard history's Copy says "✓ Copied" in place. The sidebar's phone card opens the phone's settings.
 
 **Layout:** All / Unread segmented control and Clear all in the toolbar. Grouped by app, each group is a section with app name and count. Messaging notifications have an inline reply field. Sensitive apps show a lock and "Content hidden. Open on your phone". Each row has a dismiss button.
 

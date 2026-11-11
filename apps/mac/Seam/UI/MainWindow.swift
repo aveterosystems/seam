@@ -143,6 +143,12 @@ private struct NotificationsPane: View {
             } else if controller.notifications.settings?.enabled == false {
                 EmptyPane(symbol: "bell.slash", title: "Notifications are off", detail: "\(phoneName) isn't sending notifications to this Mac.",
                           action: ("Turn on", { controller.notifications.setEnabled(true) }))
+            } else if controller.notifications.shown.isEmpty, mode == .paused {
+                EmptyPane(symbol: "bell.slash", title: "Notifications are paused", detail: Looks.notificationsTile(controller.notifications.settings, showing: 0).subtitle,
+                          action: ("Resume now", { controller.notifications.pause(until: nil) }))
+            } else if controller.notifications.shown.isEmpty, mode == .waiting || !controller.connected {
+                EmptyPane(symbol: "bell", title: "Waiting for \(phoneName)",
+                          detail: "Its notifications show here once it connects. Turn on its screen to connect now.")
             } else if controller.notifications.shown.isEmpty {
                 EmptyPane(symbol: "bell", title: "No notifications from \(phoneName)",
                           detail: "New ones from the apps you chose show here and in Notification Centre.",
@@ -182,6 +188,10 @@ private struct NotificationsPane: View {
     private var phoneName: String {
         let name = controller.phone?.name ?? ""
         return name.isEmpty ? "Your phone" : name
+    }
+
+    private var mode: NotificationsTileMode {
+        Looks.notificationsTile(controller.notifications.settings, showing: 0).mode
     }
 
     /// Apps in the order of their newest notification.
@@ -274,7 +284,7 @@ private struct ClipboardPane: View {
                             ClipRow(clip: clip, controller: controller).transition(.arrive(reduce))
                         }
                     }
-                    Text("Kept in memory for a day, and gone when Seam quits. Passwords and anything apps mark as private are never synced.")
+                    Text("Kept in memory for a day, and gone when Seam quits. Copies that password managers and other apps mark as private are never synced.")
                         .font(.system(size: 11)).foregroundStyle(SeamStyle.Win.fg3)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14)
                 }
