@@ -60,14 +60,8 @@ fn the_words_name_the_other_device() {
             .unwrap()
             .contains("straight to your Mac")
     );
-    assert_eq!(
-        on_phone(base()).label,
-        "Offline · will send when it's back"
-    );
-    assert_eq!(
-        on_mac(base()).label,
-        "Offline · will send when it's back"
-    );
+    assert_eq!(on_phone(base()).label, "Offline · will send when it's back");
+    assert_eq!(on_mac(base()).label, "Offline · will send when it's back");
 }
 
 #[test]
