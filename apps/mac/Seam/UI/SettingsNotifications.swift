@@ -95,7 +95,6 @@ struct NotificationsSettingsPane: View {
         } footer: {
             Text("\(Image(systemName: "arrowshape.turn.up.left")) You can reply to these apps from this Mac. Apps that are off are filtered on your phone, before anything leaves it. \(senderOnlyFootnote())")
         }
-        .disabled(!s.enabled)
     }
 
     private static let modes: [(Seam_V1_NotificationMode, String)] = [Seam_V1_NotificationMode.on, .titleOnly, .off].map { ($0, Looks.modeWord($0)) }

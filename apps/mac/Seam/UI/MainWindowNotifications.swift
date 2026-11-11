@@ -72,7 +72,8 @@ private struct NotificationRow: View {
     let controller: SeamController
     @State private var replying = false
     @State private var hovering = false
-    @FocusState private var focused: Bool
+    /// Which of the row's controls has keyboard focus: any of them shows the row's actions.
+    @FocusState private var focus: String?
     @Environment(\.accessibilityReduceMotion) private var reduce
 
     var body: some View {
@@ -94,28 +95,29 @@ private struct NotificationRow: View {
                                 Text(n.postedAt > 0 ? "\(n.appName) · \(Looks.ago(Date(ms: n.postedAt), now: tl.date, justNow: "now"))" : n.appName)
                             }
                             .font(.callout).foregroundStyle(.secondary).lineLimit(1)
-                            .opacity(hovering || focused ? 0 : 1)
+                            .opacity(hovering || focus != nil ? 0 : 1)
                             Button { controller.notifications.dismiss(n) } label: {
                                 Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundStyle(.secondary)
                                     .frame(width: 24, height: 20).contentShape(Rectangle())
                             }
                             .buttonStyle(.borderless)
-                            .focused($focused)
-                            .opacity(hovering || focused ? 1 : 0)
+                            .focused($focus, equals: "dismiss")
+                            .opacity(hovering || focus != nil ? 1 : 0)
                             .help("Dismiss")
                             .accessibilityLabel("Dismiss")
                         }
-                        .animation(Motion.ease(0.15), value: hovering || focused)
+                        .animation(Motion.ease(0.15), value: hovering || focus != nil)
                     }
                     if !n.text.isEmpty { Text(n.text).foregroundStyle(.secondary).lineLimit(4) }
                     if n.canReply || !n.buttons.isEmpty {
                         HStack(spacing: 6) {
-                            if n.canReply { Button(replying ? "Cancel" : "Reply") { replying.toggle() } }
+                            if n.canReply { Button(replying ? "Cancel" : "Reply") { replying.toggle() }.focused($focus, equals: "reply") }
                             ForEach(n.buttons, id: \.id) { b in
                                 Button(b.title) { controller.notifications.send(.with { $0.key = n.key; $0.buttonID = b.id }) }
+                                    .focused($focus, equals: b.id)
                             }
                         }
-                        .rowActions(shown: hovering || focused || replying)
+                        .rowActions(shown: hovering || focus != nil || replying)
                         .padding(.top, 2)
                     }
                 }

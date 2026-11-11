@@ -24,6 +24,8 @@ private struct SectionHeading: View {
                         .background(Capsule().fill(SeamStyle.Pop.fill))
                 }
                 .buttonStyle(PressableStyle(scale: 0.94))
+                // A target taller than the small capsule, without moving anything around it
+                .padding(.vertical, 10).padding(.horizontal, 4).contentShape(Rectangle()).padding(.vertical, -10).padding(.horizontal, -4)
             }
         }
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 2, trailing: 14))

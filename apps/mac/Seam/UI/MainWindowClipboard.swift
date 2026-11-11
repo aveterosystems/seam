@@ -78,6 +78,8 @@ private struct ClipRow: View {
     let controller: SeamController
     @State private var copied = false
     @State private var hovering = false
+    /// Which action has keyboard focus: either shows them both.
+    @FocusState private var focus: String?
 
     var body: some View {
         let url = clip.openableURL
@@ -98,13 +100,14 @@ private struct ClipRow: View {
             Spacer(minLength: 12)
             // The same actions as a notification's: borderless, shown on hover, and in the context menu
             HStack(spacing: 10) {
-                if let url { Button("Open") { NSWorkspace.shared.open(url) } }
+                if let url { Button("Open") { NSWorkspace.shared.open(url) }.focused($focus, equals: "open") }
                 Button(action: copy) {
                     SwapText(copied ? "✓ Copied" : "Copy", pane: true).foregroundStyle(copied ? SeamStyle.ok : SeamStyle.tealInk)
                 }
                 .accessibilityValue(copied ? "Copied" : "")
+                .focused($focus, equals: "copy")
             }
-            .rowActions(shown: hovering || copied)
+            .rowActions(shown: hovering || copied || focus != nil)
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())

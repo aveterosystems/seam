@@ -60,6 +60,7 @@ struct PrivacyPane: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear { checks = Updates.shared.checksAutomatically } // General may have changed it
     }
 
     /// A fact rather than a setting: its words, and its state where a control would be.

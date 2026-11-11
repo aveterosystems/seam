@@ -168,7 +168,7 @@ How every screen moves, and the finish it needs before it's done, is in [motion.
 ## Accessibility
 
 - Text contrast is at least 4.5:1, including 11–12 px captions. `accentInk` exists because teal on `accentSoft` fails otherwise.
-- Targets are at least 44 pt on the Mac popover and at least 48 dp on Android.
+- Targets are at least 44 pt on the Mac popover and at least 48 dp on Android. The popover's menu items (Open Seam, Settings, Quit) keep macOS's own menu row height, as every menu bar extra does; small controls get a larger invisible hit area rather than larger artwork.
 - Every icon-only button has a label (`.accessibilityLabel`, `contentDescription`).
 - The stitch is never the only signal: the text label always says the same thing.
 - Status colours also differ in lightness, not only in hue.
