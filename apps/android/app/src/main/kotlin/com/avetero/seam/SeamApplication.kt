@@ -43,6 +43,7 @@ class SeamApplication : Application() {
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
+        SystemTime.is24Hour = { android.text.format.DateFormat.is24HourFormat(this) }
         val name = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
         val dir = File(filesDir, "seam")
         tor = TorLan(Tor(dir.path))

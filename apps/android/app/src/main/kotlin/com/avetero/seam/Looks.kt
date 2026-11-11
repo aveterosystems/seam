@@ -23,6 +23,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 // What each state shows is decided once, in Rust, for every app (seam-looks, decision 0015). This
 // file only gives it this phone's names and time words, turns the session's state into the link's
@@ -31,12 +32,39 @@ import java.time.temporal.ChronoUnit
 /** How the phone names itself and the Mac. */
 val PhoneNames = LookNames(LookSide.PHONE, "this phone", "your Mac")
 
-/** The phone's clock and calendar; [zone] for tests, otherwise the phone's own at each use. */
-class SystemTime(private val zone: ZoneId? = null) : TimeWords {
+/** The phone's clock and calendar; [zone], [hours24] and [locale] for tests, otherwise the phone's own at each use. */
+class SystemTime(
+    private val zone: ZoneId? = null,
+    private val hours24: Boolean = is24Hour(),
+    private val locale: Locale = Locale.getDefault(),
+) : TimeWords {
     private fun at(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone ?: ZoneId.systemDefault())
-    override fun time(ms: Long): String = at(ms).format(DateTimeFormatter.ofPattern("HH:mm"))
-    override fun date(ms: Long): String = at(ms).format(DateTimeFormatter.ofPattern("d MMM"))
+    override fun time(ms: Long): String = at(ms).format(DateTimeFormatter.ofPattern(if (hours24) "HH:mm" else "h:mm a", locale))
+    override fun date(ms: Long): String = at(ms).format(DateTimeFormatter.ofPattern("d MMM", locale))
     override fun daysBetween(ms: Long, nowMs: Long): Int = ChronoUnit.DAYS.between(at(ms).toLocalDate(), at(nowMs).toLocalDate()).toInt()
+
+    companion object {
+        /** The phone's 12/24-hour setting, read at each use; the app sets it, JVM tests keep 24-hour. */
+        @Volatile var is24Hour: () -> Boolean = { true }
+    }
+}
+
+/**
+ * What sending to the Mac says, on every surface: Home's button and snackbar, the share sheet,
+ * the notification's toast, the clipboard rows. One wording per outcome, with the Mac's name.
+ */
+object SendWords {
+    const val SENT = "✓ Sent to Mac"
+    const val SENDING = "Sending"
+    const val NOTHING = "Nothing to send: the clipboard is empty, too big, or holds something private"
+    /** The clipboard rows' line, where the Mac's name would crowd it. */
+    const val SYNC_OFF_SHORT = "Off · sync is off on your Mac"
+    /** Under Home's greyed Send: why, where the Automatic clipboard row already says sync is off. */
+    const val SYNC_OFF_SEND = "Send needs clipboard sync on your Mac"
+    fun syncOff(mac: String) = "$mac has clipboard sync off. Turn it on in Seam on your Mac."
+    fun queued(mac: String) = "Will send when $mac is back"
+    fun sendTo(mac: String) = "Send to $mac"
+    fun cantSendTo(mac: String) = "Can't send to $mac"
 }
 
 object Looks {

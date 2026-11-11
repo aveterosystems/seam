@@ -5,11 +5,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -21,9 +25,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,25 +40,30 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -125,9 +138,10 @@ fun Pages(stack: List<Page>, onPop: () -> Unit, content: @Composable (Page, back
 }
 
 /**
- * A screen under Home: back, then a 34 sp title that shrinks to 0.6 and fades as the first 60 dp
- * scroll by, when a 20 sp title fades in beside the arrow (0.2 s). [actions] sit at the bar's
- * end ("Select"); [overlay] draws over the content, pinned (the selection toolbar).
+ * A screen under Home: back, then a 34 sp title that scrolls with the page, fading as the first
+ * 60 dp go by; past them a 20 sp title fades in beside the arrow (0.2 s) and the bar turns
+ * surfaceContainer, so it reads as a bar over the content. [actions] sit at the bar's end
+ * ("Select"); [overlay] draws over the content, pinned (the selection toolbar).
  */
 @Composable
 internal fun SubScreen(
@@ -138,39 +152,114 @@ internal fun SubScreen(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scroll = rememberScrollState()
+    PageFrame(title, onBack, actions, overlay, null, scrolled = { scroll.value.toFloat() }) { fade ->
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, bottom = 40.dp)) {
+            LargeTitle(title, fade)
+            Column(verticalArrangement = Arrangement.spacedBy(18.dp), content = content)
+        }
+    }
+}
+
+/**
+ * Picking items on a page turns its bar contextual, as Android's are: ✕ ("Cancel selection") in place of back, "[count] selected"
+ * as the title (shown even before scrolling), and the bar a tone up.
+ */
+internal class Selection(val count: Int, val onClose: () -> Unit)
+
+/**
+ * [SubScreen] for a long list: the large title is the list's first item, so it scrolls the same way.
+ * [gap] is between items; a screen whose rows group tightly passes a small one and spaces the rest itself.
+ */
+@Composable
+internal fun LazySubScreen(
+    title: String,
+    onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
+    overlay: @Composable BoxScope.() -> Unit = {},
+    state: LazyListState = rememberLazyListState(),
+    gap: Dp = 18.dp,
+    selection: Selection? = null,
+    content: LazyListScope.() -> Unit,
+) = PageFrame(
+    title, onBack, actions, overlay, selection,
+    // Past the title item counts as fully scrolled
+    scrolled = { if (state.firstVisibleItemIndex > 0) Float.MAX_VALUE else state.firstVisibleItemScrollOffset.toFloat() },
+) { fade ->
+    LazyColumn(
+        Modifier.fillMaxSize(), state,
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(gap),
+    ) {
+        // The list's gap stands in for the title's own 10. Selecting, the bar says what the page is, so the title folds away (catalogue 7)
+        item(key = "title") {
+            AnimatedVisibility(
+                selection == null,
+                enter = expandVertically(Motion.spring(420)) + fadeIn(Motion.ease(200)),
+                exit = shrinkVertically(Motion.spring(420)) + fadeOut(Motion.ease(200)),
+            ) { LargeTitle(title, fade, bottom = 0.dp) }
+        }
+        content()
+    }
+}
+
+/** The bar, and what's under it; [scrolled] is how far the page has scrolled, in px. */
+@Composable
+private fun PageFrame(
+    title: String,
+    onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+    overlay: @Composable BoxScope.() -> Unit,
+    selection: Selection?,
+    scrolled: () -> Float,
+    body: @Composable (fade: () -> Float) -> Unit,
+) {
     val range = with(LocalDensity.current) { 60.dp.toPx() }
-    val k = (scroll.value / range).coerceIn(0f, 1f)
-    val mini by animateFloatAsState(if (k >= 1f) 1f else 0f, Motion.ease(200), label = "mini")
+    // Read in layers and derived state only, so scrolling doesn't recompose the page
+    val fade = { (scrolled() / range).coerceIn(0f, 1f) }
+    val past by remember { derivedStateOf { fade() >= 1f } }
+    val selecting = selection != null
+    val mini by animateFloatAsState(if (past || selecting) 1f else 0f, Motion.ease(200), label = "mini")
+    val scheme = MaterialTheme.colorScheme
+    val bar = pick(selecting, pick(past, scheme.surface, scheme.surfaceContainer, Motion.ease(200)), scheme.surfaceContainerHigh, Motion.ease(200))
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 10.dp)) {
-                    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                Row(
+                    Modifier.fillMaxWidth().background(bar).padding(start = 4.dp, end = 4.dp, top = 6.dp).height(48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = selection?.onClose ?: onBack, modifier = Modifier.size(48.dp)) {
+                        Crossfade(selecting, animationSpec = Motion.ease(200), label = "nav") { close ->
+                            Icon(
+                                if (close) Icons.Filled.Close else Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = if (close) "Cancel selection" else "Back",
+                                tint = scheme.onSurfaceVariant, modifier = Modifier.size(22.dp),
+                            )
                         }
-                        Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 2.dp).graphicsLayer { alpha = mini })
-                        Spacer(Modifier.weight(1f))
-                        actions()
                     }
-                    Text(
-                        title, fontSize = 34.sp, lineHeight = 37.4.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, maxLines = 1,
-                        modifier = Modifier.semantics { heading() }.padding(start = 16.dp, end = 16.dp, top = (6 * (1 - k)).dp).height((44 * (1 - k)).dp)
-                            .graphicsLayer {
-                                transformOrigin = TransformOrigin(0f, 1f)
-                                scaleX = 1 - 0.4f * k
-                                scaleY = 1 - 0.4f * k
-                                alpha = (1 - 1.4f * k).coerceAtLeast(0f)
-                            },
-                    )
+                    // The title swaps for the count once; after that only the number counts (catalogue 4).
+                    // The last count stays so "N selected" still reads while it swaps back out
+                    val count = remember { mutableIntStateOf(0) }.apply { selection?.let { intValue = it.count } }.intValue
+                    val style = MaterialTheme.typography.titleLarge
+                    Swap(if (selecting) "" else title, Modifier.weight(1f).padding(start = 2.dp).graphicsLayer { alpha = mini }) {
+                        if (it.isNotEmpty()) Text(it, style = style, maxLines = 1)
+                        else Row(Modifier.clearAndSetSemantics { contentDescription = "$count selected"; liveRegion = LiveRegionMode.Polite }) {
+                            Count(count) { n -> Text(n, style = style.copy(fontFeatureSettings = "tnum"), maxLines = 1) }
+                            Text(" selected", style = style, maxLines = 1)
+                        }
+                    }
+                    actions()
                 }
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, bottom = 40.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                    content = content,
-                )
+                body(fade)
             }
             overlay()
         }
     }
 }
+
+@Composable
+private fun LargeTitle(title: String, fade: () -> Float, bottom: Dp = 10.dp) = Text(
+    title, style = MaterialTheme.typography.displayMedium,
+    modifier = Modifier.semantics { heading() }.padding(start = 4.dp, top = 6.dp, bottom = bottom)
+        .graphicsLayer { alpha = (1 - 1.4f * fade()).coerceAtLeast(0f) },
+)

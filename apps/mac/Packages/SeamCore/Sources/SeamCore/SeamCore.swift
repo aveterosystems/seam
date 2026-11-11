@@ -5796,6 +5796,10 @@ public struct DeviceStatusLook: Equatable, Hashable {
     public var networkIcon: LookIcon?
     public var storage: String?
     public var storageDetail: String?
+    /**
+     * 90% or more used: shown in `warn`.
+     */
+    public var storageLow: Bool
     public var cpu: String?
     public var memory: String?
     public var memoryDetail: String?
@@ -5812,7 +5816,10 @@ public struct DeviceStatusLook: Equatable, Hashable {
          */power: String?, 
         /**
          * The time ("42 min" until full) and rate ("18 W" charging), each as a figure.
-         */powerTime: Readout?, powerRate: Readout?, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, cpu: String?, memory: String?, memoryDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
+         */powerTime: Readout?, powerRate: Readout?, network: String?, networkIcon: LookIcon?, storage: String?, storageDetail: String?, 
+        /**
+         * 90% or more used: shown in `warn`.
+         */storageLow: Bool, cpu: String?, memory: String?, memoryDetail: String?, dnd: Bool, stale: Bool, meta: String?, spoken: String) {
         self.percent = percent
         self.charging = charging
         self.low = low
@@ -5826,6 +5833,7 @@ public struct DeviceStatusLook: Equatable, Hashable {
         self.networkIcon = networkIcon
         self.storage = storage
         self.storageDetail = storageDetail
+        self.storageLow = storageLow
         self.cpu = cpu
         self.memory = memory
         self.memoryDetail = memoryDetail
@@ -5864,6 +5872,7 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
                 networkIcon: FfiConverterOptionTypeLookIcon.read(from: &buf), 
                 storage: FfiConverterOptionString.read(from: &buf), 
                 storageDetail: FfiConverterOptionString.read(from: &buf), 
+                storageLow: FfiConverterBool.read(from: &buf), 
                 cpu: FfiConverterOptionString.read(from: &buf), 
                 memory: FfiConverterOptionString.read(from: &buf), 
                 memoryDetail: FfiConverterOptionString.read(from: &buf), 
@@ -5888,6 +5897,7 @@ public struct FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer {
         FfiConverterOptionTypeLookIcon.write(value.networkIcon, into: &buf)
         FfiConverterOptionString.write(value.storage, into: &buf)
         FfiConverterOptionString.write(value.storageDetail, into: &buf)
+        FfiConverterBool.write(value.storageLow, into: &buf)
         FfiConverterOptionString.write(value.cpu, into: &buf)
         FfiConverterOptionString.write(value.memory, into: &buf)
         FfiConverterOptionString.write(value.memoryDetail, into: &buf)

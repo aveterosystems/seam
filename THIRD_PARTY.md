@@ -23,6 +23,7 @@ Seam is licensed under [AGPL-3.0-only](LICENSE) and builds on the open-source wo
 | [Kotlin standard library](https://github.com/JetBrains/kotlin) | The Kotlin runtime | Apache-2.0 |
 | [ZXing core](https://github.com/zxing/zxing) | Reads the pairing QR code on the phone | Apache-2.0 |
 | [OkHttp](https://github.com/square/okhttp) and [Okio](https://github.com/square/okio) | The phone's update check and download from GitHub | Apache-2.0 |
+| [Roboto Flex](https://github.com/googlefonts/roboto-flex), by the Roboto Flex Project Authors | The Android app's typeface | OFL-1.1 (text in `apps/android/app/src/main/assets/licenses/RobotoFlex-OFL.txt`) |
 | [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | The phone's session and timers | Apache-2.0 |
 
 Tor® is a trademark of The Tor Project, Inc.; all rights reserved. Seam isn't endorsed or sponsored by, or affiliated with, the Tor Project. See [torproject.org](https://www.torproject.org).

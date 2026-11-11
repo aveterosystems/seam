@@ -55,20 +55,30 @@ If the user has set a system accent colour, controls follow it. Seam teal is the
 
 ## Android
 
-**Material 3 Expressive** in Compose (`MaterialExpressiveTheme`, material3 1.5). The colours are Seam's own fixed teal scheme, never wallpaper (dynamic) colours, so the phone and the Mac look the same. The app follows the system's light or dark theme, and when it changes every colour eases from one theme to the other over 0.4 s. The roles are the approved prototype's (`docs/design/prototypes/android-app.html`, its `.scr` and `.scr.dark` variables) and live in `Theme.kt`:
+**Material 3 Expressive** in Compose (`MaterialExpressiveTheme`, material3 1.5). The colours are Seam's own fixed teal scheme, never wallpaper (dynamic) colours, so the phone and the Mac look the same. The app follows the system's light or dark theme, and when it changes every colour eases from one theme to the other over 0.4 s. The roles are the approved prototype's (`docs/design/prototypes/android-app.html`, its `.scr` and `.scr.dark` variables) and live in `Theme.kt`. Every Material role is set in both schemes, so none falls back to Material's baseline purple and pink. Secondary is a grey teal; tertiary is the paused blue. Every on-colour passes 4.5:1 on its role:
 
 | Role | Light | Dark |
 |---|---|---|
 | `primary` / `onPrimary` | `#006B5E` / `#FFFFFF` | `#83D5C4` / `#003730` |
 | `primaryContainer` / `on…` | `#9FF2E0` / `#00201B` | `#005047` / `#9FF2E0` |
+| `inversePrimary` | `#83D5C4` | `#006B5E` |
+| `secondary` / `onSecondary` | `#4A635E` / `#FFFFFF` | `#B1CCC5` / `#1C3531` |
 | `secondaryContainer` / `on…` | `#CCE8E1` / `#06201B` | `#334B46` / `#CCE8E1` |
+| `tertiary` / `onTertiary` (paused) | `#32628D` / `#FFFFFF` | `#9CCBFB` / `#003352` |
 | `tertiaryContainer` / `on…` | `#CFE5FF` / `#001D33` | `#2E4A63` / `#CFE5FF` |
-| `surface` | `#F8F9FA` | `#111214` |
+| `surface`, `background` | `#F8F9FA` | `#111214` |
+| `surfaceDim` / `surfaceBright` | `#D8DADC` / `#F8F9FA` | `#111214` / `#37393B` |
+| `surfaceContainerLowest` | `#FFFFFF` | `#0C0D0F` |
 | `surfaceContainerLow` / `…` / `High` / `Highest` | `#F0F2F4` / `#EAECEE` / `#E4E6E8` / `#DEE0E2` | `#1B1C1E` / `#1F2022` / `#292A2C` / `#343537` |
-| `onSurface` / `onSurfaceVariant` | `#1A1C1E` / `#44474A` | `#E3E3E6` / `#C4C7CA` |
+| `surfaceVariant` | `#DEE0E2` | `#343537` |
+| `surfaceTint` | `primary` | `primary` |
+| `onSurface`, `onBackground` / `onSurfaceVariant` | `#1A1C1E` / `#44474A` | `#E3E3E6` / `#C4C7CA` |
 | `outline` / `outlineVariant` | `#74777A` / `#C4C7CA` | `#8E9194` / `#44474A` |
 | `inverseSurface` / `inverseOnSurface` | `#2F3133` / `#F1F0F4` | `#E3E3E6` / `#2F3133` |
-| `error` | `#BA1A1A` | `#FFB4AB` |
+| `error` / `onError` | `#BA1A1A` / `#FFFFFF` | `#FFB4AB` / `#690005` |
+| `errorContainer` / `on…` | `#FFDAD6` / `#410002` | `#93000A` / `#FFDAD6` |
+| `scrim` (Material's) | black | black |
+| Fixed roles (same in both) | `primaryFixed` / `Dim` / `on…` / `on…Variant` `#9FF2E0` / `#83D5C4` / `#00201B` / `#005047`; secondary `#CCE8E1` / `#B1CCC5` / `#06201B` / `#334B46`; tertiary `#CFE5FF` / `#9CCBFB` / `#001D33` / `#2E4A63` | same |
 | `ok` (not a Material role) | `#1C7C3A` | `#7BD88F` |
 | scrim behind sheets and dialogs | black 32% | black 50% |
 
@@ -85,13 +95,16 @@ If the user has set a system accent colour, controls follow it. Seam teal is the
 
 ### Android type (Roboto Flex)
 
+Roboto Flex is bundled as one variable font (`res/font/roboto_flex.ttf`, about 1.7 MB), at weights 400, 500 and 600. Display and headline styles set the width axis (`wdth`) to 112 for the Expressive "emphasised" feel; everything else stays at 100. The scale is `SeamType` in `Theme.kt`.
+
 | Style | Size / line | Notes |
 |---|---|---|
-| Hero headline | 36 / 44, 600, width 112% | Uses the width axis (`wdth`) for the Expressive "emphasised" feel |
-| Headline | 24 / 32 | Dialog titles |
-| Title | 16 / 24, 500 | List titles, sheet titles |
-| Body large / body | 16 / 24 · 14 / 20 | |
-| Label | 12 / 16, 500, +0.4 tracking | Section labels, chip text |
+| Display large (hero headline) | 36 / 44, 600, width 112 | |
+| Display medium / small | 34 / 37.4, 600, −0.6 · 30 / 36, 600, −0.8, width 112 | A page's large title; the Mac's name |
+| Headline small | 22 / 28, 600, width 112 | The app's name, sheet and dialog titles |
+| Title large / medium / small | 20 / 26, 600 · 16 / 22, 500 · 14 / 20, 600 | Card headings, row titles, section titles |
+| Body large / body / small | 16 / 24 · 14 / 20 · 12 / 16 | |
+| Label large / medium / small | 16 / 22, 600 · 14 / 20, 500 · 12 / 16, 500, +0.4 tracking | Button labels, the status chip, kickers |
 
 ## Icons
 
@@ -119,6 +132,7 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | CPU (the computer's) | `cpu` | Material `memory` (`ic_cpu`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
 | Memory (the computer's) | `memorychip` | Material `memory_alt` (`ic_memory`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
 | Do Not Disturb | `moon.fill` | Material `bedtime` | `weather-clear-night-symbolic` |
+| Dismiss on both | `checkmark.circle` (two) | double tick (`ic_dismiss_both`) | `object-select-symbolic` |
 
 ## Floating surfaces
 
@@ -164,6 +178,6 @@ How every screen moves, and the finish it needs before it's done, is in [motion.
 | Platform | Where | Contents |
 |---|---|---|
 | Mac | `apps/mac/Packages/SeamDesign` | `Color` assets for the tokens (light/dark in the asset catalogue), `SeamStitch` view, the app icon, symbol constants. No custom button or toggle styles. |
-| Android | `apps/android/app/.../Theme.kt`, `Components.kt` (planned: `core/designsystem`) | `SeamTheme` (the fixed teal scheme, light and dark, crossfading), the shared rows, sheets, pills and snackbar, the cookie hero with its stitches, and the icon set as vector drawables. Fonts are the system's for now; Roboto Flex isn't bundled yet |
+| Android | `apps/android/app/.../Theme.kt`, `Components.kt` (planned: `core/designsystem`) | `SeamTheme` (the fixed teal scheme, light and dark, crossfading), the shared rows, sheets, pills and snackbar, the cookie hero with its stitches, and the icon set as vector drawables. Roboto Flex is bundled as a variable font in `res/font` |
 
-Roboto Flex and JetBrains Mono are bundled (OFL licence). The Mac uses the system fonts only.
+Android bundles Roboto Flex (OFL licence; the licence ships in the APK at `assets/licenses/RobotoFlex-OFL.txt` and is listed in `THIRD_PARTY.md`). The Mac uses the system fonts only.

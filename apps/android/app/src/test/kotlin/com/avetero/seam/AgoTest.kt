@@ -3,6 +3,7 @@ package com.avetero.seam
 
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -15,5 +16,12 @@ class AgoTest {
         assertEquals("5 min ago", Looks.ago(now - 5 * 60_000L - 30_000, now, london))
         assertEquals("today at 12:00", Looks.ago(now - 2 * 3_600_000L, now, london))
         assertEquals("yesterday at 14:00", Looks.ago(now - 24 * 3_600_000L, now, london))
+    }
+
+    @Test fun followsThePhones12HourClock() {
+        val zone = ZoneId.of("America/New_York")
+        val at = LocalDateTime.parse("2026-11-02T15:44:00").atZone(zone).toInstant().toEpochMilli()
+        assertEquals("3:44 PM", SystemTime(zone, hours24 = false, locale = Locale.US).time(at))
+        assertEquals("15:44", SystemTime(zone, hours24 = true, locale = Locale.US).time(at))
     }
 }

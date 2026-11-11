@@ -40,6 +40,10 @@ _Avoid_: trusted networks, network allowlist
 One thing Seam does between the two devices, such as clipboard or Find phone, with its own minimum bar for counting as done.
 _Avoid_: plugin, module
 
+**Clipboard sync**:
+The Mac's master switch for the clipboard feature (Settings › Clipboard › "Sync the clipboard"). Off, nothing crosses either way, and the phone says "clipboard sync is off on your Mac".
+_Avoid_: clipboard sharing
+
 **Automatic clipboard**:
 Copies cross both ways without a tap. Each side may need a one-time setup to allow it; until then, sending a copy takes one tap.
 _Avoid_: auto-sync, universal clipboard

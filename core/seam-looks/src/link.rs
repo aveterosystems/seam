@@ -314,7 +314,7 @@ pub fn look(input: &LinkInput, names: &Names, now_ms: i64, time: &dyn TimeWords)
         "To save battery, {peer} disconnects about a minute after its screen goes off. It's back when you unlock it or it has something to send. Copies from {this} wait up to 10 minutes."));
     broken(
         LinkKind::Offline,
-        format!("Offline · will send when {peer} is back"),
+        "Offline · will send when it's back".into(),
         detail,
     )
 }
@@ -360,7 +360,7 @@ pub fn connections_footnote(lan_on: bool, tor_on: bool, names: &Names) -> String
             names.peer
         ),
         (false, true) => "Through Tor even at home. Same Wi‑Fi is faster for big files.".into(),
-        _ => "One always stays on. The encryption is the same on both.".into(),
+        _ => "One always stays on. Both are equally encrypted.".into(),
     }
 }
 

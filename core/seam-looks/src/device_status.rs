@@ -35,10 +35,12 @@ pub struct DeviceStatusLook {
     /// Same Wi‑Fi, where the path's icon already says it.
     pub network: Option<String>,
     pub network_icon: Option<Icon>,
-    /// Free space, short ("112 GB") and in full ("112 GB free of 256 GB"). None from a device
+    /// Free space, short ("112 GB"), and in full with what's used ("144 GB of 256 GB used · 112 GB free"). None from a device
     /// that doesn't send storage.
     pub storage: Option<String>,
     pub storage_detail: Option<String>,
+    /// 90% or more used: shown in `warn`, and the full words end "· almost full".
+    pub storage_low: bool,
     /// A computer's CPU in use ("12%") and memory in use ("9 GB", in full "9 GB of 16 GB in use").
     /// None from a device that doesn't send them.
     pub cpu: Option<String>,
@@ -84,17 +86,21 @@ pub fn look(
         ),
         _ => (None, None),
     };
-    let (storage, storage_detail) = if s.storage_total_bytes > 0 {
-        let free = words::size(s.storage_free_bytes.min(s.storage_total_bytes));
-        (
-            Some(free.clone()),
-            Some(format!(
-                "{free} free of {}",
-                words::size(s.storage_total_bytes)
-            )),
-        )
+    let (storage, storage_detail, storage_low) = if s.storage_total_bytes > 0 {
+        let free_bytes = s.storage_free_bytes.min(s.storage_total_bytes);
+        let free = words::size(free_bytes);
+        // 10% or less free, in integers: f32 can't hold byte counts exactly
+        let low = free_bytes as u128 * 10 <= s.storage_total_bytes as u128;
+        // Used first, as a bar under it fills to the used share; free last, as the short value says it
+        let detail = format!(
+            "{} of {} used · {free} free{}",
+            words::size(s.storage_total_bytes - free_bytes),
+            words::size(s.storage_total_bytes),
+            if low { " · almost full" } else { "" }
+        );
+        (Some(free), Some(detail), low)
     } else {
-        (None, None)
+        (None, None, false)
     };
     let (cpu, memory, memory_detail) = if s.memory_total_bytes > 0 {
         let used = words::memory(s.memory_used_bytes.min(s.memory_total_bytes));
@@ -137,6 +143,7 @@ pub fn look(
         network_icon,
         storage,
         storage_detail,
+        storage_low,
         cpu,
         memory,
         memory_detail,

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package com.avetero.seam
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,14 +12,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.avetero.seam.crypto.connectionsFootnote
 import com.avetero.seam.crypto.nightlyWarning
 import com.avetero.seam.crypto.nightlyWarningTitle
@@ -26,13 +28,15 @@ import com.avetero.seam.session.ConnectionSettings
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 /** The small print under the connection switches: what the current pair of them means. */
 fun connectionFootnote(wifi: Boolean, tor: Boolean): String = connectionsFootnote(wifi, tor, PhoneNames)
 
-/** "Paired 14 September 2026". */
-fun pairedLabel(at: Long, zone: ZoneId = ZoneId.systemDefault()): String =
-    "Paired " + Instant.ofEpochMilli(at).atZone(zone).format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
+/** "Paired 14 Sept 2026", in the phone's own date order: short enough to stay on one line beside Forget. */
+fun pairedLabel(at: Long, zone: ZoneId = ZoneId.systemDefault(), locale: Locale = Locale.getDefault()): String =
+    "Paired " + Instant.ofEpochMilli(at).atZone(zone).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
 
 /** Board A06 as the approved prototype lays it out, with every setting the app has. */
 @Composable
@@ -54,30 +58,26 @@ fun SettingsScreen(
     /** Null: no Mac to reconnect to. */
     onReconnect: (() -> Unit)? = null,
     reconnecting: Boolean = false,
+    /** While paused, Home's chip words ("Paused · until 05:22"); the rows say the same. */
+    pause: String? = null,
 ) {
     var confirmForget by remember { mutableStateOf(false) }
-    var neverSendSensitive by remember { mutableStateOf(!sendSensitive) }
+    var keepPasswords by remember { mutableStateOf(!sendSensitive) }
     val uri = LocalUriHandler.current
     SubScreen("Settings", onBack) {
         Section("On your Mac") {
-            if (notifications != null) NotificationsItem(notifications, "Notifications", home = false, onOpen = onOpenNotifications)
-            AutoClipboardItem(clipboard)
-            SwitchItem(
-                "Never send passwords",
-                if (neverSendSensitive) "Passwords and card numbers stay on this phone" else "Passwords and card numbers go to your Mac too",
-                checked = neverSendSensitive, onChange = { neverSendSensitive = it; onSendSensitive(!it) },
-                lead = painterResource(R.drawable.ic_key),
-            )
+            if (notifications != null) NotificationsItem(notifications, paused = pause != null, onOpen = onOpenNotifications)
+            AutoClipboardItem(clipboard, pause)
         }
         // The last one on can't be turned off: Seam would have no way to reach the Mac
         Section("Connection", footnote = connectionFootnote(connection.wifi, connection.tor)) {
             SwitchItem(
-                "Same Wi‑Fi", "Straight to your Mac at home or work",
+                "Same Wi‑Fi", "Direct, at home or work",
                 checked = connection.wifi, onChange = { onSwitches(it, connection.tor) },
                 lead = painterResource(R.drawable.ic_wifi), enabled = !connection.wifi || connection.tor,
             )
             SwitchItem(
-                "Internet, through Tor", "Reaches your Mac anywhere, hides where you are",
+                "Through Tor", "From anywhere, privately",
                 checked = connection.tor, onChange = { onSwitches(connection.wifi, it) },
                 lead = painterResource(R.drawable.ic_globe), enabled = !connection.tor || connection.wifi,
             )
@@ -87,7 +87,17 @@ fun SettingsScreen(
                 lead = painterResource(R.drawable.ic_refresh), onClick = onReconnect,
             )
         }
-        Section("Privacy & security") { EncryptedItem(code) }
+        Section("Privacy & security") {
+            EncryptedItem(code)
+            // On keeps them here: the same preference as before, worded as what it protects
+            SwitchItem(
+                // At 360 dp it wraps beside the switch; the row title's balanced breaks split it evenly
+                "Keep passwords on this phone",
+                if (keepPasswords) "Never sent to your Mac" else "Sent to your Mac too",
+                checked = keepPasswords, onChange = { keepPasswords = it; onSendSensitive(!it) },
+                lead = painterResource(R.drawable.ic_key),
+            )
+        }
         if (updater?.available == true) UpdatesSection(updater, version)
         if (macName != null) {
             Section("Your Mac") {
@@ -97,8 +107,10 @@ fun SettingsScreen(
             }
         }
         Section("About") {
-            if (updater?.available != true) Item("Seam $version", "Updates come from the Play Store", lead = painterResource(R.drawable.ic_seam_mark))
-            Item("Open source", "AGPL-3.0 · github.com/aveterosystems/seam", lead = painterResource(R.drawable.ic_info), onClick = {
+            // Debug builds never update (Updater.available), whichever flavour
+            if (updater?.available != true) Item("Seam $version", if (BuildConfig.DEBUG) "Debug build · updates off" else "Updates come from the Play Store", lead = painterResource(R.drawable.ic_seam_mark))
+            Item("Open source", "AGPL-3.0 · aveterosystems/seam", lead = painterResource(R.drawable.ic_open_in_new), onClick = {
+                // Leaves the app for the browser: the lead says so, so no chevron
                 uri.openUri("https://github.com/aveterosystems/seam")
             })
         }
@@ -106,30 +118,42 @@ fun SettingsScreen(
     if (confirmForget && macName != null) {
         SeamDialog(
             "Forget $macName?",
-            "This phone stops syncing and forgets its keys. If this phone is online, $macName forgets it too; if not, forget this phone on $macName as well. You can pair again any time.",
+            "This phone stops syncing and deletes its keys. $macName forgets it too when it's next online. You can pair again any time.",
             onDismiss = { confirmForget = false },
             icon = painterResource(R.drawable.ic_laptop_off),
         ) { close ->
             Pill("Cancel", close, PillKind.Text)
-            Pill("Forget", { close(); onForgetMac() }, PillKind.Error)
+            Pill("Forget", { close(); onForgetMac() }, PillKind.Destructive)
         }
     }
 }
 
-/** The safety code from pairing, blurred until tapped (0.4 s); the screen is also kept out of screenshots (SR-11-04). */
+/**
+ * The safety code from pairing: tapping the row swaps it in for the words under the title, the eye at
+ * the end saying which way the tap goes; the screen is also kept out of screenshots (SR-11-04).
+ */
 @Composable
 private fun EncryptedItem(code: String?) {
     var shown by remember { mutableStateOf(false) }
-    val blur by animateDpAsState(if (shown) 0.dp else 6.dp, Motion.ease(400), label = "code")
-    if (code == null) {
-        Item("End-to-end encrypted", "Keys made on this phone, sealed by its security chip", lead = painterResource(R.drawable.ic_shield))
-        return
+    val subtitle = when {
+        code == null -> "Keys made on this phone, sealed by its security chip"
+        shown -> "Code ${code.chunked(3).joinToString(" ")}"
+        else -> "Tap to see the pairing code"
     }
-    Item("End-to-end encrypted", "Keys checked when you paired · tap to show the code", lead = painterResource(R.drawable.ic_shield), onClick = { shown = !shown }) {
-        Text(
-            code.chunked(3).joinToString(" "), fontFamily = FontFamily.Monospace, fontSize = 15.sp, letterSpacing = 2.sp,
-            modifier = Modifier.blur(blur).semantics { contentDescription = if (shown) "Code $code" else "Code hidden" },
-        )
+    val title = "End-to-end encrypted"
+    if (code == null) return Item(title, subtitle, lead = painterResource(R.drawable.ic_shield))
+    // The row's own semantics, so TalkBack reads the code digit by digit rather than as one number
+    Box(Modifier.clearAndSetSemantics {
+        contentDescription = "$title, ${if (shown) spokenCode(code) else subtitle}"
+        role = Role.Button
+        onClick(if (shown) "Hide code" else "Show code") { shown = !shown; true }
+    }) {
+        Item(title, subtitle, lead = painterResource(R.drawable.ic_shield), onClick = { shown = !shown }) {
+            Icon(
+                painterResource(if (shown) R.drawable.ic_visibility_off else R.drawable.ic_visibility), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
@@ -194,3 +218,6 @@ private fun intervalLabel(ms: Long) = when (ms) {
     Updater.INTERVALS[2] -> "Every day"
     else -> "Every week"
 }
+
+/** "482913" as TalkBack should say it: "Code 4 8 2, 9 1 3", digit by digit in its two groups. */
+internal fun spokenCode(code: String): String = "Code " + code.chunked(3).joinToString(", ") { it.toList().joinToString(" ") }

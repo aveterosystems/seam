@@ -6,7 +6,10 @@ import androidx.compose.runtime.setValue
 import android.animation.ValueAnimator
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.TwoWayConverter
+import androidx.compose.animation.core.VectorizedFiniteAnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import android.app.Activity
@@ -21,8 +24,15 @@ import androidx.core.view.WindowCompat
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -32,37 +42,61 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.LifecycleResumeEffect
 
+/** Material's fixed roles: the same in light and dark, taken from the light containers and the dark accents. */
+private object Fixed {
+    val primary = Color(0xFF9FF2E0); val primaryDim = Color(0xFF83D5C4); val onPrimary = Color(0xFF00201B); val onPrimaryVariant = Color(0xFF005047)
+    val secondary = Color(0xFFCCE8E1); val secondaryDim = Color(0xFFB1CCC5); val onSecondary = Color(0xFF06201B); val onSecondaryVariant = Color(0xFF334B46)
+    val tertiary = Color(0xFFCFE5FF); val tertiaryDim = Color(0xFF9CCBFB); val onTertiary = Color(0xFF001D33); val onTertiaryVariant = Color(0xFF2E4A63)
+}
+
 /**
  * Seam's teal, the same on the phone and the Mac, instead of wallpaper colours. Teal is for
  * accents only (buttons, switches, highlights); backgrounds and cards are neutral grey, so the
- * app doesn't look tinted. Accent values are the design tokens in the boards' android.css.
+ * app doesn't look tinted. Accent values are the design tokens in the boards' android.css. Every
+ * role is set in both schemes, so nothing falls back to Material's baseline purple and pink.
  */
 private val Light = lightColorScheme(
     primary = Color(0xFF006B5E), onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFF9FF2E0), onPrimaryContainer = Color(0xFF00201B),
+    primaryContainer = Color(0xFF9FF2E0), onPrimaryContainer = Color(0xFF00201B), inversePrimary = Color(0xFF83D5C4),
+    secondary = Color(0xFF4A635E), onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFCCE8E1), onSecondaryContainer = Color(0xFF06201B),
+    tertiary = Color(0xFF32628D), onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFCFE5FF), onTertiaryContainer = Color(0xFF001D33),
     background = Color(0xFFF8F9FA), onBackground = Color(0xFF1A1C1E),
-    surface = Color(0xFFF8F9FA), onSurface = Color(0xFF1A1C1E), onSurfaceVariant = Color(0xFF44474A),
+    surface = Color(0xFFF8F9FA), onSurface = Color(0xFF1A1C1E),
+    surfaceVariant = Color(0xFFDEE0E2), onSurfaceVariant = Color(0xFF44474A), surfaceTint = Color(0xFF006B5E),
+    surfaceBright = Color(0xFFF8F9FA), surfaceDim = Color(0xFFD8DADC),
     surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFF0F2F4),
     surfaceContainer = Color(0xFFEAECEE), surfaceContainerHigh = Color(0xFFE4E6E8), surfaceContainerHighest = Color(0xFFDEE0E2),
     inverseSurface = Color(0xFF2F3133), inverseOnSurface = Color(0xFFF1F0F4),
-    outline = Color(0xFF74777A), outlineVariant = Color(0xFFC4C7CA),
-    error = Color(0xFFBA1A1A),
+    outline = Color(0xFF74777A), outlineVariant = Color(0xFFC4C7CA), scrim = Color(0xFF000000),
+    error = Color(0xFFBA1A1A), onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6), onErrorContainer = Color(0xFF410002),
+    primaryFixed = Fixed.primary, primaryFixedDim = Fixed.primaryDim, onPrimaryFixed = Fixed.onPrimary, onPrimaryFixedVariant = Fixed.onPrimaryVariant,
+    secondaryFixed = Fixed.secondary, secondaryFixedDim = Fixed.secondaryDim, onSecondaryFixed = Fixed.onSecondary, onSecondaryFixedVariant = Fixed.onSecondaryVariant,
+    tertiaryFixed = Fixed.tertiary, tertiaryFixedDim = Fixed.tertiaryDim, onTertiaryFixed = Fixed.onTertiary, onTertiaryFixedVariant = Fixed.onTertiaryVariant,
 )
 
 private val Dark = darkColorScheme(
     primary = Color(0xFF83D5C4), onPrimary = Color(0xFF003730),
-    primaryContainer = Color(0xFF005047), onPrimaryContainer = Color(0xFF9FF2E0),
+    primaryContainer = Color(0xFF005047), onPrimaryContainer = Color(0xFF9FF2E0), inversePrimary = Color(0xFF006B5E),
+    secondary = Color(0xFFB1CCC5), onSecondary = Color(0xFF1C3531),
     secondaryContainer = Color(0xFF334B46), onSecondaryContainer = Color(0xFFCCE8E1),
+    tertiary = Color(0xFF9CCBFB), onTertiary = Color(0xFF003352),
     tertiaryContainer = Color(0xFF2E4A63), onTertiaryContainer = Color(0xFFCFE5FF),
     background = Color(0xFF111214), onBackground = Color(0xFFE3E3E6),
-    surface = Color(0xFF111214), onSurface = Color(0xFFE3E3E6), onSurfaceVariant = Color(0xFFC4C7CA),
+    surface = Color(0xFF111214), onSurface = Color(0xFFE3E3E6),
+    surfaceVariant = Color(0xFF343537), onSurfaceVariant = Color(0xFFC4C7CA), surfaceTint = Color(0xFF83D5C4),
+    surfaceBright = Color(0xFF37393B), surfaceDim = Color(0xFF111214),
     surfaceContainerLowest = Color(0xFF0C0D0F), surfaceContainerLow = Color(0xFF1B1C1E),
     surfaceContainer = Color(0xFF1F2022), surfaceContainerHigh = Color(0xFF292A2C), surfaceContainerHighest = Color(0xFF343537),
     inverseSurface = Color(0xFFE3E3E6), inverseOnSurface = Color(0xFF2F3133),
-    outline = Color(0xFF8E9194), outlineVariant = Color(0xFF44474A),
-    error = Color(0xFFFFB4AB),
+    outline = Color(0xFF8E9194), outlineVariant = Color(0xFF44474A), scrim = Color(0xFF000000),
+    error = Color(0xFFFFB4AB), onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A), onErrorContainer = Color(0xFFFFDAD6),
+    primaryFixed = Fixed.primary, primaryFixedDim = Fixed.primaryDim, onPrimaryFixed = Fixed.onPrimary, onPrimaryFixedVariant = Fixed.onPrimaryVariant,
+    secondaryFixed = Fixed.secondary, secondaryFixedDim = Fixed.secondaryDim, onSecondaryFixed = Fixed.onSecondary, onSecondaryFixedVariant = Fixed.onSecondaryVariant,
+    tertiaryFixed = Fixed.tertiary, tertiaryFixedDim = Fixed.tertiaryDim, onTertiaryFixed = Fixed.onTertiary, onTertiaryFixedVariant = Fixed.onTertiaryVariant,
 )
 
 /** The prototype's colours that aren't Material roles: `--ok`, the low-battery amber, `--scrim`. */
@@ -89,12 +123,51 @@ fun SeamTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> 
             }
         }
     }
-    MaterialExpressiveTheme(colorScheme = blend(Light, Dark, t), motionScheme = SeamMotionScheme) {
+    MaterialExpressiveTheme(colorScheme = blend(Light, Dark, t), motionScheme = SeamMotionScheme, typography = SeamType) {
         val extra = Extra(lerp(LightExtra.ok, DarkExtra.ok, t), lerp(LightExtra.warn, DarkExtra.warn, t), lerp(LightExtra.scrim, DarkExtra.scrim, t))
-        // The prototype's text: 14 sp, the font's own line height, no extra tracking
-        CompositionLocalProvider(LocalExtra provides extra, LocalTextStyle provides TextStyle(fontSize = 14.sp, letterSpacing = 0.sp), content = content)
+        // The prototype's text: 14 sp, no extra tracking
+        CompositionLocalProvider(LocalExtra provides extra, LocalTextStyle provides SeamType.bodyMedium, content = content)
     }
 }
+
+/**
+ * Roboto Flex (bundled, OFL) at [width]% on the `wdth` axis, one instance per weight the app
+ * uses. Display and headline styles run wide (112) for the Expressive emphasised feel.
+ */
+private fun flex(width: Float) = FontFamily(
+    listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold).map {
+        Font(R.font.roboto_flex, it, variationSettings = FontVariation.Settings(it, FontStyle.Normal, FontVariation.width(width)))
+    },
+)
+
+private val Body = flex(100f)
+private val Wide = flex(112f)
+
+/**
+ * The sizes the app's screens use, as a scale, with no tracking (Material's default 0.1 to
+ * 0.5 sp spreads small words apart). Headings break balanced and running text high quality, so
+ * no line ends on one orphaned word.
+ */
+private fun type(size: Double, line: Double, weight: FontWeight = FontWeight.Normal, tracking: Double = 0.0, family: FontFamily = Body, lineBreak: LineBreak = LineBreak.Paragraph) =
+    TextStyle(fontFamily = family, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight, letterSpacing = tracking.sp, lineBreak = lineBreak)
+
+internal val SeamType = Typography(
+    displayLarge = type(36.0, 44.0, FontWeight.SemiBold, family = Wide, lineBreak = LineBreak.Heading), // the design system's hero headline
+    displayMedium = type(34.0, 37.4, FontWeight.SemiBold, -0.6, Wide, lineBreak = LineBreak.Heading), // a page's large title
+    displaySmall = type(30.0, 36.0, FontWeight.SemiBold, -0.8, Wide, lineBreak = LineBreak.Heading), // the Mac's name, a set-up step's title
+    headlineLarge = type(28.0, 36.0, family = Wide, lineBreak = LineBreak.Heading),
+    headlineMedium = type(24.0, 32.0, family = Wide, lineBreak = LineBreak.Heading),
+    headlineSmall = type(22.0, 28.0, FontWeight.SemiBold, family = Wide, lineBreak = LineBreak.Heading), // the app's name, sheet and dialog titles
+    titleLarge = type(20.0, 26.0, FontWeight.SemiBold, lineBreak = LineBreak.Heading), // a collapsed page title, a card's heading
+    titleMedium = type(16.0, 22.0, FontWeight.Medium, lineBreak = LineBreak.Heading), // a row's title
+    titleSmall = type(14.0, 20.0, FontWeight.SemiBold, lineBreak = LineBreak.Heading), // a section's title, a pill's or toolbar's label
+    bodyLarge = type(16.0, 24.0), // a set-up step's words, a field, a stat's value
+    bodyMedium = type(14.0, 20.0), // running text: a row's or sheet's detail, a dialog, the snackbar
+    bodySmall = type(12.0, 16.0), // the small print
+    labelLarge = type(16.0, 22.0, FontWeight.SemiBold), // a large button's label
+    labelMedium = type(14.0, 20.0, FontWeight.Medium), // the link's status chip
+    labelSmall = type(12.0, 16.0, FontWeight.Medium, 0.4), // a chip
+)
 
 /** Every role part way from [a] to [b]. */
 private fun blend(a: ColorScheme, b: ColorScheme, t: Float): ColorScheme {
@@ -162,8 +235,23 @@ object Motion {
     val EaseIn: Easing = CubicBezierEasing(.42f, 0f, 1f, 1f)
     val EaseOut: Easing = CubicBezierEasing(0f, 0f, .58f, 1f)
 
-    fun <T> spring(ms: Int, delay: Int = 0): FiniteAnimationSpec<T> = tween(ms, delay, Spring)
+    /** `--strong-ease-out`: lines drawing themselves, numbers counting (motion.md's `settle`). */
+    val Settle: Easing = CubicBezierEasing(.2f, .8f, .2f, 1f)
+
+    /**
+     * The prototype's `--spring` over a CSS duration of [ms], as a real spring, fitted the same way
+     * as the Mac's `Motion.css` (damping 0.632, response 0.388 × duration): it peaks at 25% with
+     * about 8% overshoot. Being physics, a retarget mid-flight (a press released, a sheet closed
+     * while rising) carries its velocity on rather than restarting. [delay] holds it at its start.
+     */
+    fun <T> spring(ms: Int, delay: Int = 0): FiniteAnimationSpec<T> {
+        val response = 0.388f * ms / 1000f
+        val s = androidx.compose.animation.core.spring<T>(0.632f, (2 * Math.PI.toFloat() / response).let { it * it })
+        return if (delay == 0) s else Delayed(s, delay)
+    }
+
     fun <T> bouncy(ms: Int): FiniteAnimationSpec<T> = tween(ms, 0, Bouncy)
+    fun <T> settle(ms: Int = 700): FiniteAnimationSpec<T> = tween(ms, 0, Settle)
     fun <T> ease(ms: Int, delay: Int = 0): FiniteAnimationSpec<T> = tween(ms, delay, Ease)
     fun <T> emphasized(ms: Int, delay: Int = 0): FiniteAnimationSpec<T> = tween(ms, delay, Emphasized)
 
@@ -174,6 +262,25 @@ object Motion {
     const val PULSE_MS = 2400
     const val TURN_MS = 40_000
     const val DASH_FLOW_MS = 900
+}
+
+/** [spec] held at its start for [ms]: Compose's springs take no delay of their own. */
+private class Delayed<T>(private val spec: FiniteAnimationSpec<T>, ms: Int) : FiniteAnimationSpec<T> {
+    private val wait = ms * 1_000_000L
+
+    override fun <V : AnimationVector> vectorize(converter: TwoWayConverter<T, V>): VectorizedFiniteAnimationSpec<V> {
+        val v = spec.vectorize(converter)
+        return object : VectorizedFiniteAnimationSpec<V> {
+            override fun getValueFromNanos(playTimeNanos: Long, initialValue: V, targetValue: V, initialVelocity: V): V =
+                if (playTimeNanos < wait) initialValue else v.getValueFromNanos(playTimeNanos - wait, initialValue, targetValue, initialVelocity)
+
+            override fun getVelocityFromNanos(playTimeNanos: Long, initialValue: V, targetValue: V, initialVelocity: V): V =
+                if (playTimeNanos < wait) initialVelocity else v.getVelocityFromNanos(playTimeNanos - wait, initialValue, targetValue, initialVelocity)
+
+            override fun getDurationNanos(initialValue: V, targetValue: V, initialVelocity: V): Long =
+                wait + v.getDurationNanos(initialValue, targetValue, initialVelocity)
+        }
+    }
 }
 
 /** Material's own components (switches, ripples, the app bar) move on the same curves. */
