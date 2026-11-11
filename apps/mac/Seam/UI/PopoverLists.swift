@@ -25,7 +25,7 @@ private struct SectionHeading: View {
                 }
                 .buttonStyle(PressableStyle(scale: 0.94))
                 // A target taller than the small capsule, without moving anything around it
-                .padding(.vertical, 10).padding(.horizontal, 4).contentShape(Rectangle()).padding(.vertical, -10).padding(.horizontal, -4)
+                .padding(.vertical, 14).padding(.horizontal, 4).contentShape(Rectangle()).padding(.vertical, -14).padding(.horizontal, -4) // 44 pt
             }
         }
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 2, trailing: 14))

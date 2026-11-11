@@ -94,8 +94,8 @@ struct PopoverTiles: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .frame(width: 28, height: 28)
-        // A 40 pt target around the 28 pt glyph; the row's own button keeps the rest
-        .padding(6).contentShape(Rectangle()).padding(-6)
+        // A 44 pt target around the 28 pt glyph; the row keeps that space clear (Tile's trailing reserve)
+        .padding(8).contentShape(Rectangle()).padding(-8)
         .tint(SeamStyle.Pop.fg) // a menu's label takes the tint, not the foreground
         .help(label)
         .accessibilityLabel(label)

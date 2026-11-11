@@ -62,7 +62,7 @@ struct Tile<Accessory: View>: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8).padding(.vertical, 6)
-            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 26) // the accessory and a hair before it
+            .padding(.trailing, Accessory.self == EmptyView.self ? 0 : 40) // the accessory's whole 44 pt target, so a near miss can't toggle the row
             .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(hovering ? SeamStyle.Pop.fill : .clear))
             .contentShape(Rectangle())
         }
