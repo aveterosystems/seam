@@ -47,7 +47,7 @@ struct PopoverNotifications: View {
         let showing = controller.notifications.shown.filter { !replied.contains($0.key) }
         let latest = Array(showing.prefix(3))
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeading(title: "Notifications", link: "All \(showing.count) ›") { openMain(.notifications) }
+            SectionHeading(title: "Notifications", link: controller.notifications.shown.isEmpty ? nil : "All \(showing.count) ›") { openMain(.notifications) }
                 .rise(3, appeared)
             VStack(alignment: .leading, spacing: 0) {
                 if latest.isEmpty {
@@ -79,13 +79,11 @@ private struct NotificationRow: View {
     let open: () -> Void
     @State private var hovering = false
     @State private var replying = false
-    @State private var reply = ""
-    @State private var done = false
     @State private var icon: CGFloat = 1
     @FocusState private var focus: Part?
     @Environment(\.accessibilityReduceMotion) private var reduce
 
-    enum Part { case row, action, dismiss, field }
+    enum Part { case row, action, dismiss }
 
     var body: some View {
         let actions = hovering || focus != nil || replying
@@ -106,7 +104,7 @@ private struct NotificationRow: View {
                 .accessibilityHidden(true)
                 Spacer(minLength: 0)
                 HStack(spacing: 2) {
-                    Button(n.canReply ? "Reply" : "Open") { n.canReply ? toggleReply() : open() }
+                    Button(n.canReply ? "Reply" : "Open") { n.canReply ? replying.toggle() : open() }
                         .buttonStyle(ActionStyle())
                         .focused($focus, equals: .action)
                     Button("✕") { controller.notifications.dismiss(n) }
@@ -141,44 +139,10 @@ private struct NotificationRow: View {
     }
 
     private var replyField: some View {
-        HStack(spacing: 6) {
-            if done {
-                Text("✓ Sent from your phone").font(.system(size: 11, weight: .semibold)).foregroundStyle(SeamStyle.live)
-                    .transition(.opacity)
-                Spacer(minLength: 0)
-            } else {
-                TextField("Reply to \(n.appName)", text: $reply)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 9).padding(.vertical, 5)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(SeamStyle.Pop.fill))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(SeamStyle.teal, lineWidth: 1.5))
-                    .focused($focus, equals: .field)
-                    .onSubmit(send)
-                    .onExitCommand { replying = false }
-                Button("Send", action: send)
-                    .buttonStyle(PillButtonStyle())
-                    .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        }
+        ReplyField(prompt: "Reply to \(n.appName)", send: { text in
+            controller.notifications.send(.with { $0.key = n.key; $0.replyText = text })
+        }, close: { replying = false }, sent: sent)
         .padding(EdgeInsets(top: 2, leading: 48, bottom: 8, trailing: 14))
-    }
-
-    private func toggleReply() {
-        replying.toggle()
-        guard replying else { return }
-        // Catalogue 7: focus moves in once the field has opened
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { focus = .field }
-    }
-
-    private func send() {
-        let text = reply.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        controller.notifications.send(.with { $0.key = n.key; $0.replyText = text })
-        reply = ""
-        withAnimation(Motion.fade) { done = true }
-        // Catalogue 8: "✓ Sent" for 1.1 s, then the row leaves
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1, execute: self.sent)
     }
 }
 

@@ -33,7 +33,7 @@ struct ClipboardSettingsPane: View {
             SettingsGroup {
                 // Whether the phone's own automatic clipboard is on isn't sent, so no "Off ·" here (see the PR)
                 SettingsRow("Automatic from your phone", "Copies on your phone come here when you share them", info: $autoInfo) {
-                    Button("Set up") { AutoClipboardSetup.run() }.buttonStyle(CapButtonStyle(kind: .primary))
+                    Button("Set up") { AutoClipboardSetup.run() }.buttonStyle(CapButtonStyle())
                 }
                 if autoInfo {
                     InfoMore("Mac → phone is always automatic. For phone → Mac, turn on Automatic clipboard in Seam on your phone. Rather not use Android's Accessibility? Set it up from here with the phone on USB or wireless debugging.")
@@ -56,10 +56,10 @@ struct PrivacyPane: View {
         PaneScroll {
             SettingsGroup {
                 SettingsRow("End-to-end encrypted", "Signal Protocol with post-quantum keys. Only your Mac and phone can read what passes between them.") {
-                    TintedIcon(symbol: "checkmark", color: Color(light: 0x30A46C, dark: 0x30A46C))
+                    TintedIcon(symbol: "checkmark.shield", color: Color(light: 0x30A46C, dark: 0x30A46C))
                 } trailing: { EmptyView() }
                 SettingsRow("Away from home, through Tor", "Neither Tor nor your network can read anything, and Tor hides where you are") {
-                    TintedIcon(symbol: "circle.circle", color: Color(light: 0x6E56CF, dark: 0x6E56CF))
+                    TintedIcon(symbol: "globe", color: Color(light: 0x6E56CF, dark: 0x6E56CF))
                 } trailing: { EmptyView() }
                 SettingsRow("Update checks", updateChecks) {
                     TintedIcon(symbol: "arrow.down", color: Color(light: 0x8E8E93, dark: 0x8E8E93))

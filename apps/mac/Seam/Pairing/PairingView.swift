@@ -66,6 +66,7 @@ struct PairingView: View {
         .padding(.top, 8)
         .padding(.bottom, 40)
         .frame(width: 740, height: 480)
+        .background(SeamStyle.Win.background)
         .tint(SeamStyle.teal)
     }
 
@@ -78,7 +79,7 @@ struct PairingView: View {
                     .font(.system(size: 14)).foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 14) {
-                step(1, Text("Get **Seam** on your phone"))
+                step(1, Text("Get **Seam** on your phone from [GitHub](https://github.com/aveterosystems/seam/releases/latest)"))
                 step(2, Text("Tap **Scan code** and point the camera here"))
                 step(3, Text("Check both screens show the same code, then pair"))
             }
@@ -125,11 +126,12 @@ struct PairingView: View {
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(.black.opacity(0.09)))
                     .accessibilityLabel("Pairing QR code")
             }
-            HStack(spacing: 6) {
-                Circle().fill(SeamStyle.warn).frame(width: 8, height: 8)
+            // Waiting, not wrong: the stitch's travelling grey dots (catalogue 10), never an amber warning
+            VStack(spacing: 8) {
+                Stitch(line: .dotted).frame(width: 120)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let left = Int(deadline.remaining(at: context.date))
-                    Text("Waiting for your phone… code expires in \(left / 60):\(String(format: "%02d", left % 60))")
+                    Text("Waiting for your phone · code expires in \(left / 60):\(String(format: "%02d", left % 60))")
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
@@ -140,6 +142,11 @@ struct PairingView: View {
             ConfirmView(controller: controller, name: request.deviceName, code: request.safetyCode, sending: true)
         case .paired(let name):
             outcome("Paired with \(name).", button: "Done") { PairingWindow.close() }
+                .task {
+                    // Board M02: the window closes itself 2 s after pairing
+                    try? await Task.sleep(for: .seconds(2))
+                    PairingWindow.close()
+                }
         case .expired:
             outcome("Codes work for 5 minutes. Show a new one to pair.", button: "Show a new code") { controller.startPairing() }
         case .failed(let reason):
@@ -151,7 +158,7 @@ struct PairingView: View {
         VStack(spacing: 14) {
             Spacer()
             Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
-            Button(button, action: action).buttonStyle(.borderedProminent)
+            Button(button, action: action).buttonStyle(CapButtonStyle(kind: .primary))
             Spacer()
         }
     }
@@ -183,9 +190,10 @@ private struct ConfirmView: View {
                 // Cancel is the prominent, default button: Return cancels, and the look says so (SR-10-02)
                 Button("Cancel", role: .cancel) { PairingWindow.close() }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(CapButtonStyle(kind: .primary))
                     .disabled(sending)
                 Button("Pair") { controller.confirmPairing() }
+                    .buttonStyle(CapButtonStyle())
                     .disabled(!armed || sending)
                 if sending { ProgressView().controlSize(.small) }
             }

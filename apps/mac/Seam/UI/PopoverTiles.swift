@@ -17,7 +17,7 @@ struct PopoverTiles: View {
         let n = Looks.notificationsTile(controller.notifications.settings, showing: controller.notifications.shown.count)
         HStack(spacing: 6) {
             Tile(title: "Clipboard", subtitle: clipboardSubtitle(syncOn: sync, connected: controller.connected),
-                 symbol: "doc.on.doc", tint: sync ? .on : .off, bounce: clipBounce) {
+                 symbol: "doc.on.clipboard", tint: sync ? .on : .off, bounce: clipBounce) {
                 controller.setClipboardSync(!sync)
                 clipBounce += 1
             }

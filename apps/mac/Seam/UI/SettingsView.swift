@@ -19,12 +19,13 @@ struct SettingsView: View {
 
     var body: some View {
         SidebarWindow(title: title(pane), search: $query, size: CGSize(width: 700, height: 540)) {
-            row(.general)
+            // The phone first, like the account at the top of System Settings; it's the pane Settings opens on
             row(.phone)
             SidebarSection("Features")
             row(.notifications)
             row(.clipboard)
             SidebarSection("Seam")
+            row(.general)
             row(.privacy)
         } toolbar: {
             if pane == .notifications || pane == .clipboard {
@@ -116,7 +117,7 @@ extension SettingsView.Pane { // the main window draws its entries with the same
         case .general: "gearshape"
         case .phone: "iphone"
         case .notifications: "bell"
-        case .clipboard: "doc.on.doc"
+        case .clipboard: "doc.on.clipboard"
         case .privacy: "shield"
         }
     }

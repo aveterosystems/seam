@@ -82,7 +82,7 @@ struct PopoverView: View {
             Text("Pair your phone").font(.headline)
             Text("Scan a code with Seam on your Android phone. It takes a minute.")
                 .font(.callout).foregroundStyle(SeamStyle.Pop.fg2).multilineTextAlignment(.center)
-            Button("Pair your phone") { PairingWindow.show(controller) }.buttonStyle(.borderedProminent)
+            Button("Show pairing code") { PairingWindow.show(controller) }.buttonStyle(CapButtonStyle(kind: .primary))
         }
         .frame(maxWidth: .infinity)
         .padding(20)
@@ -130,26 +130,42 @@ struct PopoverView: View {
     }
 }
 
-/// The footer's settings button: it turns a little when pointed at.
+/// The footer's gear: the system menu (catalogue 9) with Settings, updates and Quit, since a menu
+/// bar app has no other place to quit from. It turns a little when pointed at.
 private struct GearButton: View {
     let action: () -> Void
     @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduce
 
     var body: some View {
-        Button(action: action) {
+        Menu {
+            Button("Settings", action: action).keyboardShortcut(",")
+            if Updates.shared.available {
+                Button("Check for updates") { NSApp.activate(); Updates.shared.checkNow() }.disabled(!Updates.shared.canCheck)
+            }
+            Divider()
+            Button("Quit Seam") { NSApp.terminate(nil) }.keyboardShortcut("q")
+        } label: {
             Image(systemName: "gearshape").font(.system(size: 12))
-                .rotationEffect(.degrees(hovering ? 60 : 0))
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(SeamStyle.Pop.fill))
-                .contentShape(Circle())
-                .foregroundStyle(hovering ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2)
         }
-        .buttonStyle(PressableStyle(scale: 0.9))
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .tint(hovering ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2) // a menu's label takes the tint, not the foreground
+        .fixedSize()
+        .rotationEffect(.degrees(hovering && !reduce ? 60 : 0))
+        .frame(width: 28, height: 28)
+        .background(Circle().fill(SeamStyle.Pop.fill))
+        .contentShape(Circle())
+        .foregroundStyle(hovering ? SeamStyle.Pop.fg : SeamStyle.Pop.fg2)
         .padding(.leading, 6)
         .onHover { h in withAnimation(Motion.css(0.5)) { hovering = h } }
-        .keyboardShortcut(",")
-        .help("Settings")
-        .accessibilityLabel("Settings")
+        // The menu's shortcuts only work while it's open: these keep ⌘, and ⌘Q working in the popover
+        .background {
+            Button("", action: action).keyboardShortcut(",").hidden()
+            Button("") { NSApp.terminate(nil) }.keyboardShortcut("q").hidden()
+        }
+        .help("Settings and Quit")
+        .accessibilityLabel("Seam menu")
     }
 }
 

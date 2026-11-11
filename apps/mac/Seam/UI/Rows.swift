@@ -58,6 +58,7 @@ struct CapButtonStyle: ButtonStyle {
     enum Kind { case normal, primary }
     var kind = Kind.normal
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduce
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -65,8 +66,8 @@ struct CapButtonStyle: ButtonStyle {
             .padding(.horizontal, 12).padding(.vertical, 4)
             .background(Capsule().fill(kind == .primary ? SeamStyle.teal : SeamStyle.Win.fill2))
             .foregroundStyle(kind == .primary ? SeamStyle.onTeal : SeamStyle.Win.fg)
-            .opacity(enabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .opacity(enabled ? configuration.isPressed && reduce ? 0.7 : 1 : 0.45)
+            .scaleEffect(configuration.isPressed && !reduce ? 0.94 : 1)
             .animation(Motion.css(0.2), value: configuration.isPressed)
     }
 }
