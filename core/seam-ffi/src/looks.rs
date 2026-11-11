@@ -284,6 +284,8 @@ pub struct DeviceStatusLook {
     pub network_icon: Option<LookIcon>,
     pub storage: Option<String>,
     pub storage_detail: Option<String>,
+    /// 90% or more used: shown in `warn`.
+    pub storage_low: bool,
     pub cpu: Option<String>,
     pub memory: Option<String>,
     pub memory_detail: Option<String>,
@@ -318,6 +320,7 @@ pub fn device_status_look(
         network_icon: l.network_icon.map(Into::into),
         storage: l.storage,
         storage_detail: l.storage_detail,
+        storage_low: l.storage_low,
         cpu: l.cpu,
         memory: l.memory,
         memory_detail: l.memory_detail,

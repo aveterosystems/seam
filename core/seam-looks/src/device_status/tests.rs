@@ -131,13 +131,31 @@ fn storage_shows_free_space_short_and_in_full() {
     }));
     assert_eq!(
         (s.storage.as_deref(), s.storage_detail.as_deref()),
-        (Some("112 GB"), Some("112 GB free of 256 GB"))
+        (Some("112 GB"), Some("144 GB of 256 GB used · 112 GB free"))
     );
     assert_eq!(
         on(&status(|s| s.battery_pct = 50)).storage,
         None,
         "an older device sends no storage"
     );
+    assert!(!s.storage_low);
+}
+
+#[test]
+fn storage_is_almost_full_at_90_percent_used() {
+    let at = |free| {
+        on(&status(|s| {
+            s.storage_free_bytes = free;
+            s.storage_total_bytes = 500_000_000_000
+        }))
+    };
+    let full = at(50_000_000_000);
+    assert!(full.storage_low);
+    assert_eq!(
+        full.storage_detail.as_deref(),
+        Some("450 GB of 500 GB used · 50 GB free · almost full")
+    );
+    assert!(!at(50_000_000_001).storage_low);
 }
 
 #[test]

@@ -6751,6 +6751,11 @@ data class DeviceStatusLook (
     , 
     var `storageDetail`: kotlin.String?
     , 
+    /**
+     * 90% or more used: shown in `warn`.
+     */
+    var `storageLow`: kotlin.Boolean
+    , 
     var `cpu`: kotlin.String?
     , 
     var `memory`: kotlin.String?
@@ -6793,6 +6798,7 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalTypeLookIcon.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterBoolean.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
@@ -6817,6 +6823,7 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalTypeLookIcon.allocationSize(value.`networkIcon`) +
             FfiConverterOptionalString.allocationSize(value.`storage`) +
             FfiConverterOptionalString.allocationSize(value.`storageDetail`) +
+            FfiConverterBoolean.allocationSize(value.`storageLow`) +
             FfiConverterOptionalString.allocationSize(value.`cpu`) +
             FfiConverterOptionalString.allocationSize(value.`memory`) +
             FfiConverterOptionalString.allocationSize(value.`memoryDetail`) +
@@ -6840,6 +6847,7 @@ public object FfiConverterTypeDeviceStatusLook: FfiConverterRustBuffer<DeviceSta
             FfiConverterOptionalTypeLookIcon.write(value.`networkIcon`, buf)
             FfiConverterOptionalString.write(value.`storage`, buf)
             FfiConverterOptionalString.write(value.`storageDetail`, buf)
+            FfiConverterBoolean.write(value.`storageLow`, buf)
             FfiConverterOptionalString.write(value.`cpu`, buf)
             FfiConverterOptionalString.write(value.`memory`, buf)
             FfiConverterOptionalString.write(value.`memoryDetail`, buf)

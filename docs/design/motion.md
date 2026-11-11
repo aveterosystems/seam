@@ -128,7 +128,7 @@ Tokens and shared animated pieces live in one place per platform, and screens co
 | Platform | Tokens | Shared animated views |
 |---|---|---|
 | Mac | `apps/mac/Seam/UI/SeamStyle.swift` | `apps/mac/Seam/UI/Components.swift`: `PressableStyle`, the value swap, the animated `Stitch`, the row transitions |
-| Android | `apps/android/app/.../Theme.kt`: `Motion`, which carries the approved Android prototype's own curves (its CSS `--spring` and `--bouncy` `linear()` easings, `--emph`, and CSS `ease`), and a `motionScheme` built from them so Material's components move the same way | `Components.kt`, `Sheets.kt`, `Pages.kt`: the value swap, unfold, rows, sheets, dialog, snackbar, page transitions and predictive back |
+| Android | `apps/android/app/.../Theme.kt`: `Motion`, which carries the approved Android prototype's own curves (its CSS `--spring` as a real spring fitted as the Mac's `Motion.css` is, its `--bouncy` `linear()` easing, `--emph`, and CSS `ease`), and a `motionScheme` built from them so Material's components move the same way | `Components.kt`, `Sheets.kt`, `Pages.kt`: the value swap, unfold, rows, sheets, dialog, snackbar, page transitions and predictive back |
 
 On Android the approved prototype (`docs/design/prototypes/android-app.html`) gives each element its own duration, and the app uses those exactly; the tokens above are the defaults where it doesn't say. With the system's animations turned off, the hero stops turning, the status ring and Tor's dashes stop, and page changes and swapped text become crossfades.
 

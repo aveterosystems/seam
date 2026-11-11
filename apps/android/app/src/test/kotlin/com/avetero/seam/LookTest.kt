@@ -24,25 +24,26 @@ class LookTest {
         assertEquals("Connected · Through Tor", Looks.link(up, Transport.TRANSPORT_TOR, ConnectionSettings()).sentence)
     }
 
-    @Test fun theCookieTurnsWhileConnectedSoftensWhenPausedAndIsAPlainCircleOtherwise() {
-        assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), Looks.sameWifi.cookie())
-        assertEquals(CookieLook(110f, 9f, CookieLook.Fill.Live, turning = true), Looks.throughTor.cookie())
-        assertEquals(CookieLook(104f, 5f, CookieLook.Fill.Paused, turning = false), Looks.paused(Long.MAX_VALUE, 0).cookie())
-        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), Looks.offline.cookie())
-        assertEquals(CookieLook(100f, 0f, CookieLook.Fill.Off, turning = false), Looks.idle.cookie())
+    @Test fun theCookieTurnsWhileConnectedRestsAsTheFineCookieWhenPausedAndIsAPlainCircleOtherwise() {
+        assertEquals(CookieLook(133f, CookieLook.Form.Cookie, CookieLook.Fill.Live, turning = true), Looks.sameWifi.cookie())
+        assertEquals(CookieLook(133f, CookieLook.Form.Cookie, CookieLook.Fill.Live, turning = true), Looks.throughTor.cookie())
+        assertEquals(CookieLook(132f, CookieLook.Form.FineCookie, CookieLook.Fill.Paused, turning = false), Looks.paused(Long.MAX_VALUE, 0).cookie())
+        assertEquals(CookieLook(114f, CookieLook.Form.Circle, CookieLook.Fill.Off, turning = false), Looks.offline.cookie())
+        assertEquals(CookieLook(114f, CookieLook.Form.Circle, CookieLook.Fill.Off, turning = false), Looks.idle.cookie())
     }
 
     @Test fun offlineSaysItWillSendWhenTheMacIsBack() {
-        assertEquals("Offline · will send when your Mac is back", Looks.offline.sentence)
+        assertEquals("Offline · will send when it's back", Looks.offline.sentence)
         assertEquals("Paused · until you resume", Looks.paused(Long.MAX_VALUE, 0).sentence)
     }
 
     @Test fun sendClipboardConfirmsOnlyWhatReallyHappened() {
-        assertEquals(SendFeedback(label = "✓ Sent to Mac"), sendFeedback(true, SessionState.Connected("MacBook Pro"), "MacBook Pro"))
-        assertEquals(SendFeedback(label = "Sending"), sendFeedback(true, SessionState.Idle("MacBook Pro"), "MacBook Pro"))
+        assertEquals(SendFeedback(label = "✓ Sent to Mac", done = true), sendFeedback(true, SessionState.Connected("MacBook Pro"), "MacBook Pro"))
+        // Queued while the connection starts: the words, but not the green and the tick (SR-8-04)
+        assertEquals(SendFeedback(label = "Sending", done = false), sendFeedback(true, SessionState.Idle("MacBook Pro"), "MacBook Pro"))
         assertEquals(SendFeedback(snack = "Will send when MacBook Pro is back"), sendFeedback(true, SessionState.Connecting("MacBook Pro"), "MacBook Pro"))
         assertNull(sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro").label)
-        assertEquals(SendFeedback(snack = "Your Mac has Sync the clipboard turned off"), sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro", offOnMac = true))
+        assertEquals(SendFeedback(snack = "MacBook Pro has clipboard sync off. Turn it on in Seam on your Mac."), sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro", offOnMac = true))
     }
 
     @Test fun theMacsStatusComesFromTheSharedLooks() {
@@ -61,17 +62,16 @@ class LookTest {
             AppEntry("c", "Uber", AppMode.Off), AppEntry("d", "Gmail", AppMode.TitleOnly),
         )
         val on = NotificationPrefs(enabled = true, apps = apps)
-        assertEquals("On · 3 apps", notificationsShort(on))
-        assertEquals("Off", notificationsShort(on.copy(enabled = false)))
-        assertEquals("3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(on))
-        assertEquals("Off · 3 of 4 apps · Sender only for Monzo and Gmail", notificationsLong(on.copy(enabled = false)))
-        assertEquals("1 of 1 apps", notificationsLong(on.copy(apps = apps.take(1))))
-        assertEquals("3 of 4 apps", appCount(on))
+        assertEquals("On · 3 of 4 apps", notificationsLine(on))
+        assertEquals("Off", notificationsLine(on.copy(enabled = false)))
+        assertEquals("On · 1 of 1 apps", notificationsLine(on.copy(apps = apps.take(1))))
+        assertEquals("paused, it says so, and still counts", "Paused · 3 of 4 apps", notificationsLine(on, paused = true))
+        assertEquals("Off", notificationsLine(on.copy(enabled = false), paused = true))
         assertEquals("Sender only", AppMode.TitleOnly.label)
     }
 
     @Test fun connectionFootnoteExplainsTheSwitches() {
-        assertEquals("One always stays on. The encryption is the same on both.", connectionFootnote(true, true))
+        assertEquals("One always stays on. Both are equally encrypted.", connectionFootnote(true, true))
         assertEquals("Only on the same network as your Mac. Turn on Tor to reach it anywhere.", connectionFootnote(true, false))
         assertEquals("Through Tor even at home. Same Wi‑Fi is faster for big files.", connectionFootnote(false, true))
     }
@@ -79,14 +79,17 @@ class LookTest {
     @Test fun settingsWords() {
         val london = ZoneId.of("Europe/London")
         val at = LocalDateTime.parse("2026-09-14T10:00:00").atZone(london).toInstant().toEpochMilli()
-        assertEquals("Paired 14 September 2026", pairedLabel(at, london))
+        assertEquals("Paired 14 Sept 2026", pairedLabel(at, london, java.util.Locale.UK))
         assertEquals("Tap to check now", checkLabel(null))
         assertEquals("✓ Up to date", checkLabel("Seam is up to date"))
         assertEquals("Checking", checkLabel("Checking"))
-        assertEquals("Copies reach your Mac by themselves", ClipboardStatus.Automatic.subtitle(viaAccessibility = false, home = true))
-        assertEquals("On · set up from your Mac", ClipboardStatus.Automatic.subtitle(viaAccessibility = false, home = false))
-        assertEquals("Off · tap Send clipboard after copying", ClipboardStatus.NeedsSetup.subtitle(viaAccessibility = false, home = true))
-        assertEquals("Off on your Mac · turn on Sync the clipboard there", ClipboardStatus.OffOnMac.subtitle(viaAccessibility = false, home = true))
+        assertEquals("On · sends your copies", ClipboardStatus.Automatic.subtitle())
+        assertEquals("Off · tap Send clipboard after copying", ClipboardStatus.NeedsSetup.subtitle())
+        assertEquals("Off · tap Send clipboard after copying, or share to Send to Mac", ClipboardStatus.Manual.subtitle())
+        assertEquals("Off · sync is off on your Mac", ClipboardStatus.OffOnMac.subtitle())
+        assertEquals("Paused · until you resume", ClipboardStatus.Automatic.subtitle(Looks.paused(Long.MAX_VALUE, 0).short))
+        assertEquals("off stays off while paused", "Off · sync is off on your Mac", ClipboardStatus.OffOnMac.subtitle("Paused · until you resume"))
+        assertEquals("Code 4 8 2, 9 1 3", spokenCode("482913"))
     }
 
     @Test fun cssLinearFollowsTheStopsAndSpreadsTheUnplacedOnes() {

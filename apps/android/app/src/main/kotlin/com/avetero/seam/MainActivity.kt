@@ -146,7 +146,8 @@ class MainActivity : ComponentActivity() {
                     macName = macName,
                     clipboard = clipboardStatus,
                     code = session.macCode(),
-                    version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR})",
+                    // The build code and flavour are for us, in debug builds only
+                    version = BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR})" else "",
                     onForgetMac = {
                         pages = listOf(Page.Home)
                         session.forgetMac()
@@ -162,8 +163,10 @@ class MainActivity : ComponentActivity() {
                     onSendSensitive = { clipboard.sendSensitive = it },
                     onReconnect = if (macName != null) ({ session.reconnect() }) else null,
                     reconnecting = (state as? SessionState.Connecting)?.reconnecting == true,
+                    pause = look.short.takeIf { look.pausedHere },
                 )
-                Page.Home ->                 SeamScreen(
+                Page.Home -> SeamScreen(
+                    cameraOn = cameraAllowed,
                     state = state,
                     scanError = scanError ?: notice,
                     toConfirm = scanned,
@@ -219,8 +222,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             })
                         } else {
-                            CameraNeeded(asked = cameraAsked) {
-                                if (cameraAsked && !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+                            // Android won't ask again: only Settings can turn the camera on now
+                            val blocked = cameraAsked && !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+                            CameraNeeded(blocked = blocked) {
+                                if (blocked) {
                                     startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
                                 } else {
                                     askCamera.launch(Manifest.permission.CAMERA)

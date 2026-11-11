@@ -60,14 +60,8 @@ fn the_words_name_the_other_device() {
             .unwrap()
             .contains("straight to your Mac")
     );
-    assert_eq!(
-        on_phone(base()).label,
-        "Offline · will send when your Mac is back"
-    );
-    assert_eq!(
-        on_mac(base()).label,
-        "Offline · will send when your phone is back"
-    );
+    assert_eq!(on_phone(base()).label, "Offline · will send when it's back");
+    assert_eq!(on_mac(base()).label, "Offline · will send when it's back");
 }
 
 #[test]
@@ -396,7 +390,7 @@ fn the_footnote_explains_why_the_last_connection_stays_on() {
     );
     assert_eq!(
         connections_footnote(true, true, &mac()),
-        "One always stays on. The encryption is the same on both."
+        "One always stays on. Both are equally encrypted."
     );
 }
 
