@@ -151,13 +151,14 @@ async fn only_the_paired_phone_reaches_the_mac() {
         "arti INFO",
         "tor service ",
     ] {
-        assert!(out.contains(want), "no \"{want}\" in the export:\n{out}");
+        // Failure messages never print the export: if it leaked, that would spread it
+        assert!(out.contains(want), "no \"{want}\" in the export");
     }
     // Every service's address, in any 8-character window: the first service's and the second's
     for onion in [address.to_string(), second.address().to_string()] {
         for window in onion.as_bytes()[..56].windows(8) {
             let w = std::str::from_utf8(window).unwrap();
-            assert!(!out.contains(w), "part of an address ({w}) leaked:\n{out}");
+            assert!(!out.contains(w), "part of an address leaked");
         }
     }
     // Each key, in every form a log prints bytes in
@@ -181,7 +182,7 @@ async fn only_the_paired_phone_reaches_the_mac() {
             assert!(!out.contains(&form[..12]), "a key leaked, as {encoding}");
         }
     }
-    assert!(!out.contains(".onion"), "an onion address in:\n{out}");
+    assert!(!out.contains(".onion"), "an onion address leaked");
     eprintln!(
         "diagnostics: {} lines, no address or key\n{out}",
         out.lines().count()
