@@ -135,3 +135,20 @@ fn keys_with_few_or_no_digits_are_gone() {
     assert!(!out.contains("ABCDEFGHIJ"), "{out}");
     assert!(out.ends_with("relay ed25519:[id] and key [id]"), "{out}");
 }
+
+#[test]
+fn addresses_in_urls_and_cidr_are_gone() {
+    let out = kept(
+        "request failed https://192.0.2.15:9001/ and http://198.51.100.7/path, net 192.0.2.0/24.",
+    );
+    for leaked in ["192.0.2", "198.51.100", "9001"] {
+        assert!(!out.contains(leaked), "{leaked} in {out}");
+    }
+    assert!(
+        out.ends_with("request failed https://[ip]/ and http://[ip]/path, net [ip]/24."),
+        "{out}"
+    );
+    // A key with a slash in its base64 is still one id, not split around it
+    let key = "9AOx3Dcb4ZWbAzcEGVF3/9NGkUt2Ry3D7VInXVuNKqA";
+    assert!(kept(&format!("key {key}")).ends_with("key [id]"));
+}

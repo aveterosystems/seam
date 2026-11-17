@@ -170,14 +170,15 @@ async fn only_the_paired_phone_reaches_the_mac() {
     ] {
         let hex: String = secret.iter().map(|b| format!("{b:02x}")).collect();
         let forms = [
-            hex.clone(),
-            hex.to_uppercase(),
-            STANDARD_NO_PAD.encode(&secret),
-            URL_SAFE_NO_PAD.encode(&secret),
-            format!("{secret:?}"),
+            ("hex", hex.clone()),
+            ("upper-case hex", hex.to_uppercase()),
+            ("base64", STANDARD_NO_PAD.encode(&secret)),
+            ("base64url", URL_SAFE_NO_PAD.encode(&secret)),
+            ("a byte list", format!("{secret:?}")),
         ];
-        for form in forms {
-            assert!(!out.contains(&form[..12]), "a key leaked ({form})");
+        // The message names the encoding, never the key itself
+        for (encoding, form) in forms {
+            assert!(!out.contains(&form[..12]), "a key leaked, as {encoding}");
         }
     }
     assert!(!out.contains(".onion"), "an onion address in:\n{out}");

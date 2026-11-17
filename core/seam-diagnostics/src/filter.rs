@@ -80,6 +80,15 @@ fn segment(seg: &str) -> String {
     if is_ip(body) {
         return format!("[ip]{tail}");
     }
+    // A URL or a CIDR range (`https://192.0.2.15:9001/`, `192.0.2.0/24`): each piece between
+    // slashes on its own. Not a key, whose base64 may hold a slash too
+    let base64_run = body
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '_' | '-'));
+    if body.contains('/') && !(base64_run && is_id(body)) {
+        let pieces: Vec<String> = body.split('/').map(segment).collect();
+        return format!("{}{tail}", pieces.join("/"));
+    }
     let mut after_key_label = false;
     let parts: Vec<String> = body
         .split(':')
