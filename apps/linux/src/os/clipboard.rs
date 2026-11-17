@@ -425,6 +425,41 @@ mod tests {
         );
     }
 
+    /// An extension that restarts and is open again is a new door: the watcher sets it on every
+    /// owner change. Its count starts again, and neither what it held before nor a copy that
+    /// brings it back to the old door's count is mistaken.
+    #[tokio::test]
+    async fn a_restarted_door_counts_from_scratch() {
+        let pb = LinuxPasteboard::new(Arc::new(OneTap::default()));
+        let before = Arc::new(Counting::default());
+        pb.set_door(Some(before.clone()));
+        pb.change_count().await;
+        for t in ["a", "b"] {
+            before.copy(t);
+        }
+        let old = pb.change_count().await;
+        // Restarted: the same clipboard, counted again from zero
+        let after = Arc::new(Counting::default());
+        after.copy("b");
+        pb.set_door(Some(after.clone()));
+        let reopened = pb.change_count().await;
+        assert_ne!(reopened, old);
+        assert!(
+            pb.first_item(reopened).await.is_none(),
+            "held before the restart"
+        );
+        assert!(
+            pb.first_item(old).await.is_none(),
+            "the old door's count reads nothing"
+        );
+        after.copy("new");
+        let copied = pb.change_count().await;
+        assert_eq!(
+            pb.first_item(copied).await.unwrap().text.as_deref(),
+            Some("new")
+        );
+    }
+
     #[derive(Default)]
     struct Counting(Mutex<(i64, String)>);
     impl Counting {
