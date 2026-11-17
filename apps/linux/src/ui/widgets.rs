@@ -231,20 +231,28 @@ pub fn arrive(child: &impl IsA<gtk::Widget>, animate: bool) -> gtk::Revealer {
         .build();
     if animate {
         let r2 = r.clone();
-        glib::idle_add_local_once(move || r2.set_reveal_child(true));
+        // Not if it started leaving first (added and removed before this ran)
+        glib::idle_add_local_once(move || {
+            if !r2.has_css_class("leaving") {
+                r2.set_reveal_child(true)
+            }
+        });
     }
     r
 }
 
 /// Collapses a revealer, then runs `done` (removing the row) once it's gone.
 pub fn leave(r: &gtk::Revealer, done: impl FnOnce() + 'static) {
-    if !crate::ui::animations() {
+    r.add_css_class("leaving");
+    // Already hidden (never revealed, or unmapped on another page): GTK won't report a finished
+    // hide, so it goes now
+    if !crate::ui::animations() || !r.is_child_revealed() || !r.is_mapped() {
         return done();
     }
     r.set_transition_type(gtk::RevealerTransitionType::SlideUp);
     r.set_transition_duration(280);
-    r.set_reveal_child(false);
     let done = RefCell::new(Some(done));
+    // Connected before the hide starts, so a hide that completes at once is still heard
     r.connect_child_revealed_notify(move |r| {
         if !r.is_child_revealed()
             && let Some(f) = done.borrow_mut().take()
@@ -252,6 +260,7 @@ pub fn leave(r: &gtk::Revealer, done: impl FnOnce() + 'static) {
             f()
         }
     });
+    r.set_reveal_child(false);
 }
 
 /// A small icon that names the path while connected; hovering says it in words.

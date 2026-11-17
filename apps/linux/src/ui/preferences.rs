@@ -41,6 +41,7 @@ pub fn present(c: &Rc<Controller>, parent: Option<&gtk::Window>, page: &str) {
 /// A switch row that sets itself from the model and sends only the user's own changes.
 fn switch(title: &str, subtitle: &str) -> (adw::SwitchRow, Rc<std::cell::Cell<bool>>) {
     let row = adw::SwitchRow::builder()
+        .use_markup(false)
         .title(title)
         .subtitle(subtitle)
         .build();
@@ -104,6 +105,7 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
     summary.widget.set_margin_end(12);
     header_group.add(&header_row);
     let none = adw::ActionRow::builder()
+        .use_markup(false)
         .title("No Phone Paired")
         .subtitle("Scan a code with Seam on your Android phone")
         .build();
@@ -130,7 +132,10 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         "Reaches the phone anywhere and hides where you are",
     );
     // Stuck? A stock button row in the same group: Seam tries every allowed path again
-    let reconnect = adw::ButtonRow::builder().title("Reconnect").build();
+    let reconnect = adw::ButtonRow::builder()
+        .use_markup(false)
+        .title("Reconnect")
+        .build();
     connections.add(&wifi);
     connections.add(&tor);
     connections.add(&reconnect);
@@ -163,6 +168,7 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
     // Pairing: the code to re-check (hidden until Show), when, and Unpair
     let pairing = adw::PreferencesGroup::builder().title("Pairing").build();
     let code_row = adw::ActionRow::builder()
+        .use_markup(false)
         .title("Verification Code")
         .subtitle("Should match the code on your phone")
         .build();
@@ -185,12 +191,18 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         });
         t.set_label(if t.is_active() { "Hide" } else { "Show" });
     });
-    let paired_row = adw::ActionRow::builder().title("Paired").build();
+    let paired_row = adw::ActionRow::builder()
+        .use_markup(false)
+        .title("Paired")
+        .build();
     let paired_value = gtk::Label::new(None);
     paired_value.add_css_class("dim-label");
     paired_row.add_suffix(&paired_value);
     // A stock destructive button row (it asks first): both devices forget each other's keys
-    let unpair = adw::ButtonRow::builder().title("Unpair").build();
+    let unpair = adw::ButtonRow::builder()
+        .use_markup(false)
+        .title("Unpair")
+        .build();
     unpair.add_css_class("destructive-action");
     pairing.add(&code_row);
     pairing.add(&paired_row);
@@ -301,7 +313,7 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
         .icon_name("preferences-system-notifications-symbolic")
         .build();
     let waiting = adw::PreferencesGroup::new();
-    let waiting_row = adw::ActionRow::builder()
+    let waiting_row = adw::ActionRow::builder().use_markup(false)
         .title("Waiting for Your Phone")
         .subtitle("Its notification settings show here the next time it connects. Turn on its screen to connect now.")
         .build();
@@ -406,16 +418,18 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                 .filter(|a| f.is_empty() || a.app_name.to_lowercase().contains(&f))
                 .collect();
             if all.is_empty() {
-                list.append(&adw::ActionRow::builder().title("No Apps Yet").subtitle("Apps that can notify show here once your phone allows notification access").build());
+                list.append(&adw::ActionRow::builder().use_markup(false).title("No Apps Yet").subtitle("Apps that can notify show here once your phone allows notification access").build());
             } else if shown.is_empty() {
                 list.append(
                     &adw::ActionRow::builder()
+                        .use_markup(false)
                         .title(format!("No apps match “{}”", filter_text.borrow()))
                         .build(),
                 );
             }
             for app in shown {
                 let row = adw::ComboRow::builder()
+                    .use_markup(false)
                     .title(&app.app_name)
                     .model(&gtk::StringList::new(&MODES.map(|m| m.1)))
                     .selected(mode_index(app))
@@ -519,6 +533,7 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         .title("Automatic Sync")
         .build();
     let auto_row = adw::ActionRow::builder()
+        .use_markup(false)
         .title("Send Automatically")
         .build();
     let set_up = gtk::Button::builder()
@@ -532,6 +547,7 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
     auto_row.add_suffix(&set_up);
     auto.add(&auto_row);
     let phone_row = adw::ActionRow::builder()
+        .use_markup(false)
         .title("Receive Automatically")
         .build();
     let phone_set_up = gtk::Button::builder()

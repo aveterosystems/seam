@@ -113,10 +113,8 @@ pub fn dump(w: &gtk::Widget, depth: usize, out: &mut String) {
     let (x, y, wd, ht) = b
         .map(|b| (b.x(), b.y(), b.width(), b.height()))
         .unwrap_or_default();
-    let extra = w
-        .downcast_ref::<gtk::Label>()
-        .map(|l| format!(" {:?}", l.label().chars().take(24).collect::<String>()))
-        .unwrap_or_default();
+    // Types and sizes only: a label's words (a notification, a copy) never go in the file
+    let extra = "";
     let (min, _, _, _) = w.measure(gtk::Orientation::Horizontal, -1);
     out.push_str(&format!(
         "{}{} min{} {:.0},{:.0} {:.0}x{:.0}{}\n",

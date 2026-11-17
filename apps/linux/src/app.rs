@@ -437,19 +437,28 @@ impl Controller {
             return done(false);
         };
         let clip = display.clipboard();
-        let types: Vec<String> = clip
-            .formats()
-            .mime_types()
-            .iter()
-            .map(|t| t.to_string())
-            .collect();
-        let one_tap = self.one_tap.clone();
+        let formats = |c: &gdk::Clipboard| -> Vec<String> {
+            c.formats()
+                .mime_types()
+                .iter()
+                .map(|t| t.to_string())
+                .collect()
+        };
+        let types = formats(&clip);
+        let (one_tap, again) = (self.one_tap.clone(), clip.clone());
         clip.read_text_async(None::<&gio::Cancellable>, move |r| {
             let text = r.ok().flatten().map(|t| t.to_string());
-            let ok = text.as_ref().is_some_and(|t| !t.is_empty())
-                && seam_computer::features::clipboard::sendable(&types);
-            one_tap.offer(types, text);
-            done(ok);
+            // The text and its types must be the same copy: a password copied meanwhile can't go
+            // out under the earlier copy's types (SR-4-05)
+            match crate::os::clipboard::same_copy(types, formats(&again), text) {
+                Some((types, text)) => {
+                    let ok = text.as_ref().is_some_and(|t| !t.is_empty())
+                        && seam_computer::features::clipboard::sendable(&types);
+                    one_tap.offer(types, text);
+                    done(ok);
+                }
+                None => done(false),
+            }
         });
     }
 

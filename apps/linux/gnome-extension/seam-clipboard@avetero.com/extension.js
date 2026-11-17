@@ -39,10 +39,17 @@ const MAX_VERDICTS = 64;
 export default class SeamClipboardExtension extends Extension {
     enable() {
         this._count = 0;
+        // Set while Seam's own write is landing: that change is counted once, here, so Write
+        // returns the count that includes it and Seam never reads its own write as a new copy
+        this._writing = false;
         this._verdicts = new Map();
         this._selection = global.display.get_selection();
         this._ownerChanged = this._selection.connect('owner-changed', (_s, type) => {
-            if (type === Meta.SelectionType.SELECTION_CLIPBOARD)
+            if (type !== Meta.SelectionType.SELECTION_CLIPBOARD)
+                return;
+            if (this._writing)
+                this._writing = false;
+            else
                 this._count++;
         });
         this._object = Gio.DBusExportedObject.wrapJSObject(IFACE, this);
@@ -87,6 +94,9 @@ export default class SeamClipboardExtension extends Extension {
     WriteAsync([text], invocation) {
         if (this._refuse(invocation))
             return;
+        // Counted now, whether the shell reports the change during set_text or after it
+        this._writing = true;
+        this._count++;
         St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, text);
         invocation.return_value(new GLib.Variant('(x)', [this._count]));
     }

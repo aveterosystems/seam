@@ -103,7 +103,10 @@ impl Window {
         header.pack_start(&send);
         header.pack_end(&clear);
         // One banner slot, under the header: a startup problem (with Reset Seam), then a warning
-        let banner = adw::Banner::builder().revealed(false).build();
+        let banner = adw::Banner::builder()
+            .use_markup(false)
+            .revealed(false)
+            .build();
         let content_view = adw::ToolbarView::new();
         content_view.add_top_bar(&header);
         content_view.add_top_bar(&banner);
@@ -125,7 +128,10 @@ impl Window {
         let pairing_header = adw::HeaderBar::builder().show_title(false).build();
         pairing_header.pack_end(&primary_menu());
         pairing_view.add_top_bar(&pairing_header);
-        let pairing_banner = adw::Banner::builder().revealed(false).build();
+        let pairing_banner = adw::Banner::builder()
+            .use_markup(false)
+            .revealed(false)
+            .build();
         pairing_view.add_top_bar(&pairing_banner);
         pairing_view.set_content(Some(&pairing.widget));
 
@@ -190,7 +196,8 @@ impl Window {
         toasts.set_child(Some(&root));
         let t = toasts.clone();
         c.set_toaster(move |text| {
-            let toast = adw::Toast::new(text);
+            // A phone's name is plain text, never markup
+            let toast = adw::Toast::builder().title(text).use_markup(false).build();
             toast.set_timeout(2);
             t.add_toast(toast);
         });

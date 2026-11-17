@@ -152,3 +152,42 @@ fn zero_width_and_bidi_characters_are_never_opened() {
         "controls"
     );
 }
+
+/// The screens promise a day at most: old clips go even when nothing new is copied.
+#[test]
+fn clips_expire_after_a_day_without_a_new_copy() {
+    struct Nothing;
+    #[async_trait::async_trait]
+    impl Pasteboard for Nothing {
+        async fn change_count(&self) -> i64 {
+            0
+        }
+        async fn first_item(&self, _: i64) -> Option<PasteboardItem> {
+            None
+        }
+        async fn write(&self, _: String) -> i64 {
+            0
+        }
+    }
+    let mut c = Clipboard::new(Arc::new(Nothing), Arc::new(AtomicBool::new(true)));
+    c.remember(Clip {
+        text: "old".into(),
+        at: T0,
+        from_phone: true,
+    });
+    c.remember(Clip {
+        text: "newer".into(),
+        at: T0 + 3_600_000,
+        from_phone: false,
+    });
+    c.expire(T0 + DAY_MS - 1);
+    assert_eq!(c.clips().len(), 2);
+    c.expire(T0 + DAY_MS + 1);
+    assert_eq!(
+        c.clips()
+            .iter()
+            .map(|x| x.text.as_str())
+            .collect::<Vec<_>>(),
+        ["newer"]
+    );
+}

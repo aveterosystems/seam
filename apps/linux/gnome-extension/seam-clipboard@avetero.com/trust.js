@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Who may use the clipboard through this extension: only the Seam app (decision from "How does
-// Seam trust its GNOME clipboard extension?"). Pure functions, so they're tested without a shell.
+// Who may use the clipboard through this extension (decision from "How does Seam trust its GNOME
+// clipboard extension?"): the Seam Flatpak, never another sandboxed app. A program running
+// unsandboxed as the same user is outside what this can stop (it could fake a Flatpak's root with
+// a user namespace, or install a shell extension of its own); such a program can already read the
+// user's keyring and files. Pure functions, so they're tested without a shell.
 
 import GLib from 'gi://GLib';
 
@@ -21,8 +24,9 @@ export function flatpakAppId(info) {
 
 /**
  * Whether a caller may read and write the clipboard. `info` is its /.flatpak-info (null when it
- * has none), `exe` its executable's path, `devOverride` whether the user turned on the
- * development override (a file only they can create). A sandboxed app can't forge its app ID.
+ * has none), `exe` its executable's path, `devOverride` whether the development override file
+ * exists. A sandboxed app can't forge its app ID or create the file (it can't write the host's
+ * config folder); unsandboxed same-user programs are out of scope (see above).
  */
 export function allowed(info, exe, devOverride) {
     if (flatpakAppId(info) === APP_ID)

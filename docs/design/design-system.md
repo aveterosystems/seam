@@ -117,6 +117,7 @@ Roboto Flex is bundled as one variable font (`res/font/roboto_flex.ttf`, about 1
 | Settings | `AdwPreferencesDialog`: General (open at login), the phone by name (with the Mac's Privacy facts in its Pairing group), Notifications, Clipboard. Facts that aren't settings are group descriptions, not rows |
 | Confirmations | Toasts ("Copied", "Sent to Pixel 9"), not the Mac's in-place "✓ Copied" |
 | Capitalization | GNOME's header capitalization for headings, buttons, row titles and menu items ("Clear All", "Send Clipboard"); subtitles and sentences stay sentence case. The Linux exception to "Sentence case everywhere" below |
+| Paused in dark mode | `#A0C6F0`, lighter than the Mac's `#5B8FC4`, which measures about 3.1:1 on libadwaita's dark sidebar |
 | Accent | Controls follow the desktop's accent colour. Seam teal (the Mac's tokens) only on Seam's own pieces: the stitch, the phone's disc and the status dot |
 | Motion | libadwaita's own transitions for stock widgets; Seam's pieces follow catalogue 10. The desktop's "Animations" switch turns both off |
 | Pairing's code check | Cancel and Pair are styled alike, and Cancel is the Return-key default (SR-10-02): neither button looks like the obvious yes, so a phone is never paired without reading the code |

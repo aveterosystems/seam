@@ -82,7 +82,10 @@ impl Page {
         stack.add_named(&empty, Some("empty"));
         stack.set_vexpand(true);
         // Paused or away: one banner at the top, the same slot as the Clipboard page's
-        let banner = adw::Banner::builder().revealed(false).build();
+        let banner = adw::Banner::builder()
+            .use_markup(false)
+            .revealed(false)
+            .build();
         let widget = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();

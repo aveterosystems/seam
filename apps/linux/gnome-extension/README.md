@@ -4,9 +4,11 @@ Wayland lets only the focused app read or write the clipboard. This extension le
 you copy to your phone, and put what you copy on your phone here, without clicking Send
 (decision 0012).
 
-- **Only Seam can use it.** Each caller is checked: it must be the Seam Flatpak
-  (`com.avetero.Seam`, read from its `/.flatpak-info`, which a sandboxed app can't fake). Anyone
-  else gets an error.
+- **No other app can use it.** Each caller is checked: it must be the Seam Flatpak
+  (`com.avetero.Seam`, read from its `/.flatpak-info`, which a sandboxed app can't fake). Every
+  other sandboxed app gets an error. A program running unsandboxed as you is outside what this
+  can stop (it could fake a Flatpak's root, or install a shell extension of its own), as it is for
+  every desktop portal; such a program can already read your keyring and files.
 - **Nothing is kept or logged.** It counts clipboard changes and hands over the current copy when
   Seam asks. Seam only asks while clipboard sync is on.
 - **Development builds** of Seam run outside Flatpak. To let one in, create

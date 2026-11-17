@@ -7,5 +7,5 @@
     --seam-teal-soft: rgb(61 214 190 / 16%);
     --seam-ok: #4ADE80;
     --seam-warn: #F5A524;
-    --seam-paused: #5B8FC4;
+    --seam-paused: #A0C6F0; /* the Mac's #5B8FC4 measures 3.1:1 on libadwaita's dark sidebar */
   }

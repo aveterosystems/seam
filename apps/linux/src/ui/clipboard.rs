@@ -28,6 +28,7 @@ pub struct Page {
 impl Page {
     pub fn new(c: &Rc<Controller>) -> Rc<Self> {
         let banner = adw::Banner::builder()
+            .use_markup(false)
             .title("Automatic clipboard isn't set up")
             .button_label("Set Up")
             .revealed(false)
