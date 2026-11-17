@@ -152,3 +152,25 @@ fn addresses_in_urls_and_cidr_are_gone() {
     let key = "9AOx3Dcb4ZWbAzcEGVF3/9NGkUt2Ry3D7VInXVuNKqA";
     assert!(kept(&format!("key {key}")).ends_with("key [id]"));
 }
+
+#[test]
+fn key_length_runs_are_gone_whatever_their_letters() {
+    // 32 bytes as unpadded base64 (43) and as hex (64), in one case and with no digits at all
+    for key in ["A".repeat(43), "a".repeat(43), "abcdef".repeat(11)] {
+        let out = kept(&format!("key {key}"));
+        assert!(out.ends_with("key [id]"), "{out}");
+    }
+}
+
+#[test]
+fn a_relay_key_with_a_slash_is_one_id() {
+    // As Arti printed it in the live test
+    let out = kept(
+        "hs conn to [onion]: RPT ed25519:rwyaJLK/9fGq2hT+Xk1mPz0aQwErTyUiOp3sDfGhJkLzXcV $9695DFC35FFEB861329B9F1AB04C46397020CE31: got RENDEZVOUS_ESTABLISHED",
+    );
+    assert!(!out.contains("rwyaJLK"), "{out}");
+    assert!(
+        out.ends_with("RPT ed25519:[id] $[id]: got RENDEZVOUS_ESTABLISHED"),
+        "{out}"
+    );
+}

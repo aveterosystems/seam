@@ -33,7 +33,8 @@ fn keeps_within_the_byte_budget_dropping_the_oldest() {
     // Each stored event is "2026-11-17T15:06:17.123Z tor " (29 bytes) plus its text: 129 bytes here
     let r = Recorder::new(limits(1000, 350, 400));
     for n in 0..10 {
-        r.record("tor", &format!("{n}{}", "x".repeat(99)));
+        // Short words, so the filter leaves them whole: 100 characters each
+        r.record("tor", &format!("{n}{}", " xy".repeat(33)));
     }
     let out = r.export("header");
     let kept = lines(&out);
@@ -44,7 +45,7 @@ fn keeps_within_the_byte_budget_dropping_the_oldest() {
 #[test]
 fn an_event_longer_than_the_cut_is_shortened() {
     let r = Recorder::new(limits(10, 1 << 20, 50));
-    r.record("tor", &"y".repeat(500));
+    r.record("tor", &" y".repeat(250));
     let out = r.export("header");
     let kept = lines(&out);
     assert_eq!(kept.len(), 1);

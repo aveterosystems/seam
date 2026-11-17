@@ -23,6 +23,9 @@ static BYTE_LIST: LazyLock<Regex> =
 /// A relay id Arti shortened itself (`ed25519:rk…`): still part of an id.
 static SHORT_ID: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(ed25519:|\$)[A-Za-z0-9+/]+…").expect("valid"));
+/// A relay's Ed25519 key after its label, whole: its base64 may hold `/` and `+`.
+static ED_KEY: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"ed25519:[A-Za-z0-9+/=]+").expect("valid"));
 /// `[v6]` or `[v6]:port`; checked by parsing, not by shape.
 static BRACKETED: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[[0-9A-Fa-f:.]+\](?::\d+)?").expect("valid"));
@@ -35,6 +38,7 @@ pub(crate) fn filter(event: &str) -> Cow<'_, str> {
     let out = owned_if_changed(out, |s| NICKNAME.replace_all(s, "seam-[onion]"));
     let out = owned_if_changed(out, |s| BYTE_LIST.replace_all(s, "[bytes]"));
     let out = owned_if_changed(out, |s| SHORT_ID.replace_all(s, "${1}[id]"));
+    let out = owned_if_changed(out, |s| ED_KEY.replace_all(s, "ed25519:[id]"));
     let out = match BRACKETED.replace_all(&out, |c: &Captures| bracketed(&c[0])) {
         Cow::Borrowed(_) => out,
         Cow::Owned(o) => Cow::Owned(o),
@@ -107,18 +111,18 @@ fn is_ip(s: &str) -> bool {
 }
 
 /// Long hex (a fingerprint), a long base64 run mixing letters and digits (a key, an Ed25519 relay
-/// id), or one as long as a 32-byte key mixing upper and lower case, digits or not. Long words,
-/// even with underscores, don't count: no digits, and one case.
+/// id), or any run as long as a 32-byte key in base64 (43) or hex (64), whatever its letters: a
+/// key can be all one case with no digits. Ordinary words are shorter, and over-redacting a very
+/// long identifier is the safe way to be wrong.
 fn is_id(part: &str) -> bool {
     let digits = part.chars().filter(char::is_ascii_digit).count();
     let letters = part.chars().filter(char::is_ascii_alphabetic).count();
     let base64 = part
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '_' | '-'));
-    let mixed_case = part.chars().any(|c| c.is_ascii_uppercase())
-        && part.chars().any(|c| c.is_ascii_lowercase());
-    let hex = part.len() >= 16 && part.chars().all(|c| c.is_ascii_hexdigit()) && digits > 0;
+    let hex_only = part.chars().all(|c| c.is_ascii_hexdigit());
+    let hex = part.len() >= 16 && hex_only && digits > 0;
     let keyish = part.len() >= 20 && digits >= 2 && letters >= 2;
-    let key_length = part.len() >= 40 && base64 && mixed_case;
+    let key_length = base64 && part.len() >= 40;
     hex || keyish || key_length
 }
