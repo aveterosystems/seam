@@ -3,9 +3,9 @@
 //! GNOME Shell extension on GNOME, Klipper on KDE Plasma. None open means one tap.
 //!
 //! Each door is found on the session bus and used the moment it's there (the extension enabled
-//! later, Klipper restarted), and closes when it leaves.
+//! later, Klipper restarted), and closes when it leaves. This module is the only author of
+//! [`ClipboardDoor`]: every screen reads it from the model.
 
-use std::rc::Rc;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -13,20 +13,49 @@ use futures_util::StreamExt;
 use seam_computer::features::clipboard::PasteboardItem;
 use tokio::sync::Mutex as AsyncMutex;
 
-use crate::app::{Controller, Msg};
-use crate::os::clipboard::Door;
+use crate::os::clipboard::{Door, LinuxPasteboard};
 
-/// The extension's well-known name, path and interface (apps/linux/gnome-extension).
-pub const EXT_NAME: &str = "com.avetero.Seam.Clipboard";
+/// The extension's UUID, well-known name, path, interface and refusal (apps/linux/gnome-extension).
+const EXT_UUID: &str = "seam-clipboard@avetero.com";
+const EXT_NAME: &str = "com.avetero.Seam.Clipboard";
 const EXT_PATH: &str = "/com/avetero/Seam/Clipboard";
 const EXT_IFACE: &str = "com.avetero.Seam.Clipboard1";
+const EXT_DENIED: &str = "com.avetero.Seam.Clipboard.Error.AccessDenied";
 /// The oldest extension API this app speaks. A newer extension keeps working (decision: a
 /// minimum level, not an exact match, so an app release never waits on extension review).
-pub const EXT_MIN_API: u32 = 1;
+const EXT_MIN_API: u32 = 1;
+
+/// This computer's side of automatic clipboard, as every screen shows it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ClipboardDoor {
+    /// Copies cross by themselves.
+    Open,
+    /// GNOME: Seam's extension is missing or off. One tap until it's on.
+    ExtensionOff,
+    /// GNOME: the extension is on but won't serve this Seam (a development build without its
+    /// override). One tap.
+    ExtensionRefused,
+    /// KDE: Klipper, Plasma's clipboard, isn't running. One tap until it is.
+    KlipperOff,
+    /// Nothing on this desktop can watch the clipboard: one tap only.
+    #[default]
+    Unavailable,
+}
+
+impl ClipboardDoor {
+    pub fn automatic(self) -> bool {
+        self == Self::Open
+    }
+
+    /// Not open, but this desktop has a way to open it.
+    pub fn can_set_up(self) -> bool {
+        !matches!(self, Self::Open | Self::Unavailable)
+    }
+}
 
 /// Which way this desktop gives a background app the clipboard.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Plan {
+enum Plan {
     Extension,
     Klipper,
     OneTap,
@@ -35,7 +64,7 @@ pub enum Plan {
 /// GNOME uses Seam's extension (its portal would show "screen is being shared" all the time); KDE
 /// Plasma uses Klipper (its portal only gives the clipboard with keyboard or pointer control);
 /// anything else, one tap.
-pub fn plan(current_desktop: &str) -> Plan {
+fn plan(current_desktop: &str) -> Plan {
     let desktops: Vec<String> = current_desktop
         .split(':')
         .map(|d| d.to_ascii_uppercase())
@@ -49,36 +78,33 @@ pub fn plan(current_desktop: &str) -> Plan {
     }
 }
 
-/// What Settings and the setup dialog say about this desktop's door.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Setup {
-    /// GNOME: install or turn on Seam's extension.
-    Extension,
-    /// KDE: Klipper, Plasma's clipboard, has to be running.
-    Klipper,
-    /// Nothing here can watch the clipboard: one tap only.
-    Unavailable,
+/// The door before any has opened: what this desktop could set up, if anything.
+pub fn at_launch(current_desktop: &str) -> ClipboardDoor {
+    closed(plan(current_desktop))
 }
 
-pub fn setup(plan: Plan) -> Setup {
+fn closed(plan: Plan) -> ClipboardDoor {
     match plan {
-        Plan::Extension => Setup::Extension,
-        Plan::Klipper => Setup::Klipper,
-        Plan::OneTap => Setup::Unavailable,
+        Plan::Extension => ClipboardDoor::ExtensionOff,
+        Plan::Klipper => ClipboardDoor::KlipperOff,
+        Plan::OneTap => ClipboardDoor::Unavailable,
     }
 }
 
-/// Finds this desktop's door at launch and keeps it current.
-pub fn start(c: &Rc<Controller>) {
+/// Finds this desktop's door at launch and keeps it current; `tell` hears each change.
+pub fn start(
+    os: &tokio::runtime::Handle,
+    pasteboard: Arc<LinuxPasteboard>,
+    tell: impl Fn(ClipboardDoor) + Send + Sync + 'static,
+) {
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
-    let (pasteboard, tx) = (c.pasteboard.clone(), c.tx.clone());
-    c.os.spawn(async move {
+    os.spawn(async move {
         register().await;
         let p = plan(&desktop);
-        let _ = tx.send(Msg::ClipboardPlan(p)).await;
+        tell(closed(p));
         match p {
-            Plan::Extension => watch_extension(pasteboard, tx).await,
-            Plan::Klipper => watch_klipper(pasteboard, tx).await,
+            Plan::Extension => watch_extension(&pasteboard, &tell).await,
+            Plan::Klipper => watch_klipper(&pasteboard, &tell).await,
             Plan::OneTap => {}
         }
     });
@@ -124,20 +150,37 @@ impl Door for ExtensionDoor {
     }
 }
 
-async fn extension_door(conn: &zbus::Connection) -> Option<Arc<dyn Door>> {
-    let proxy = zbus::Proxy::new(conn, EXT_NAME, EXT_PATH, EXT_IFACE)
-        .await
-        .ok()?;
-    let api: u32 = proxy.get_property("Version").await.ok()?;
-    // Too old to speak to (or it refused us): one tap, and Settings says to update it
-    (api >= EXT_MIN_API).then(|| Arc::new(ExtensionDoor { proxy }) as Arc<dyn Door>)
+/// Open only once a checked call is answered: anyone may read the Version property, so an
+/// extension that refuses this Seam still has one.
+fn extension_status(api: Option<u32>, probe: Result<(), Option<String>>) -> ClipboardDoor {
+    match (api, probe) {
+        (Some(v), Ok(())) if v >= EXT_MIN_API => ClipboardDoor::Open,
+        (_, Err(Some(name))) if name == EXT_DENIED => ClipboardDoor::ExtensionRefused,
+        // Not there, too old to speak to, or not ready: Settings offers to set it up
+        _ => ClipboardDoor::ExtensionOff,
+    }
 }
 
-/// Opens the door whenever the extension is on the bus, and closes it when it leaves.
-async fn watch_extension(
-    pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>,
-    tx: async_channel::Sender<Msg>,
-) {
+async fn probe_extension(conn: &zbus::Connection) -> (Option<Arc<dyn Door>>, ClipboardDoor) {
+    let Ok(proxy) = zbus::Proxy::new(conn, EXT_NAME, EXT_PATH, EXT_IFACE).await else {
+        return (None, ClipboardDoor::ExtensionOff);
+    };
+    let api = proxy.get_property::<u32>("Version").await.ok();
+    let probe = match proxy.call::<_, _, i64>("ChangeCount", &()).await {
+        Ok(_) => Ok(()),
+        Err(zbus::Error::MethodError(name, ..)) => Err(Some(name.to_string())),
+        Err(_) => Err(None),
+    };
+    let status = extension_status(api, probe);
+    let door = status
+        .automatic()
+        .then(|| Arc::new(ExtensionDoor { proxy }) as Arc<dyn Door>);
+    (door, status)
+}
+
+/// Opens the door whenever the extension is on the bus and answers Seam, and closes it when it
+/// leaves.
+async fn watch_extension(pasteboard: &LinuxPasteboard, tell: &(dyn Fn(ClipboardDoor) + Sync)) {
     let Ok(conn) = zbus::Connection::session().await else {
         return;
     };
@@ -147,28 +190,61 @@ async fn watch_extension(
     let Ok(mut owners) = dbus.receive_name_owner_changed().await else {
         return;
     };
-    let check = async |pasteboard: &crate::os::clipboard::LinuxPasteboard| {
-        let door = extension_door(&conn).await;
-        let open = door.is_some();
-        if open != (pasteboard.reach() == crate::os::clipboard::Reach::Automatic) {
+    let mut last = None;
+    loop {
+        let (door, status) = probe_extension(&conn).await;
+        if last != Some(status) {
             if cfg!(debug_assertions) {
-                eprintln!(
-                    "seam: clipboard extension {}",
-                    if open { "open" } else { "closed" }
-                );
+                eprintln!("seam: clipboard extension {status:?}");
             }
             pasteboard.set_door(door);
-            let _ = tx.send(Msg::ClipboardReach).await;
+            tell(status);
+            last = Some(status);
         }
-    };
-    check(&pasteboard).await;
-    while let Some(signal) = owners.next().await {
-        if signal.args().is_ok_and(|a| a.name().as_str() == EXT_NAME) {
-            // The shell needs a moment to export the object after taking the name
-            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-            check(&pasteboard).await;
+        // Until the extension's name changes hands (enabled, disabled, the shell restarted)
+        loop {
+            match owners.next().await {
+                None => return,
+                Some(s) if s.args().is_ok_and(|a| a.name().as_str() == EXT_NAME) => break,
+                Some(_) => {}
+            }
         }
+        // The shell needs a moment to export the object after taking the name
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     }
+}
+
+/// Whether GNOME has Seam's extension installed (and so only needs turning on).
+pub async fn extension_installed() -> bool {
+    shell_extensions("GetExtensionInfo")
+        .await
+        .and_then(|m| {
+            m.body()
+                .deserialize::<std::collections::HashMap<String, zbus::zvariant::OwnedValue>>()
+                .ok()
+        })
+        .is_some_and(|info| !info.is_empty())
+}
+
+/// Turns Seam's extension on; the door opens when it's on the bus.
+pub async fn enable_extension() -> bool {
+    shell_extensions("EnableExtension")
+        .await
+        .and_then(|m| m.body().deserialize::<bool>().ok())
+        .unwrap_or(false)
+}
+
+async fn shell_extensions(method: &str) -> Option<zbus::Message> {
+    let conn = zbus::Connection::session().await.ok()?;
+    conn.call_method(
+        Some("org.gnome.Shell.Extensions"),
+        "/org/gnome/Shell/Extensions",
+        Some("org.gnome.Shell.Extensions"),
+        method,
+        &(EXT_UUID,),
+    )
+    .await
+    .ok()
 }
 
 // ---- Klipper (KDE Plasma) ------------------------------------------------------------------
@@ -248,10 +324,7 @@ impl Door for KlipperDoor {
 }
 
 /// Opens the door while Klipper runs, and counts each new copy it records.
-async fn watch_klipper(
-    pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>,
-    tx: async_channel::Sender<Msg>,
-) {
+async fn watch_klipper(pasteboard: &LinuxPasteboard, tell: &(dyn Fn(ClipboardDoor) + Sync)) {
     let Ok(conn) = zbus::Connection::session().await else {
         return;
     };
@@ -274,7 +347,7 @@ async fn watch_klipper(
                     proxy: proxy.clone(),
                     state: state.clone(),
                 })));
-                let _ = tx.send(Msg::ClipboardReach).await;
+                tell(ClipboardDoor::Open);
                 while changes.next().await.is_some() {
                     let Ok(text) = proxy
                         .call::<_, _, String>("getClipboardContents", &())
@@ -285,7 +358,7 @@ async fn watch_klipper(
                     state.lock().await.saw(text);
                 }
                 pasteboard.set_door(None);
-                let _ = tx.send(Msg::ClipboardReach).await;
+                tell(ClipboardDoor::KlipperOff);
             }
         }
         // Klipper isn't running (or stopped): try again in a while, one tap meanwhile
@@ -312,10 +385,45 @@ mod tests {
     }
 
     #[test]
-    fn setup_follows_the_plan() {
-        assert_eq!(setup(Plan::Extension), Setup::Extension);
-        assert_eq!(setup(Plan::Klipper), Setup::Klipper);
-        assert_eq!(setup(Plan::OneTap), Setup::Unavailable);
+    fn before_a_door_opens_only_gnome_and_kde_can_set_one_up() {
+        assert_eq!(at_launch("GNOME"), ClipboardDoor::ExtensionOff);
+        assert_eq!(at_launch("KDE"), ClipboardDoor::KlipperOff);
+        assert_eq!(at_launch("sway"), ClipboardDoor::Unavailable);
+        assert!(at_launch("GNOME").can_set_up() && !at_launch("GNOME").automatic());
+        assert!(!ClipboardDoor::Unavailable.can_set_up());
+        assert!(ClipboardDoor::Open.automatic() && !ClipboardDoor::Open.can_set_up());
+    }
+
+    /// A refused Seam is never told the door is open: the Version property answers anyone, so
+    /// only a checked call opens it.
+    #[test]
+    fn the_extension_opens_only_on_a_checked_answer() {
+        let denied = || Err(Some(EXT_DENIED.to_string()));
+        assert_eq!(extension_status(Some(1), Ok(())), ClipboardDoor::Open);
+        assert_eq!(
+            extension_status(Some(1), denied()),
+            ClipboardDoor::ExtensionRefused
+        );
+        assert_eq!(
+            extension_status(None, denied()),
+            ClipboardDoor::ExtensionRefused
+        );
+        // Gone, not exported yet, too old, or another error: off, never open
+        assert_eq!(
+            extension_status(None, Err(None)),
+            ClipboardDoor::ExtensionOff
+        );
+        assert_eq!(
+            extension_status(
+                Some(1),
+                Err(Some("org.freedesktop.DBus.Error.UnknownObject".into()))
+            ),
+            ClipboardDoor::ExtensionOff
+        );
+        assert_eq!(
+            extension_status(Some(0), Ok(())),
+            ClipboardDoor::ExtensionOff
+        );
     }
 
     #[test]

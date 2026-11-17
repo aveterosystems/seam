@@ -2,10 +2,6 @@
 //! Running in the background and opening at login, through the Background portal (inside Flatpak
 //! and out), so the desktop shows it the way it shows any app's.
 
-use std::rc::Rc;
-
-use crate::app::Controller;
-
 /// Whether Seam is set to open at login: the portal writes an autostart entry, so look for it.
 pub fn autostart() -> bool {
     let dir = gtk::glib::user_config_dir().join("autostart");
@@ -15,9 +11,9 @@ pub fn autostart() -> bool {
 }
 
 /// Asks the desktop to open Seam at login (or not). `done` hears whether it agreed, and why not.
-pub fn set_autostart(c: &Rc<Controller>, on: bool, done: impl Fn(bool, &str) + 'static) {
+pub fn set_autostart(os: &tokio::runtime::Handle, on: bool, done: impl Fn(bool, &str) + 'static) {
     let (tx, rx) = async_channel::bounded::<Result<bool, String>>(1);
-    c.os.spawn(async move {
+    os.spawn(async move {
         let r = ashpd::desktop::background::Background::request()
             .reason("Seam brings your phone's notifications and copies to this computer")
             .auto_start(on)

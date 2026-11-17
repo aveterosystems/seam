@@ -11,7 +11,6 @@ use seam_core::proto::v1::{
 };
 
 use crate::app::Controller;
-use crate::os::clipboard::Reach;
 use crate::ui::phone::{PhoneSummary, Size};
 
 pub fn present(c: &Rc<Controller>, parent: Option<&gtk::Window>, page: &str) {
@@ -76,7 +75,7 @@ fn general(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefe
         }
         let Some(c) = weak.upgrade() else { return };
         let row = row.clone();
-        crate::os::background::set_autostart(&c, row.is_active(), move |ok, why| {
+        crate::os::background::set_autostart(c.os(), row.is_active(), move |ok, why| {
             if !ok {
                 row.set_subtitle(why);
             }
@@ -569,20 +568,13 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         group.set_description(Some(&format!(
             "Passwords and copied files are never sent. A copy made while {name} is away is sent if it's back within 10 minutes."
         )));
-        let automatic = c.pasteboard.reach() == Reach::Automatic;
-        let possible = c.clipboard_plan() != crate::os::doors::Plan::OneTap;
-        auto_row.set_subtitle(&match (automatic, possible) {
-            (true, _) => format!("What you copy goes to {name} by itself"),
-            (false, true) => "Until it's set up, copies go with Send Clipboard".to_string(),
-            (false, false) => {
-                "This desktop doesn't allow it, so copies go with Send Clipboard".to_string()
-            }
-        });
+        let automatic = m.clipboard_door.automatic();
+        auto_row.set_subtitle(&m.automatic_clipboard_line());
         phone_row.set_subtitle(&format!(
             "Copies from {name} arrive here without using Share"
         ));
         on.set_visible(automatic);
-        set_up.set_visible(!automatic && possible);
+        set_up.set_visible(m.clipboard_door.can_set_up());
         auto.set_sensitive(m.clipboard_sync);
     }));
     page

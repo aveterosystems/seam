@@ -10,7 +10,6 @@ use adw::prelude::*;
 use seam_computer::features::clipboard::{Clip, openable_url};
 
 use crate::app::Controller;
-use crate::os::clipboard::Reach;
 
 pub struct Page {
     /// The banner over the list or its empty states.
@@ -128,9 +127,7 @@ impl Page {
         let connected = m.link(crate::ui::now_ms()).connected;
         // One banner slot, as on Notifications: paused or away first (and what's waiting), else
         // the setup offer, only where automatic clipboard can be set up (never a nag to nowhere)
-        let can_set_up = m.clipboard_sync
-            && c.pasteboard.reach() == Reach::OneTap
-            && c.clipboard_plan() != crate::os::doors::Plan::OneTap;
+        let can_set_up = m.clipboard_sync && m.clipboard_door.can_set_up();
         match m.page_status(crate::ui::now_ms(), crate::model::Page::Clipboard) {
             Some(words) if m.clipboard_sync => {
                 self.banner.set_title(&words);

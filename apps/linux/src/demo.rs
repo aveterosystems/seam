@@ -3,7 +3,8 @@
 //! without a phone. Nothing is saved or sent: Seam never starts. Invented names, no real data.
 //!
 //! States: connected (default), tor, offline, paused, connecting, empty, off, unpaired, confirm,
-//! error.
+//! error, automatic (the clipboard door open). Otherwise the door is as this desktop has it
+//! before one opens; SEAM_DEMO_DOOR=refused shows the extension refusing Seam.
 
 use seam_computer::computer::Health;
 use seam_computer::features::clipboard::Clip;
@@ -17,6 +18,7 @@ use seam_core::proto::v1::{
 use seam_looks::link::{self, LinkInput, Pause};
 
 use crate::model::{Icons, Model};
+use crate::os::doors::ClipboardDoor;
 
 const MIN: i64 = 60_000;
 
@@ -110,6 +112,12 @@ pub fn model(state: &str) -> Model {
         _ => {}
     }
     m.link_input = input;
+    let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
+    m.clipboard_door = match (state, std::env::var("SEAM_DEMO_DOOR").as_deref()) {
+        ("automatic", _) => ClipboardDoor::Open,
+        (_, Ok("refused")) => ClipboardDoor::ExtensionRefused,
+        _ => crate::os::doors::at_launch(&desktop),
+    };
     m
 }
 

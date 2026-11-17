@@ -278,22 +278,8 @@ impl Window {
                 w.confirm_clear(&c);
             }
         });
-        let weak_c = Rc::downgrade(c);
-        send.connect_clicked(move |_| {
-            let Some(c) = weak_c.upgrade() else { return };
-            let name = c.model().phone_name(false);
-            let w = Rc::downgrade(&c);
-            c.send_clipboard(move |ok| {
-                if let Some(c) = w.upgrade() {
-                    // A password or a copied file never goes, and it says so without saying what
-                    c.toast(&if ok {
-                        format!("Sent to {name}")
-                    } else {
-                        "Nothing to send: copy some text first".into()
-                    });
-                }
-            });
-        });
+        // The same action as the tray's, so both read the clipboard the same way
+        send.set_action_name(Some("app.send-clipboard"));
         for b in [&banner, &pairing_banner] {
             let weak_c = Rc::downgrade(c);
             b.connect_button_clicked(move |b| {
@@ -431,10 +417,7 @@ impl Window {
             m.phone_name(false)
         )));
         self.send.set_visible(
-            clipboard
-                && m.clipboard_sync
-                && m.phone.is_some()
-                && c.pasteboard.reach() == crate::os::clipboard::Reach::OneTap,
+            clipboard && m.clipboard_sync && m.phone.is_some() && !m.clipboard_door.automatic(),
         );
     }
 

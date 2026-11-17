@@ -226,10 +226,22 @@ fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::W
         }),
         None,
     );
-    let cc = c.clone();
+    let (cc, ww) = (c.clone(), w.clone());
     add(
         "send-clipboard",
-        Box::new(move |_| cc.send_clipboard(|_| {})),
+        Box::new(move |_| {
+            if ww.window.is_active() {
+                return cc.send_clipboard();
+            }
+            // Wayland lets only the focused app read the clipboard: from the tray, Seam takes
+            // focus first, as Copy does
+            ww.show_page("clipboard");
+            ww.window.present();
+            let cc = cc.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                cc.send_clipboard()
+            });
+        }),
         None,
     );
     let cc = c.clone();
