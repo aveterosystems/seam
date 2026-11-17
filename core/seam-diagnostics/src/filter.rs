@@ -111,7 +111,7 @@ fn is_ip(s: &str) -> bool {
 }
 
 /// Long hex (a fingerprint), a long base64 run mixing letters and digits (a key, an Ed25519 relay
-/// id), or any run as long as a 32-byte key in base64 (43) or hex (64), whatever its letters: a
+/// id), or any run as long as a key in base64 (40 or more) or hex (32 or more), whatever its letters: a
 /// key can be all one case with no digits. Ordinary words are shorter, and over-redacting a very
 /// long identifier is the safe way to be wrong.
 fn is_id(part: &str) -> bool {
@@ -121,7 +121,8 @@ fn is_id(part: &str) -> bool {
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '_' | '-'));
     let hex_only = part.chars().all(|c| c.is_ascii_hexdigit());
-    let hex = part.len() >= 16 && hex_only && digits > 0;
+    // A fingerprint has digits; anything hex as long as a 16-byte key is one, digits or not
+    let hex = hex_only && ((part.len() >= 16 && digits > 0) || part.len() >= 32);
     let keyish = part.len() >= 20 && digits >= 2 && letters >= 2;
     let key_length = base64 && part.len() >= 40;
     hex || keyish || key_length

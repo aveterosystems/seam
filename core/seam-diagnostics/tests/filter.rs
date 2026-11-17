@@ -174,3 +174,18 @@ fn a_relay_key_with_a_slash_is_one_id() {
         "{out}"
     );
 }
+
+#[test]
+fn hex_keys_without_digits_are_gone() {
+    // 16 bytes in hex (32), and 32 bytes (64), with no digits at all
+    for key in [
+        "a".repeat(32),
+        "abcdef".repeat(6) + "ab",
+        "fedcba".repeat(10) + "abcd",
+    ] {
+        let out = kept(&format!("key {key}"));
+        assert!(out.ends_with("key [id]"), "{out}");
+    }
+    // Words made of the letters a to f stay: they're short
+    assert!(kept("a faded decade").ends_with("a faded decade"));
+}
