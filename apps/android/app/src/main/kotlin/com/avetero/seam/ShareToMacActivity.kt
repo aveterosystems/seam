@@ -40,7 +40,7 @@ import com.avetero.seam.session.SessionState
 import kotlinx.coroutines.delay
 
 /**
- * "Send to Mac" in the share sheet (board A04). Any app can start this, so nothing goes until the
+ * "Send to computer" in the share sheet (board A04). Any app can start this, so nothing goes until the
  * user has seen the text and tapped Send (SR-4-01).
  */
 class ShareToMacActivity : ComponentActivity() {
@@ -83,7 +83,7 @@ private fun macName(at: SessionState): String? =
 
 /**
  * Board A04's sheet: the Mac's link in the status chip's words, the text, and Send. [onSend]'s
- * label goes on the button ("✓ Sent to Mac", "Will send when MacBook Pro is back"), then the sheet
+ * label goes on the button ("✓ Sent to computer", "Will send when MacBook Pro is back"), then the sheet
  * closes; its snack is why it couldn't go, said in the sheet until it's closed. [refused] opens it
  * already saying why, when that's known before the tap.
  */
@@ -143,5 +143,5 @@ internal fun ShareSheet(macName: String, text: String, look: LinkLook, refused: 
 
 /** The notification's Send clipboard, in Home's words: "Sent" only when it can go now; otherwise it's waiting (SR-4-04). */
 fun sentMessage(app: SeamApplication, sent: Boolean): String =
-    sendFeedback(sent, app.session.state.value, macName(app.session.state.value) ?: "your Mac", app.session.feature<ClipboardFeature>().offOnMac)
+    sendFeedback(sent, app.session.state.value, macName(app.session.state.value) ?: "your computer", app.session.feature<ClipboardFeature>().offOnMac)
         .let { it.snack ?: it.label.orEmpty() }

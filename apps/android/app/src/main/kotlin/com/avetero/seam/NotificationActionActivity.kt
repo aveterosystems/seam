@@ -21,7 +21,7 @@ class NotificationActionActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = application as SeamApplication
-        if (!app.session.paired) return done("Pair Seam with your Mac first.")
+        if (!app.session.paired) return done("Pair Seam with your computer first.")
         if (intent.action != ACTION_PAUSE) return // Send clipboard: waits for focus, below
         setContent {
             SeamTheme {

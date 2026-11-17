@@ -157,7 +157,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
     var toolbar by remember { mutableIntStateOf(0) }
     val room by animateDpAsState(if (selecting) with(density) { toolbar.toDp() } else 0.dp, Motion.spring(500), label = "room")
     LazySubScreen(
-        "Mac notifications", onBack, gap = 2.dp,
+        "Computer notifications", onBack, gap = 2.dp,
         selection = if (selecting) Selection(selected.size, ::stopSelecting) else null,
         actions = {
             if (selecting) {
@@ -191,7 +191,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
         if (!access) item("why") {
             EmptyState(
                 R.drawable.ic_visibility_off, "Seam can't see your notifications yet",
-                "Seam only reads notifications to show them on your Mac. Nothing is kept.",
+                "Seam only reads notifications to show them on your computer. Nothing is kept.",
                 // Close under the card, so the card and its reason read as one
                 Modifier.fillMaxWidth().padding(top = 24.dp),
             )
@@ -200,7 +200,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
             val until = SystemTime().time(prefs.pausedUntil)
             Box(apart.then(stilled)) {
                 Section(null) {
-                    Item("Paused until $until", "Paused from your Mac. Nothing goes over until then") {
+                    Item("Paused until $until", "Paused from your computer. Nothing goes over until then") {
                         Pill("Resume", { feature.pause(0) }, enabled = !selecting)
                     }
                 }
@@ -211,7 +211,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
                 Box(apart.then(stilled)) {
                     Section(null) {
                         SwitchItem("Dismiss on both", "Clear on one, gone on both", prefs.dismissBoth, feature::setDismissBoth, lead = painterResource(R.drawable.ic_dismiss_both), enabled = live)
-                        SwitchItem("Quiet while in use", "Silent on your Mac while you use this phone", prefs.quietWhileUsingPhone, feature::setQuietWhileUsingPhone, lead = painterResource(R.drawable.ic_bedtime), enabled = live)
+                        SwitchItem("Quiet while in use", "Silent on your computer while you use this phone", prefs.quietWhileUsingPhone, feature::setQuietWhileUsingPhone, lead = painterResource(R.drawable.ic_bedtime), enabled = live)
                     }
                 }
             }
@@ -257,7 +257,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
         item("room") { Spacer(Modifier.height(room)) }
     }
     prefs.apps.firstOrNull { it.id == open }?.let { a ->
-        SeamSheet(a.name, "What reaches your Mac", onDismiss = { open = null }, lead = { SheetAppIcon(a.id) }) { close ->
+        SeamSheet(a.name, "What reaches your computer", onDismiss = { open = null }, lead = { SheetAppIcon(a.id) }) { close ->
             Choices(AppMode.entries, a.mode, { it.label }, { it.explain(a.canReply) }) {
                 feature.setMode(setOf(a.id), it)
                 close()
@@ -266,7 +266,7 @@ fun NotificationsScreen(feature: NotificationsFeature, onBack: () -> Unit) {
     }
 }
 
-/** "Show on your Mac": the feature's main switch, a big primaryContainer card while on. */
+/** "Show on your computer": the feature's main switch, a big primaryContainer card while on. */
 @Composable
 private fun MasterCard(on: Boolean, summary: String, enabled: Boolean, locked: () -> Float, onChange: (Boolean) -> Unit, quiet: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
@@ -284,7 +284,7 @@ private fun MasterCard(on: Boolean, summary: String, enabled: Boolean, locked: (
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Show on your Mac", style = MaterialTheme.typography.titleLarge, color = ink, modifier = Modifier.graphicsLayer { alpha = locked() })
+            Text("Show on your computer", style = MaterialTheme.typography.titleLarge, color = ink, modifier = Modifier.graphicsLayer { alpha = locked() })
             Swap(summary) {
                 Text(it, color = ink.copy(alpha = 0.8f), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
             }
@@ -407,7 +407,7 @@ private fun appIcon(pkg: String): Painter? {
 
 /** The row that opens this screen, on Home and in Settings: what reaches the Mac, in one line. One name for the feature everywhere. */
 @Composable
-internal fun NotificationsItem(feature: NotificationsFeature, title: String = "Mac notifications", paused: Boolean = false, onOpen: () -> Unit) {
+internal fun NotificationsItem(feature: NotificationsFeature, title: String = "Computer notifications", paused: Boolean = false, onOpen: () -> Unit) {
     val prefs by feature.prefs.collectAsStateWithLifecycle()
     // Access revoked in Android's settings: the switch may still say on, but nothing can go over
     val line = if (prefs.enabled && !rememberNotificationAccess()) "Needs notification access"

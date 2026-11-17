@@ -1,0 +1,69 @@
+name: linux
+on:
+  push:
+    branches: [main]
+    paths: ["apps/linux/**", "core/**", "protocol/**", ".github/workflows/linux.yml", "!**/*.md"]
+  pull_request:
+
+# A newer push to the same PR cancels this run; it's been superseded. Runs on main finish, so
+# each one saves the build cache that PRs start from
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Which parts changed. Skipped jobs count as passed, so required checks never block an unrelated PR.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.filter.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            run:
+              - '{apps/linux/**,core/**,protocol/**,.github/workflows/linux.yml}'
+              - '!**/*.md'
+
+  linux:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    # Fedora carries the GTK 4 and libadwaita the app needs; Ubuntu's LTS is a few releases behind
+    container: fedora:44
+    defaults: { run: { working-directory: apps/linux } }
+    steps:
+      - run: dnf -y -q install gcc gcc-c++ clang cmake make git protobuf-compiler pkgconf-pkg-config gtk4-devel libadwaita-devel dbus-devel gjs tar zstd
+        working-directory: /
+      - uses: actions/checkout@v5
+      # rustup reads apps/linux/rust-toolchain.toml and installs the pinned toolchain
+      - run: curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none -q && echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      # Saved from main only: PRs read main's cache instead of each saving their own
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: apps/linux, save-if: "${{ github.ref == 'refs/heads/main' }}" }
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      # The GNOME extension's access check: only the Seam app may use it
+      - run: gjs -m trust.test.js
+        working-directory: apps/linux/gnome-extension
+
+  # The Flatpak from this checkout, offline, as Flathub builds it
+  flatpak:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-49
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v5
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: seam.flatpak
+          manifest-path: apps/linux/flatpak/com.avetero.Seam.yml
+          cache-key: flatpak-builder-${{ hashFiles('apps/linux/Cargo.lock') }}
+          upload-artifact: false

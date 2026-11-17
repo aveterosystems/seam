@@ -39,6 +39,41 @@ fn files_are_not_sent_as_text() {
     assert!(sendable(&types(&["public.utf8-plain-text", "public.html"])));
 }
 
+/// SR-4-06 on Linux: Files, Dolphin and others offer a URI list and their own type with the name.
+#[test]
+fn linux_file_copies_are_not_sent_as_text() {
+    assert!(!sendable(&types(&[
+        "text/uri-list",
+        "text/plain;charset=utf-8"
+    ])));
+    assert!(!sendable(&types(&[
+        "x-special/gnome-copied-files",
+        "UTF8_STRING"
+    ])));
+    assert!(!sendable(&types(&[
+        "application/x-kde-cutselection",
+        "text/plain"
+    ])));
+    assert!(sendable(&types(&[
+        "text/plain;charset=utf-8",
+        "UTF8_STRING",
+        "text/html"
+    ])));
+}
+
+/// KeePassXC and other Linux password managers mark secrets with KDE's hint.
+#[test]
+fn linux_password_manager_copies_are_never_sent() {
+    assert!(is_private(&types(&[
+        "text/plain",
+        "x-kde-passwordManagerHint"
+    ])));
+    assert!(!sendable(&types(&[
+        "x-kde-passwordManagerHint",
+        "UTF8_STRING"
+    ])));
+}
+
 #[test]
 fn password_manager_items_are_never_sent() {
     assert!(is_private(&types(&[
@@ -115,5 +150,44 @@ fn zero_width_and_bidi_characters_are_never_opened() {
     assert!(
         openable_url("https://example.com/a\u{0007}").is_none(),
         "controls"
+    );
+}
+
+/// The screens promise a day at most: old clips go even when nothing new is copied.
+#[test]
+fn clips_expire_after_a_day_without_a_new_copy() {
+    struct Nothing;
+    #[async_trait::async_trait]
+    impl Pasteboard for Nothing {
+        async fn change_count(&self) -> i64 {
+            0
+        }
+        async fn first_item(&self, _: i64) -> Option<PasteboardItem> {
+            None
+        }
+        async fn write(&self, _: String) -> i64 {
+            0
+        }
+    }
+    let mut c = Clipboard::new(Arc::new(Nothing), Arc::new(AtomicBool::new(true)));
+    c.remember(Clip {
+        text: "old".into(),
+        at: T0,
+        from_phone: true,
+    });
+    c.remember(Clip {
+        text: "newer".into(),
+        at: T0 + 3_600_000,
+        from_phone: false,
+    });
+    c.expire(T0 + DAY_MS - 1);
+    assert_eq!(c.clips().len(), 2);
+    c.expire(T0 + DAY_MS + 1);
+    assert_eq!(
+        c.clips()
+            .iter()
+            .map(|x| x.text.as_str())
+            .collect::<Vec<_>>(),
+        ["newer"]
     );
 }

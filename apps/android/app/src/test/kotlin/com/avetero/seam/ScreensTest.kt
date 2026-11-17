@@ -145,7 +145,7 @@ class ScreensTest(private val dark: Boolean) {
     private fun home(look: LinkLook, clip: Boolean = false, update: Boolean = false, clipboard: ClipboardStatus = ClipboardStatus.Automatic) = SeamScreen(
         state = SessionState.Connected("MacBook Pro"), scanError = null, toConfirm = null,
         onConfirm = {}, onCancelConfirm = {}, onScan = {},
-        onSendClipboard = { SendFeedback(label = "✓ Sent to Mac", done = true) },
+        onSendClipboard = { SendFeedback(label = "✓ Sent to computer", done = true) },
         fromMac = if (clip) FromMac("harbour-lights-42", now) else null, now = now,
         mac = MacStatus(Status.newBuilder().setBatteryPct(64).setPowerMw(9_500).setMinutesLeft(300).setStorageFreeBytes(140_000_000_000).setStorageTotalBytes(500_000_000_000).setCpuPct(12).setMemoryUsedBytes(9L shl 30).setMemoryTotalBytes(24L shl 30).build(), now), notifications = notifications, clipboard = clipboard,
         update = if (update) Release("0.3", "", "", "") else null, look = look,
@@ -232,7 +232,7 @@ class ScreensTest(private val dark: Boolean) {
 
     // Board A04: opened from a button, as the share sheet opens it over another app
     @Composable
-    private fun share(look: LinkLook, refused: String? = null, onSend: () -> SendFeedback = { SendFeedback(label = "✓ Sent to Mac", done = true) }) {
+    private fun share(look: LinkLook, refused: String? = null, onSend: () -> SendFeedback = { SendFeedback(label = "✓ Sent to computer", done = true) }) {
         val shown = remember { androidx.compose.runtime.mutableStateOf(false) }
         Pill("Share", { shown.value = true })
         if (shown.value) ShareSheet("MacBook Pro", SAMPLE_SHARE, look, refused, { shown.value = false }, onSend)
@@ -256,7 +256,7 @@ class ScreensTest(private val dark: Boolean) {
 
     // Clipboard sync off on the Mac is known before the tap: the sheet opens already saying no
     @Test fun shareSheetRefused() {
-        show { share(Looks.sameWifi, refused = "MacBook Pro has clipboard sync off. Turn it on in Seam on your Mac.") }
+        show { share(Looks.sameWifi, refused = "MacBook Pro has clipboard sync off. Turn it on in Seam on your computer.") }
         open(rule.onNodeWithText("Share"), "share-sheet-refused")
         rule.onNodeWithText("clipboard sync off", substring = true).assertExists() // the card is the one message
         rule.onNodeWithText("Can't send to MacBook Pro").assertExists() // the title doesn't offer what won't happen

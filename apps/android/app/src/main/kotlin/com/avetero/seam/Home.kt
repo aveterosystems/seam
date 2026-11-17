@@ -115,7 +115,7 @@ fun sendFeedback(sent: Boolean, state: SessionState, macName: String, offOnMac: 
 }
 
 /**
- * "Mac battery 64%" while connected or paused (as last sent), "—" while it's out of reach, and
+ * "Computer battery 64%" while connected or paused (as last sent), "—" while it's out of reach, and
  * nothing at all before the Mac has ever sent it.
  */
 
@@ -333,7 +333,7 @@ private fun Meta(mac: DeviceStatusLook?, low: Boolean, onOpen: () -> Unit) {
     val storage = pick(mac.storageLow && !mac.stale, ink, warnColor, Motion.ease(400))
     val statsTap: @Composable () -> Unit = {
             Row(
-                Modifier.tapArea(PaddingValues(bottom = 16.dp), RoundedCornerShape(16.dp), "Show your Mac's battery, storage, CPU and memory", onOpen)
+                Modifier.tapArea(PaddingValues(bottom = 16.dp), RoundedCornerShape(16.dp), "Show your computer's battery, storage, CPU and memory", onOpen)
                     .heightIn(min = 32.dp).padding(start = if (stack) 12.dp else 10.dp, end = 6.dp, top = 7.dp, bottom = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -426,7 +426,7 @@ private fun MacSheet(mac: DeviceStatusLook?, status: Status?, at: Long?, now: Lo
     }
     val scheme = MaterialTheme.colorScheme
     // Not the Mac's name: it's already in large type just behind the sheet
-    SeamSheet("Mac status", at?.let { "Updated ${Looks.ago(it, now)}" }, onDismiss) {
+    SeamSheet("Computer status", at?.let { "Updated ${Looks.ago(it, now)}" }, onDismiss) {
         // Values to read, not buttons: one block, rows split by thin rules rather than each on its own tappable-looking surface
         val rows = buildList<@Composable () -> Unit> {
             // "64% · Charging at 30 W · full in 1 hr 10 min" when the Mac sends its power, else "64%, charging"
@@ -443,7 +443,7 @@ private fun MacSheet(mac: DeviceStatusLook?, status: Status?, at: Long?, now: Lo
             mac?.memoryDetail?.let {
                 add { Gauge(status?.run { memoryUsedBytes.toFloat() / memoryTotalBytes }) { Item("Memory", it, start = readOnly(R.drawable.ic_memory), vertical = 8.dp, countSubtitle = true) } }
             }
-            if (mac?.cpu == null) add { Item("CPU and memory", "Update Seam on your Mac to see them", start = readOnly(R.drawable.ic_cpu), vertical = 8.dp) }
+            if (mac?.cpu == null) add { Item("CPU and memory", "Update Seam on your computer to see them", start = readOnly(R.drawable.ic_cpu), vertical = 8.dp) }
         }
         Column(Modifier.clip(RoundedCornerShape(24.dp)).background(rowColor())) {
             rows.forEachIndexed { i, row ->
@@ -564,7 +564,7 @@ private fun Actions(paused: Boolean, offOnMac: Boolean, onSend: () -> SendFeedba
 }
 
 /**
- * "Copied on your Mac": what last came over, since Android's own "Copied" pop-up can't say.
+ * "Copied on your computer": what last came over, since Android's own "Copied" pop-up can't say.
  * Paste turns green and says "✓ Pasted"; 0.9 s later the card folds away.
  */
 @Composable
@@ -580,12 +580,12 @@ private fun FromMacSlot(fromMac: FromMac?, now: Long, onPaste: (String) -> Boole
     // Always there, so TalkBack hears the card arrive; it reads the copy, not the ticking "just now"
     Box(Modifier.semantics(mergeDescendants = true) {
         liveRegion = LiveRegionMode.Polite
-        if (shown != null) contentDescription = "Copied on your Mac: ${shown.text}"
+        if (shown != null) contentDescription = "Copied on your computer: ${shown.text}"
     }) {
     Unfold(shown != null) {
         val clip = last.value ?: return@Unfold
         val done = pasted == clip.at
-        Card("Copied on your Mac · ${Looks.ago(clip.at, now)}", clip.text, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) {
+        Card("Copied on your computer · ${Looks.ago(clip.at, now)}", clip.text, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) {
             Pill(if (done) "✓ Pasted" else "Paste", { if (onPaste(clip.text)) { pasted = clip.at } else snack("Couldn't put it on the clipboard") }, if (done) PillKind.Done else PillKind.OnCard, enabled = !done)
         }
     }

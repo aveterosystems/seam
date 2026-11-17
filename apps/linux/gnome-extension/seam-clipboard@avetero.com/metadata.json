@@ -1,0 +1,8 @@
+{
+  "uuid": "seam-clipboard@avetero.com",
+  "name": "Seam Clipboard",
+  "description": "Lets Seam send what you copy to your phone, and put what you copy on your phone here, without clicking Send. Only the Seam app can use it, and nothing you copy is kept or logged.",
+  "shell-version": ["49", "50", "51"],
+  "url": "https://github.com/aveterosystems/seam",
+  "version-name": "1.0"
+}

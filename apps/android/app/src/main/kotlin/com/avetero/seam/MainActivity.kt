@@ -198,7 +198,7 @@ class MainActivity : ComponentActivity() {
                     onPause = { session.pause(it.until(System.currentTimeMillis())) },
                     onResume = { session.resume() },
                     // Seam has focus here, so Android allows the read
-                    onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your Mac", clipboard.offOnMac) },
+                    onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your computer", clipboard.offOnMac) },
                     onScan = {
                         scanError = null
                         scanning = true
@@ -217,8 +217,8 @@ class MainActivity : ComponentActivity() {
                                         scanned = r.qr // nothing changes until the user confirms who this is
                                         scanError = null
                                     }
-                                    ScanResult.NotSeam -> scanError = "That isn't a Seam pairing code. Open Seam on your Mac to show one."
-                                    ScanResult.OldMac -> scanError = "That code is from an older Seam. Update Seam on your Mac, then show the new code."
+                                    ScanResult.NotSeam -> scanError = "That isn't a Seam pairing code. Open Seam on your computer to show one."
+                                    ScanResult.OldMac -> scanError = "That code is from an older Seam. Update Seam on your computer, then show the new code."
                                 }
                             })
                         } else {

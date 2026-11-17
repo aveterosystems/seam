@@ -195,6 +195,7 @@ impl Clipboard {
     }
 
     pub async fn poll(&mut self, host: &mut dyn Host) {
+        self.expire(host.now_ms());
         let reach = host.reach();
         if let Some(payload) = self.capture(reach, host.now_ms()).await {
             host.send(payload);
@@ -261,6 +262,13 @@ impl Clipboard {
             from_phone: true,
         });
         host.event(crate::Event::ClipFromPhone);
+    }
+
+    /// Clips are kept for a day at most, even while nothing new is copied: each poll lets the
+    /// older ones go (the screens promise "a day at most").
+    fn expire(&mut self, now_ms: i64) {
+        let day_ago = now_ms - DAY_MS;
+        self.clips.retain(|c| c.at > day_ago);
     }
 
     fn remember(&mut self, clip: Clip) {

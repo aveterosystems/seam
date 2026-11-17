@@ -38,12 +38,12 @@ class LookTest {
     }
 
     @Test fun sendClipboardConfirmsOnlyWhatReallyHappened() {
-        assertEquals(SendFeedback(label = "✓ Sent to Mac", done = true), sendFeedback(true, SessionState.Connected("MacBook Pro"), "MacBook Pro"))
+        assertEquals(SendFeedback(label = "✓ Sent to computer", done = true), sendFeedback(true, SessionState.Connected("MacBook Pro"), "MacBook Pro"))
         // Queued while the connection starts: the words, but not the green and the tick (SR-8-04)
         assertEquals(SendFeedback(label = "Sending", done = false), sendFeedback(true, SessionState.Idle("MacBook Pro"), "MacBook Pro"))
         assertEquals(SendFeedback(snack = "Will send when MacBook Pro is back"), sendFeedback(true, SessionState.Connecting("MacBook Pro"), "MacBook Pro"))
         assertNull(sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro").label)
-        assertEquals(SendFeedback(snack = "MacBook Pro has clipboard sync off. Turn it on in Seam on your Mac."), sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro", offOnMac = true))
+        assertEquals(SendFeedback(snack = "MacBook Pro has clipboard sync off. Turn it on in Seam on your computer."), sendFeedback(false, SessionState.Connected("MacBook Pro"), "MacBook Pro", offOnMac = true))
     }
 
     @Test fun theMacsStatusComesFromTheSharedLooks() {
@@ -72,7 +72,7 @@ class LookTest {
 
     @Test fun connectionFootnoteExplainsTheSwitches() {
         assertEquals("One always stays on. Both are equally encrypted.", connectionFootnote(true, true))
-        assertEquals("Only on the same network as your Mac. Turn on Tor to reach it anywhere.", connectionFootnote(true, false))
+        assertEquals("Only on the same network as your computer. Turn on Tor to reach it anywhere.", connectionFootnote(true, false))
         assertEquals("Through Tor even at home. Same Wi‑Fi is faster for big files.", connectionFootnote(false, true))
     }
 
@@ -85,10 +85,10 @@ class LookTest {
         assertEquals("Checking", checkLabel("Checking"))
         assertEquals("On · sends your copies", ClipboardStatus.Automatic.subtitle())
         assertEquals("Off · tap Send clipboard after copying", ClipboardStatus.NeedsSetup.subtitle())
-        assertEquals("Off · tap Send clipboard after copying, or share to Send to Mac", ClipboardStatus.Manual.subtitle())
-        assertEquals("Off · sync is off on your Mac", ClipboardStatus.OffOnMac.subtitle())
+        assertEquals("Off · tap Send clipboard after copying, or share to Send to computer", ClipboardStatus.Manual.subtitle())
+        assertEquals("Off · sync is off on your computer", ClipboardStatus.OffOnMac.subtitle())
         assertEquals("Paused · until you resume", ClipboardStatus.Automatic.subtitle(Looks.paused(Long.MAX_VALUE, 0).short))
-        assertEquals("off stays off while paused", "Off · sync is off on your Mac", ClipboardStatus.OffOnMac.subtitle("Paused · until you resume"))
+        assertEquals("off stays off while paused", "Off · sync is off on your computer", ClipboardStatus.OffOnMac.subtitle("Paused · until you resume"))
         assertEquals("Code 4 8 2, 9 1 3", spokenCode("482913"))
     }
 

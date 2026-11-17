@@ -107,6 +107,22 @@ Roboto Flex is bundled as one variable font (`res/font/roboto_flex.ttf`, about 1
 | Body large / body / small | 16 / 24 · 14 / 20 · 12 / 16 | |
 | Label large / medium / small | 16 / 22, 600 · 14 / 20, 500 · 12 / 16, 500, +0.4 tracking | Button labels, the status chip, kickers |
 
+## Linux
+
+**Follow the GNOME Human Interface Guidelines and use stock libadwaita** (decision 0013), as the Mac app follows macOS: `AdwNavigationSplitView` with a `navigation-sidebar` list, `AdwHeaderBar`, boxed lists, `AdwStatusPage` for empty states, `AdwPreferencesDialog`, `AdwAlertDialog`, `AdwBanner` and `AdwToast`. Don't custom-draw controls. On KDE Plasma the same app runs with Breeze icons and KDE's window buttons, as GTK apps do there.
+
+| Part | Linux |
+|---|---|
+| Window | `AdwApplicationWindow`: a sidebar (the phone's card, then Notifications and Clipboard) and the page; unpaired, the whole window is pairing. Below 600 sp it collapses to one column |
+| Settings | `AdwPreferencesDialog`: General (open at login), the phone by name (with the Mac's Privacy facts in its Pairing group), Notifications, Clipboard. Facts that aren't settings are group descriptions, not rows |
+| Confirmations | Toasts ("Copied", "Sent to Pixel 9"), not the Mac's in-place "✓ Copied" |
+| Capitalization | GNOME's header capitalization for headings, buttons, row titles and menu items ("Clear All", "Send Clipboard"); subtitles and sentences stay sentence case. The Linux exception to "Sentence case everywhere" below |
+| Paused in dark mode | `#A0C6F0`, lighter than the Mac's `#5B8FC4`, which measures about 3.1:1 on libadwaita's dark sidebar |
+| Accent | Controls follow the desktop's accent colour. Seam teal (the Mac's tokens) only on Seam's own pieces: the stitch, the phone's disc and the status dot |
+| Motion | libadwaita's own transitions for stock widgets; Seam's pieces follow catalogue 10. The desktop's "Animations" switch turns both off |
+| Pairing's code check | Cancel and Pair are styled alike, and Cancel is the Return-key default (SR-10-02): neither button looks like the obvious yes, so a phone is never paired without reading the code |
+| Tray | A StatusNotifierItem where the desktop has a tray (KDE, or GNOME with AppIndicator): the status, Open Seam, Send Clipboard (while copies need one tap), Preferences, Quit |
+
 ## Icons
 
 The Mac uses **SF Symbols**, so weight and scale follow the system. Android uses the 24 px stroke set on board 00 (1.8 stroke, round caps), or Material Symbols Rounded where one matches. Linux uses the **Adwaita symbolic icons** that GTK ships, so they follow the desktop's colours and size.
@@ -124,7 +140,7 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | Ring | `speaker.wave.2` | volume | `audio-volume-high-symbolic` |
 | Encrypted | `checkmark.shield` | shield-check (`ic_shield`) | `security-high-symbolic` |
 | Same Wi‑Fi (the path) | `wifi` | wifi | `network-wireless-symbolic` |
-| Through Tor (the path; a neutral globe, never the onion) | `globe` | globe | `web-browser-symbolic` |
+| Through Tor (the path; a neutral globe, never the onion) | `globe` | globe | None that reads as a globe in Adwaita: Seam ships `seam-globe-symbolic` (`apps/linux/data/icons`) |
 | Lock computer | `lock` | lock | `system-lock-screen-symbolic` |
 | Settings | `slider.horizontal.3` | sliders | `emblem-system-symbolic` |
 | Battery (fills to the level; bolt while charging) | `battery.0…100percent`, `battery.100percent.bolt` | Material `battery_0_bar` … `battery_full`, `battery_charging_full` (`ic_battery_*`) | `battery-level-0…100-symbolic`, `battery-level-…-charging-symbolic` |
@@ -132,6 +148,7 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | Storage | `internaldrive` | Material `hard_drive` (`ic_storage`) | `drive-harddisk-symbolic` |
 | CPU (the computer's) | `cpu` | Material `memory` (`ic_cpu`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
 | Memory (the computer's) | `memorychip` | Material `memory_alt` (`ic_memory`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
+| Link (a copy that is a web address) | `link` | link | `insert-link-symbolic` |
 | Do Not Disturb | `moon.fill` | Material `bedtime` | `weather-clear-night-symbolic` |
 | Dismiss on both | `checkmark.circle` (two) | double tick (`ic_dismiss_both`) | `object-select-symbolic` |
 
@@ -149,6 +166,7 @@ Every place that shows the link between the devices (the menu bar header, the si
 | Dashed teal | **Connected** + globe icon (Through Tor) | Anywhere, end-to-end encrypted |
 | Dotted grey | **Nearby** | Bluetooth sees the device; waking up to connect |
 | Broken grey | **Offline** | "Will send when your phone is back" |
+| Solid paused blue (`paused`) | **Paused until 15:00** | Paused on the phone, the user's own choice: calm, never `warn`. The status dot and words take the same blue |
 
 Offline is never drawn as an error: no red, and no "failed". Red is only for things the user must act on, such as a revoked pairing.
 
@@ -178,6 +196,7 @@ How every screen moves, and the finish it needs before it's done, is in [motion.
 
 | Platform | Where | Contents |
 |---|---|---|
+| Linux | `apps/linux/src/ui/` (`style.css`, `stitch.rs`, `widgets.rs`) | The few Seam styles stock widgets lack, the stitch, the phone's disc, the status dot and the value swap; Adwaita icons by meaning in `model.rs` |
 | Mac | `apps/mac/Packages/SeamDesign` | `Color` assets for the tokens (light/dark in the asset catalogue), `SeamStitch` view, the app icon, symbol constants. No custom button or toggle styles. |
 | Android | `apps/android/app/.../Theme.kt`, `Components.kt` (planned: `core/designsystem`) | `SeamTheme` (the fixed teal scheme, light and dark, crossfading), the shared rows, sheets, pills and snackbar, the cookie hero with its stitches, and the icon set as vector drawables. Roboto Flex is bundled as a variable font in `res/font` |
 

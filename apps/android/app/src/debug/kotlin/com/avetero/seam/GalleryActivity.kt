@@ -93,7 +93,7 @@ class GalleryActivity : ComponentActivity() {
                                         Page.Home -> SeamScreen(
                                             state = SessionState.Connected("MacBook Pro"), scanError = null, toConfirm = null,
                                             onConfirm = {}, onCancelConfirm = {}, onScan = {},
-                                            onSendClipboard = { if (look.connected) SendFeedback(label = "✓ Sent to Mac", done = true) else SendFeedback(snack = "Will send when MacBook Pro is back") },
+                                            onSendClipboard = { if (look.connected) SendFeedback(label = "✓ Sent to computer", done = true) else SendFeedback(snack = "Will send when MacBook Pro is back") },
                                             fromMac = if (intent.getBooleanExtra("clip", false)) FromMac("harbour-lights-42", now) else null,
                                             now = now, onPasteFromMac = { true },
                                             onOpenSettings = { pages = pages + Page.Settings },

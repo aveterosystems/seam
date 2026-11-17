@@ -34,7 +34,7 @@ class PairingQr(
                 token = b64("t", 32),
                 identityKey = b64("i", 33),
                 relayKey = b64("k", 32),
-                macName = q["n"].orEmpty().take(128).ifBlank { "Mac" },
+                macName = q["n"].orEmpty().take(128).ifBlank { "Computer" },
             )
         }.getOrNull()
 

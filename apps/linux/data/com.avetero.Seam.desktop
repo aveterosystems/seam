@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Seam
+GenericName=Phone link
+Comment=Your Android phone's notifications and clipboard on this computer, privately
+Exec=seam
+Icon=com.avetero.Seam
+Terminal=false
+Categories=Network;Utility;GTK;
+Keywords=phone;android;notifications;clipboard;sync;
+StartupNotify=true
+X-GNOME-UsesNotifications=true

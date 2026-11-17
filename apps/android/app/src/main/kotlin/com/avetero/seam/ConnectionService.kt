@@ -39,7 +39,7 @@ class ConnectionService : Service() {
     override fun onCreate() {
         super.onCreate()
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Connection to your Mac", NotificationManager.IMPORTANCE_MIN))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Connection to your computer", NotificationManager.IMPORTANCE_MIN))
         startForeground(1, notification("Starting"), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         val app = application as SeamApplication
         val session = app.session

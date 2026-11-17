@@ -51,7 +51,7 @@ import com.avetero.seam.session.SessionState
 @Composable
 internal fun Confirm(qr: PairingQr, onConfirm: (PairingQr) -> Unit, close: () -> Unit) {
     val armed = armedAfterDelay()
-    Step("Only if it's your Mac, the one in front of you") {
+    Step("Only if it's your computer, the one in front of you") {
         BigButton("Pair", { onConfirm(qr) }, enabled = armed)
         Pill("Cancel", close, PillKind.Text, modifier = Modifier.fillMaxWidth())
     }
@@ -111,7 +111,7 @@ internal fun PairScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             // Not the 34 sp large title of Settings: the camera needs the height, and with no scroll there's nothing to fold it into
-            Text("Pair with your Mac", style = MaterialTheme.typography.headlineSmall)
+            Text("Pair with your computer", style = MaterialTheme.typography.headlineSmall)
         }
         Box(Modifier.fillMaxWidth().weight(1f).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
             Box(Modifier.matchParentSize()) { camera() }
@@ -178,8 +178,8 @@ private fun Frame() {
 fun CameraNeeded(blocked: Boolean, onAllow: () -> Unit) = EmptyState(
     R.drawable.ic_camera_off,
     if (blocked) "Camera is off for Seam" else "Seam needs the camera",
-    if (blocked) "Without it, Seam can't read your Mac's code. Turn it on in Settings\u00A0›\u00A0Permissions\u00A0›\u00A0Camera, then come back."
-    else "Only to read your Mac's code. No pictures leave this phone.",
+    if (blocked) "Without it, Seam can't read your computer's code. Turn it on in Settings\u00A0›\u00A0Permissions\u00A0›\u00A0Camera, then come back."
+    else "Only to read your computer's code. No pictures leave this phone.",
     // Scrolls in a short window (landscape, large text), so the action is always reachable
     Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 32.dp),
 ) { Pill(if (blocked) "Open Settings" else "Allow camera", onAllow, PillKind.Filled) }

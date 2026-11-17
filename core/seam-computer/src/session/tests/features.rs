@@ -165,6 +165,20 @@ async fn a_copy_here_is_in_the_history_until_cleared() {
     assert!(rig.session.features.clipboard.clips().is_empty());
 }
 
+/// The screens promise a day at most: the regular poll lets an old copy go with nothing new
+/// copied, and the view the screens draw from no longer has it.
+#[tokio::test]
+async fn the_poll_lets_a_day_old_copy_go() {
+    let mut rig = Rig::new().await;
+    rig.tor_up().await;
+    rig.pasteboard.copy("mine");
+    rig.advance(1.0).await;
+    rig.advance(86_398.0).await;
+    assert_eq!(rig.session.features.view().clipboard.clips.len(), 1);
+    rig.advance(2.0).await;
+    assert!(rig.session.features.view().clipboard.clips.is_empty());
+}
+
 #[tokio::test]
 async fn only_what_arrives_from_the_phone_is_announced() {
     let mut rig = Rig::new().await;

@@ -94,7 +94,7 @@ class ClipboardFeature(context: Context, private val session: SessionApi) : Feat
         _fromMac.value = null
     }
 
-    private fun fromMacClip(text: String): ClipData = ClipData.newPlainText("From your Mac", text).apply {
+    private fun fromMacClip(text: String): ClipData = ClipData.newPlainText("From your computer", text).apply {
         if (Build.VERSION.SDK_INT >= 33) {
             description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_REMOTE_DEVICE, true) }
         }
