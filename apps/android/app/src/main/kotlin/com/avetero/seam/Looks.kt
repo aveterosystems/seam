@@ -30,7 +30,7 @@ import java.util.Locale
 // input, and maps each icon meaning to a drawable (docs/design/design-system.md, "Icons").
 
 /** How the phone names itself and the Mac. */
-val PhoneNames = LookNames(LookSide.PHONE, "this phone", "your Mac")
+val PhoneNames = LookNames(LookSide.PHONE, "this phone", "your computer")
 
 /** The phone's clock and calendar; [zone], [hours24] and [locale] for tests, otherwise the phone's own at each use. */
 class SystemTime(
@@ -54,14 +54,15 @@ class SystemTime(
  * the notification's toast, the clipboard rows. One wording per outcome, with the Mac's name.
  */
 object SendWords {
-    const val SENT = "✓ Sent to Mac"
+    const val SENT = "✓ Sent to computer"
     const val SENDING = "Sending"
     const val NOTHING = "Nothing to send: the clipboard is empty, too big, or holds something private"
     /** The clipboard rows' line, where the Mac's name would crowd it. */
-    const val SYNC_OFF_SHORT = "Off · sync is off on your Mac"
+    const val SYNC_OFF_SHORT = "Off · sync is off on your computer"
     /** Under Home's greyed Send: why, where the Automatic clipboard row already says sync is off. */
-    const val SYNC_OFF_SEND = "Send needs clipboard sync on your Mac"
-    fun syncOff(mac: String) = "$mac has clipboard sync off. Turn it on in Seam on your Mac."
+    const val SYNC_OFF_SEND = "Send needs clipboard sync on your computer"
+    // The name starts the sentence: "your computer" (no name yet) is capitalised
+    fun syncOff(mac: String) = "${mac.replaceFirstChar { it.uppercase() }} has clipboard sync off. Turn it on in Seam on your computer."
     fun queued(mac: String) = "Will send when $mac is back"
     fun sendTo(mac: String) = "Send to $mac"
     fun cantSendTo(mac: String) = "Can't send to $mac"

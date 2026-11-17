@@ -19,21 +19,35 @@ pub struct LinuxSameWifi {
 
 impl LinuxSameWifi {
     pub fn new() -> Self {
-        Self { daemon: Mutex::new(None) }
+        Self {
+            daemon: Mutex::new(None),
+        }
     }
 }
 
 impl SameWifi for LinuxSameWifi {
     fn announce(&self, port: u16) {
         self.stop_announcing();
-        let Ok(daemon) = ServiceDaemon::new() else { return };
-        let host = format!("seam-{:08x}.local.", rand::random::<u32>()); // not the computer's own name
-        let addrs: Vec<IpAddr> = lan_addresses();
-        let Ok(info) = ServiceInfo::new(TYPE, NAME, &host, &addrs[..], port, None::<std::collections::HashMap<String, String>>)
-        else {
+        let Ok(daemon) = ServiceDaemon::new() else {
             return;
         };
-        let info = if addrs.is_empty() { info.enable_addr_auto() } else { info };
+        let host = format!("seam-{:08x}.local.", rand::random::<u32>()); // not the computer's own name
+        let addrs: Vec<IpAddr> = lan_addresses();
+        let Ok(info) = ServiceInfo::new(
+            TYPE,
+            NAME,
+            &host,
+            &addrs[..],
+            port,
+            None::<std::collections::HashMap<String, String>>,
+        ) else {
+            return;
+        };
+        let info = if addrs.is_empty() {
+            info.enable_addr_auto()
+        } else {
+            info
+        };
         let full = info.get_fullname().to_string();
         if daemon.register(info).is_ok() {
             *crate::lock(&self.daemon) = Some((daemon, full));
@@ -64,12 +78,20 @@ fn is_lan_interface(name: &str) -> bool {
 
 /// Every interface this address is on (usually one).
 fn interfaces_holding(ip: IpAddr) -> Vec<String> {
-    addresses().into_iter().filter(|(_, a)| *a == ip).map(|(i, _)| i).collect()
+    addresses()
+        .into_iter()
+        .filter(|(_, a)| *a == ip)
+        .map(|(i, _)| i)
+        .collect()
 }
 
 /// The addresses on Wi‑Fi and Ethernet, to announce.
 fn lan_addresses() -> Vec<IpAddr> {
-    addresses().into_iter().filter(|(i, a)| is_lan_interface(i) && !a.is_loopback()).map(|(_, a)| a).collect()
+    addresses()
+        .into_iter()
+        .filter(|(i, a)| is_lan_interface(i) && !a.is_loopback())
+        .map(|(_, a)| a)
+        .collect()
 }
 
 fn addresses() -> Vec<(String, IpAddr)> {
@@ -84,11 +106,16 @@ fn addresses() -> Vec<(String, IpAddr)> {
         while !p.is_null() {
             let a = &*p;
             if !a.ifa_addr.is_null() {
-                let name = std::ffi::CStr::from_ptr(a.ifa_name).to_string_lossy().into_owned();
+                let name = std::ffi::CStr::from_ptr(a.ifa_name)
+                    .to_string_lossy()
+                    .into_owned();
                 match (*a.ifa_addr).sa_family as i32 {
                     libc::AF_INET => {
                         let sin = &*(a.ifa_addr as *const libc::sockaddr_in);
-                        out.push((name, IpAddr::from(u32::from_be(sin.sin_addr.s_addr).to_be_bytes())));
+                        out.push((
+                            name,
+                            IpAddr::from(u32::from_be(sin.sin_addr.s_addr).to_be_bytes()),
+                        ));
                     }
                     libc::AF_INET6 => {
                         let sin6 = &*(a.ifa_addr as *const libc::sockaddr_in6);

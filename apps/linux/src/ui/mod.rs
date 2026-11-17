@@ -25,7 +25,11 @@ pub fn load_css() {
     let provider = gtk::CssProvider::new();
     provider.load_from_string(CSS);
     if let Some(display) = gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(&display, &provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
     }
 }
 
@@ -40,35 +44,25 @@ pub fn palette() -> Palette {
     let dark = adw::StyleManager::default().is_dark();
     let rgba = |s: &str| gdk::RGBA::parse(s).unwrap_or(gdk::RGBA::BLACK);
     if dark {
-        Palette { teal: rgba("#3DD6BE"), grey: rgba("#8E9194"), paused: rgba("#5B8FC4") }
+        Palette {
+            teal: rgba("#3DD6BE"),
+            grey: rgba("#8E9194"),
+            paused: rgba("#5B8FC4"),
+        }
     } else {
-        Palette { teal: rgba("#0B7F6F"), grey: rgba("#9A9DA1"), paused: rgba("#32628D") }
+        Palette {
+            teal: rgba("#0B7F6F"),
+            grey: rgba("#9A9DA1"),
+            paused: rgba("#32628D"),
+        }
     }
 }
 
-/// The timing tokens (motion.md). `spring` is the prototype's: 7.7% overshoot, settled by about
-/// 45% of 420 ms. As a damped spring: damping ratio 0.632, response 0.388 × d seconds.
+/// Motion on Linux is libadwaita's own (GNOME HIG): stock widgets keep their transitions. Seam's
+/// own pieces (the stitch, the status dot) follow motion.md's catalogue 10.
 pub mod motion {
-    pub fn spring(duration: f64) -> adw::SpringParams {
-        let response = 0.388 * duration;
-        let stiffness = (2.0 * std::f64::consts::PI / response).powi(2);
-        adw::SpringParams::new(0.632, 1.0, stiffness)
-    }
-    /// Default spatial: open, expand, insert, press release.
-    pub fn default() -> adw::SpringParams {
-        spring(0.42)
-    }
-    /// Presses, chevrons, small icons.
-    pub fn fast() -> adw::SpringParams {
-        spring(0.3)
-    }
+    /// Colour and opacity changes (motion.md's `fade`).
     pub const FADE_MS: u32 = 350;
-    pub const EXIT_MS: u32 = 180;
-    pub const SETTLE_MS: u32 = 700;
-    /// Sections arriving when a surface opens: 60 ms, then 35 ms each.
-    pub fn stagger(i: u32) -> u32 {
-        60 + 35 * i
-    }
 }
 
 /// Whether the desktop asks for less motion (GNOME's and KDE's "Animations" switch).
@@ -92,10 +86,28 @@ pub fn now_ms() -> i64 {
 /// layout bugs seen in a screenshot.
 #[cfg(debug_assertions)]
 pub fn dump(w: &gtk::Widget, depth: usize, out: &mut String) {
-    let b = w.compute_bounds(&w.root().map(|r| r.upcast::<gtk::Widget>()).unwrap_or_else(|| w.clone()));
-    let (x, y, wd, ht) = b.map(|b| (b.x(), b.y(), b.width(), b.height())).unwrap_or_default();
-    let extra = w.downcast_ref::<gtk::Label>().map(|l| format!(" {:?}", l.label().chars().take(24).collect::<String>())).unwrap_or_default();
-    out.push_str(&format!("{}{} {:.0},{:.0} {:.0}x{:.0}{}\n", "  ".repeat(depth), w.type_().name(), x, y, wd, ht, extra));
+    let b = w.compute_bounds(
+        &w.root()
+            .map(|r| r.upcast::<gtk::Widget>())
+            .unwrap_or_else(|| w.clone()),
+    );
+    let (x, y, wd, ht) = b
+        .map(|b| (b.x(), b.y(), b.width(), b.height()))
+        .unwrap_or_default();
+    let extra = w
+        .downcast_ref::<gtk::Label>()
+        .map(|l| format!(" {:?}", l.label().chars().take(24).collect::<String>()))
+        .unwrap_or_default();
+    out.push_str(&format!(
+        "{}{} {:.0},{:.0} {:.0}x{:.0}{}\n",
+        "  ".repeat(depth),
+        w.type_().name(),
+        x,
+        y,
+        wd,
+        ht,
+        extra
+    ));
     let mut c = w.first_child();
     while let Some(child) = c {
         if child.is_visible() {

@@ -65,7 +65,7 @@ fun SettingsScreen(
     var keepPasswords by remember { mutableStateOf(!sendSensitive) }
     val uri = LocalUriHandler.current
     SubScreen("Settings", onBack) {
-        Section("On your Mac") {
+        Section("On your computer") {
             if (notifications != null) NotificationsItem(notifications, paused = pause != null, onOpen = onOpenNotifications)
             AutoClipboardItem(clipboard, pause)
         }
@@ -93,14 +93,14 @@ fun SettingsScreen(
             SwitchItem(
                 // At 360 dp it wraps beside the switch; the row title's balanced breaks split it evenly
                 "Keep passwords on this phone",
-                if (keepPasswords) "Never sent to your Mac" else "Sent to your Mac too",
+                if (keepPasswords) "Never sent to your computer" else "Sent to your computer too",
                 checked = keepPasswords, onChange = { keepPasswords = it; onSendSensitive(!it) },
                 lead = painterResource(R.drawable.ic_key),
             )
         }
         if (updater?.available == true) UpdatesSection(updater, version)
         if (macName != null) {
-            Section("Your Mac") {
+            Section("Your computer") {
                 Item(macName, pairedAt?.let { pairedLabel(it) }, lead = painterResource(R.drawable.ic_laptop)) {
                     Pill("Forget", { confirmForget = true }, PillKind.Error)
                 }

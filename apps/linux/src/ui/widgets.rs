@@ -31,7 +31,11 @@ pub fn phone_disc(size: i32) -> gtk::Box {
 }
 
 pub fn set_disc(disc: &gtk::Box, connected: bool) {
-    if connected { disc.add_css_class("connected") } else { disc.remove_css_class("connected") }
+    if connected {
+        disc.add_css_class("connected")
+    } else {
+        disc.remove_css_class("connected")
+    }
 }
 
 /// The live dot beside the status line. Connected, it sends out a soft ring every 2.4 s
@@ -46,7 +50,11 @@ pub struct StatusDot {
 
 impl StatusDot {
     pub fn new() -> Self {
-        let widget = gtk::DrawingArea::builder().content_width(14).content_height(14).valign(gtk::Align::Center).build();
+        let widget = gtk::DrawingArea::builder()
+            .content_width(14)
+            .content_height(14)
+            .valign(gtk::Align::Center)
+            .build();
         widget.set_accessible_role(gtk::AccessibleRole::Presentation);
         let on = Rc::new(Cell::new(false));
         let t = Rc::new(Cell::new(0.0));
@@ -60,7 +68,12 @@ impl StatusDot {
                 // The ring: scale 1 → 2.8 while fading, every 2.4 s
                 let phase: f64 = (tt.get() % 2.4) / 2.4;
                 let ease = 1.0 - (1.0 - phase).powi(3);
-                cr.set_source_rgba(c.red() as f64, c.green() as f64, c.blue() as f64, 0.45 * (1.0 - phase));
+                cr.set_source_rgba(
+                    c.red() as f64,
+                    c.green() as f64,
+                    c.blue() as f64,
+                    0.45 * (1.0 - phase),
+                );
                 cr.arc(cx, cy, r * (1.0 + 1.8 * ease), 0.0, 2.0 * PI);
                 let _ = cr.fill();
             }
@@ -68,7 +81,12 @@ impl StatusDot {
             cr.arc(cx, cy, r, 0.0, 2.0 * PI);
             let _ = cr.fill();
         });
-        Self { widget, on, tick: Rc::default(), t }
+        Self {
+            widget,
+            on,
+            tick: Rc::default(),
+            t,
+        }
     }
 
     pub fn set(&self, on: bool) {
@@ -119,7 +137,10 @@ impl Swap {
             .interpolate_size(true)
             .build();
         let make = || {
-            let l = gtk::Label::builder().xalign(0.0).ellipsize(gtk::pango::EllipsizeMode::End).build();
+            let l = gtk::Label::builder()
+                .xalign(0.0)
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .build();
             for c in classes {
                 l.add_css_class(c);
             }
@@ -128,7 +149,12 @@ impl Swap {
         let labels = [make(), make()];
         widget.add_named(&labels[0], Some("a"));
         widget.add_named(&labels[1], Some("b"));
-        Self { widget, text: Rc::default(), flip: Rc::default(), labels }
+        Self {
+            widget,
+            text: Rc::default(),
+            flip: Rc::default(),
+            labels,
+        }
     }
 
     pub fn set(&self, text: &str) {
@@ -139,25 +165,20 @@ impl Swap {
         *self.text.borrow_mut() = text.to_string();
         let next = !self.flip.get();
         self.flip.set(next);
-        let (label, name) = if next { (&self.labels[1], "b") } else { (&self.labels[0], "a") };
-        label.set_label(text);
-        self.widget.update_property(&[gtk::accessible::Property::Label(text)]);
-        if first || !crate::ui::animations() {
-            self.widget.set_visible_child_full(name, gtk::StackTransitionType::None);
+        let (label, name) = if next {
+            (&self.labels[1], "b")
         } else {
-            self.widget.set_visible_child_full(name, gtk::StackTransitionType::SlideUp);
-        }
-    }
-
-    pub fn add_css_class(&self, c: &str) {
-        for l in &self.labels {
-            l.add_css_class(c);
-        }
-    }
-
-    pub fn remove_css_class(&self, c: &str) {
-        for l in &self.labels {
-            l.remove_css_class(c);
+            (&self.labels[0], "a")
+        };
+        label.set_label(text);
+        self.widget
+            .update_property(&[gtk::accessible::Property::Label(text)]);
+        if first || !crate::ui::animations() {
+            self.widget
+                .set_visible_child_full(name, gtk::StackTransitionType::None);
+        } else {
+            self.widget
+                .set_visible_child_full(name, gtk::StackTransitionType::SlideUp);
         }
     }
 
@@ -224,7 +245,10 @@ pub fn status_page() -> (adw::StatusPage, gtk::Button) {
     let button = gtk::Button::builder().halign(gtk::Align::Center).build();
     button.add_css_class("pill");
     button.add_css_class("suggested-action");
-    let page = adw::StatusPage::builder().child(&button).vexpand(true).build();
+    let page = adw::StatusPage::builder()
+        .child(&button)
+        .vexpand(true)
+        .build();
     page.add_css_class("compact");
     (page, button)
 }

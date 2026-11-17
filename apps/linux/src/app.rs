@@ -14,7 +14,9 @@ use seam_computer::Event;
 use seam_computer::computer::{Computer, Listener, Os, Settings, Snapshot};
 use seam_computer::features::{Command, clipboard, notifications, status};
 use seam_computer::store::Legacy;
-use seam_core::proto::v1::{NotificationAction, NotificationSettingsChange, notification_action::Action};
+use seam_core::proto::v1::{
+    NotificationAction, NotificationSettingsChange, notification_action::Action,
+};
 
 use crate::model::{Icons, Model};
 use crate::os::banners::{self, Banner, Banners};
@@ -35,8 +37,6 @@ pub enum Msg {
     ClipboardReach,
     /// Which door this desktop has, once it's known.
     ClipboardPlan(crate::os::doors::Plan),
-    /// Something to confirm or explain in a toast.
-    Toast(&'static str),
 }
 
 // A copy's text never prints (rule 6)
@@ -52,12 +52,12 @@ impl std::fmt::Debug for Msg {
             Msg::Do(a) => f.debug_tuple("Do").field(a).finish(),
             Msg::ClipboardReach => f.write_str("ClipboardReach"),
             Msg::ClipboardPlan(p) => f.debug_tuple("ClipboardPlan").field(p).finish(),
-            Msg::Toast(t) => f.debug_tuple("Toast").field(t).finish(),
         }
     }
 }
 
 type Watcher = Rc<dyn Fn(&Controller)>;
+type Toaster = Box<dyn Fn(&str)>;
 
 /// Undoes a `watch`, for screens that close (Preferences).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -82,7 +82,7 @@ pub struct Controller {
     /// Debug: made-up state for looking at every screen without a phone. Nothing starts.
     demo: Cell<bool>,
     /// Shows a toast in the window (GNOME's way to confirm an action).
-    toaster: RefCell<Option<Box<dyn Fn(&str)>>>,
+    toaster: RefCell<Option<Toaster>>,
     /// This desktop's way to an automatic clipboard (decision 0012).
     plan: Cell<crate::os::doors::Plan>,
     /// The phone's adb setup is running: one at a time (SR-4-11).
@@ -223,7 +223,12 @@ impl Controller {
 
     fn notify(&self) {
         // A watcher may add another (a window opening): run the ones there were
-        let watchers: Vec<Watcher> = self.watchers.borrow().iter().map(|(_, w)| w.clone()).collect();
+        let watchers: Vec<Watcher> = self
+            .watchers
+            .borrow()
+            .iter()
+            .map(|(_, w)| w.clone())
+            .collect();
         for w in watchers {
             w(self);
         }
@@ -247,7 +252,6 @@ impl Controller {
             }
             Msg::Do(action) => self.app.activate_action(action, None),
             Msg::ClipboardReach => self.notify(),
-            Msg::Toast(t) => self.toast(t),
             Msg::ClipboardPlan(p) => {
                 self.plan.set(p);
                 self.notify();
@@ -282,7 +286,9 @@ impl Controller {
     fn heard(&self, e: &Event) {
         match e {
             Event::Problem(p) => eprintln!("seam: {p:?}"), // a code, never contents
-            Event::ClipFromPhone if self.pasteboard.reach() == crate::os::clipboard::Reach::OneTap => {
+            Event::ClipFromPhone
+                if self.pasteboard.reach() == crate::os::clipboard::Reach::OneTap =>
+            {
                 // Wayland won't let Seam write the clipboard from the background: one tap does
                 let n = gio::Notification::new("Copied from your phone");
                 n.set_body(Some("Click Copy to put it on this computer's clipboard."));
@@ -307,9 +313,16 @@ impl Controller {
                 if let Some(png) = icon {
                     g.set_icon(&gio::BytesIcon::new(&glib::Bytes::from_owned(png)));
                 }
-                g.set_default_action_and_target_value("app.open-notification", Some(&n.key.to_variant()));
+                g.set_default_action_and_target_value(
+                    "app.open-notification",
+                    Some(&n.key.to_variant()),
+                );
                 for (label, action, (key, id)) in &spec.buttons {
-                    let target = if *action == "app.reply" { key.to_variant() } else { (key, id).to_variant() };
+                    let target = if *action == "app.reply" {
+                        key.to_variant()
+                    } else {
+                        (key, id).to_variant()
+                    };
                     g.add_button_with_target_value(label, action, Some(&target));
                 }
                 self.app.send_notification(Some(&spec.id), &g);
@@ -412,13 +425,21 @@ impl Controller {
     /// Send clipboard: what's on the clipboard now, read while Seam has focus, offered to the core,
     /// whose rules decide (a password or a file never goes).
     pub fn send_clipboard(self: &Rc<Self>, done: impl Fn(bool) + 'static) {
-        let Some(display) = gdk::Display::default() else { return done(false) };
+        let Some(display) = gdk::Display::default() else {
+            return done(false);
+        };
         let clip = display.clipboard();
-        let types: Vec<String> = clip.formats().mime_types().iter().map(|t| t.to_string()).collect();
+        let types: Vec<String> = clip
+            .formats()
+            .mime_types()
+            .iter()
+            .map(|t| t.to_string())
+            .collect();
         let one_tap = self.one_tap.clone();
         clip.read_text_async(None::<&gio::Cancellable>, move |r| {
             let text = r.ok().flatten().map(|t| t.to_string());
-            let ok = text.as_ref().is_some_and(|t| !t.is_empty()) && seam_computer::features::clipboard::sendable(&types);
+            let ok = text.as_ref().is_some_and(|t| !t.is_empty())
+                && seam_computer::features::clipboard::sendable(&types);
             one_tap.offer(types, text);
             done(ok);
         });
@@ -426,28 +447,40 @@ impl Controller {
 
     /// The latest copy from the phone, on the clipboard now (one tap).
     pub fn copy_from_phone(&self) {
-        let text = self.model.borrow().clips.iter().find(|c| c.from_phone).map(|c| c.text.clone());
+        let text = self
+            .model
+            .borrow()
+            .clips
+            .iter()
+            .find(|c| c.from_phone)
+            .map(|c| c.text.clone());
         if let (Some(text), Some(display)) = (text, gdk::Display::default()) {
             display.clipboard().set_text(&text);
         }
     }
 
     pub fn act(&self, key: String, action: Action) {
-        self.feature(Command::Notifications(notifications::Command::Act(NotificationAction {
-            key,
-            action: Some(action),
-        })));
+        self.feature(Command::Notifications(notifications::Command::Act(
+            NotificationAction {
+                key,
+                action: Some(action),
+            },
+        )));
     }
 
     /// The window's dismiss: the banner goes too.
     pub fn dismiss(&self, key: &str) {
         self.model.borrow_mut().shown.retain(|n| n.key != key);
         self.notify();
-        self.feature(Command::Notifications(notifications::Command::Dismiss(key.to_string())));
+        self.feature(Command::Notifications(notifications::Command::Dismiss(
+            key.to_string(),
+        )));
     }
 
     pub fn change_notifications(&self, change: NotificationSettingsChange) {
-        self.feature(Command::Notifications(notifications::Command::Change(change)));
+        self.feature(Command::Notifications(notifications::Command::Change(
+            change,
+        )));
     }
 
     pub fn ask_phone_status(&self) {
@@ -473,7 +506,10 @@ impl Listener for ToMain {
 pub fn data_folder() -> std::io::Result<PathBuf> {
     let name = if cfg!(debug_assertions) {
         // SEAM_DATA_FOLDER picks another folder, to run a second debug computer (device tests)
-        std::env::var("SEAM_DATA_FOLDER").ok().filter(|n| !n.contains('/') && !n.is_empty()).unwrap_or("seam-debug".into())
+        std::env::var("SEAM_DATA_FOLDER")
+            .ok()
+            .filter(|n| !n.contains('/') && !n.is_empty())
+            .unwrap_or("seam-debug".into())
     } else {
         "seam".into()
     };
@@ -488,7 +524,13 @@ pub fn data_folder() -> std::io::Result<PathBuf> {
 pub fn write_private(path: &std::path::Path, bytes: &[u8]) {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
-    if let Ok(mut f) = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(path) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)
+    {
         let _ = f.write_all(bytes);
     }
 }

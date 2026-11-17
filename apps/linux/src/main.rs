@@ -18,6 +18,9 @@ use seam_core::proto::v1::{NotificationApp, NotificationMode, NotificationSettin
 
 pub const APP_ID: &str = "com.avetero.Seam";
 
+/// The app's live objects, made at startup.
+type Live = (Rc<app::Controller>, Rc<ui::window::Window>);
+
 /// A poisoned lock is still usable: nothing behind a lock here has an invariant a panic mid-update
 /// could break.
 pub(crate) fn lock<T>(m: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -25,17 +28,21 @@ pub(crate) fn lock<T>(m: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 fn main() -> glib::ExitCode {
-    let app = adw::Application::builder().application_id(APP_ID).flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE).build();
+    let app = adw::Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
+        .build();
     // Started at login: wait in the background, no window
     let background = std::env::args().any(|a| a == "--background");
-    let state: Rc<std::cell::RefCell<Option<(Rc<app::Controller>, Rc<ui::window::Window>)>>> = Rc::default();
+    let state: Rc<std::cell::RefCell<Option<Live>>> = Rc::default();
 
     let s = state.clone();
     app.connect_startup(move |app| {
         ui::load_css();
         if let Some(display) = gtk::gdk::Display::default() {
             gtk::IconTheme::for_display(&display).add_resource_path("/com/avetero/Seam/icons");
-            gtk::IconTheme::for_display(&display).add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons"));
+            gtk::IconTheme::for_display(&display)
+                .add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons"));
         }
         std::mem::forget(app.hold()); // closing the window keeps Seam running, for the app's life
         let c = app::Controller::new(app);
@@ -57,7 +64,12 @@ fn main() -> glib::ExitCode {
     let s = state.clone();
     let first = std::cell::Cell::new(true);
     app.connect_command_line(move |app, cmd| {
-        let quiet = first.replace(false) && background && cmd.arguments().iter().any(|a| a.to_str() == Some("--background"));
+        let quiet = first.replace(false)
+            && background
+            && cmd
+                .arguments()
+                .iter()
+                .any(|a| a.to_str() == Some("--background"));
         if !quiet {
             app.activate();
         }
@@ -70,11 +82,18 @@ fn main() -> glib::ExitCode {
             w.window.present();
         }
     });
-    app.run_with_args(&std::env::args().filter(|a| a != "--background").collect::<Vec<_>>())
+    app.run_with_args(
+        &std::env::args()
+            .filter(|a| a != "--background")
+            .collect::<Vec<_>>(),
+    )
 }
 
+/// What an app action does with its target.
+type Handler = Box<dyn Fn(Option<&glib::Variant>)>;
+
 fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::Window>) {
-    let add = |name: &str, f: Box<dyn Fn(Option<&glib::Variant>)>, ty: Option<&glib::VariantTy>| {
+    let add = |name: &str, f: Handler, ty: Option<&glib::VariantTy>| {
         let a = gio::SimpleAction::new(name, ty);
         a.connect_activate(move |_, v| f(v));
         app.add_action(&a);
@@ -92,13 +111,29 @@ fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::W
     let p = prefs.clone();
     add("preferences-phone", Box::new(move |_| p("phone")), None);
     let p = prefs.clone();
-    add("preferences-notifications", Box::new(move |_| p("notifications")), None);
+    add(
+        "preferences-notifications",
+        Box::new(move |_| p("notifications")),
+        None,
+    );
     let p = prefs.clone();
-    add("preferences-page", Box::new(move |v| p(v.and_then(|v| v.str()).unwrap_or("phone"))), Some(glib::VariantTy::STRING));
+    add(
+        "preferences-page",
+        Box::new(move |v| p(v.and_then(|v| v.str()).unwrap_or("phone"))),
+        Some(glib::VariantTy::STRING),
+    );
     let (cc, win) = (c.clone(), window.clone());
-    add("clipboard-setup", Box::new(move |_| ui::setup::computer(&cc, &win)), None);
+    add(
+        "clipboard-setup",
+        Box::new(move |_| ui::setup::computer(&cc, &win)),
+        None,
+    );
     let (cc, win) = (c.clone(), window.clone());
-    add("phone-clipboard-setup", Box::new(move |_| ui::setup::phone(&cc, &win)), None);
+    add(
+        "phone-clipboard-setup",
+        Box::new(move |_| ui::setup::phone(&cc, &win)),
+        None,
+    );
     let _ = prefs;
     let win = window.clone();
     add("show-window", Box::new(move |_| win.present()), None);
@@ -161,7 +196,9 @@ fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::W
             ww.window.present();
             // Seam has focus once presented: the clipboard takes the copy
             let cc = cc.clone();
-            glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || cc.copy_from_phone());
+            glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                cc.copy_from_phone()
+            });
         }),
         None,
     );
@@ -175,11 +212,30 @@ fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::W
     add(
         "notification-mode-all",
         Box::new(move |v| {
-            let i: usize = v.and_then(|v| v.str()).and_then(|s| s.parse().ok()).unwrap_or(0);
-            let mode = [NotificationMode::On, NotificationMode::TitleOnly, NotificationMode::Off][i.min(2)];
-            let apps = cc.model().settings.as_ref().map(|s| s.apps.clone()).unwrap_or_default();
+            let i: usize = v
+                .and_then(|v| v.str())
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+            let mode = [
+                NotificationMode::On,
+                NotificationMode::TitleOnly,
+                NotificationMode::Off,
+            ][i.min(2)];
+            let apps = cc
+                .model()
+                .settings
+                .as_ref()
+                .map(|s| s.apps.clone())
+                .unwrap_or_default();
             cc.change_notifications(NotificationSettingsChange {
-                apps: apps.into_iter().map(|a| NotificationApp { app_id: a.app_id, mode: mode as i32, ..Default::default() }).collect(),
+                apps: apps
+                    .into_iter()
+                    .map(|a| NotificationApp {
+                        app_id: a.app_id,
+                        mode: mode as i32,
+                        ..Default::default()
+                    })
+                    .collect(),
                 ..Default::default()
             });
         }),

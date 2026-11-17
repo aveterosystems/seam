@@ -15,7 +15,7 @@ use crate::app::Msg;
 /// What the core asks of the banners, carried to the main thread.
 #[derive(Clone)]
 pub enum Banner {
-    Show(Notification, Option<Vec<u8>>),
+    Show(Box<Notification>, Option<Vec<u8>>),
     Dismiss(String),
     RemoveAll,
 }
@@ -44,7 +44,10 @@ impl Banners {
 #[async_trait]
 impl NotificationCentre for Banners {
     async fn show(&self, notification: Notification, icon: Option<Vec<u8>>) {
-        let _ = self.tx.send(Msg::Banner(Banner::Show(notification, icon))).await;
+        let _ = self
+            .tx
+            .send(Msg::Banner(Banner::Show(Box::new(notification), icon)))
+            .await;
     }
 
     async fn dismiss(&self, key: String) {
@@ -76,13 +79,25 @@ pub fn id(key: &str) -> String {
 /// title is empty. Buttons: Reply first (opens the window), then the phone's own, at most three
 /// in all, as most desktops show no more.
 pub fn spec(n: &Notification) -> Spec {
-    let title = if n.title.trim().is_empty() { n.app_name.clone() } else { format!("{} · {}", n.title, n.app_name) };
+    let title = if n.title.trim().is_empty() {
+        n.app_name.clone()
+    } else {
+        format!("{} · {}", n.title, n.app_name)
+    };
     let mut buttons = Vec::new();
     if n.can_reply {
-        buttons.push(("Reply".to_string(), "app.reply", (n.key.clone(), String::new())));
+        buttons.push((
+            "Reply".to_string(),
+            "app.reply",
+            (n.key.clone(), String::new()),
+        ));
     }
     for b in &n.buttons {
-        buttons.push((b.title.clone(), "app.phone-button", (n.key.clone(), b.id.clone())));
+        buttons.push((
+            b.title.clone(),
+            "app.phone-button",
+            (n.key.clone(), b.id.clone()),
+        ));
     }
     buttons.truncate(3);
     Spec {
@@ -106,9 +121,18 @@ mod tests {
             text: "On my way".into(),
             can_reply: true,
             buttons: vec![
-                NotificationButton { id: "b1".into(), title: "Mark read".into() },
-                NotificationButton { id: "b2".into(), title: "Mute".into() },
-                NotificationButton { id: "b3".into(), title: "Archive".into() },
+                NotificationButton {
+                    id: "b1".into(),
+                    title: "Mark read".into(),
+                },
+                NotificationButton {
+                    id: "b2".into(),
+                    title: "Mute".into(),
+                },
+                NotificationButton {
+                    id: "b3".into(),
+                    title: "Archive".into(),
+                },
             ],
             ..Default::default()
         }
@@ -136,7 +160,7 @@ mod tests {
 
     #[test]
     fn debug_never_prints_contents() {
-        let shown = format!("{:?}", Banner::Show(n(), None));
+        let shown = format!("{:?}", Banner::Show(Box::new(n()), None));
         assert!(!shown.contains("On my way") && !shown.contains("Ana"));
     }
 }

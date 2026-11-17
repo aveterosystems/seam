@@ -147,7 +147,7 @@ class SessionTest {
         assertTrue("still trying while the address publishes", s.state.value is SessionState.Pairing)
         assertTrue("retried", tor.dialled.size >= 3)
         advanceUntilIdle()
-        assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Couldn't reach your Mac"))
+        assertTrue((s.state.value as SessionState.Failed).reason.startsWith("Couldn't reach your computer"))
     }
 
     @Test fun aRelayEraPairingAsksToPairAgain() = runTest {
@@ -844,7 +844,7 @@ class SessionTest {
         s.abortPairing()
         advanceUntilIdle()
         assertEquals(SessionState.Unpaired, s.state.value)
-        assertTrue(s.notice.value!!.startsWith("Unpaired: your Mac confirmed"))
+        assertTrue(s.notice.value!!.startsWith("Unpaired: your computer confirmed"))
         assertTrue("nothing trusted", SeamDevice.restore(store.blob!!, ByteArray(32) { 3 }).peers().isEmpty())
     }
 

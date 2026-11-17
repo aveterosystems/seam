@@ -16,7 +16,11 @@ pub struct Keyring {
 impl Keyring {
     pub fn new() -> Self {
         Self {
-            account: if cfg!(debug_assertions) { "state-key-debug" } else { "state-key" },
+            account: if cfg!(debug_assertions) {
+                "state-key-debug"
+            } else {
+                "state-key"
+            },
         }
     }
 }
@@ -39,7 +43,8 @@ impl KeyStore for Keyring {
 
 /// What the user reads when the keyring won't help; the details go to the log, never the screen.
 const NO_KEYRING: &str = "it needs your keyring to keep its keys safe, and none is running. Install GNOME Keyring or KWallet, then open Seam again.";
-const LOCKED: &str = "your keyring is locked. Unlock it when your desktop asks, then open Seam again.";
+const LOCKED: &str =
+    "your keyring is locked. Unlock it when your desktop asks, then open Seam again.";
 
 async fn key(account: &str, create: bool) -> Result<Option<Vec<u8>>, String> {
     let fail = |words: &'static str| {
@@ -52,7 +57,10 @@ async fn key(account: &str, create: bool) -> Result<Option<Vec<u8>>, String> {
     // A locked login keyring asks the user once, as every app's does
     keyring.unlock().await.map_err(fail(LOCKED))?;
     let attributes = HashMap::from([("application", "com.avetero.Seam"), ("account", account)]);
-    let items = keyring.search_items(&attributes).await.map_err(fail(LOCKED))?;
+    let items = keyring
+        .search_items(&attributes)
+        .await
+        .map_err(fail(LOCKED))?;
     if let Some(item) = items.first() {
         let secret = item.secret().await.map_err(fail(LOCKED))?;
         let bytes: &[u8] = secret.as_ref();

@@ -95,7 +95,7 @@ fun SeamScreen(
                 // Board A02: the live view and frame stay behind the sheet; reading pauses
                 camera = { camera(step == null) },
                 onBack = back,
-                caption = scanError ?: "Point at the code on your Mac",
+                caption = scanError ?: "Point at the code on your computer",
                 cameraOn = cameraOn,
                 // The sheet's title says the step: confirm, waiting, then the code
                 title = macName?.let {
@@ -132,8 +132,8 @@ fun SeamScreen(
         when (state) {
             is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
             else -> Intro(
-                title = "Pair with your Mac",
-                body = "Open Seam on your Mac and scan the code it shows. That's the whole setup.",
+                title = "Pair with your computer",
+                body = "Open Seam on your computer and scan the code it shows. That's the whole setup.",
                 action = "Scan code",
                 error = scanError,
                 onAction = onScan,
@@ -154,9 +154,9 @@ private fun Intro(title: String, body: String, action: String, error: String?, o
         // above and two below so it sits optically centred; the words above stay put, keeping the cookie at Setup's height
         Spacer(Modifier.weight(1f))
         Column(Modifier.align(Alignment.CenterHorizontally).padding(horizontal = 8.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Hint(R.drawable.ic_laptop, "Seam shows it on your Mac", "As soon as it first opens")
+            Hint(R.drawable.ic_laptop, "Seam shows it on your computer", "As soon as it first opens")
             // The filled mark reads heavier than the outline laptop at the same size
-            Hint(R.drawable.ic_seam_mark, "Not showing?", "Seam in the menu bar › Pair your phone", iconSize = 18.dp)
+            Hint(R.drawable.ic_seam_mark, "Not showing?", "Open Seam › Pair your phone", iconSize = 18.dp)
         }
         Spacer(Modifier.weight(2f))
     }

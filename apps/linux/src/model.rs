@@ -99,7 +99,9 @@ impl Model {
         match &s.health {
             Health::Starting => return m,
             Health::Ready => m.startup_error = None,
-            Health::Unreadable => m.startup_error = Some("Seam's data on this computer can't be opened.".into()),
+            Health::Unreadable => {
+                m.startup_error = Some("Seam's data on this computer can't be opened.".into())
+            }
             Health::Failed { detail } => {
                 m.startup_error = Some(if resetting {
                     format!("Seam couldn't reset: {detail}")
@@ -154,12 +156,24 @@ impl Model {
 
     /// "Connected", "Last seen 12 min ago", or why not.
     pub fn status_line(&self, now_ms: i64) -> String {
-        link::status_line(&self.link(now_ms), &names(), self.last_seen, now_ms, &SystemTime)
+        link::status_line(
+            &self.link(now_ms),
+            &names(),
+            self.last_seen,
+            now_ms,
+            &SystemTime,
+        )
     }
 
     /// The same with room to say what happens next (the Phone page's header).
     pub fn hero_line(&self, now_ms: i64) -> String {
-        link::hero_line(&self.link(now_ms), &names(), self.last_seen, now_ms, &SystemTime)
+        link::hero_line(
+            &self.link(now_ms),
+            &names(),
+            self.last_seen,
+            now_ms,
+            &SystemTime,
+        )
     }
 
     pub fn phone_status(&self, now_ms: i64) -> Option<DeviceStatusLook> {
@@ -175,7 +189,12 @@ impl Model {
     }
 
     pub fn notifications_tile(&self, now_ms: i64) -> TileLook {
-        seam_looks::notifications::tile(self.settings.as_ref(), self.shown.len(), now_ms, &SystemTime)
+        seam_looks::notifications::tile(
+            self.settings.as_ref(),
+            self.shown.len(),
+            now_ms,
+            &SystemTime,
+        )
     }
 
     pub fn phone_name(&self, start: bool) -> String {
@@ -185,9 +204,7 @@ impl Model {
     /// What the window's Notifications page shows when there's nothing to list.
     pub fn notifications_empty(&self, now_ms: i64) -> Option<Empty> {
         let name = self.phone_name(true);
-        if self.phone.is_none() {
-            return None; // the window shows pairing instead
-        }
+        self.phone.as_ref()?; // none: the window shows pairing instead
         if self.settings.as_ref().is_some_and(|s| !s.enabled) {
             return Some(Empty {
                 icon: "notifications-disabled-symbolic",
@@ -227,20 +244,33 @@ impl Model {
     /// "Clear 3 notifications on this computer and Pixel 9?"
     pub fn clear_all_title(&self) -> String {
         let n = self.shown.len();
-        let what = if n == 1 { "1 notification".to_string() } else { format!("{n} notifications") };
+        let what = if n == 1 {
+            "1 notification".to_string()
+        } else {
+            format!("{n} notifications")
+        };
         if self.settings.as_ref().is_some_and(|s| !s.dismiss_both) {
             format!("Clear {what} on this computer?")
         } else {
-            format!("Clear {what} on this computer and {}?", self.phone_name(false))
+            format!(
+                "Clear {what} on this computer and {}?",
+                self.phone_name(false)
+            )
         }
     }
 
     /// The note under the notifications: whether clearing here reaches the phone.
     pub fn clear_note(&self) -> String {
         if self.settings.as_ref().is_some_and(|s| !s.dismiss_both) {
-            format!("Notifications you clear here stay on {}.", self.phone_name(false))
+            format!(
+                "Notifications you clear here stay on {}.",
+                self.phone_name(false)
+            )
         } else {
-            format!("Notifications you clear here are also cleared on {}.", self.phone_name(false))
+            format!(
+                "Notifications you clear here are also cleared on {}.",
+                self.phone_name(false)
+            )
         }
     }
 }
@@ -271,7 +301,10 @@ pub fn link_input(session: &seam_computer::session::State, tor: TorState) -> Lin
         lan_allowed: session.allowed.contains(&Path::Lan),
         tor_allowed: session.allowed.contains(&Path::Tor),
         tor: tor_look(tor),
-        pause: session.paused_until.map(|until_ms| Pause { until_ms, here: false }),
+        pause: session.paused_until.map(|until_ms| Pause {
+            until_ms,
+            here: false,
+        }),
         reconnect: session.reconnect.map(|r| match r {
             Reconnect::Asked => link::Reconnect::Asked,
             _ => link::Reconnect::PeerUnreachable,
@@ -297,8 +330,12 @@ pub fn tor_look(t: TorState) -> Tor {
 
 pub fn pairing_failure_words(f: PairingFailure) -> &'static str {
     match f {
-        PairingFailure::Unreachable => "Couldn't reach your phone. Show a new code and scan it again.",
-        PairingFailure::NotSaved => "Seam couldn't save the pairing on this computer. Show a new code and scan it again.",
+        PairingFailure::Unreachable => {
+            "Couldn't reach your phone. Show a new code and scan it again."
+        }
+        PairingFailure::NotSaved => {
+            "Seam couldn't save the pairing on this computer. Show a new code and scan it again."
+        }
         PairingFailure::DidntFinish => "Pairing didn't finish. Show a new code and scan it again.",
     }
 }
@@ -366,15 +403,23 @@ fn local(ms: i64) -> Option<gtk::glib::DateTime> {
 
 impl TimeWords for SystemTime {
     fn time(&self, ms: i64) -> String {
-        local(ms).and_then(|d| d.format("%X").ok()).map(|s| trim_seconds(&s)).unwrap_or_default()
+        local(ms)
+            .and_then(|d| d.format("%X").ok())
+            .map(|s| trim_seconds(&s))
+            .unwrap_or_default()
     }
 
     fn date(&self, ms: i64) -> String {
-        local(ms).and_then(|d| d.format("%-d %b %Y").ok()).map(|s| s.to_string()).unwrap_or_default()
+        local(ms)
+            .and_then(|d| d.format("%-d %b %Y").ok())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
     }
 
     fn days_between(&self, ms: i64, now_ms: i64) -> i32 {
-        let (Some(a), Some(b)) = (local(ms), local(now_ms)) else { return 0 };
+        let (Some(a), Some(b)) = (local(ms), local(now_ms)) else {
+            return 0;
+        };
         let day = |d: &gtk::glib::DateTime| {
             gtk::glib::DateTime::from_local(d.year(), d.month(), d.day_of_month(), 0, 0, 0.0).ok()
         };
@@ -388,7 +433,10 @@ impl TimeWords for SystemTime {
 impl SystemTime {
     /// "14 September 2026".
     pub fn date_long(&self, ms: i64) -> String {
-        local(ms).and_then(|d| d.format("%-d %B %Y").ok()).map(|s| s.to_string()).unwrap_or_default()
+        local(ms)
+            .and_then(|d| d.format("%-d %B %Y").ok())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
     }
 }
 
@@ -396,7 +444,10 @@ impl SystemTime {
 fn trim_seconds(t: &str) -> String {
     let parts: Vec<&str> = t.splitn(3, ':').collect();
     if parts.len() == 3 {
-        let rest: String = parts[2].chars().skip_while(|c| c.is_ascii_digit()).collect();
+        let rest: String = parts[2]
+            .chars()
+            .skip_while(|c| c.is_ascii_digit())
+            .collect();
         format!("{}:{}{}", parts[0], parts[1], rest)
     } else {
         t.to_string()

@@ -8,9 +8,12 @@
 use seam_computer::computer::Health;
 use seam_computer::features::clipboard::Clip;
 use seam_computer::pairing::PairingState;
-use seam_core::PairingRequest;
 use seam_computer::session::Phone;
-use seam_core::proto::v1::{Notification, NotificationApp, NotificationButton, NotificationMode, NotificationSettings, Status};
+use seam_core::PairingRequest;
+use seam_core::proto::v1::{
+    Notification, NotificationApp, NotificationButton, NotificationMode, NotificationSettings,
+    Status,
+};
 use seam_looks::link::{self, LinkInput, Pause};
 
 use crate::model::{Icons, Model};
@@ -57,7 +60,12 @@ pub fn model(state: &str) -> Model {
                 s.battery_pct = 12;
             }
         }
-        "paused" => input.pause = Some(Pause { until_ms: now + 90 * MIN, here: false }),
+        "paused" => {
+            input.pause = Some(Pause {
+                until_ms: now + 90 * MIN,
+                here: false,
+            })
+        }
         "connecting" => {
             input.route = None;
             input.tor = link::Tor::Starting;
@@ -134,7 +142,10 @@ fn shown(now: i64) -> Vec<Notification> {
             text: "Running ten minutes late, save me a seat".into(),
             posted_at: now - 2 * MIN,
             can_reply: true,
-            buttons: vec![NotificationButton { id: "read".into(), title: "Mark as read".into() }],
+            buttons: vec![NotificationButton {
+                id: "read".into(),
+                title: "Mark as read".into(),
+            }],
             ..Default::default()
         },
         Notification {
@@ -160,16 +171,33 @@ fn shown(now: i64) -> Vec<Notification> {
 
 fn clips(now: i64) -> Vec<Clip> {
     vec![
-        Clip { text: "https://example.com/tickets/4821".into(), at: now - 3 * MIN, from_phone: true },
-        Clip { text: "The meeting moved to Thursday at 10, same room.".into(), at: now - 25 * MIN, from_phone: false },
-        Clip { text: "Flat 4, 12 Orchard Lane".into(), at: now - 80 * MIN, from_phone: true },
+        Clip {
+            text: "https://example.com/tickets/4821".into(),
+            at: now - 3 * MIN,
+            from_phone: true,
+        },
+        Clip {
+            text: "The meeting moved to Thursday at 10, same room.".into(),
+            at: now - 25 * MIN,
+            from_phone: false,
+        },
+        Clip {
+            text: "Flat 4, 12 Orchard Lane".into(),
+            at: now - 80 * MIN,
+            from_phone: true,
+        },
     ]
 }
 
 /// Plain coloured squares stand in for the phone's app icons.
 pub fn icons() -> Icons {
     let mut out = Icons::new();
-    for (id, rgb) in [("chat", [46, 160, 103]), ("calendar", [66, 133, 244]), ("delivery", [230, 140, 40]), ("mail", [200, 70, 70])] {
+    for (id, rgb) in [
+        ("chat", [46, 160, 103]),
+        ("calendar", [66, 133, 244]),
+        ("delivery", [230, 140, 40]),
+        ("mail", [200, 70, 70]),
+    ] {
         out.insert(id.into(), square_png(rgb));
     }
     out
@@ -179,11 +207,11 @@ pub fn icons() -> Icons {
 fn square_png(rgb: [u8; 3]) -> Vec<u8> {
     let size = 48u32;
     let mut raw = Vec::new();
+    let row: Vec<u8> = std::iter::once(0)
+        .chain(rgb.iter().copied().cycle().take(size as usize * 3))
+        .collect(); // no filter, then the pixels
     for _ in 0..size {
-        raw.push(0); // no filter
-        for _ in 0..size {
-            raw.extend_from_slice(&rgb);
-        }
+        raw.extend_from_slice(&row);
     }
     let mut z = vec![0x78, 0x01];
     for (i, chunk) in raw.chunks(65_535).enumerate() {
@@ -223,7 +251,11 @@ fn crc(data: &[u8]) -> u32 {
     for &b in data {
         c ^= b as u32;
         for _ in 0..8 {
-            c = if c & 1 != 0 { 0xEDB8_8320 ^ (c >> 1) } else { c >> 1 };
+            c = if c & 1 != 0 {
+                0xEDB8_8320 ^ (c >> 1)
+            } else {
+                c >> 1
+            };
         }
     }
     !c

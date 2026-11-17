@@ -55,11 +55,17 @@ impl LinuxPasteboard {
     }
 
     pub fn reach(&self) -> Reach {
-        if crate::lock(&self.door).is_some() { Reach::Automatic } else { Reach::OneTap }
+        if crate::lock(&self.door).is_some() {
+            Reach::Automatic
+        } else {
+            Reach::OneTap
+        }
     }
 
     fn current(&self) -> (Arc<dyn Door>, i64) {
-        let door = crate::lock(&self.door).clone().unwrap_or_else(|| self.one_tap.clone());
+        let door = crate::lock(&self.door)
+            .clone()
+            .unwrap_or_else(|| self.one_tap.clone());
         (door, crate::lock(&self.epoch).0)
     }
 }
@@ -96,13 +102,15 @@ impl Pasteboard for LinuxPasteboard {
     }
 }
 
+type Writer = Box<dyn Fn(String) + Send + Sync>;
+
 /// One tap: Send clipboard offers what the window read from the clipboard (it has focus then),
 /// and a copy from the phone waits to be put on the clipboard while Seam has focus.
 #[derive(Default)]
 pub struct OneTap {
     state: Mutex<OneTapState>,
     /// Puts text on the clipboard from the main thread; a no-op in tests.
-    writer: Mutex<Option<Box<dyn Fn(String) + Send + Sync>>>,
+    writer: Mutex<Option<Writer>>,
 }
 
 #[derive(Default)]
@@ -136,7 +144,11 @@ impl Door for OneTap {
 
     async fn first_item(&self, if_still: i64) -> Option<PasteboardItem> {
         let s = crate::lock(&self.state);
-        if s.count == if_still { s.offered.clone() } else { None }
+        if s.count == if_still {
+            s.offered.clone()
+        } else {
+            None
+        }
     }
 
     async fn write(&self, text: String) -> Option<i64> {
@@ -167,7 +179,10 @@ mod tests {
         tap.offer(t, x);
         let now = pb.change_count().await;
         assert_ne!(before, now);
-        assert_eq!(pb.first_item(now).await.unwrap().text.as_deref(), Some("hello"));
+        assert_eq!(
+            pb.first_item(now).await.unwrap().text.as_deref(),
+            Some("hello")
+        );
         // Asked about an older count, nothing: a later copy can't be read under it (SR-4-05)
         assert!(pb.first_item(before).await.is_none());
     }
@@ -193,7 +208,10 @@ mod tests {
             self.0
         }
         async fn first_item(&self, if_still: i64) -> Option<PasteboardItem> {
-            (if_still == self.0).then(|| PasteboardItem { types: vec![], text: Some("door".into()) })
+            (if_still == self.0).then(|| PasteboardItem {
+                types: vec![],
+                text: Some("door".into()),
+            })
         }
         async fn write(&self, _: String) -> Option<i64> {
             self.1
@@ -210,7 +228,10 @@ mod tests {
         let now = pb.change_count().await;
         assert_ne!(before, now, "same raw count, different door");
         assert!(pb.first_item(before).await.is_none());
-        assert_eq!(pb.first_item(now).await.unwrap().text.as_deref(), Some("door"));
+        assert_eq!(
+            pb.first_item(now).await.unwrap().text.as_deref(),
+            Some("door")
+        );
         pb.set_door(None);
         assert_eq!(pb.reach(), Reach::OneTap);
     }
@@ -225,6 +246,9 @@ mod tests {
         let seen = pb.change_count().await;
         let after = pb.write("x".into()).await;
         assert_eq!(*crate::lock(&written), vec!["x".to_string()]);
-        assert_eq!(after, seen, "what was already there never reads as a new copy");
+        assert_eq!(
+            after, seen,
+            "what was already there never reads as a new copy"
+        );
     }
 }

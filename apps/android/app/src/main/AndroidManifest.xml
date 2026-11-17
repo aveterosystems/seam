@@ -41,12 +41,12 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- "Send to Mac" in the share sheet: no screen of its own -->
+        <!-- "Send to computer" in the share sheet: no screen of its own -->
         <activity
             android:name=".ShareToMacActivity"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:label="Send to Mac"
+            android:label="Send to computer"
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>

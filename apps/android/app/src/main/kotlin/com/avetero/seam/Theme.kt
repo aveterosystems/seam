@@ -255,7 +255,7 @@ object Motion {
     fun <T> ease(ms: Int, delay: Int = 0): FiniteAnimationSpec<T> = tween(ms, delay, Ease)
     fun <T> emphasized(ms: Int, delay: Int = 0): FiniteAnimationSpec<T> = tween(ms, delay, Emphasized)
 
-    /** How long a confirmation ("✓ Sent to Mac") stays before the label goes back. */
+    /** How long a confirmation ("✓ Sent to computer") stays before the label goes back. */
     const val CONFIRM_MS = 1300L
 
     /** The status dot's ring, the hero's turn, Tor's dash flow. */

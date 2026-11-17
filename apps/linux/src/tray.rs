@@ -43,11 +43,19 @@ impl ksni::Tray for SeamTray {
         // A development build run from its source tree finds the icon there; installed, the
         // icon theme has it
         let dev = concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons");
-        if std::path::Path::new(dev).exists() { dev.into() } else { String::new() }
+        if std::path::Path::new(dev).exists() {
+            dev.into()
+        } else {
+            String::new()
+        }
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
-        ksni::ToolTip { title: "Seam".into(), description: self.status.clone(), ..Default::default() }
+        ksni::ToolTip {
+            title: "Seam".into(),
+            description: self.status.clone(),
+            ..Default::default()
+        }
     }
 
     fn category(&self) -> ksni::Category {
@@ -68,7 +76,12 @@ impl ksni::Tray for SeamTray {
             .into()
         };
         let mut menu: Vec<MenuItem<Self>> = vec![
-            StandardItem { label: self.status.clone(), enabled: false, ..Default::default() }.into(),
+            StandardItem {
+                label: self.status.clone(),
+                enabled: false,
+                ..Default::default()
+            }
+            .into(),
             MenuItem::Separator,
             item("Open Seam", "app.show-window"),
         ];
@@ -87,7 +100,15 @@ pub fn look(c: &Controller) -> (String, bool, bool) {
     let m = c.model();
     let one_tap = c.pasteboard.reach() == crate::os::clipboard::Reach::OneTap;
     match m.phone {
-        Some(_) => (format!("{} · {}", m.phone_name(true), m.status_line(crate::ui::now_ms())), one_tap, true),
+        Some(_) => (
+            format!(
+                "{} · {}",
+                m.phone_name(true),
+                m.status_line(crate::ui::now_ms())
+            ),
+            one_tap,
+            true,
+        ),
         None => ("No phone paired".into(), one_tap, false),
     }
 }
@@ -97,12 +118,21 @@ pub fn start(c: &Rc<Controller>) {
         return;
     }
     let (status, one_tap, paired) = look(c);
-    let tray = SeamTray { tx: c.tx.clone(), status, one_tap, paired };
+    let tray = SeamTray {
+        tx: c.tx.clone(),
+        status,
+        one_tap,
+        paired,
+    };
     let (tx, rx) = async_channel::bounded::<ksni::Handle<SeamTray>>(1);
     c.os.spawn(async move {
         // Inside Flatpak the well-known name can't be owned; the item still shows (ksni's advice)
         let sandboxed = std::path::Path::new("/.flatpak-info").exists();
-        let spawned = if sandboxed { tray.disable_dbus_name(true).spawn().await } else { tray.spawn().await };
+        let spawned = if sandboxed {
+            tray.disable_dbus_name(true).spawn().await
+        } else {
+            tray.spawn().await
+        };
         if let Ok(handle) = spawned {
             let _ = tx.send(handle).await;
         } // no tray on this desktop: the window is enough

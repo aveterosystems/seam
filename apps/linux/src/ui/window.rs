@@ -40,18 +40,26 @@ impl Window {
             .build();
 
         // Sidebar: the phone, then the pages
-        let nav = gtk::ListBox::builder().selection_mode(gtk::SelectionMode::Single).build();
+        let nav = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::Single)
+            .build();
         nav.add_css_class("navigation-sidebar");
         let count = gtk::Label::new(None);
         count.add_css_class("sidebar-count");
-        nav.append(&nav_row("preferences-system-notifications-symbolic", "Notifications", Some(&count)));
+        nav.append(&nav_row(
+            "preferences-system-notifications-symbolic",
+            "Notifications",
+            Some(&count),
+        ));
         nav.append(&nav_row("edit-paste-symbolic", "Clipboard", None));
         let card = phone::card(c);
         card.set_margin_start(8);
         card.set_margin_end(8);
         card.set_margin_top(6);
         card.set_margin_bottom(8);
-        let side_box = gtk::Box::builder().orientation(gtk::Orientation::Vertical).build();
+        let side_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .build();
         side_box.append(&card);
         side_box.append(&nav);
         let menu = primary_menu();
@@ -59,8 +67,16 @@ impl Window {
         side_header.pack_end(&menu);
         let side_view = adw::ToolbarView::new();
         side_view.add_top_bar(&side_header);
-        side_view.set_content(Some(&gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).child(&side_box).build()));
-        let sidebar = adw::NavigationPage::builder().title("Seam").child(&side_view).build();
+        side_view.set_content(Some(
+            &gtk::ScrolledWindow::builder()
+                .hscrollbar_policy(gtk::PolicyType::Never)
+                .child(&side_box)
+                .build(),
+        ));
+        let sidebar = adw::NavigationPage::builder()
+            .title("Seam")
+            .child(&side_view)
+            .build();
 
         // The page
         let notifications = notifications::Page::new(c);
@@ -82,8 +98,16 @@ impl Window {
         content_view.add_top_bar(&header);
         content_view.add_top_bar(&banner);
         content_view.set_content(Some(&pages));
-        let content = adw::NavigationPage::builder().title("Notifications").child(&content_view).build();
-        let split = adw::NavigationSplitView::builder().sidebar(&sidebar).content(&content).min_sidebar_width(240.0).max_sidebar_width(300.0).build();
+        let content = adw::NavigationPage::builder()
+            .title("Notifications")
+            .child(&content_view)
+            .build();
+        let split = adw::NavigationSplitView::builder()
+            .sidebar(&sidebar)
+            .content(&content)
+            .min_sidebar_width(240.0)
+            .max_sidebar_width(300.0)
+            .build();
 
         // No phone: pairing fills the window
         let pairing = pairing::Page::new(c);
@@ -95,18 +119,26 @@ impl Window {
         pairing_view.add_top_bar(&pairing_banner);
         pairing_view.set_content(Some(&pairing.widget));
 
-        let root = gtk::Stack::builder().transition_type(gtk::StackTransitionType::Crossfade).transition_duration(crate::ui::motion::FADE_MS).build();
+        let root = gtk::Stack::builder()
+            .transition_type(gtk::StackTransitionType::Crossfade)
+            .transition_duration(crate::ui::motion::FADE_MS)
+            .build();
         root.add_named(&split, Some("home"));
         root.add_named(&pairing_view, Some("pairing"));
         // Starting: a spinner, and after a moment the likely reason it's slow (the keyring asking)
-        let starting_page = adw::StatusPage::builder().paintable(&adw::SpinnerPaintable::new(None::<&gtk::Widget>)).title("Starting Seam").build();
+        let starting_page = adw::StatusPage::builder()
+            .paintable(&adw::SpinnerPaintable::new(None::<&gtk::Widget>))
+            .title("Starting Seam")
+            .build();
         starting_page.add_css_class("compact");
         let sp = starting_page.clone();
         if let Some(p) = sp.paintable().and_downcast::<adw::SpinnerPaintable>() {
             p.set_widget(Some(&sp));
         }
         gtk::glib::timeout_add_seconds_local_once(4, move || {
-            sp.set_description(Some("Unlock your keyring if your desktop asks. Seam keeps its keys there."));
+            sp.set_description(Some(
+                "Unlock your keyring if your desktop asks. Seam keeps its keys there.",
+            ));
         });
         let starting = adw::ToolbarView::new();
         let starting_header = adw::HeaderBar::builder().show_title(false).build();
@@ -125,7 +157,11 @@ impl Window {
         });
         window.set_content(Some(&toasts));
 
-        let breakpoint = adw::Breakpoint::new(adw::BreakpointCondition::new_length(adw::BreakpointConditionLengthType::MaxWidth, 600.0, adw::LengthUnit::Sp));
+        let breakpoint = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
+            adw::BreakpointConditionLengthType::MaxWidth,
+            600.0,
+            adw::LengthUnit::Sp,
+        ));
         breakpoint.add_setter(&split, "collapsed", Some(&true.to_value()));
         window.add_breakpoint(breakpoint);
 
@@ -145,14 +181,22 @@ impl Window {
 
         let weak_w = Rc::downgrade(&w);
         w.nav.connect_row_selected(move |_, row| {
-            let (Some(w), Some(row)) = (weak_w.upgrade(), row) else { return };
-            w.show_page(if row.index() == 1 { "clipboard" } else { "notifications" });
+            let (Some(w), Some(row)) = (weak_w.upgrade(), row) else {
+                return;
+            };
+            w.show_page(if row.index() == 1 {
+                "clipboard"
+            } else {
+                "notifications"
+            });
         });
         w.nav.select_row(w.nav.row_at_index(0).as_ref());
 
         let (weak_w, weak_c) = (Rc::downgrade(&w), Rc::downgrade(c));
         w.clear.connect_clicked(move |_| {
-            let (Some(w), Some(c)) = (weak_w.upgrade(), weak_c.upgrade()) else { return };
+            let (Some(w), Some(c)) = (weak_w.upgrade(), weak_c.upgrade()) else {
+                return;
+            };
             if w.pages.visible_child_name().as_deref() == Some("clipboard") {
                 c.clear_clips();
             } else {
@@ -162,7 +206,11 @@ impl Window {
         let weak_w = Rc::downgrade(&w);
         settings.connect_clicked(move |b| {
             let Some(w) = weak_w.upgrade() else { return };
-            let page = if w.pages.visible_child_name().as_deref() == Some("clipboard") { "clipboard" } else { "notifications" };
+            let page = if w.pages.visible_child_name().as_deref() == Some("clipboard") {
+                "clipboard"
+            } else {
+                "notifications"
+            };
             let _ = b.activate_action("app.preferences-page", Some(&page.to_variant()));
         });
         for b in [&banner, &pairing_banner] {
@@ -185,7 +233,10 @@ impl Window {
             let m = c.model();
             let started = m.health != seam_computer::computer::Health::Starting || c.is_demo();
             let paired = m.phone.is_some();
-            let just_paired = matches!(m.pairing, seam_computer::pairing::PairingState::Paired { .. });
+            let just_paired = matches!(
+                m.pairing,
+                seam_computer::pairing::PairingState::Paired { .. }
+            );
             if just_paired && !was_paired.replace(true) {
                 hold.set(true);
                 let (hold, weak_c) = (hold.clone(), weak_c.clone());
@@ -204,8 +255,11 @@ impl Window {
                 _ => "pairing",
             });
             // Unpaired with nothing showing yet: a code, straight away
-            if started && !paired && m.health == seam_computer::computer::Health::Ready
-                && matches!(m.pairing, seam_computer::pairing::PairingState::Idle) && !c.is_demo()
+            if started
+                && !paired
+                && m.health == seam_computer::computer::Health::Ready
+                && matches!(m.pairing, seam_computer::pairing::PairingState::Idle)
+                && !c.is_demo()
             {
                 drop(m);
                 c.start_pairing();
@@ -214,12 +268,18 @@ impl Window {
             let shown = m.shown.len();
             count.set_label(&shown.to_string());
             count.set_visible(shown > 0);
-            count.update_property(&[gtk::accessible::Property::Label(&format!("{shown} notifications"))]);
+            count.update_property(&[gtk::accessible::Property::Label(&format!(
+                "{shown} notifications"
+            ))]);
             for banner in [&banner, &pairing_banner] {
                 match (&m.startup_error, &m.warning) {
                     (Some(e), _) => {
                         banner.set_title(e);
-                        banner.set_button_label(if m.needs_reset() { Some("Reset Seam") } else { None });
+                        banner.set_button_label(if m.needs_reset() {
+                            Some("Reset Seam")
+                        } else {
+                            None
+                        });
                         banner.set_revealed(true);
                     }
                     (None, Some(warning)) => {
@@ -241,7 +301,9 @@ impl Window {
         if clipboard {
             self.clear.set_label("Clear History");
             self.clear.set_sensitive(!m.clips.is_empty());
-            self.clear.set_tooltip_text(Some("Clears the list here. Copies waiting to send still send."));
+            self.clear.set_tooltip_text(Some(
+                "Clears the list here. Copies waiting to send still send.",
+            ));
             settings.set_tooltip_text(Some("Settings for the clipboard"));
         } else {
             self.clear.set_label("Clear All");
@@ -256,7 +318,11 @@ impl Window {
         if let Some(c) = self.controller.upgrade() {
             self.update_header(&c.model());
         }
-        self.content.set_title(if name == "clipboard" { "Clipboard" } else { "Notifications" });
+        self.content.set_title(if name == "clipboard" {
+            "Clipboard"
+        } else {
+            "Notifications"
+        });
         let index = if name == "clipboard" { 1 } else { 0 };
         if self.nav.selected_row().map(|r| r.index()) != Some(index) {
             self.nav.select_row(self.nav.row_at_index(index).as_ref());
@@ -294,7 +360,11 @@ impl Window {
 fn nav_row(icon: &str, title: &str, suffix: Option<&gtk::Label>) -> gtk::ListBoxRow {
     let b = gtk::Box::builder().spacing(12).build();
     b.append(&gtk::Image::from_icon_name(icon));
-    let l = gtk::Label::builder().label(title).xalign(0.0).hexpand(true).build();
+    let l = gtk::Label::builder()
+        .label(title)
+        .xalign(0.0)
+        .hexpand(true)
+        .build();
     b.append(&l);
     if let Some(s) = suffix {
         b.append(s);
@@ -312,7 +382,11 @@ fn primary_menu() -> gtk::MenuButton {
     let quit = gtk::gio::Menu::new();
     quit.append(Some("_Quit"), Some("app.quit"));
     menu.append_section(None, &quit);
-    let b = gtk::MenuButton::builder().icon_name("open-menu-symbolic").menu_model(&menu).primary(true).build();
+    let b = gtk::MenuButton::builder()
+        .icon_name("open-menu-symbolic")
+        .menu_model(&menu)
+        .primary(true)
+        .build();
     b.set_tooltip_text(Some("Main menu"));
     b
 }
@@ -321,7 +395,9 @@ fn primary_menu() -> gtk::MenuButton {
 fn confirm_reset(anchor: &adw::Banner, c: &Rc<Controller>) {
     let dialog = adw::AlertDialog::new(
         Some("Reset Seam?"),
-        Some("Seam starts over with a new identity and you pair your phone again. The old data is kept aside, not deleted."),
+        Some(
+            "Seam starts over with a new identity and you pair your phone again. The old data is kept aside, not deleted.",
+        ),
     );
     dialog.add_responses(&[("cancel", "Cancel"), ("reset", "Reset Seam")]);
     dialog.set_response_appearance("reset", adw::ResponseAppearance::Destructive);

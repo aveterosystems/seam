@@ -788,12 +788,12 @@ class Session(
 
     private companion object {
         const val RESET = "Seam's secure storage on this phone was reset. Pair again."
-        const val UNPAIRED_CODES_DONT_MATCH = "Unpaired: your Mac confirmed just as you said the codes didn't match. Pair again if it's your Mac."
-        const val CODES_DONT_MATCH = "Nothing was paired, because the codes didn't match. If you're sure it's your Mac, show a new code on it and scan again."
-        const val FORGET_FAILED = "Couldn't finish forgetting your Mac: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
+        const val UNPAIRED_CODES_DONT_MATCH = "Unpaired: your computer confirmed just as you said the codes didn't match. Pair again if it's your computer."
+        const val CODES_DONT_MATCH = "Nothing was paired, because the codes didn't match. If you're sure it's your computer, show a new code on it and scan again."
+        const val FORGET_FAILED = "Couldn't finish forgetting your computer: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
-        const val MAC_NOT_FOUND = "Couldn't reach your Mac. Keep its pairing code open, check both are online, and scan again."
-        const val PAIR_AGAIN = "Seam now connects through Tor instead of its relay. Update Seam on your Mac, then pair again."
+        const val MAC_NOT_FOUND = "Couldn't reach your computer. Keep its pairing code open, check both are online, and scan again."
+        const val PAIR_AGAIN = "Seam now connects through Tor instead of its relay. Update Seam on your computer, then pair again."
         /** After acking the PairAccept: time for the ack to get through before we close ourselves. */
         const val PAIRED_GRACE_MS = 3_000L
         /** How long "Reconnecting" shows before the usual words: a local connect, or one through Tor. */
@@ -806,7 +806,7 @@ class Session(
     }
 }
 
-internal const val CODE_REFUSED = "That pairing code didn't work. Show a new one on your Mac and scan again."
+internal const val CODE_REFUSED = "That pairing code didn't work. Show a new one on your computer and scan again."
 internal const val SAVE_FAILED = "Couldn't save Seam's data on this phone. Free up some space and reopen Seam."
 
 /** No ack for this long on one link while the other is up: that link is taken for dead. */

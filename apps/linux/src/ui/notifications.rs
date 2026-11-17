@@ -38,21 +38,49 @@ pub struct Page {
 
 impl Page {
     pub fn new(c: &Rc<Controller>) -> Rc<Self> {
-        let list = gtk::ListBox::builder().selection_mode(gtk::SelectionMode::None).build();
+        let list = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .build();
         list.add_css_class("boxed-list");
-        let note = gtk::Label::builder().xalign(0.0).wrap(true).margin_top(12).margin_start(6).build();
+        let note = gtk::Label::builder()
+            .xalign(0.0)
+            .wrap(true)
+            .margin_top(12)
+            .margin_start(6)
+            .build();
         note.add_css_class("dim-label");
         note.add_css_class("list-note");
-        let heading = gtk::Label::builder().label("Recent Notifications").xalign(0.0).margin_bottom(8).margin_start(6).build();
+        let heading = gtk::Label::builder()
+            .label("Recent Notifications")
+            .xalign(0.0)
+            .margin_bottom(8)
+            .margin_start(6)
+            .build();
         heading.add_css_class("heading");
-        let column = gtk::Box::builder().orientation(gtk::Orientation::Vertical).build();
+        let column = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .build();
         column.append(&heading);
         column.append(&list);
         column.append(&note);
-        let clamp = adw::Clamp::builder().maximum_size(720).child(&column).margin_top(18).margin_bottom(24).margin_start(12).margin_end(12).build();
-        let scroll = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).child(&clamp).vexpand(true).build();
+        let clamp = adw::Clamp::builder()
+            .maximum_size(720)
+            .child(&column)
+            .margin_top(18)
+            .margin_bottom(24)
+            .margin_start(12)
+            .margin_end(12)
+            .build();
+        let scroll = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .child(&clamp)
+            .vexpand(true)
+            .build();
         let (empty, empty_button) = status_page();
-        let widget = gtk::Stack::builder().transition_type(gtk::StackTransitionType::Crossfade).transition_duration(crate::ui::motion::FADE_MS).build();
+        let widget = gtk::Stack::builder()
+            .transition_type(gtk::StackTransitionType::Crossfade)
+            .transition_duration(crate::ui::motion::FADE_MS)
+            .build();
         widget.add_named(&scroll, Some("list"));
         widget.add_named(&empty, Some("empty"));
         let page = Rc::new(Self {
@@ -69,16 +97,22 @@ impl Page {
         let p = Rc::downgrade(&page);
         page.empty_button.connect_clicked(move |b| {
             let Some(p) = p.upgrade() else { return };
-            let Some(c) = p.controller.upgrade() else { return };
+            let Some(c) = p.controller.upgrade() else {
+                return;
+            };
             match *p.empty_action.borrow() {
-                Some(EmptyAction::TurnOnNotifications) => c.change_notifications(seam_core::proto::v1::NotificationSettingsChange {
-                    enabled: Some(true),
-                    ..Default::default()
-                }),
-                Some(EmptyAction::ResumeNotifications) => c.change_notifications(seam_core::proto::v1::NotificationSettingsChange {
-                    paused_until: Some(0),
-                    ..Default::default()
-                }),
+                Some(EmptyAction::TurnOnNotifications) => {
+                    c.change_notifications(seam_core::proto::v1::NotificationSettingsChange {
+                        enabled: Some(true),
+                        ..Default::default()
+                    })
+                }
+                Some(EmptyAction::ResumeNotifications) => {
+                    c.change_notifications(seam_core::proto::v1::NotificationSettingsChange {
+                        paused_until: Some(0),
+                        ..Default::default()
+                    })
+                }
                 Some(EmptyAction::ChooseApps) => {
                     let _ = b.activate_action("app.preferences-notifications", None);
                 }
@@ -123,7 +157,13 @@ impl Page {
         let animate = crate::ui::animations() && !self.order.borrow().is_empty();
         let keys: Vec<String> = m.shown.iter().map(|n| n.key.clone()).collect();
         // Leaving: slide out and collapse, then go (catalogue 6)
-        let gone: Vec<String> = self.order.borrow().iter().filter(|k| !keys.contains(k)).cloned().collect();
+        let gone: Vec<String> = self
+            .order
+            .borrow()
+            .iter()
+            .filter(|k| !keys.contains(k))
+            .cloned()
+            .collect();
         for key in gone {
             if let Some(row) = self.rows.borrow_mut().remove(&key) {
                 let (list, r) = (self.list.clone(), row.revealer.clone());
@@ -141,7 +181,11 @@ impl Page {
                 Some(row) if row.notification == *n => {}
                 Some(row) => {
                     // Same key, new words (a chat's next message): redraw that row in place
-                    let index = row.revealer.parent().and_then(|p| p.downcast::<gtk::ListBoxRow>().ok()).map(|r| r.index());
+                    let index = row
+                        .revealer
+                        .parent()
+                        .and_then(|p| p.downcast::<gtk::ListBoxRow>().ok())
+                        .map(|r| r.index());
                     if let Some(parent) = row.revealer.parent() {
                         self.list.remove(&parent);
                     }
@@ -181,7 +225,10 @@ impl Page {
         // An image at a fixed pixel size: a picture takes its texture's size and stretches its box
         let (icon, fallback) = match c.icon(&n.app_id) {
             Some(t) => (gtk::Image::from_paintable(Some(&t)), false),
-            None => (gtk::Image::from_icon_name("preferences-system-notifications-symbolic"), true),
+            None => (
+                gtk::Image::from_icon_name("preferences-system-notifications-symbolic"),
+                true,
+            ),
         };
         icon.set_pixel_size(if fallback { 16 } else { 32 });
         if fallback {
@@ -191,18 +238,29 @@ impl Page {
         icon.set_hexpand(false);
         icon.set_valign(gtk::Align::Start);
         icon.set_accessible_role(gtk::AccessibleRole::Presentation);
-        let frame = gtk::Box::builder().valign(gtk::Align::Start).hexpand(false).overflow(gtk::Overflow::Hidden).build();
+        let frame = gtk::Box::builder()
+            .valign(gtk::Align::Start)
+            .hexpand(false)
+            .overflow(gtk::Overflow::Hidden)
+            .build();
         frame.add_css_class("row-icon");
         frame.append(&icon);
 
         let title = gtk::Label::builder()
-            .label(if n.title.trim().is_empty() { &n.app_name } else { &n.title })
+            .label(if n.title.trim().is_empty() {
+                &n.app_name
+            } else {
+                &n.title
+            })
             .xalign(0.0)
             .ellipsize(gtk::pango::EllipsizeMode::End)
             .hexpand(true)
             .build();
         title.add_css_class("heading");
-        let time = gtk::Label::builder().label(when(n, crate::ui::now_ms())).xalign(1.0).build();
+        let time = gtk::Label::builder()
+            .label(when(n, crate::ui::now_ms()))
+            .xalign(1.0)
+            .build();
         time.add_css_class("dim-label");
         time.add_css_class("caption");
         time.add_css_class("row-time");
@@ -222,20 +280,45 @@ impl Page {
         top.append(&title);
         top.append(&corner);
 
-        let column = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(2).hexpand(true).build();
+        let column = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(2)
+            .hexpand(true)
+            .build();
         column.append(&top);
         if !n.text.is_empty() {
-            let text = gtk::Label::builder().label(&n.text).xalign(0.0).wrap(true).wrap_mode(gtk::pango::WrapMode::WordChar).lines(4).ellipsize(gtk::pango::EllipsizeMode::End).build();
+            let text = gtk::Label::builder()
+                .label(&n.text)
+                .xalign(0.0)
+                .wrap(true)
+                .wrap_mode(gtk::pango::WrapMode::WordChar)
+                .lines(4)
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .build();
             text.add_css_class("dim-label");
             column.append(&text);
         }
-        let entry = gtk::Entry::builder().placeholder_text(format!("Reply to {}", if n.title.is_empty() { &n.app_name } else { &n.title })).hexpand(true).build();
+        let entry = gtk::Entry::builder()
+            .placeholder_text(format!(
+                "Reply to {}",
+                if n.title.is_empty() {
+                    &n.app_name
+                } else {
+                    &n.title
+                }
+            ))
+            .hexpand(true)
+            .build();
         let send = gtk::Button::with_label("Send");
         send.add_css_class("suggested-action");
         let field = gtk::Box::builder().spacing(6).margin_top(8).build();
         field.append(&entry);
         field.append(&send);
-        let reply = gtk::Revealer::builder().transition_type(gtk::RevealerTransitionType::SlideDown).transition_duration(300).child(&field).build();
+        let reply = gtk::Revealer::builder()
+            .transition_type(gtk::RevealerTransitionType::SlideDown)
+            .transition_duration(300)
+            .child(&field)
+            .build();
 
         if n.can_reply || !n.buttons.is_empty() {
             // Always there: hidden actions would leave a gap, and the keyboard and screen readers need them
@@ -246,16 +329,25 @@ impl Page {
                 let (r, e, actions2) = (reply.clone(), entry.clone(), actions.clone());
                 // The button says what it does now, whichever way the field closed (Escape, Send)
                 let bb = b.clone();
-                reply.connect_reveal_child_notify(move |r| bb.set_label(if r.reveals_child() { "Cancel" } else { "Reply" }));
+                reply.connect_reveal_child_notify(move |r| {
+                    bb.set_label(if r.reveals_child() { "Cancel" } else { "Reply" })
+                });
                 b.connect_clicked(move |_| {
                     let open = !r.reveals_child();
                     r.set_reveal_child(open);
-                    if open { actions2.add_css_class("shown") } else { actions2.remove_css_class("shown") }
+                    if open {
+                        actions2.add_css_class("shown")
+                    } else {
+                        actions2.remove_css_class("shown")
+                    }
                     let e = e.clone();
                     if open {
-                        glib::timeout_add_local_once(std::time::Duration::from_millis(250), move || {
-                            e.grab_focus();
-                        });
+                        glib::timeout_add_local_once(
+                            std::time::Duration::from_millis(250),
+                            move || {
+                                e.grab_focus();
+                            },
+                        );
                     }
                 });
                 actions.append(&b);
@@ -275,11 +367,23 @@ impl Page {
         }
         column.append(&reply);
 
-        let body = gtk::Box::builder().spacing(12).margin_top(10).margin_bottom(10).margin_start(12).margin_end(12).build();
+        let body = gtk::Box::builder()
+            .spacing(12)
+            .margin_top(10)
+            .margin_bottom(10)
+            .margin_start(12)
+            .margin_end(12)
+            .build();
         body.append(&frame);
         body.append(&column);
         let revealer = arrive(&body, animate);
-        let row = Rc::new(Row { notification: n.clone(), revealer, reply: reply.clone(), entry: entry.clone(), time });
+        let row = Rc::new(Row {
+            notification: n.clone(),
+            revealer,
+            reply: reply.clone(),
+            entry: entry.clone(),
+            time,
+        });
 
         let (weak, key) = (self.controller.clone(), n.key.clone());
         dismiss.connect_clicked(move |_| {
@@ -288,7 +392,12 @@ impl Page {
             }
         });
         // Return sends, Escape closes; "✓ Sent" shows on the button, then the field folds away
-        let (weak, key, r, e) = (self.controller.clone(), n.key.clone(), reply.clone(), entry.clone());
+        let (weak, key, r, e) = (
+            self.controller.clone(),
+            n.key.clone(),
+            reply.clone(),
+            entry.clone(),
+        );
         let send_now = Rc::new(move |b: &gtk::Button| {
             let text = e.text().trim().to_string();
             if text.is_empty() {
@@ -324,7 +433,11 @@ impl Page {
 /// "Chat · 12 min ago": the app, and when.
 fn when(n: &Notification, now: i64) -> String {
     if n.posted_at > 0 {
-        format!("{} · {}", n.app_name, seam_looks::words::ago(n.posted_at, now, &crate::model::SystemTime, "now"))
+        format!(
+            "{} · {}",
+            n.app_name,
+            seam_looks::words::ago(n.posted_at, now, &crate::model::SystemTime, "now")
+        )
     } else {
         n.app_name.clone()
     }

@@ -13,7 +13,6 @@ use futures_util::StreamExt;
 use seam_computer::features::clipboard::PasteboardItem;
 use tokio::sync::Mutex as AsyncMutex;
 
-
 use crate::app::{Controller, Msg};
 use crate::os::clipboard::Door;
 
@@ -37,7 +36,10 @@ pub enum Plan {
 /// Plasma uses Klipper (its portal only gives the clipboard with keyboard or pointer control);
 /// anything else, one tap.
 pub fn plan(current_desktop: &str) -> Plan {
-    let desktops: Vec<String> = current_desktop.split(':').map(|d| d.to_ascii_uppercase()).collect();
+    let desktops: Vec<String> = current_desktop
+        .split(':')
+        .map(|d| d.to_ascii_uppercase())
+        .collect();
     if desktops.iter().any(|d| d == "GNOME" || d == "UBUNTU") {
         Plan::Extension
     } else if desktops.iter().any(|d| d == "KDE") {
@@ -102,12 +104,19 @@ struct ExtensionDoor {
 #[async_trait]
 impl Door for ExtensionDoor {
     async fn change_count(&self) -> i64 {
-        self.proxy.call::<_, _, i64>("ChangeCount", &()).await.unwrap_or(-1)
+        self.proxy
+            .call::<_, _, i64>("ChangeCount", &())
+            .await
+            .unwrap_or(-1)
     }
 
     async fn first_item(&self, if_still: i64) -> Option<PasteboardItem> {
-        let (ok, types, text): (bool, Vec<String>, String) = self.proxy.call("Read", &(if_still,)).await.ok()?;
-        ok.then_some(PasteboardItem { types, text: Some(text) })
+        let (ok, types, text): (bool, Vec<String>, String) =
+            self.proxy.call("Read", &(if_still,)).await.ok()?;
+        ok.then_some(PasteboardItem {
+            types,
+            text: Some(text),
+        })
     }
 
     async fn write(&self, text: String) -> Option<i64> {
@@ -116,23 +125,37 @@ impl Door for ExtensionDoor {
 }
 
 async fn extension_door(conn: &zbus::Connection) -> Option<Arc<dyn Door>> {
-    let proxy = zbus::Proxy::new(conn, EXT_NAME, EXT_PATH, EXT_IFACE).await.ok()?;
+    let proxy = zbus::Proxy::new(conn, EXT_NAME, EXT_PATH, EXT_IFACE)
+        .await
+        .ok()?;
     let api: u32 = proxy.get_property("Version").await.ok()?;
     // Too old to speak to (or it refused us): one tap, and Settings says to update it
     (api >= EXT_MIN_API).then(|| Arc::new(ExtensionDoor { proxy }) as Arc<dyn Door>)
 }
 
 /// Opens the door whenever the extension is on the bus, and closes it when it leaves.
-async fn watch_extension(pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>, tx: async_channel::Sender<Msg>) {
-    let Ok(conn) = zbus::Connection::session().await else { return };
-    let Ok(dbus) = zbus::fdo::DBusProxy::new(&conn).await else { return };
-    let Ok(mut owners) = dbus.receive_name_owner_changed().await else { return };
-    let mut check = async |pasteboard: &crate::os::clipboard::LinuxPasteboard| {
+async fn watch_extension(
+    pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>,
+    tx: async_channel::Sender<Msg>,
+) {
+    let Ok(conn) = zbus::Connection::session().await else {
+        return;
+    };
+    let Ok(dbus) = zbus::fdo::DBusProxy::new(&conn).await else {
+        return;
+    };
+    let Ok(mut owners) = dbus.receive_name_owner_changed().await else {
+        return;
+    };
+    let check = async |pasteboard: &crate::os::clipboard::LinuxPasteboard| {
         let door = extension_door(&conn).await;
         let open = door.is_some();
         if open != (pasteboard.reach() == crate::os::clipboard::Reach::Automatic) {
             if cfg!(debug_assertions) {
-                eprintln!("seam: clipboard extension {}", if open { "open" } else { "closed" });
+                eprintln!(
+                    "seam: clipboard extension {}",
+                    if open { "open" } else { "closed" }
+                );
             }
             pasteboard.set_door(door);
             let _ = tx.send(Msg::ClipboardReach).await;
@@ -172,7 +195,11 @@ struct KlipperState {
 /// Klipper gives text only. A copied file arrives as its address; say so, so the core's rules
 /// treat it as a file and never send it (SR-4-06).
 pub fn klipper_types(text: &str) -> Vec<String> {
-    let lines: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    let lines: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
     if !lines.is_empty() && lines.iter().all(|l| l.starts_with("file://")) {
         vec!["text/uri-list".into(), "text/plain;charset=utf-8".into()]
     } else {
@@ -188,33 +215,57 @@ impl Door for KlipperDoor {
 
     async fn first_item(&self, if_still: i64) -> Option<PasteboardItem> {
         let s = self.state.lock().await;
-        (s.count == if_still).then(|| PasteboardItem { types: klipper_types(&s.text), text: Some(s.text.clone()) })
+        (s.count == if_still).then(|| PasteboardItem {
+            types: klipper_types(&s.text),
+            text: Some(s.text.clone()),
+        })
     }
 
     async fn write(&self, text: String) -> Option<i64> {
         self.state.lock().await.written = Some(text.clone());
-        self.proxy.call::<_, _, ()>("setClipboardContents", &(text,)).await.ok()?;
+        self.proxy
+            .call::<_, _, ()>("setClipboardContents", &(text,))
+            .await
+            .ok()?;
         Some(self.state.lock().await.count)
     }
 }
 
 /// Opens the door while Klipper runs, and counts each new copy it records.
-async fn watch_klipper(pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>, tx: async_channel::Sender<Msg>) {
-    let Ok(conn) = zbus::Connection::session().await else { return };
+async fn watch_klipper(
+    pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>,
+    tx: async_channel::Sender<Msg>,
+) {
+    let Ok(conn) = zbus::Connection::session().await else {
+        return;
+    };
     loop {
         if let Ok(proxy) = zbus::Proxy::new(&conn, KLIPPER, KLIPPER_PATH, KLIPPER_IFACE).await
-            && let Ok(current) = proxy.call::<_, _, String>("getClipboardContents", &()).await
+            && let Ok(current) = proxy
+                .call::<_, _, String>("getClipboardContents", &())
+                .await
         {
             // What's there at launch was copied before: known, not counted
-            let state = Arc::new(AsyncMutex::new(KlipperState { text: current, ..Default::default() }));
+            let state = Arc::new(AsyncMutex::new(KlipperState {
+                text: current,
+                ..Default::default()
+            }));
             if let Ok(mut changes) = proxy.receive_signal("clipboardHistoryUpdated").await {
                 if cfg!(debug_assertions) {
                     eprintln!("seam: clipboard klipper open");
                 }
-                pasteboard.set_door(Some(Arc::new(KlipperDoor { proxy: proxy.clone(), state: state.clone() })));
+                pasteboard.set_door(Some(Arc::new(KlipperDoor {
+                    proxy: proxy.clone(),
+                    state: state.clone(),
+                })));
                 let _ = tx.send(Msg::ClipboardReach).await;
                 while changes.next().await.is_some() {
-                    let Ok(text) = proxy.call::<_, _, String>("getClipboardContents", &()).await else { break };
+                    let Ok(text) = proxy
+                        .call::<_, _, String>("getClipboardContents", &())
+                        .await
+                    else {
+                        break;
+                    };
                     let mut s = state.lock().await;
                     if s.text == text {
                         continue; // history reordered, nothing new copied
@@ -266,7 +317,9 @@ mod tests {
         use seam_computer::features::clipboard::sendable;
         assert!(!sendable(&klipper_types("file:///home/ana/Report.pdf")));
         assert!(!sendable(&klipper_types("file:///a.txt\nfile:///b.txt\n")));
-        assert!(sendable(&klipper_types("See file:///etc/hosts for the list")));
+        assert!(sendable(&klipper_types(
+            "See file:///etc/hosts for the list"
+        )));
         assert!(sendable(&klipper_types("Table for four at 8")));
     }
 }

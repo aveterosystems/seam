@@ -73,7 +73,7 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
         // The footnote sits with the action, centred as the page: under the list it floated 40 dp off Skip, at the start of a centred page
         action = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Footnote("Mac copies reach this phone without any of these.", TextAlign.Center)
+                Footnote("Copies from your computer reach this phone without any of these.", TextAlign.Center)
                 if (all) BigButton("Done", onDone) else Pill("Skip for now", onDone, PillKind.Text, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp))
             }
         },
@@ -95,7 +95,7 @@ fun SetupScreen(macName: String, clipboard: ClipboardStatus, onDone: () -> Unit)
                 subtitle = when (clipboard) {
                     ClipboardStatus.Automatic -> "On"
                     ClipboardStatus.NeedsSetup -> "Optional · send what you copy without tapping"
-                    ClipboardStatus.Manual -> "Not in this build. Tap Send clipboard, or share to Send to Mac"
+                    ClipboardStatus.Manual -> "Not in this build. Tap Send clipboard, or share to Send to computer"
                     ClipboardStatus.OffOnMac -> SendWords.SYNC_OFF_SHORT
                 },
                 lead = painterResource(R.drawable.ic_copy),
@@ -154,7 +154,7 @@ internal fun NotificationAccessItem(granted: Boolean) {
     }
     Item(
         title = "Phone notifications",
-        subtitle = if (granted) "Allowed" else "Sends them to your Mac",
+        subtitle = if (granted) "Allowed" else "Sends them to your computer",
         lead = painterResource(R.drawable.ic_phone_notification),
         onClick = if (granted) null else open,
     ) {

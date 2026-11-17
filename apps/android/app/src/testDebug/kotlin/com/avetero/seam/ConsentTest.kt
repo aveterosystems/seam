@@ -53,7 +53,7 @@ class ConsentTest {
             SeamTheme {
                 if (shown) ShareSheet("MacBook Pro", "hello", Looks.sameWifi, null, { shown = false }) {
                     sends++
-                    SendFeedback(label = "✓ Sent to Mac", done = true)
+                    SendFeedback(label = "✓ Sent to computer", done = true)
                 }
             }
         }
@@ -66,7 +66,7 @@ class ConsentTest {
         settle() // past the half second Send waits before it takes a tap
         tap("Send")
         settle(200) // the button now says it went; a second tap on it does nothing
-        tap("✓ Sent to Mac")
+        tap("✓ Sent to computer")
         assertEquals(1, sends)
     }
 }

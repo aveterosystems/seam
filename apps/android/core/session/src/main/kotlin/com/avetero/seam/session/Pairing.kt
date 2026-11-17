@@ -58,7 +58,7 @@ internal class Pairing(
     fun keysArrived(bundle: ByteArray): SessionState.Pairing? {
         val p = qr ?: return null
         keysHeard = true
-        if (bundle.isEmpty()) return null.also { fail("Your Mac hasn't finished setting up. Try its pairing code again.") }
+        if (bundle.isEmpty()) return null.also { fail("Your computer hasn't finished setting up. Try its pairing code again.") }
         try {
             val start = device.pairWith(p.identityKey, p.relayKey, p.macName, bundle, p.token, myName, myModel)
             if (runCatching { persist() }.isFailure) return null.also { fail(SAVE_FAILED) } // SR-2-64: nothing leaves unsaved

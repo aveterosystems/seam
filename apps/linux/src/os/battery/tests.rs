@@ -18,7 +18,14 @@ fn a_laptop_charging_on_energy_counters() {
     supply(
         t.path(),
         "BAT0",
-        &[("type", "Battery"), ("capacity", "64"), ("status", "Charging"), ("energy_now", "32000000"), ("energy_full", "50000000"), ("power_now", "18000000")],
+        &[
+            ("type", "Battery"),
+            ("capacity", "64"),
+            ("status", "Charging"),
+            ("energy_now", "32000000"),
+            ("energy_full", "50000000"),
+            ("power_now", "18000000"),
+        ],
     );
     let s = battery_in(t.path()).unwrap();
     assert_eq!((s.battery_pct, s.charging), (64, true));
@@ -31,7 +38,16 @@ fn a_laptop_charging_on_energy_counters() {
 fn on_battery_with_charge_counters_and_a_peripheral_skipped() {
     let t = tempfile::tempdir().unwrap();
     // A wireless mouse's battery comes first by name but isn't the computer's
-    supply(t.path(), "AAA_mouse", &[("type", "Battery"), ("scope", "Device"), ("capacity", "5"), ("status", "Discharging")]);
+    supply(
+        t.path(),
+        "AAA_mouse",
+        &[
+            ("type", "Battery"),
+            ("scope", "Device"),
+            ("capacity", "5"),
+            ("status", "Discharging"),
+        ],
+    );
     supply(
         t.path(),
         "BAT1",
@@ -63,7 +79,10 @@ fn cpu_and_memory_parse() {
     let stat = "cpu  100 20 30 800 50 0 0 0 0 0\ncpu0 1 2 3 4\n";
     assert_eq!(parse_cpu(stat), Some((150, 850)));
     let mem = "MemTotal:       16000000 kB\nMemFree:  100 kB\nMemAvailable:    6000000 kB\n";
-    assert_eq!(parse_memory(mem), Some((10_000_000 * 1024, 16_000_000 * 1024)));
+    assert_eq!(
+        parse_memory(mem),
+        Some((10_000_000 * 1024, 16_000_000 * 1024))
+    );
     assert_eq!(parse_memory("nonsense"), None);
 }
 

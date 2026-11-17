@@ -358,7 +358,7 @@ private fun Radio(on: Boolean) {
 /** "Pause Seam": how long. The home screen's Pause and the notification's Pause both open this. */
 @Composable
 fun PauseSheet(onDismiss: () -> Unit, onPause: (PauseFor) -> Unit) =
-    SeamSheet("Pause Seam", "Nothing syncs either way until it ends. Your Mac shows that you paused.", onDismiss) { close ->
+    SeamSheet("Pause Seam", "Nothing syncs either way until it ends. Your computer shows that you paused.", onDismiss) { close ->
         val now = remember { System.currentTimeMillis() }
         // When each ends ("Until 15:12"); the morning's own label already says "tomorrow"
         val ends = { p: PauseFor ->

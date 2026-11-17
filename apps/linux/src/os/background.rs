@@ -9,7 +9,9 @@ use crate::app::Controller;
 /// Whether Seam is set to open at login: the portal writes an autostart entry, so look for it.
 pub fn autostart() -> bool {
     let dir = gtk::glib::user_config_dir().join("autostart");
-    [format!("{}.desktop", crate::APP_ID)].iter().any(|f| dir.join(f).exists())
+    [format!("{}.desktop", crate::APP_ID)]
+        .iter()
+        .any(|f| dir.join(f).exists())
 }
 
 /// Asks the desktop to open Seam at login (or not). `done` hears whether it agreed, and why not.
@@ -31,8 +33,14 @@ pub fn set_autostart(c: &Rc<Controller>, on: bool, done: impl Fn(bool, &str) + '
     gtk::glib::spawn_future_local(async move {
         match rx.recv().await {
             Ok(Ok(true)) => done(true, ""),
-            Ok(Ok(false)) => done(false, "The desktop didn't allow it. Check Seam in your system's background apps."),
-            _ => done(false, "The desktop couldn't be asked. Add Seam to your startup apps in system settings."),
+            Ok(Ok(false)) => done(
+                false,
+                "The desktop didn't allow it. Check Seam in your system's background apps.",
+            ),
+            _ => done(
+                false,
+                "The desktop couldn't be asked. Add Seam to your startup apps in system settings.",
+            ),
         }
     });
 }

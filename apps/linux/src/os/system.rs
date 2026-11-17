@@ -15,7 +15,9 @@ pub fn computer_name() -> String {
 
 /// PRETTY_HOSTNAME from machine-info, unquoted.
 pub fn pretty_name(info: &str) -> Option<String> {
-    let v = info.lines().find_map(|l| l.trim().strip_prefix("PRETTY_HOSTNAME="))?;
+    let v = info
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("PRETTY_HOSTNAME="))?;
     let v = v.trim().trim_matches('"').trim_matches('\'');
     clean(&v.replace("\\ ", " "))
 }
@@ -27,13 +29,17 @@ fn host_name() -> Option<String> {
 /// A name worth showing: not empty, not a placeholder.
 pub fn clean(name: &str) -> Option<String> {
     let n = name.trim();
-    (!n.is_empty() && !["localhost", "localhost.localdomain", "fedora", "ubuntu"].contains(&n.to_lowercase().as_str()))
-        .then(|| n.to_string())
+    (!n.is_empty()
+        && !["localhost", "localhost.localdomain", "fedora", "ubuntu"]
+            .contains(&n.to_lowercase().as_str()))
+    .then(|| n.to_string())
 }
 
 /// Calls `woke` each time the computer resumes from sleep (logind's PrepareForSleep(false)).
 pub async fn watch_wake(woke: impl Fn() + Send + 'static) {
-    let Ok(conn) = zbus::Connection::system().await else { return };
+    let Ok(conn) = zbus::Connection::system().await else {
+        return;
+    };
     let Ok(rule) = zbus::MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .interface("org.freedesktop.login1.Manager")
@@ -42,7 +48,9 @@ pub async fn watch_wake(woke: impl Fn() + Send + 'static) {
     else {
         return;
     };
-    let Ok(mut stream) = zbus::MessageStream::for_match_rule(rule, &conn, None).await else { return };
+    let Ok(mut stream) = zbus::MessageStream::for_match_rule(rule, &conn, None).await else {
+        return;
+    };
     while let Some(Ok(msg)) = stream.next().await {
         if let Ok(false) = msg.body().deserialize::<bool>() {
             woke();
@@ -65,7 +73,10 @@ mod tests {
     #[test]
     fn the_pretty_name_from_machine_info() {
         use super::pretty_name;
-        assert_eq!(pretty_name("PRETTY_HOSTNAME=\"Ana's ThinkPad\"\nICON_NAME=computer-laptop\n"), Some("Ana's ThinkPad".into()));
+        assert_eq!(
+            pretty_name("PRETTY_HOSTNAME=\"Ana's ThinkPad\"\nICON_NAME=computer-laptop\n"),
+            Some("Ana's ThinkPad".into())
+        );
         assert_eq!(pretty_name("CHASSIS=laptop\n"), None);
         assert_eq!(pretty_name("PRETTY_HOSTNAME=\n"), None);
     }

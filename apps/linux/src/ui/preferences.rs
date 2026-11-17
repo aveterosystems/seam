@@ -6,14 +6,18 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use adw::prelude::*;
-use seam_core::proto::v1::{NotificationApp, NotificationMode, NotificationSettings, NotificationSettingsChange};
+use seam_core::proto::v1::{
+    NotificationApp, NotificationMode, NotificationSettings, NotificationSettingsChange,
+};
 
 use crate::app::Controller;
 use crate::os::clipboard::Reach;
 use crate::ui::phone::{PhoneSummary, Size};
 
 pub fn present(c: &Rc<Controller>, parent: Option<&gtk::Window>, page: &str) {
-    let dialog = adw::PreferencesDialog::builder().search_enabled(true).build();
+    let dialog = adw::PreferencesDialog::builder()
+        .search_enabled(true)
+        .build();
     let mut ids = Vec::new();
     dialog.add(&general(c));
     dialog.add(&phone(c, &mut ids));
@@ -38,7 +42,10 @@ pub fn present(c: &Rc<Controller>, parent: Option<&gtk::Window>, page: &str) {
 
 /// A switch row that sets itself from the model and sends only the user's own changes.
 fn switch(title: &str, subtitle: &str) -> (adw::SwitchRow, Rc<std::cell::Cell<bool>>) {
-    let row = adw::SwitchRow::builder().title(title).subtitle(subtitle).build();
+    let row = adw::SwitchRow::builder()
+        .title(title)
+        .subtitle(subtitle)
+        .build();
     (row, Rc::new(std::cell::Cell::new(false)))
 }
 
@@ -51,9 +58,16 @@ fn set_switch(row: &adw::SwitchRow, quiet: &std::cell::Cell<bool>, on: bool) {
 }
 
 fn general(c: &Rc<Controller>) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder().name("general").title("General").icon_name("emblem-system-symbolic").build();
+    let page = adw::PreferencesPage::builder()
+        .name("general")
+        .title("General")
+        .icon_name("emblem-system-symbolic")
+        .build();
     let group = adw::PreferencesGroup::new();
-    let (login, quiet) = switch("Open at Login", "Seam waits in the background from the moment you log in");
+    let (login, quiet) = switch(
+        "Open at Login",
+        "Seam waits in the background from the moment you log in",
+    );
     login.set_active(crate::os::background::autostart());
     let weak = Rc::downgrade(c);
     login.connect_active_notify(move |row| {
@@ -74,7 +88,10 @@ fn general(c: &Rc<Controller>) -> adw::PreferencesPage {
     let about = adw::PreferencesGroup::new();
     let row = adw::ActionRow::builder()
         .title("Seam")
-        .subtitle(format!("Version {} · Open source under AGPL‑3.0 · © 2026 Avetero", env!("CARGO_PKG_VERSION")))
+        .subtitle(format!(
+            "Version {} · Open source under AGPL‑3.0 · © 2026 Avetero",
+            env!("CARGO_PKG_VERSION")
+        ))
         .activatable(true)
         .build();
     let icon = gtk::Image::from_icon_name("com.avetero.Seam");
@@ -83,22 +100,38 @@ fn general(c: &Rc<Controller>) -> adw::PreferencesPage {
     row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
     row.set_action_name(Some("app.about"));
     about.add(&row);
-    let updates = adw::ActionRow::builder().title("Updates").subtitle("Your software centre keeps Seam up to date").build();
+    let updates = adw::ActionRow::builder()
+        .title("Updates")
+        .subtitle("Your software centre keeps Seam up to date")
+        .build();
     about.add(&updates);
     page.add(&about);
     page
 }
 
 fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder().name("phone").title("Phone").icon_name("phone-symbolic").build();
+    let page = adw::PreferencesPage::builder()
+        .name("phone")
+        .title("Phone")
+        .icon_name("phone-symbolic")
+        .build();
     let header_group = adw::PreferencesGroup::new();
     let summary = PhoneSummary::new(Size::Header);
-    let header_row = adw::PreferencesRow::builder().activatable(false).child(&summary.widget).build();
+    let header_row = adw::PreferencesRow::builder()
+        .activatable(false)
+        .child(&summary.widget)
+        .build();
     summary.widget.set_margin_start(12);
     summary.widget.set_margin_end(12);
     header_group.add(&header_row);
-    let none = adw::ActionRow::builder().title("No Phone Paired").subtitle("Scan a code with Seam on your Android phone").build();
-    let show = gtk::Button::builder().label("Show Pairing Code").valign(gtk::Align::Center).build();
+    let none = adw::ActionRow::builder()
+        .title("No Phone Paired")
+        .subtitle("Scan a code with Seam on your Android phone")
+        .build();
+    let show = gtk::Button::builder()
+        .label("Show Pairing Code")
+        .valign(gtk::Align::Center)
+        .build();
     show.add_css_class("suggested-action");
     show.set_action_name(Some("app.show-window"));
     none.add_suffix(&show);
@@ -106,16 +139,34 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
     page.add(&header_group);
 
     // Which paths may reach the phone; the last one on can't be turned off, and the footnote says why
-    let connections = adw::PreferencesGroup::builder().title("Connections").build();
-    let (wifi, wq) = switch("Same Wi‑Fi", "Straight to your phone on the same network. Nothing leaves it.");
-    let (tor, tq) = switch("Internet Through Tor", "Reaches your phone anywhere and hides where you are");
-    let reconnect_row = adw::ActionRow::builder().title("Connection Stuck?").subtitle("Seam tries every allowed path again, now").build();
-    let reconnect = gtk::Button::builder().label("Reconnect").valign(gtk::Align::Center).build();
+    let connections = adw::PreferencesGroup::builder()
+        .title("Connections")
+        .build();
+    let (wifi, wq) = switch(
+        "Same Wi‑Fi",
+        "Straight to your phone on the same network. Nothing leaves it.",
+    );
+    let (tor, tq) = switch(
+        "Internet Through Tor",
+        "Reaches your phone anywhere and hides where you are",
+    );
+    let reconnect_row = adw::ActionRow::builder()
+        .title("Connection Stuck?")
+        .subtitle("Seam tries every allowed path again, now")
+        .build();
+    let reconnect = gtk::Button::builder()
+        .label("Reconnect")
+        .valign(gtk::Align::Center)
+        .build();
     reconnect_row.add_suffix(&reconnect);
     connections.add(&wifi);
     connections.add(&tor);
     connections.add(&reconnect_row);
-    let footnote = gtk::Label::builder().xalign(0.0).wrap(true).margin_top(12).build();
+    let footnote = gtk::Label::builder()
+        .xalign(0.0)
+        .wrap(true)
+        .margin_top(12)
+        .build();
     footnote.add_css_class("dim-label");
     footnote.add_css_class("caption");
     connections.add(&footnote);
@@ -147,25 +198,40 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
 
     // Pairing: the code to re-check (hidden until Show), when, and Unpair
     let pairing = adw::PreferencesGroup::builder().title("Pairing").build();
-    let code_row = adw::ActionRow::builder().title("Verification Code").subtitle("Should match the code on your phone").build();
+    let code_row = adw::ActionRow::builder()
+        .title("Verification Code")
+        .subtitle("Should match the code on your phone")
+        .build();
     let code = gtk::Label::new(Some("••• •••"));
     code.add_css_class("mono");
-    let show_code = gtk::ToggleButton::builder().label("Show").valign(gtk::Align::Center).build();
+    let show_code = gtk::ToggleButton::builder()
+        .label("Show")
+        .valign(gtk::Align::Center)
+        .build();
     code_row.add_suffix(&code);
     code_row.add_suffix(&show_code);
     let real_code: Rc<RefCell<String>> = Rc::default();
     let (cl, rc) = (code.clone(), real_code.clone());
     show_code.connect_toggled(move |t| {
         let real = rc.borrow().clone();
-        cl.set_label(if t.is_active() { &real } else { "••• •••" });
+        cl.set_label(if t.is_active() {
+            &real
+        } else {
+            "••• •••"
+        });
         t.set_label(if t.is_active() { "Hide" } else { "Show" });
     });
     let paired_row = adw::ActionRow::builder().title("Paired").build();
     let paired_value = gtk::Label::new(None);
     paired_value.add_css_class("dim-label");
     paired_row.add_suffix(&paired_value);
-    let unpair_row = adw::ActionRow::builder().subtitle("Both devices forget each other's keys").build();
-    let unpair = gtk::Button::builder().label("Unpair").valign(gtk::Align::Center).build();
+    let unpair_row = adw::ActionRow::builder()
+        .subtitle("Both devices forget each other's keys")
+        .build();
+    let unpair = gtk::Button::builder()
+        .label("Unpair")
+        .valign(gtk::Align::Center)
+        .build();
     unpair.add_css_class("destructive-action");
     unpair_row.add_suffix(&unpair);
     pairing.add(&code_row);
@@ -195,11 +261,17 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
 
     let weak_page = page.downgrade();
     ids.push(c.watch(move |c| {
-        let Some(page) = weak_page.upgrade() else { return };
+        let Some(page) = weak_page.upgrade() else {
+            return;
+        };
         let m = c.model();
         let now = crate::ui::now_ms();
         let paired = m.phone.is_some();
-        page.set_title(&if paired { m.phone_name(true) } else { "Phone".into() });
+        page.set_title(&if paired {
+            m.phone_name(true)
+        } else {
+            "Phone".into()
+        });
         header_row.set_visible(paired);
         none.set_visible(!paired);
         summary.render(&m, now);
@@ -207,22 +279,42 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         set_switch(&tor, &tq, m.tor);
         wifi.set_sensitive(!(m.wifi && !m.tor));
         tor.set_sensitive(!(m.tor && !m.wifi));
-        footnote.set_label(&seam_looks::link::connections_footnote(m.wifi, m.tor, &crate::model::names()));
+        footnote.set_label(&seam_looks::link::connections_footnote(
+            m.wifi,
+            m.tor,
+            &crate::model::names(),
+        ));
         reconnect_row.set_visible(paired);
         reconnect.set_sensitive(m.reconnecting.is_none());
-        reconnect_row.set_subtitle(&if m.reconnecting.is_none() { "Seam tries every allowed path again, now".to_string() } else { m.link(now).label });
+        reconnect_row.set_subtitle(&if m.reconnecting.is_none() {
+            "Seam tries every allowed path again, now".to_string()
+        } else {
+            m.link(now).label
+        });
         pairing.set_visible(paired);
         if let Some(p) = &m.phone {
             *real_code.borrow_mut() = p.safety_code.clone();
-            code.set_label(if show_code.is_active() { &p.safety_code } else { "••• •••" });
-            paired_value.set_label(&p.paired_at.map(|at| crate::model::SystemTime.date_long(at)).unwrap_or("With this computer".into()));
+            code.set_label(if show_code.is_active() {
+                &p.safety_code
+            } else {
+                "••• •••"
+            });
+            paired_value.set_label(
+                &p.paired_at
+                    .map(|at| crate::model::SystemTime.date_long(at))
+                    .unwrap_or("With this computer".into()),
+            );
             unpair_row.set_title(&format!("Unpair {}", m.phone_name(true)));
         }
     }));
     page
 }
 
-const MODES: [(NotificationMode, &str); 3] = [(NotificationMode::On, "On"), (NotificationMode::TitleOnly, "Sender only"), (NotificationMode::Off, "Off")];
+const MODES: [(NotificationMode, &str); 3] = [
+    (NotificationMode::On, "On"),
+    (NotificationMode::TitleOnly, "Sender only"),
+    (NotificationMode::Off, "Off"),
+];
 
 fn mode_index(app: &NotificationApp) -> u32 {
     match NotificationMode::try_from(app.mode).unwrap_or(NotificationMode::Off) {
@@ -248,16 +340,32 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
     page.add(&waiting);
 
     let switches = adw::PreferencesGroup::new();
-    let (enabled, eq) = switch("Show on This Computer", "Your phone's notifications appear here as banners");
-    let (both, bq) = switch("Dismiss on Both Devices", "Clear one here and it's cleared on your phone");
-    let (quiet, qq) = switch("Quiet While I'm Using My Phone", "Nothing comes here while it's unlocked in your hand");
+    let (enabled, eq) = switch(
+        "Show on This Computer",
+        "Your phone's notifications appear here as banners",
+    );
+    let (both, bq) = switch(
+        "Dismiss on Both Devices",
+        "Clear one here and it's cleared on your phone",
+    );
+    let (quiet, qq) = switch(
+        "Quiet While I'm Using My Phone",
+        "Nothing comes here while it's unlocked in your hand",
+    );
     switches.add(&enabled);
     switches.add(&both);
     switches.add(&quiet);
-    let system = adw::ActionRow::builder().title("Banners, Sounds and Previews").subtitle("Set by the desktop, like any app").build();
+    let system = adw::ActionRow::builder()
+        .title("Banners, Sounds and Previews")
+        .subtitle("Set by the desktop, like any app")
+        .build();
     switches.add(&system);
     page.add(&switches);
-    for (row, q, field) in [(&enabled, eq.clone(), 0), (&both, bq.clone(), 1), (&quiet, qq.clone(), 2)] {
+    for (row, q, field) in [
+        (&enabled, eq.clone(), 0),
+        (&both, bq.clone(), 1),
+        (&quiet, qq.clone(), 2),
+    ] {
         let weak = Rc::downgrade(c);
         row.connect_active_notify(move |r| {
             if q.get() {
@@ -276,7 +384,10 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
 
     // Apps: each On, Sender only or Off; a filter past 8 apps; Set all
     let apps = adw::PreferencesGroup::builder().title("Apps").build();
-    let set_all = gtk::MenuButton::builder().label("Set All").valign(gtk::Align::Center).build();
+    let set_all = gtk::MenuButton::builder()
+        .label("Set All")
+        .valign(gtk::Align::Center)
+        .build();
     set_all.add_css_class("flat");
     let menu = gtk::gio::Menu::new();
     for (i, (_, word)) in MODES.iter().enumerate() {
@@ -284,9 +395,14 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
     }
     set_all.set_menu_model(Some(&menu));
     apps.set_header_suffix(Some(&set_all));
-    let filter = gtk::SearchEntry::builder().placeholder_text("Filter apps").margin_bottom(12).build();
+    let filter = gtk::SearchEntry::builder()
+        .placeholder_text("Filter apps")
+        .margin_bottom(12)
+        .build();
     apps.add(&filter);
-    let list = gtk::ListBox::builder().selection_mode(gtk::SelectionMode::None).build();
+    let list = gtk::ListBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .build();
     list.add_css_class("boxed-list");
     apps.add(&list);
     let footnote = gtk::Label::builder()
@@ -303,7 +419,12 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
     let shown_apps: Rc<RefCell<Vec<NotificationApp>>> = Rc::default();
     let filter_text: Rc<RefCell<String>> = Rc::default();
     let rebuild = {
-        let (list, shown_apps, filter_text, weak) = (list.clone(), shown_apps.clone(), filter_text.clone(), Rc::downgrade(c));
+        let (list, shown_apps, filter_text, weak) = (
+            list.clone(),
+            shown_apps.clone(),
+            filter_text.clone(),
+            Rc::downgrade(c),
+        );
         Rc::new(move || {
             let Some(c) = weak.upgrade() else { return };
             while let Some(r) = list.first_child() {
@@ -311,14 +432,25 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
             }
             let f = filter_text.borrow().to_lowercase();
             let all = shown_apps.borrow();
-            let shown: Vec<&NotificationApp> = all.iter().filter(|a| f.is_empty() || a.app_name.to_lowercase().contains(&f)).collect();
+            let shown: Vec<&NotificationApp> = all
+                .iter()
+                .filter(|a| f.is_empty() || a.app_name.to_lowercase().contains(&f))
+                .collect();
             if all.is_empty() {
                 list.append(&adw::ActionRow::builder().title("No Apps Yet").subtitle("Apps that can notify show here once your phone allows notification access").build());
             } else if shown.is_empty() {
-                list.append(&adw::ActionRow::builder().title(format!("No apps match “{}”", filter_text.borrow())).build());
+                list.append(
+                    &adw::ActionRow::builder()
+                        .title(format!("No apps match “{}”", filter_text.borrow()))
+                        .build(),
+                );
             }
             for app in shown {
-                let row = adw::ComboRow::builder().title(&app.app_name).model(&gtk::StringList::new(&MODES.map(|m| m.1))).selected(mode_index(app)).build();
+                let row = adw::ComboRow::builder()
+                    .title(&app.app_name)
+                    .model(&gtk::StringList::new(&MODES.map(|m| m.1)))
+                    .selected(mode_index(app))
+                    .build();
                 if let Some(t) = c.icon(&app.app_id) {
                     let p = gtk::Image::from_paintable(Some(&t));
                     p.set_pixel_size(24);
@@ -336,7 +468,11 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                     let Some(c) = weak.upgrade() else { return };
                     let mode = MODES[(r.selected() as usize).min(2)].0;
                     c.change_notifications(NotificationSettingsChange {
-                        apps: vec![NotificationApp { app_id: id.clone(), mode: mode as i32, ..Default::default() }],
+                        apps: vec![NotificationApp {
+                            app_id: id.clone(),
+                            mode: mode as i32,
+                            ..Default::default()
+                        }],
                         ..Default::default()
                     });
                 });
@@ -361,7 +497,8 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
         waiting.set_visible(paired && s.is_none());
         if !paired {
             waiting_row.set_title("No Phone Paired");
-            waiting_row.set_subtitle("Pair your phone to choose which of its notifications show here");
+            waiting_row
+                .set_subtitle("Pair your phone to choose which of its notifications show here");
             waiting.set_visible(true);
         }
         switches.set_visible(s.is_some());
@@ -381,16 +518,27 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
 }
 
 fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder().name("clipboard").title("Clipboard").icon_name("edit-paste-symbolic").build();
+    let page = adw::PreferencesPage::builder()
+        .name("clipboard")
+        .title("Clipboard")
+        .icon_name("edit-paste-symbolic")
+        .build();
     let group = adw::PreferencesGroup::new();
     let (sync, sq) = switch("Sync the Clipboard", "");
     group.add(&sync);
-    let passwords = adw::ActionRow::builder().title("Passwords Stay on This Computer").subtitle("Copies a password manager marks private are never sent").build();
+    let passwords = adw::ActionRow::builder()
+        .title("Passwords Stay on This Computer")
+        .subtitle("Copies a password manager marks private are never sent")
+        .build();
     let always = gtk::Label::new(Some("Always"));
     always.add_css_class("dim-label");
     passwords.add_suffix(&always);
     group.add(&passwords);
-    let hold = gtk::Label::builder().xalign(0.0).wrap(true).margin_top(12).build();
+    let hold = gtk::Label::builder()
+        .xalign(0.0)
+        .wrap(true)
+        .margin_top(12)
+        .build();
     hold.add_css_class("dim-label");
     hold.add_css_class("caption");
     group.add(&hold);
@@ -406,9 +554,16 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
     });
 
     // Automatic clipboard on this desktop (decision 0012): set up, or one tap until it is
-    let auto = adw::PreferencesGroup::builder().title("This Computer to Your Phone").build();
-    let auto_row = adw::ActionRow::builder().title("Copy Automatically").build();
-    let set_up = gtk::Button::builder().label("Set Up").valign(gtk::Align::Center).build();
+    let auto = adw::PreferencesGroup::builder()
+        .title("This Computer to Your Phone")
+        .build();
+    let auto_row = adw::ActionRow::builder()
+        .title("Copy Automatically")
+        .build();
+    let set_up = gtk::Button::builder()
+        .label("Set Up")
+        .valign(gtk::Align::Center)
+        .build();
     set_up.set_action_name(Some("app.clipboard-setup"));
     let on = gtk::Label::new(Some("On"));
     on.add_css_class("dim-label");
@@ -416,12 +571,19 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
     auto_row.add_suffix(&set_up);
     auto.add(&auto_row);
     page.add(&auto);
-    let from_phone = adw::PreferencesGroup::builder().title("Your Phone to This Computer").build();
+    let from_phone = adw::PreferencesGroup::builder()
+        .title("Your Phone to This Computer")
+        .build();
     let phone_row = adw::ActionRow::builder()
         .title("Copy Automatically")
-        .subtitle("Copies arrive here without using Share. Turn it on here, or in Seam on your phone.")
+        .subtitle(
+            "Copies arrive here without using Share. Turn it on here, or in Seam on your phone.",
+        )
         .build();
-    let phone_set_up = gtk::Button::builder().label("Set Up").valign(gtk::Align::Center).build();
+    let phone_set_up = gtk::Button::builder()
+        .label("Set Up")
+        .valign(gtk::Align::Center)
+        .build();
     phone_set_up.set_action_name(Some("app.phone-clipboard-setup"));
     phone_row.add_suffix(&phone_set_up);
     from_phone.add(&phone_row);
@@ -449,11 +611,21 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
 }
 
 fn privacy(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder().name("privacy").title("Privacy").icon_name("security-high-symbolic").build();
+    let page = adw::PreferencesPage::builder()
+        .name("privacy")
+        .title("Privacy")
+        .icon_name("security-high-symbolic")
+        .build();
     let group = adw::PreferencesGroup::new();
     let fact = |icon: &str, state: &str, title: &str, detail: &str| {
-        let row = adw::ActionRow::builder().title(title).subtitle(detail).build();
-        let b = gtk::Box::builder().spacing(6).valign(gtk::Align::Center).build();
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(detail)
+            .build();
+        let b = gtk::Box::builder()
+            .spacing(6)
+            .valign(gtk::Align::Center)
+            .build();
         b.add_css_class("dim-label");
         b.append(&gtk::Image::from_icon_name(icon));
         let l = gtk::Label::new(Some(state));
@@ -473,7 +645,12 @@ fn privacy(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefe
         "Internet Through Tor",
         "Away from home, neither Tor nor your network can read anything, and Tor hides where you are",
     );
-    let (updates, _) = fact("software-update-available-symbolic", "None", "Update Checks", "Seam never checks for updates itself. Your software centre does.");
+    let (updates, _) = fact(
+        "software-update-available-symbolic",
+        "None",
+        "Update Checks",
+        "Seam never checks for updates itself. Your software centre does.",
+    );
     group.add(&e2e);
     group.add(&tor);
     group.add(&updates);

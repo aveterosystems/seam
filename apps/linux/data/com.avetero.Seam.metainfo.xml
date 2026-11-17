@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<component type="desktop-application">
+  <id>com.avetero.Seam</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <name>Seam</name>
+  <summary>Your phone and your computer, stitched together</summary>
+  <developer id="com.avetero">
+    <name>Avetero</name>
+  </developer>
+  <description>
+    <p>
+      Seam brings your Android phone's notifications and clipboard to this computer, privately.
+      Pair once by scanning a code. After that, notifications show up here, and what you copy on one is on the other.
+    </p>
+    <ul>
+      <li>See your phone's notifications, reply to messages and dismiss them on both</li>
+      <li>Copy on one, paste on the other</li>
+      <li>See your phone's battery</li>
+      <li>End-to-end encrypted with the Signal Protocol. No account and no server: on the same Wi‑Fi Seam goes straight to your phone, and away from home through Tor</li>
+    </ul>
+    <p>Needs the Seam app on your Android phone.</p>
+  </description>
+  <launchable type="desktop-id">com.avetero.Seam.desktop</launchable>
+  <url type="homepage">https://github.com/aveterosystems/seam</url>
+  <url type="bugtracker">https://github.com/aveterosystems/seam/issues</url>
+  <url type="vcs-browser">https://github.com/aveterosystems/seam</url>
+  <content_rating type="oars-1.1"/>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <branding>
+    <color type="primary" scheme_preference="light">#9FF2E0</color>
+    <color type="primary" scheme_preference="dark">#005047</color>
+  </branding>
+  <releases>
+    <release version="0.1.0" date="2026-11-17">
+      <description>
+        <p>The first Linux version: pairing, notifications with reply, clipboard both ways and the phone's battery, on GNOME and KDE Plasma.</p>
+      </description>
+    </release>
+  </releases>
+</component>

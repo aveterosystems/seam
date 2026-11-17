@@ -46,7 +46,10 @@ pub struct Stitch {
 
 impl Stitch {
     pub fn new() -> Self {
-        let widget = gtk::DrawingArea::builder().content_height(6).hexpand(true).build();
+        let widget = gtk::DrawingArea::builder()
+            .content_height(6)
+            .hexpand(true)
+            .build();
         widget.set_accessible_role(gtk::AccessibleRole::Presentation); // the words beside it say the same
         let state = Rc::new(RefCell::new(State {
             kind: Kind::Broken,
@@ -56,8 +59,14 @@ impl Stitch {
             tick: None,
         }));
         let s = state.clone();
-        widget.set_draw_func(move |w, cr, width, height| draw(&s.borrow(), w, cr, width as f64, height as f64));
-        let st = Self { widget, state, drawn: Rc::new(Cell::new(false)) };
+        widget.set_draw_func(move |w, cr, width, height| {
+            draw(&s.borrow(), w, cr, width as f64, height as f64)
+        });
+        let st = Self {
+            widget,
+            state,
+            drawn: Rc::new(Cell::new(false)),
+        };
         let me = st.clone();
         // Drawn in again each time it's shown: a surface opening redraws the line (catalogue 1)
         st.widget.connect_map(move |_| {
@@ -128,28 +137,60 @@ impl Default for Stitch {
 fn draw(s: &State, w: &gtk::DrawingArea, cr: &cairo::Context, width: f64, height: f64) {
     let p = crate::ui::palette();
     let animate = crate::ui::animations();
-    let elapsed = s.since.map_or(f64::MAX, |since| (s.now - since) as f64 / 1000.0);
-    let fade = if animate { (elapsed / FADE_MS).clamp(0.0, 1.0) } else { 1.0 };
-    let flow = if animate { (s.now as f64 / 1_000_000.0) * FLOW } else { 0.0 };
+    let elapsed = s
+        .since
+        .map_or(f64::MAX, |since| (s.now - since) as f64 / 1000.0);
+    let fade = if animate {
+        (elapsed / FADE_MS).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    let flow = if animate {
+        (s.now as f64 / 1_000_000.0) * FLOW
+    } else {
+        0.0
+    };
     let y = height / 2.0;
     if let Some(prev) = s.previous {
         line(cr, prev, width, y, 1.0, flow, 1.0 - fade, &p);
     }
     // The settle curve (0.2, 0.8, 0.2, 1) for the draw-in, approximated as a strong ease-out
-    let t = if animate { (elapsed / DRAW_MS).clamp(0.0, 1.0) } else { 1.0 };
-    let drawn = if s.kind == Kind::Solid { 1.0 - (1.0 - t).powi(4) } else { 1.0 };
+    let t = if animate {
+        (elapsed / DRAW_MS).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    let drawn = if s.kind == Kind::Solid {
+        1.0 - (1.0 - t).powi(4)
+    } else {
+        1.0
+    };
     line(cr, s.kind, width, y, drawn, flow, fade, &p);
     let _ = w;
 }
 
 #[allow(clippy::too_many_arguments)]
-fn line(cr: &cairo::Context, kind: Kind, width: f64, y: f64, drawn: f64, flow: f64, alpha: f64, p: &crate::ui::Palette) {
+fn line(
+    cr: &cairo::Context,
+    kind: Kind,
+    width: f64,
+    y: f64,
+    drawn: f64,
+    flow: f64,
+    alpha: f64,
+    p: &crate::ui::Palette,
+) {
     let colour = match kind {
         Kind::Solid | Kind::Dashed => p.teal,
         Kind::Paused => p.paused,
         Kind::Travelling | Kind::Broken => p.grey,
     };
-    cr.set_source_rgba(colour.red() as f64, colour.green() as f64, colour.blue() as f64, colour.alpha() as f64 * alpha);
+    cr.set_source_rgba(
+        colour.red() as f64,
+        colour.green() as f64,
+        colour.blue() as f64,
+        colour.alpha() as f64 * alpha,
+    );
     cr.set_line_cap(cairo::LineCap::Round);
     match kind {
         Kind::Solid | Kind::Paused => {

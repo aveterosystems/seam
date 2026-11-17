@@ -38,7 +38,11 @@ impl PhoneSummary {
     pub fn new(size: Size) -> Self {
         let header = size == Size::Header;
         let disc = phone_disc(if header { 56 } else { 26 });
-        let name = gtk::Label::builder().xalign(0.0).ellipsize(gtk::pango::EllipsizeMode::End).hexpand(true).build();
+        let name = gtk::Label::builder()
+            .xalign(0.0)
+            .ellipsize(gtk::pango::EllipsizeMode::End)
+            .hexpand(true)
+            .build();
         name.add_css_class(if header { "title-2" } else { "name" });
         let dot = StatusDot::new();
         let line = Swap::new(&["dim-label", "status-line"]);
@@ -55,17 +59,28 @@ impl PhoneSummary {
         let battery_icon = gtk::Image::new();
         battery_icon.set_pixel_size(16);
         let battery_text = Swap::new(&["numeric"]);
-        let battery = gtk::Box::builder().spacing(4).valign(gtk::Align::Center).build();
+        let battery = gtk::Box::builder()
+            .spacing(4)
+            .valign(gtk::Align::Center)
+            .build();
         battery.append(&battery_icon);
         battery.append(&battery_text.widget);
         battery.add_css_class("dim-label");
         let stats = gtk::Box::builder().spacing(14).build();
         stats.add_css_class("dim-label");
 
-        let text = gtk::Box::builder().orientation(gtk::Orientation::Vertical).hexpand(true).build();
-        let widget = gtk::Box::builder().spacing(if header { 16 } else { 10 }).build();
+        let text = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .hexpand(true)
+            .build();
+        let widget = gtk::Box::builder()
+            .spacing(if header { 16 } else { 10 })
+            .build();
         if header {
-            let top = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(2).build();
+            let top = gtk::Box::builder()
+                .orientation(gtk::Orientation::Vertical)
+                .spacing(2)
+                .build();
             top.append(&name);
             top.append(&status);
             text.append(&top);
@@ -87,7 +102,20 @@ impl PhoneSummary {
             text.append(&stitch.widget);
             widget.append(&text);
         }
-        Self { widget, disc, name, dot, line, path, stitch, battery, battery_icon, battery_text, stats, size }
+        Self {
+            widget,
+            disc,
+            name,
+            dot,
+            line,
+            path,
+            stitch,
+            battery,
+            battery_icon,
+            battery_text,
+            stats,
+            size,
+        }
     }
 
     pub fn render(&self, m: &Model, now: i64) {
@@ -95,27 +123,45 @@ impl PhoneSummary {
         set_disc(&self.disc, look.connected);
         self.name.set_label(&m.phone_name(true));
         self.dot.set(look.connected);
-        let words = if self.size == Size::Header { m.hero_line(now) } else { m.status_line(now) };
+        let words = if self.size == Size::Header {
+            m.hero_line(now)
+        } else {
+            m.status_line(now)
+        };
         self.line.set(&words);
         self.line.set_tooltip(look.detail.as_deref());
         set_path_icon(&self.path, &look);
-        let connecting = matches!(look.kind, seam_looks::LinkKind::ConnectingTor | seam_looks::LinkKind::Reconnecting);
-        self.stitch.set(look.line, connecting, look.kind == seam_looks::LinkKind::Paused);
+        let connecting = matches!(
+            look.kind,
+            seam_looks::LinkKind::ConnectingTor | seam_looks::LinkKind::Reconnecting
+        );
+        self.stitch.set(
+            look.line,
+            connecting,
+            look.kind == seam_looks::LinkKind::Paused,
+        );
 
         let status = m.phone_status(now);
-        self.battery.set_visible(status.as_ref().is_some_and(|s| s.battery.is_some()));
+        self.battery
+            .set_visible(status.as_ref().is_some_and(|s| s.battery.is_some()));
         if let Some(s) = &status {
             // The real level, not the shared look's quarter steps: Adwaita draws tens
-            self.battery_icon.set_icon_name(Some(&crate::model::battery_icon(s.percent, s.charging)));
+            self.battery_icon
+                .set_icon_name(Some(&crate::model::battery_icon(s.percent, s.charging)));
             let text = match (&s.battery, s.stale, &s.meta) {
                 (Some(b), true, Some(meta)) if self.size == Size::Header => format!("{b} · {meta}"),
                 (Some(b), ..) => b.clone(),
                 _ => String::new(),
             };
             self.battery_text.set(&text);
-            if s.low { self.battery.add_css_class("warn-label") } else { self.battery.remove_css_class("warn-label") }
+            if s.low {
+                self.battery.add_css_class("warn-label")
+            } else {
+                self.battery.remove_css_class("warn-label")
+            }
             self.battery.set_tooltip_text(s.battery_detail.as_deref());
-            self.battery.update_property(&[gtk::accessible::Property::Label(&s.spoken)]);
+            self.battery
+                .update_property(&[gtk::accessible::Property::Label(&s.spoken)]);
         }
         if self.size == Size::Header {
             // Network, free storage and Do Not Disturb after the battery, as on the Mac
@@ -130,18 +176,27 @@ impl PhoneSummary {
                     self.stats.append(&stat(&icon_name(icon), net, net));
                 }
                 if let (Some(free), Some(detail)) = (&s.storage, &s.storage_detail) {
-                    self.stats.append(&stat("drive-harddisk-symbolic", &format!("{free} free"), detail));
+                    self.stats.append(&stat(
+                        "drive-harddisk-symbolic",
+                        &format!("{free} free"),
+                        detail,
+                    ));
                 }
                 if s.dnd {
-                    self.stats.append(&stat("weather-clear-night-symbolic", "Do Not Disturb", "Do Not Disturb"));
+                    self.stats.append(&stat(
+                        "weather-clear-night-symbolic",
+                        "Do Not Disturb",
+                        "Do Not Disturb",
+                    ));
                 }
             }
         }
-        self.widget.update_property(&[gtk::accessible::Property::Label(&format!(
-            "{}, {}",
-            m.phone_name(true),
-            look.sentence()
-        ))]);
+        self.widget
+            .update_property(&[gtk::accessible::Property::Label(&format!(
+                "{}, {}",
+                m.phone_name(true),
+                look.sentence()
+            ))]);
     }
 }
 

@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Seam for Linux as a Flatpak (decision on #70: Flathub only). Built offline from this checkout:
+# every crate comes from cargo-sources.json (scripts/gen-flatpak-sources.sh regenerates it).
+# On Flathub the seam module's source is the release's git tag instead of this directory.
+app-id: com.avetero.Seam
+runtime: org.gnome.Platform
+runtime-version: '49'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: seam
+finish-args:
+  # Same Wi‑Fi (the listener and mDNS) and Tor
+  - --share=network
+  # The window: Wayland, X11 only where there's no Wayland
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # The tray icon: there's no tray portal
+  - --talk-name=org.kde.StatusNotifierWatcher
+  # Automatic clipboard: Seam's own GNOME extension, which only answers this app (decision 0012)
+  - --talk-name=com.avetero.Seam.Clipboard
+  # ...turning that extension on from the setup dialog
+  - --talk-name=org.gnome.Shell.Extensions
+  # Automatic clipboard on KDE Plasma: Klipper, Plasma's clipboard service
+  - --talk-name=org.kde.klipper
+  # This computer's battery, for the phone
+  - --system-talk-name=org.freedesktop.UPower
+  # Waking from sleep, to publish Seam's onion service again
+  - --system-talk-name=org.freedesktop.login1
+  # The computer's name, for the phone to show while pairing
+  - --system-talk-name=org.freedesktop.hostname1
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/seam/cargo
+    CARGO_NET_OFFLINE: 'true'
+modules:
+  # Build only: libsignal's post-quantum ratchet compiles .proto files at build time
+  - name: protoc
+    buildsystem: simple
+    cleanup: ['*']
+    build-commands:
+      - install -Dm755 bin/protoc /app/bin/protoc
+    sources:
+      - type: archive
+        only-arches: [x86_64]
+        url: https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip
+        sha256: 3e866620c5be27664f3d2fa2d656b5f3e09b5152b42f1bedbf427b333e90021a
+        strip-components: 0
+      - type: archive
+        only-arches: [aarch64]
+        url: https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-aarch_64.zip
+        sha256: 6427349140e01f06e049e707a58709a4f221ae73ab9a0425bc4a00c8d0e1ab32
+        strip-components: 0
+  - name: seam
+    buildsystem: simple
+    build-options:
+      env:
+        PROTOC: /app/bin/protoc
+    build-commands:
+      - cargo --offline build --release --manifest-path apps/linux/Cargo.toml
+      - install -Dm755 apps/linux/target/release/seam /app/bin/seam
+      - install -Dm644 apps/linux/data/com.avetero.Seam.desktop /app/share/applications/com.avetero.Seam.desktop
+      - install -Dm644 apps/linux/data/com.avetero.Seam.metainfo.xml /app/share/metainfo/com.avetero.Seam.metainfo.xml
+      - cp -r apps/linux/data/icons /app/share/
+    sources:
+      - type: dir
+        path: ../../..
+        skip: [apps/android, apps/mac, apps/linux/target, target, .git]
+      - apps/linux/flatpak/cargo-sources.json
