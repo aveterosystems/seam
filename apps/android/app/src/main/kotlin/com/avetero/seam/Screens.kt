@@ -54,6 +54,8 @@ fun SeamScreen(
     onConfirm: (PairingQr) -> Unit,
     onCancelConfirm: () -> Unit,
     onScan: () -> Unit,
+    /** After a failed pairing: what happened on this phone, into the share sheet. */
+    onShareDiagnostics: () -> Unit = {},
     onSendClipboard: () -> SendFeedback = { SendFeedback() },
     fromMac: FromMac? = null,
     now: Long = System.currentTimeMillis(),
@@ -130,7 +132,7 @@ fun SeamScreen(
             )
         }
         when (state) {
-            is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan)
+            is SessionState.Failed -> Intro("Pairing didn't work", state.reason, "Scan again", scanError, onScan, onShareDiagnostics = onShareDiagnostics)
             else -> Intro(
                 title = "Pair with your computer",
                 body = "Open Seam on your computer and scan the code it shows. That's the whole setup.",
@@ -144,8 +146,12 @@ fun SeamScreen(
 
 /** The first-run screen: pairing's first step, in the page Setup (the next one) shares. */
 @Composable
-private fun Intro(title: String, body: String, action: String, error: String?, onAction: () -> Unit) =
-    FirstRunPage(Looks.idle, title, body, action = { BigButton(action, onAction) }) {
+private fun Intro(title: String, body: String, action: String, error: String?, onAction: () -> Unit, onShareDiagnostics: (() -> Unit)? = null) =
+    FirstRunPage(Looks.idle, title, body, action = {
+        BigButton(action, onAction)
+        // After a failure, what happened on this phone, for a bug report: the share sheet decides where it goes
+        if (onShareDiagnostics != null) Pill("Share diagnostics", onShareDiagnostics, PillKind.Text, modifier = Modifier.fillMaxWidth())
+    }) {
         if (error != null) {
             Text(error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
         }

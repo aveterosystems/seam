@@ -26,6 +26,9 @@ tor-proto = "=0.47.0"
 safelog = "=0.10.0"
 tor-rtcompat = { version = "=0.47.0", default-features = false, features = ["tokio", "rustls"] }
 futures = "0.3"
+seam-diagnostics = { path = "../seam-diagnostics" }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "registry"] }
 # Arti's TLS to Tor relays needs a crypto backend; ring cross-compiles for Android with no extra
 # tooling. It only carries Tor's link layer, under Tor's own encryption.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
@@ -35,4 +38,5 @@ tokio = { version = "1", features = ["rt-multi-thread", "time", "io-util", "macr
 zeroize = "1"
 
 [dev-dependencies]
+base64 = "0.23"
 tempfile = "3"

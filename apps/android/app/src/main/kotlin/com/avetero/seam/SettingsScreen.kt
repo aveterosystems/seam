@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -64,6 +65,7 @@ fun SettingsScreen(
     var confirmForget by remember { mutableStateOf(false) }
     var keepPasswords by remember { mutableStateOf(!sendSensitive) }
     val uri = LocalUriHandler.current
+    val context = LocalContext.current
     SubScreen("Settings", onBack) {
         Section("On your computer") {
             if (notifications != null) NotificationsItem(notifications, paused = pause != null, onOpen = onOpenNotifications)
@@ -112,6 +114,10 @@ fun SettingsScreen(
             Item("Open source", "AGPL-3.0 · aveterosystems/seam", lead = painterResource(R.drawable.ic_open_in_new), onClick = {
                 // Leaves the app for the browser: the lead says so, so no chevron
                 uri.openUri("https://github.com/aveterosystems/seam")
+            })
+            // Only when the user shares it does anything leave the phone: the share sheet decides where
+            Item("Share diagnostics", "What Seam did lately, for a bug report", lead = painterResource(R.drawable.ic_diagnostics), onClick = {
+                Diagnostics.share(context)
             })
         }
     }

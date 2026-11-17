@@ -141,4 +141,50 @@ async fn only_the_paired_phone_reaches_the_mac() {
         }
     }
     eprintln!("disk: no key material");
+
+    // The diagnostics export shows Arti and Seam's Tor events, and none of the secrets above
+    let out = seam_diagnostics::recorder().export("live");
+    for want in [
+        "tor bootstrapped in",
+        "tor dial 1 started",
+        "connected after",
+        "arti INFO",
+        "tor service ",
+    ] {
+        // Failure messages never print the export: if it leaked, that would spread it
+        assert!(out.contains(want), "no \"{want}\" in the export");
+    }
+    // Every service's address, in any 8-character window: the first service's and the second's
+    for onion in [address.to_string(), second.address().to_string()] {
+        for window in onion.as_bytes()[..56].windows(8) {
+            let w = std::str::from_utf8(window).unwrap();
+            assert!(!out.contains(w), "part of an address leaked");
+        }
+    }
+    // Each key, in every form a log prints bytes in
+    use base64::Engine;
+    use base64::engine::general_purpose::{STANDARD_NO_PAD, URL_SAFE_NO_PAD};
+    for secret in [
+        service_key.to_bytes().to_vec(),
+        phone_key.to_bytes().to_vec(),
+        stranger_key.to_bytes().to_vec(),
+    ] {
+        let hex: String = secret.iter().map(|b| format!("{b:02x}")).collect();
+        let forms = [
+            ("hex", hex.clone()),
+            ("upper-case hex", hex.to_uppercase()),
+            ("base64", STANDARD_NO_PAD.encode(&secret)),
+            ("base64url", URL_SAFE_NO_PAD.encode(&secret)),
+            ("a byte list", format!("{secret:?}")),
+        ];
+        // The message names the encoding, never the key itself
+        for (encoding, form) in forms {
+            assert!(!out.contains(&form[..12]), "a key leaked, as {encoding}");
+        }
+    }
+    assert!(!out.contains(".onion"), "an onion address leaked");
+    eprintln!(
+        "diagnostics: {} lines, no address or key\n{out}",
+        out.lines().count()
+    );
 }

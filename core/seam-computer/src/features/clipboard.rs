@@ -222,6 +222,14 @@ impl Clipboard {
         if !sendable(&item.types) {
             return None;
         }
+        // "Copy diagnostics" promises nothing is sent: an export stays here, however it was copied
+        if item
+            .text
+            .as_deref()
+            .is_some_and(seam_diagnostics::is_export)
+        {
+            return None;
+        }
         let text = self.rules.outgoing(item.text.as_deref(), now_ms)?;
         let payload = Payload {
             body: Some(Body::Clipboard(seam_core::proto::v1::Clipboard {

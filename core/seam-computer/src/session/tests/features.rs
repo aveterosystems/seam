@@ -128,6 +128,21 @@ async fn a_password_managers_copy_is_never_sent() {
     assert!(clips(&rig.on_tor()).is_empty());
 }
 
+/// "Copy diagnostics" says nothing is sent: the export stays on this computer even with sync on,
+/// however it reached the clipboard (GNOME's About copies it as plain text).
+#[tokio::test]
+async fn a_diagnostics_export_is_never_sent() {
+    let mut rig = Rig::new().await;
+    rig.tor_up().await;
+    let export = seam_diagnostics::recorder().export("Seam test on linux");
+    rig.pasteboard.copy(&export);
+    rig.advance(1.0).await;
+    assert!(clips(&rig.on_tor()).is_empty());
+    rig.pasteboard.copy("an ordinary copy");
+    rig.advance(1.0).await;
+    assert_eq!(clips(&rig.on_tor()), ["an ordinary copy"]);
+}
+
 #[tokio::test]
 async fn a_copy_while_the_phone_is_away_goes_when_its_back() {
     let mut rig = Rig::new().await;

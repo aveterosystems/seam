@@ -154,11 +154,14 @@ fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::W
     let _ = prefs;
     let win = window.clone();
     add("show-window", Box::new(move |_| win.present()), None);
-    let win = window.clone();
+    let (cc, win) = (c.clone(), window.clone());
     add(
         "about",
         Box::new(move |_| {
+            // GNOME's own Troubleshooting page: the user sees it, and copies or saves it themselves
             let about = adw::AboutDialog::builder()
+                .debug_info(cc.diagnostics())
+                .debug_info_filename("seam-diagnostics.txt")
                 .application_name("Seam")
                 .application_icon(APP_ID)
                 .developer_name("Avetero")

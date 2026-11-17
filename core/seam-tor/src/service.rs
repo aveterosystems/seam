@@ -95,6 +95,7 @@ impl TorNode {
             }
         };
         let (running, requests) = launched.ok_or(Error::Config)?;
+        watch_status(&running);
         // Never serve under an address other than the one the phones were given
         if running.onion_address() != Some(expected.0) {
             return Err(Error::WrongServiceKey);
@@ -105,6 +106,35 @@ impl TorNode {
             requests: Box::pin(handle_rend_requests(requests)),
         })
     }
+}
+
+/// Records the service's state as Arti reports it (bootstrapping, running, degraded, broken), and
+/// what kind of problem it has, never the problem's own text: that can name relays.
+fn watch_status(running: &Arc<RunningOnionService>) {
+    let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+        return; // not on a runtime (never the case for a computer): no status, nothing else lost
+    };
+    let mut events = running.status_events();
+    runtime.spawn(async move {
+        let mut last = None;
+        while let Some(status) = events.next().await {
+            let problem = match status.current_problem() {
+                None => String::new(),
+                Some(tor_hsservice::status::Problem::DescriptorUpload(e)) => {
+                    format!(", {} descriptor upload(s) failed", e.len())
+                }
+                Some(tor_hsservice::status::Problem::Ipt(e)) => {
+                    format!(", {} introduction point(s) failed", e.len())
+                }
+                Some(_) => ", fatal error".into(),
+            };
+            let now = format!("service {:?}{problem}", status.state());
+            if last.as_ref() != Some(&now) {
+                seam_diagnostics::record("tor", &now);
+                last = Some(now);
+            }
+        }
+    });
 }
 
 impl HostedService {

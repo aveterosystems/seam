@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 seam-core = { path = "../seam-core" }
 seam-tor = { path = "../seam-tor" }
+seam-diagnostics = { path = "../seam-diagnostics" }
 async-trait = "0.1"
 base64 = "0.23"
 prost = "0.14"

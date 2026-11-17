@@ -199,6 +199,7 @@ class MainActivity : ComponentActivity() {
                     onResume = { session.resume() },
                     // Seam has focus here, so Android allows the read
                     onSendClipboard = { sendFeedback(clipboard.sendCurrent(), session.state.value, macName ?: "your computer", clipboard.offOnMac) },
+                    onShareDiagnostics = { Diagnostics.share(this@MainActivity) },
                     onScan = {
                         scanError = null
                         scanning = true

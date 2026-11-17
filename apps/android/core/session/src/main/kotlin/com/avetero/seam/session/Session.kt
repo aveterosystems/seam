@@ -5,6 +5,7 @@ import com.avetero.seam.crypto.PeerInfo
 import com.avetero.seam.crypto.PeerPath
 import com.avetero.seam.crypto.SeamDevice
 import com.avetero.seam.crypto.SeamException
+import com.avetero.seam.crypto.diagnosticsRecord
 import com.avetero.seam.crypto.payloadRules
 import com.avetero.seam.protocol.v1.ClientFrame
 import com.avetero.seam.protocol.v1.Control
@@ -49,8 +50,8 @@ class Session(
     private val myModel: String,
     private val scope: CoroutineScope,
     private val now: () -> Long = System::currentTimeMillis,
-    /** Debug builds only: the connection manager's decisions, never content, keys or addresses. Null: not built at all. */
-    private val trace: ((String) -> Unit)? = null,
+    /** The connection manager's decisions (never content, keys or addresses), also shown here: debug builds log them. */
+    debugLog: ((String) -> Unit)? = null,
     /** The Same Wi‑Fi dialer; null: none. */
     private val lan: Lan? = null,
     /** The Tor dialer; null: none. */
@@ -100,6 +101,15 @@ class Session(
 
     init {
         scope.launch { _state.collect { updateCpu() } }
+    }
+
+    /**
+     * Every decision goes to diagnostics (memory only, filtered, exported only when the user
+     * shares it: specs/diagnostics.md), and to [debugLog] too when the app passed one.
+     */
+    private val trace: (String) -> Unit = { line ->
+        diagnosticsRecord("session", line)
+        debugLog?.invoke(line)
     }
 
     private val pairing = Pairing(device, myName, myModel, now, persist = { persist() }, send = { sendEnvelope(it) }, fail = { fail(it) })
@@ -248,7 +258,7 @@ class Session(
      */
     private fun reconsider(connect: Boolean = true) {
         val m = mac ?: return
-        trace?.invoke(
+        trace(
             "reconsider connect=$connect screen=${wake.screenOn} charging=${wake.charging} urgent=${outbox.urgentCount()} " +
                 "activeFor=${wake.activeFor()}ms tor=${onion?.active}/${onion?.up} lan=${direct?.active}/${direct?.up} pairing=${pairing.active} " +
                 "state=${_state.value::class.simpleName}",
@@ -307,7 +317,7 @@ class Session(
         if (pairing.active || storageBlocked || paused() || _state.value is SessionState.Failed) return
         if (byMac && now() - lastReconnect < MAC_RECONNECT_GAP_MS) return
         lastReconnect = now()
-        trace?.invoke("reconnect")
+        trace("reconnect")
         wake.touch()
         _state.value = SessionState.Connecting(m.name, reconnecting = true)
         for (p in paths) {
@@ -326,7 +336,7 @@ class Session(
 
     /** Closes the connection on purpose: no reconnect until something wants one. */
     private fun sleep(m: PeerInfo) {
-        trace?.invoke("sleep: closing the idle connection")
+        trace("sleep: closing the idle connection")
         closePaths()
         _state.value = SessionState.Idle(m.name)
     }
@@ -344,6 +354,7 @@ class Session(
         switches.savePause(0) // a new pairing starts unpaused (SR-32-02); a kept Mac hears it in its next Hello
         outbox.clearUnsent() // what the current Mac never acked is kept: it still gets it if this pairing fails
         pairing.start(qr)
+        trace("pairing: started")
         pairingVia = null
         syncTor()
         _notice.value = null
@@ -440,7 +451,7 @@ class Session(
         if (pairingVia != null) return path.stop() // lost the race: one pairing channel is enough
         pairingVia = path
         paths.filter { it !== path }.forEach { it.stop() }
-        trace?.invoke("pairing: channel up")
+        trace("pairing: channel up")
         path.send(request)
     }
 
@@ -571,14 +582,14 @@ class Session(
                 persist() // the ratchet moved: save before anything leaves, or a crash could reuse a key
                 e
             } catch (e: SeamException) {
-                trace?.invoke("seal failed, dropped: ${next.bodyCase} $e")
+                trace("seal failed, dropped: ${next.bodyCase} $e")
                 outbox.removeNext()
                 continue
             } catch (_: Exception) {
                 return fail(SAVE_FAILED)
             }
             outbox.removeNext()
-            trace?.invoke("flush: ${next.bodyCase} ${next.serializedSize} bytes")
+            trace("flush: ${next.bodyCase} ${next.serializedSize} bytes")
             if (!sendEnvelope(env, hello = next.isHello())) return
             wake.touchAfter(next)
         }
@@ -605,6 +616,7 @@ class Session(
         pairingDeadline?.cancel()
         pairingVia = null
         val abandoned = pairing.abandon()
+        trace(if (abandoned) "pairing failed: $reason" else "failed: $reason")
         syncTor()
         if (abandoned) {
             val m = mac
@@ -630,10 +642,10 @@ class Session(
         // While pairing only the pairing channel counts: the new Mac's wishes aren't known
         if (pairing.active) return pairingVia?.takeIf { it.up }?.send(frame) == true
         val via = route(hello)
-        trace?.invoke("send: ${e.serializedSize} bytes via ${if (via === direct) "lan" else "tor"}")
+        trace("send: ${e.serializedSize} bytes via ${if (via === direct) "lan" else "tor"}")
         if (via == null) return false
         // Recorded before it's handed to the link
-        if (!outbox.sentDirect(e)) trace?.invoke("pending: save failed")
+        if (!outbox.sentDirect(e)) trace("pending: save failed")
         val sent = via.send(frame) // a failed write stays recorded, and goes again when the link drops
         watchAck(e.msgId, via)
         return sent
@@ -650,7 +662,7 @@ class Session(
             delay(ACK_TIMEOUT_MS)
             ackWatch.remove(id)
             if (!outbox.unacked(id) || via !in upPaths || upPaths.size < 2) return@launch
-            trace?.invoke("no ack in ${ACK_TIMEOUT_MS / 1000} s: closing that link")
+            trace("no ack in ${ACK_TIMEOUT_MS / 1000} s: closing that link")
             via.stop()
             pathClosed(via)
         }
@@ -659,7 +671,7 @@ class Session(
     /** The Mac's Hello lists the links it has open; one of ours it doesn't list is dead on its side. */
     private fun closeLinksMissingFrom(open: List<PeerPath>) {
         upPaths.filter { pathOf(it) !in open }.forEach {
-            trace?.invoke("the Mac no longer has this link: closing")
+            trace("the Mac no longer has this link: closing")
             it.stop()
             pathClosed(it)
         }
@@ -742,7 +754,7 @@ class Session(
     private fun macHello(h: Hello) {
         val peer = switches.macHello(h)
         if (peer == null) {
-            trace?.invoke("hello: not newer than the last one, ignored")
+            trace("hello: not newer than the last one, ignored")
             return
         }
         scope.launch {
@@ -758,7 +770,7 @@ class Session(
     private fun applySettings() {
         if (pairing.active || mac == null) return
         if (!switches.tor && onion?.active == true) {
-            trace?.invoke("tor switched off: closing")
+            trace("tor switched off: closing")
             stopPath(onion)
         }
         if (!switches.wifi) direct?.let { stopPath(it) }

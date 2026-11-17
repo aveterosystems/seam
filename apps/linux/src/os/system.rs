@@ -6,6 +6,24 @@ use futures_util::StreamExt;
 /// The pretty name hostnamed gave at launch (inside Flatpak, /etc is the runtime's own).
 static PRETTY: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
+/// The distribution and its version (`PRETTY_NAME` in os-release), for the diagnostics export.
+pub fn os_name() -> String {
+    // Inside Flatpak /etc is the runtime's; the host's own is at /run/host
+    let release = [
+        "/run/host/os-release",
+        "/etc/os-release",
+        "/usr/lib/os-release",
+    ]
+    .iter()
+    .find_map(|p| std::fs::read_to_string(p).ok())
+    .unwrap_or_default();
+    release
+        .lines()
+        .find_map(|l| l.strip_prefix("PRETTY_NAME="))
+        .map(|v| v.trim_matches('"').to_owned())
+        .unwrap_or_else(|| "Linux".into())
+}
+
 /// The name the phone shows for this computer: the one set in Settings (hostnamed's pretty name,
 /// or /etc/machine-info), else the host name, else "Linux computer".
 pub fn computer_name() -> String {

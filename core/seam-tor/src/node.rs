@@ -79,6 +79,7 @@ impl TorNode {
     /// that blocks Tor it would otherwise never return (SR-33-06).
     pub async fn start(app_dir: &Path) -> Result<Self, Error> {
         check_private(app_dir)?;
+        crate::record_arti(); // before Arti says anything
         // Fails only if a provider is already installed, which is just as good
         let _ = rustls::crypto::ring::default_provider().install_default();
 
@@ -97,10 +98,27 @@ impl TorNode {
 
         let runtime = PreferredRuntime::current().map_err(|_| Error::Config)?;
         let builder = TorClient::with_runtime(runtime).config(config);
-        let client = tokio::time::timeout(START_TIMEOUT, builder.create_bootstrapped())
-            .await
-            .map_err(|_| Error::Timeout)?
-            .map_err(|e| Error::Tor(e.kind()))?;
+        let started = std::time::Instant::now();
+        seam_diagnostics::record("tor", "bootstrapping");
+        let client = match tokio::time::timeout(START_TIMEOUT, builder.create_bootstrapped()).await
+        {
+            Ok(Ok(client)) => client,
+            Ok(Err(e)) => {
+                seam_diagnostics::record("tor", &format!("bootstrap failed: {}", e.kind()));
+                return Err(Error::Tor(e.kind()));
+            }
+            Err(_) => {
+                seam_diagnostics::record(
+                    "tor",
+                    &format!("bootstrap gave up after {} s", START_TIMEOUT.as_secs()),
+                );
+                return Err(Error::Timeout);
+            }
+        };
+        seam_diagnostics::record(
+            "tor",
+            &format!("bootstrapped in {:.1} s", started.elapsed().as_secs_f32()),
+        );
         Ok(Self {
             client,
             service_keys: Mutex::default(),

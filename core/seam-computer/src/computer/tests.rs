@@ -25,6 +25,8 @@ use crate::session::TorServiceSpec;
 use crate::store::Legacy;
 use crate::tor::{StateSink, StreamSink, TorHosted};
 
+mod diagnostics;
+
 #[derive(Default)]
 struct Keys(Mutex<Option<Vec<u8>>>);
 
@@ -170,6 +172,35 @@ impl Phone {
                 return ServerFrame::decode(f.as_slice()).unwrap().frame.unwrap();
             }
         }
+    }
+}
+
+/// None of `secrets` (in any encoding Seam or Arti prints bytes in) and none of `words` in `out`.
+fn assert_no_secrets(out: &str, secrets: &[&[u8]], words: &[&str]) {
+    use base64::Engine;
+    use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+    for s in secrets {
+        let hex: String = s.iter().map(|b| format!("{b:02x}")).collect();
+        let encodings = [
+            hex.clone(),
+            hex.to_uppercase(),
+            STANDARD.encode(s),
+            STANDARD_NO_PAD.encode(s),
+            URL_SAFE.encode(s),
+            URL_SAFE_NO_PAD.encode(s),
+            // `{:?}` on bytes, the likeliest accidental leak in Rust: "[12, 200, 3, ..."
+            format!("{s:?}"),
+        ];
+        for e in encodings {
+            // A 12-character slice is already far more than chance: any of them is a leak
+            assert!(
+                !out.contains(&e[..12.min(e.len())]),
+                "a secret ({e}) in {out}"
+            );
+        }
+    }
+    for w in words {
+        assert!(!w.is_empty() && !out.contains(w), "\"{w}\" in {out}");
     }
 }
 
@@ -337,6 +368,39 @@ async fn pairs_through_tor_comes_back_as_itself_and_a_clip_crosses() {
         "from the phone"
     );
     assert_eq!(board.0.lock().unwrap().1.as_deref(), Some("from the phone"));
+
+    // The diagnostics export tells the pairing step by step, and carries none of its secrets
+    let out = computer.diagnostics("");
+    for step in [
+        "pairing code shown",
+        "tor service launched",
+        "pairing channel up",
+        "pairing bundle sent",
+        "pairing request received",
+        "pairing confirmed",
+        "pairing accept acked",
+    ] {
+        assert!(out.contains(step), "no \"{step}\" in {out}");
+    }
+    let secrets: [&[u8]; 6] = [
+        &qr.discovery_secret,
+        &qr.token,
+        &qr.identity_key,
+        &qr.relay_key,
+        &service.secret,
+        &service.clients[0],
+    ];
+    assert_no_secrets(
+        &out,
+        &secrets,
+        &[
+            &qr.onion_address,
+            "Pixel",
+            phone.id(),
+            &mac_id,
+            qr.url().as_str(),
+        ],
+    );
 
     // And it survives a restart: the same phone, from the files on disk
     drop(computer);

@@ -795,6 +795,10 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_seam_ffi_checksum_func_clip_max_bytes(
     ): Int
+    external fun uniffi_seam_ffi_checksum_func_diagnostics_export(
+    ): Int
+    external fun uniffi_seam_ffi_checksum_func_diagnostics_record(
+    ): Int
     external fun uniffi_seam_ffi_checksum_func_ago_words(
     ): Int
     external fun uniffi_seam_ffi_checksum_func_clipboard_subtitle(
@@ -1197,6 +1201,10 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_clip_max_bytes(uniffi_out_err: UniffiRustCallStatus, 
     ): Int
+    external fun uniffi_seam_ffi_fn_func_diagnostics_export(`header`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_seam_ffi_fn_func_diagnostics_record(`source`: RustBuffer.ByValue,`event`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_seam_ffi_fn_func_ago_words(`atMs`: Long,`nowMs`: Long,`justNow`: RustBuffer.ByValue,`time`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_seam_ffi_fn_func_clipboard_subtitle(`syncOn`: Byte,`connected`: Byte,uniffi_out_err: UniffiRustCallStatus, 
@@ -1372,6 +1380,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_clip_max_bytes() and 0xFFFF) != 30606) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_diagnostics_export() and 0xFFFF) != 14233) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_seam_ffi_checksum_func_diagnostics_record() and 0xFFFF) != 1956) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_seam_ffi_checksum_func_ago_words() and 0xFFFF) != 35036) {
@@ -9001,6 +9015,36 @@ public object FfiConverterSequenceTypePeerPath: FfiConverterRustBuffer<List<Peer
 }
     )
     }
+    
+
+        /**
+         * Everything kept, after `header` (the app, its version, the OS and the network), for the user
+         * to share. Nothing is sent by this: the app hands it to the share sheet.
+         */ fun `diagnosticsExport`(`header`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_diagnostics_export(
+    
+        
+        FfiConverterString.lower(`header`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * One event, from the app (`source`: a short fixed word such as "session"). Filtered and kept
+         * in memory with the rest; the oldest go once the recorder is full.
+         */ fun `diagnosticsRecord`(`source`: kotlin.String, `event`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_seam_ffi_fn_func_diagnostics_record(
+    
+        
+        FfiConverterString.lower(`source`),
+        FfiConverterString.lower(`event`),_status)
+}
+    
     
 
         /**

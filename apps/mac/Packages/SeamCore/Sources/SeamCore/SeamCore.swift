@@ -1074,6 +1074,12 @@ public protocol ComputerProtocol: AnyObject, Sendable {
     
     func confirmPairing() 
     
+    /**
+     * What this computer did lately, for "Copy diagnostics" (specs/diagnostics.md). `system`:
+     * the OS and its version.
+     */
+    func diagnostics(system: String)  -> String
+    
     func feature(command: FeatureCommand) 
     
     /**
@@ -1181,6 +1187,20 @@ open func confirmPairing()  {try! rustCall() {
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
+}
+    
+    /**
+     * What this computer did lately, for "Copy diagnostics" (specs/diagnostics.md). `system`:
+     * the OS and its version.
+     */
+open func diagnostics(system: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_method_computer_diagnostics(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(system),uniffiCallStatus
+    )
+})
 }
     
 open func feature(command: FeatureCommand)  {try! rustCall() {
@@ -10066,6 +10086,30 @@ public func clipOpenableUrl(text: String) -> String?  {
 })
 }
 /**
+ * Everything kept, after `header` (the app, its version, the OS and the network), for the user
+ * to share. Nothing is sent by this: the app hands it to the share sheet.
+ */
+public func diagnosticsExport(header: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_diagnostics_export(
+        FfiConverterString.lower(header),uniffiCallStatus
+    )
+})
+}
+/**
+ * One event, from the app (`source`: a short fixed word such as "session"). Filtered and kept
+ * in memory with the rest; the oldest go once the recorder is full.
+ */
+public func diagnosticsRecord(source: String, event: String)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_seam_ffi_fn_func_diagnostics_record(
+        FfiConverterString.lower(source),
+        FfiConverterString.lower(event),uniffiCallStatus
+    )
+}
+}
+/**
  * "12 min ago", "today at 14:02"; `just_now` for under a minute ("just now", or "now").
  */
 public func agoWords(atMs: Int64, nowMs: Int64, justNow: String, time: TimeWords) -> String  {
@@ -10354,6 +10398,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_seam_ffi_checksum_func_clip_openable_url() != 54359) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_seam_ffi_checksum_func_diagnostics_export() != 14233) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_func_diagnostics_record() != 1956) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_seam_ffi_checksum_func_ago_words() != 35036) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10556,6 +10606,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_computer_confirm_pairing() != 22956) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_seam_ffi_checksum_method_computer_diagnostics() != 8262) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_seam_ffi_checksum_method_computer_feature() != 49323) {

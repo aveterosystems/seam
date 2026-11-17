@@ -238,6 +238,20 @@ final class SeamController {
         computer?.reconnect() // a second tap while one is under way does nothing (SR-55-03)
     }
 
+    /// "Copy diagnostics": what Seam did lately on this Mac, onto the clipboard for a bug report.
+    /// Kept in memory only, with no address, key or name in it; nothing is sent (specs/diagnostics.md).
+    /// False before Seam has started.
+    func copyDiagnostics() -> Bool {
+        guard let computer else { return false }
+        let text = computer.diagnostics(system: "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        // Transient: clipboard sync never sends it, and clipboard managers skip it (nspasteboard.org).
+        // The core also refuses any text that is an export, however it was copied
+        pasteboard.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
+        return pasteboard.setString(text, forType: .string)
+    }
+
     /// "Unpair <phone>": the phone is told and forgotten, its onion service with it.
     func unpairPhone() {
         computer?.unpair()

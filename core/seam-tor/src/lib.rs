@@ -6,15 +6,18 @@
 //! Tor is only a pipe. Everything sent over a stream is already sealed by `seam-core`, and the
 //! apps log in over it exactly as on Same Wi‑Fi, so a fault here can leak metadata, never content.
 //!
-//! Privacy: nothing here logs, and no tracing subscriber is ever installed, so Arti's own
-//! diagnostics (which can mention addresses) go nowhere.
+//! Privacy: Arti's own log is recorded in memory only, for the user's diagnostics export, with
+//! Arti's safe logging locked on and every line filtered again ([`record_arti`]); it never goes
+//! to a file, the system log or the network.
 
 mod client;
+mod diagnostics;
 mod keys;
 mod node;
 mod service;
 
 pub use arti_client::{DataStream, ErrorKind};
+pub use diagnostics::record_arti;
 pub use keys::{DiscoveryKey, DiscoveryPublic, OnionAddress, ServiceKey};
 pub use node::{Blocked, START_TIMEOUT, TorNode, TorStatus};
 pub use service::HostedService;

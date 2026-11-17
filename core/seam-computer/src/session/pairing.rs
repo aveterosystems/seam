@@ -71,6 +71,7 @@ impl Core {
             clients: vec![discovery.public().to_bytes().to_vec()],
         });
         self.flow.start(qr.url(), self.timers.now_ms());
+        seam_diagnostics::record("pairing", "pairing code shown");
         self.expiry = Some(self.timers.after(
             Duration::from_millis(LIFETIME_MS as u64),
             Due::PairingExpired,
@@ -82,6 +83,7 @@ impl Core {
         let Some(previous) = self.flow.cancel() else {
             return;
         };
+        seam_diagnostics::record("pairing", "pairing code cancelled");
         if let PairingState::Confirm(request) = previous {
             self.dev().reject_pairing(&request.peer_id);
         }
@@ -94,11 +96,13 @@ impl Core {
         let showing = matches!(self.flow.state(), PairingState::Waiting { .. });
         let held = self.pairing.path == Some(path);
         if !(held || (showing && self.pairing.path.is_none())) {
+            seam_diagnostics::record("pairing", &format!("pairing channel refused on {path:?}"));
             if let Some(l) = self.links.get(&path) {
                 l.close(PAIRING);
             }
             return;
         }
+        seam_diagnostics::record("pairing", &format!("pairing channel up on {path:?}"));
         self.pairing.path = Some(path);
     }
 
@@ -107,6 +111,7 @@ impl Core {
             return;
         }
         self.pairing.path = None;
+        seam_diagnostics::record("pairing", "pairing channel closed");
         // The PairAccept may not have arrived: never leave a half-paired phone (the phone acks
         // before it closes, so a finished pairing is never here)
         if let Some(pending) = self.pairing.pending.take() {
@@ -148,7 +153,15 @@ impl Core {
                     bundle,
                 })),
             };
-            l.send(&frame, PAIRING);
+            let sent = l.send(&frame, PAIRING);
+            seam_diagnostics::record(
+                "pairing",
+                if sent {
+                    "pairing bundle sent"
+                } else {
+                    "pairing bundle not sent: the link refused it"
+                },
+            );
         }
     }
 
@@ -162,6 +175,7 @@ impl Core {
         let accepted = self.dev().accept_pairing(&envelope.encode_to_vec());
         match accepted {
             Ok(request) => {
+                seam_diagnostics::record("pairing", "pairing request received");
                 if !self.flow.received(request.clone()) {
                     self.dev().reject_pairing(&request.peer_id);
                     return;
@@ -171,6 +185,7 @@ impl Core {
                 }
             }
             Err(_) => {
+                seam_diagnostics::record("pairing", "pairing request refused");
                 self.events.push(Event::Problem(Problem::PairingRefused));
                 if let Some(l) = self.links.get(&path) {
                     l.close(PAIRING);
@@ -191,6 +206,7 @@ impl Core {
             return;
         }
         if let Some(pending) = self.pairing.pending.take() {
+            seam_diagnostics::record("pairing", "pairing accept acked");
             self.finish_pairing(pending.request);
         }
     }
