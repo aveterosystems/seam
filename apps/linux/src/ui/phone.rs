@@ -46,13 +46,16 @@ impl PhoneSummary {
         name.add_css_class(if header { "title-2" } else { "name" });
         let dot = StatusDot::new();
         // One fixed-height line; the whole sentence is in its tooltip and read out
-        let line = Swap::new(&["dim-label", "status-line"]);
+        let line = Swap::new(&["secondary", "status-line"]);
         let path = path_icon();
+        // The dot's drawing area leaves 4 px for its ring: the name, the stitch and the stats step
+        // in by as much, so the dot itself lines up with them
         let status = gtk::Box::builder().spacing(6).build();
         status.append(&dot.widget);
         status.append(&line.widget);
         status.append(&path); // the path's icon right after its words, not across the card
         let stitch = Stitch::new();
+        stitch.widget.set_margin_start(4);
         stitch.widget.set_margin_top(if header { 10 } else { 8 });
         stitch.widget.set_margin_bottom(if header { 10 } else { 0 });
 
@@ -66,7 +69,7 @@ impl PhoneSummary {
         battery.append(&battery_icon);
         battery.append(&battery_text.widget);
         if !header {
-            battery.add_css_class("dim-label"); // in the header, the stats row is dim already
+            battery.add_css_class("secondary"); // in the header, the stats row is dim already
         }
         let stats = gtk::Box::builder().spacing(14).build();
         stats.add_css_class("dim-label");
@@ -83,6 +86,8 @@ impl PhoneSummary {
                 .orientation(gtk::Orientation::Vertical)
                 .spacing(2)
                 .build();
+            name.set_margin_start(4);
+            stats.set_margin_start(4);
             top.append(&name);
             top.append(&status);
             text.append(&top);
@@ -102,7 +107,7 @@ impl PhoneSummary {
             // The status and the stitch line up under the name, not under the disc
             let under = gtk::Box::builder()
                 .orientation(gtk::Orientation::Vertical)
-                .margin_start(34)
+                .margin_start(30)
                 .build();
             status.set_margin_top(6);
             under.append(&status);
@@ -175,12 +180,13 @@ impl PhoneSummary {
                 _ => String::new(),
             };
             self.battery_text.set(&text);
-            // Low is urgent only while it's live: an old reading from an offline phone stays calm
-            if s.low && !s.stale {
+            // 15% or below and not charging: the warning colour (catalogue 11); an old reading is dimmed too
+            if s.low {
                 self.battery.add_css_class("warn-label")
             } else {
                 self.battery.remove_css_class("warn-label")
             }
+            self.battery.set_opacity(if s.stale { 0.7 } else { 1.0 });
             self.battery.set_tooltip_text(s.battery_detail.as_deref());
             self.battery
                 .update_property(&[gtk::accessible::Property::Label(&s.spoken)]);

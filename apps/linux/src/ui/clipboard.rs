@@ -53,7 +53,7 @@ impl Page {
             .build();
         list.add_css_class("boxed-list");
         let note = gtk::Label::builder()
-            .label("Kept for a day, and gone when Seam quits. Passwords and copied files are never sent.")
+            .label("Kept for a day, gone when Seam quits. Passwords and files are never sent.")
             .xalign(0.0)
             .wrap(true)
             .margin_bottom(12)
@@ -151,8 +151,11 @@ impl Page {
         let waiting = m.waiting > 0 && !connected;
         self.waiting_list.set_visible(waiting);
         if waiting {
+            // A row title, so header capitalization: "3 Waiting"
             self.waiting
-                .set_title(&seam_looks::words::waiting(m.waiting as u32));
+                .set_title(&crate::ui::title_case(&seam_looks::words::waiting(
+                    m.waiting as u32,
+                )));
             self.waiting
                 .set_subtitle(&format!("Sends when {name} is back"));
         }

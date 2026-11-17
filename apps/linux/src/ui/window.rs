@@ -52,7 +52,13 @@ impl Window {
             "Notifications",
             Some(&count),
         ));
-        nav.append(&nav_row("edit-paste-symbolic", "Clipboard", None));
+        let clip_off = gtk::Label::new(Some("Off"));
+        clip_off.add_css_class("dim-label");
+        nav.append(&nav_row(
+            "edit-paste-symbolic",
+            "Clipboard",
+            Some(&clip_off),
+        ));
         let card = phone::card(c);
         card.set_margin_start(8);
         card.set_margin_end(8);
@@ -355,15 +361,26 @@ impl Window {
             let shown = m.shown.len();
             // Off says so in the sidebar too, in place of the count
             let off = m.settings.as_ref().is_some_and(|s| !s.enabled);
+            // A count is a pill; a state ("Off") is plain dim words, the same on both rows
             count.set_label(&if off {
                 "Off".to_string()
             } else {
                 shown.to_string()
             });
+            if off {
+                count.remove_css_class("sidebar-count");
+                count.add_css_class("dim-label");
+            } else {
+                count.add_css_class("sidebar-count");
+                count.remove_css_class("dim-label");
+            }
             count.set_visible(off || shown > 0);
-            count.update_property(&[gtk::accessible::Property::Label(&format!(
-                "{shown} notifications"
-            ))]);
+            count.update_property(&[gtk::accessible::Property::Label(&if off {
+                "Off".to_string()
+            } else {
+                format!("{shown} notifications")
+            })]);
+            clip_off.set_visible(!m.clipboard_sync);
             for banner in [&banner, &pairing_banner] {
                 match (&m.startup_error, &m.warning) {
                     (Some(e), _) if paired => {

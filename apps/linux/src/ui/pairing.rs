@@ -296,7 +296,7 @@ impl Page {
             PairingState::Confirm(r) | PairingState::Confirming(r) => {
                 let sending = matches!(m.pairing, PairingState::Confirming(_));
                 self.confirm_title
-                    .set_label(&format!("Pair with {}?", r.device_name));
+                    .set_label(&format!("Pair With {}?", r.device_name));
                 self.code.set_label(&r.safety_code);
                 self.code
                     .update_property(&[gtk::accessible::Property::Label(&format!(

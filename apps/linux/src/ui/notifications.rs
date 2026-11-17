@@ -30,6 +30,9 @@ pub struct Page {
     rows: RefCell<HashMap<String, Rc<Row>>>,
     order: RefCell<Vec<String>>,
     note: gtk::Label,
+    /// Away: what you do here waits for the phone (never a dead end).
+    away: gtk::ListBox,
+    away_row: adw::ActionRow,
     empty: adw::StatusPage,
     empty_button: gtk::Button,
     empty_action: RefCell<Option<EmptyAction>>,
@@ -53,7 +56,18 @@ impl Page {
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();
+        let away_row = adw::ActionRow::builder().use_markup(false).build();
+        let clock = gtk::Image::from_icon_name("document-open-recent-symbolic");
+        clock.set_accessible_role(gtk::AccessibleRole::Presentation);
+        away_row.add_prefix(&clock);
+        let away = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .margin_bottom(18)
+            .build();
+        away.add_css_class("boxed-list");
+        away.append(&away_row);
         // The note above the list, where libadwaita puts a group's description
+        column.append(&away);
         column.append(&note);
         column.append(&list);
         let clamp = adw::Clamp::builder()
@@ -82,6 +96,8 @@ impl Page {
             rows: RefCell::default(),
             order: RefCell::default(),
             note,
+            away,
+            away_row,
             empty,
             empty_button,
             empty_action: RefCell::default(),
@@ -153,6 +169,14 @@ impl Page {
             None => self.widget.set_visible_child_name("list"),
         }
         self.note.set_label(&m.clear_note());
+        let away = m.phone.is_some() && !m.link(now).connected;
+        self.away.set_visible(away);
+        if away {
+            self.away_row
+                .set_title(&format!("{} Is Away", m.phone_name(true)));
+            self.away_row
+                .set_subtitle("Replies and dismissals send when it's back");
+        }
         let animate = crate::ui::animations() && !self.order.borrow().is_empty();
         let keys: Vec<String> = m.shown.iter().map(|n| n.key.clone()).collect();
         // Leaving: slide out and collapse, then go (catalogue 6)
@@ -280,8 +304,8 @@ impl Page {
         top.append(&title);
         dismiss.set_halign(gtk::Align::End);
         dismiss.set_valign(gtk::Align::Start);
-        dismiss.set_margin_top(4);
-        dismiss.set_margin_end(4);
+        dismiss.set_margin_top(6);
+        dismiss.set_margin_end(6);
 
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -298,7 +322,7 @@ impl Page {
                 .lines(4)
                 .ellipsize(gtk::pango::EllipsizeMode::End)
                 .build();
-            text.add_css_class("dim-label");
+            // The message is the content: normal text; the app and time under it are the quiet part
             column.append(&text);
         }
         column.append(&time);

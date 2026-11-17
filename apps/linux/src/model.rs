@@ -101,7 +101,7 @@ impl Model {
             Health::Ready => m.startup_error = None,
             Health::Unreadable => {
                 m.startup_error = Some(
-                    "Its keys on this computer can't be opened. Reset Seam to start again and pair your phone; the old data is kept aside."
+                    "Seam's keys on this computer can't be opened. Reset Seam to start again and pair your phone; the old data is kept aside."
                         .into(),
                 )
             }

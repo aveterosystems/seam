@@ -96,6 +96,28 @@ pub fn announce(app: &adw::Application, words: &str) {
     }
 }
 
+/// GNOME's header capitalization for a short label: each word capitalised, except articles,
+/// conjunctions and prepositions of three letters or fewer (never the first word).
+pub fn title_case(s: &str) -> String {
+    const SMALL: [&str; 14] = [
+        "a", "an", "the", "and", "but", "or", "nor", "for", "to", "at", "by", "in", "of", "on",
+    ];
+    s.split(' ')
+        .enumerate()
+        .map(|(i, w)| {
+            if i > 0 && SMALL.contains(&w) {
+                w.to_string()
+            } else {
+                let mut c = w.chars();
+                c.next()
+                    .map(|f| f.to_uppercase().chain(c).collect())
+                    .unwrap_or_default()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Unix ms now.
 pub fn now_ms() -> i64 {
     glib::real_time() / 1000
@@ -135,5 +157,18 @@ pub fn dump(w: &gtk::Widget, depth: usize, out: &mut String) {
             dump(&child, depth + 1, out);
         }
         c = child.next_sibling();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn header_capitalization() {
+        assert_eq!(super::title_case("3 waiting"), "3 Waiting");
+        assert_eq!(
+            super::title_case("sends when back in a minute"),
+            "Sends When Back in a Minute"
+        );
+        assert_eq!(super::title_case("the end"), "The End");
     }
 }
