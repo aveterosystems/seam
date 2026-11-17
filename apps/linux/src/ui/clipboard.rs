@@ -46,6 +46,7 @@ impl Page {
             .margin_start(6)
             .build();
         note.add_css_class("secondary");
+        note.add_css_class("list-note");
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();

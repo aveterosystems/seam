@@ -16,10 +16,7 @@ use crate::ui::phone::{PhoneSummary, Size};
 
 pub fn present(c: &Rc<Controller>, parent: Option<&gtk::Window>, page: &str) {
     // Wide enough that the four page names fit the switcher in full
-    let dialog = adw::PreferencesDialog::builder()
-        .search_enabled(true)
-        .content_width(720)
-        .build();
+    let dialog = adw::PreferencesDialog::builder().content_width(720).build();
     let mut ids = Vec::new();
     dialog.add(&general(c, &mut ids));
     dialog.add(&phone(c, &mut ids));
@@ -423,25 +420,10 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                     .model(&gtk::StringList::new(&MODES.map(|m| m.1)))
                     .selected(mode_index(app))
                     .build();
-                {
-                    // Every app takes the same slot, with a generic icon when the phone sent none
-                    let p = match c.icon(&app.app_id) {
-                        Some(t) => gtk::Image::from_paintable(Some(&t)),
-                        None => {
-                            let i = gtk::Image::from_icon_name("application-x-executable-symbolic");
-                            i.add_css_class("kind");
-                            i
-                        }
-                    };
-                    p.set_pixel_size(24);
-                    let frame = gtk::Box::builder()
-                        .overflow(gtk::Overflow::Hidden)
-                        .valign(gtk::Align::Center)
-                        .build();
-                    frame.add_css_class("app-icon");
-                    frame.append(&p);
-                    row.add_prefix(&frame);
-                }
+                // The same icon as the notification list's, in the same slot for every app
+                let icon = crate::ui::widgets::app_icon(c.icon(&app.app_id), 24);
+                icon.set_valign(gtk::Align::Center); // centred in its row, as row prefixes are
+                row.add_prefix(&icon);
                 let explain = |r: &adw::ComboRow, can_reply: bool| {
                     r.set_subtitle(match r.selected() {
                         0 if can_reply => "You can reply from this computer",
@@ -569,7 +551,7 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
             "What you copy here or on {name} reaches the other"
         ));
         group.set_description(Some(&format!(
-            "Copies a password manager marks as private are never sent. A copy made while {name} is away is sent if it's back within 10 minutes."
+            "Passwords and copied files are never sent. A copy made while {name} is away is sent if it's back within 10 minutes."
         )));
         let automatic = c.pasteboard.reach() == Reach::Automatic;
         let possible = c.clipboard_plan() != crate::os::doors::Plan::OneTap;

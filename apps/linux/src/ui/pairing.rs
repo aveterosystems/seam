@@ -11,6 +11,9 @@ use seam_computer::pairing::PairingState;
 
 use crate::app::Controller;
 
+/// One measure for the left column's intro, steps and note, so they wrap together.
+const TEXT_WIDTH: i32 = 46;
+
 pub struct Page {
     pub widget: gtk::ScrolledWindow,
     /// The two columns; the window stacks them on a narrow screen.
@@ -48,7 +51,7 @@ impl Page {
             .wrap(true)
             .build();
         lead.add_css_class("secondary");
-        lead.set_max_width_chars(48);
+        lead.set_max_width_chars(TEXT_WIDTH);
         let steps = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(14)
@@ -67,7 +70,7 @@ impl Page {
             .wrap(true)
             .build();
         safe_text.add_css_class("secondary");
-        safe_text.set_max_width_chars(48);
+        safe_text.set_max_width_chars(TEXT_WIDTH);
         safe.append(&safe_text);
         let left = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -365,7 +368,7 @@ fn step(n: u32, markup: &str) -> gtk::Box {
         .label(markup)
         .xalign(0.0)
         .wrap(true)
-        .max_width_chars(40)
+        .max_width_chars(TEXT_WIDTH)
         .hexpand(true)
         .build();
     let b = gtk::Box::builder().spacing(12).build();

@@ -285,3 +285,28 @@ pub fn status_page() -> (adw::StatusPage, gtk::Button) {
     page.add_css_class("compact");
     (page, button)
 }
+
+/// A phone app's icon in a rounded frame at `size`: its own picture, or (none sent) a bell on a
+/// tinted tile of the same size. The notification list and Preferences draw apps alike.
+pub fn app_icon(texture: Option<gtk::gdk::Texture>, size: i32) -> gtk::Box {
+    let image = match &texture {
+        Some(t) => gtk::Image::from_paintable(Some(t)),
+        None => gtk::Image::from_icon_name("preferences-system-notifications-symbolic"),
+    };
+    image.set_pixel_size(if texture.is_some() { size } else { size / 2 });
+    image.set_accessible_role(gtk::AccessibleRole::Presentation);
+    let frame = gtk::Box::builder()
+        .width_request(size)
+        .height_request(size)
+        .valign(gtk::Align::Start)
+        .halign(gtk::Align::Center)
+        .overflow(gtk::Overflow::Hidden)
+        .homogeneous(true)
+        .build();
+    frame.add_css_class("app-icon");
+    if texture.is_none() {
+        frame.add_css_class("kind");
+    }
+    frame.append(&image);
+    frame
+}

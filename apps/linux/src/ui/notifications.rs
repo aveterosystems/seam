@@ -167,6 +167,9 @@ impl Page {
             None => self.stack.set_visible_child_name("list"),
         }
         self.note.set_label(&m.clear_note());
+        // Paused: nothing goes either way, so the rows' actions are off (the banner says why)
+        let paused = m.link(now).kind == seam_looks::LinkKind::Paused;
+        self.list.set_sensitive(!paused);
         match m.page_status(now, crate::model::Page::Notifications) {
             Some(words) => {
                 self.banner.set_title(&words);
@@ -245,30 +248,7 @@ impl Page {
     }
 
     fn row(self: &Rc<Self>, c: &Controller, n: &Notification, animate: bool) -> Rc<Row> {
-        // An image at a fixed pixel size: a picture takes its texture's size and stretches its box
-        let (icon, fallback) = match c.icon(&n.app_id) {
-            Some(t) => (gtk::Image::from_paintable(Some(&t)), false),
-            None => (
-                gtk::Image::from_icon_name("preferences-system-notifications-symbolic"),
-                true,
-            ),
-        };
-        icon.set_pixel_size(if fallback { 16 } else { 32 });
-        if fallback {
-            icon.set_size_request(32, 32);
-            icon.add_css_class("kind");
-        }
-        icon.set_hexpand(false);
-        icon.set_valign(gtk::Align::Start);
-        icon.set_accessible_role(gtk::AccessibleRole::Presentation);
-        let frame = gtk::Box::builder()
-            .valign(gtk::Align::Start)
-            .hexpand(false)
-            .overflow(gtk::Overflow::Hidden)
-            .build();
-        frame.add_css_class("row-icon");
-        frame.add_css_class("app-icon");
-        frame.append(&icon);
+        let frame = crate::ui::widgets::app_icon(c.icon(&n.app_id), 32);
 
         let title = gtk::Label::builder()
             .label(if n.title.trim().is_empty() {
@@ -321,7 +301,9 @@ impl Page {
                 .lines(4)
                 .ellipsize(gtk::pango::EllipsizeMode::End)
                 .build();
-            // The message is the content: normal text; the app and time under it are the quiet part
+            // The message is the content: normal text; the app and time under it are the quiet part.
+            // It keeps clear of the dismiss button, as the title does
+            text.set_margin_end(32);
             column.append(&text);
         }
         column.append(&time);

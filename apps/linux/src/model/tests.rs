@@ -390,12 +390,12 @@ fn a_page_says_paused_or_away_never_both() {
     let m = Model::default().apply(&snapshot(Health::Ready, Some(away), None), false);
     assert_eq!(
         m.page_status(0, Page::Notifications).unwrap(),
-        "Pixel 9 is away. Replies and dismissals send when it's back."
+        "Pixel 9 is away. Replies send when it's back."
     );
     assert!(
         m.page_status(0, Page::Clipboard)
             .unwrap()
-            .contains("within 10 minutes")
+            .contains("10 minutes")
     );
 
     let connected = Model::default().apply(&snapshot(Health::Ready, Some(session()), None), false);

@@ -72,6 +72,10 @@
 .app-icon {
   border-radius: 7px;
 }
+.app-icon.kind {
+  background: color-mix(in srgb, var(--window-fg-color) 7%, transparent);
+  color: alpha(currentColor, 0.7);
+}
 
 /* The QR code sits on white in both themes, so every phone camera reads it. */
 .qr-frame {

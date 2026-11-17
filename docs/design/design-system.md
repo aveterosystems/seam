@@ -119,6 +119,7 @@ Roboto Flex is bundled as one variable font (`res/font/roboto_flex.ttf`, about 1
 | Capitalization | GNOME's header capitalization for headings, buttons, row titles and menu items ("Clear All", "Send Clipboard"); subtitles and sentences stay sentence case. The Linux exception to "Sentence case everywhere" below |
 | Accent | Controls follow the desktop's accent colour. Seam teal (the Mac's tokens) only on Seam's own pieces: the stitch, the phone's disc and the status dot |
 | Motion | libadwaita's own transitions for stock widgets; Seam's pieces follow catalogue 10. The desktop's "Animations" switch turns both off |
+| Pairing's code check | Cancel and Pair are styled alike, and Cancel is the Return-key default (SR-10-02): neither button looks like the obvious yes, so a phone is never paired without reading the code |
 | Tray | A StatusNotifierItem where the desktop has a tray (KDE, or GNOME with AppIndicator): the status, Open Seam, Send Clipboard (while copies need one tap), Preferences, Quit |
 
 ## Icons

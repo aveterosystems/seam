@@ -196,18 +196,19 @@ impl Model {
         }
         let name = self.phone_name(true);
         if look.kind == seam_looks::LinkKind::Paused {
+            // While paused nothing goes either way: the page's actions are off, and this says why
             return Some(format!(
-                "{name} is paused {}. Nothing comes or goes until then.",
+                "{name} is paused {}",
                 self.card_line(now_ms).trim_start_matches("Paused ")
             ));
         }
         Some(match page {
             Page::Notifications => {
-                format!("{name} is away. Replies and dismissals send when it's back.")
+                format!("{name} is away. Replies send when it's back.")
             }
             // A copy is held 10 minutes at most (the core's HOLD_MS): say so, as Preferences does
             Page::Clipboard => {
-                format!("{name} is away. A copy made now is sent if it's back within 10 minutes.")
+                format!("{name} is away. Copies wait up to 10 minutes.")
             }
         })
     }
