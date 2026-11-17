@@ -2,6 +2,16 @@
 
 What changed in each release. `scripts/release.sh` drafts the next section from the merged PR titles and opens it for you to edit; the release, the Mac update window and the Android update card show that section.
 
+## 0.5.0
+
+- Pairing through Tor no longer gives up when the first route to your Mac fails, and both screens say pairing can take a few minutes
+- A native Mac app: a redesigned menu bar popover, a standard Settings window, and a main window built like Mail
+- Quit from the Mac's popover, and a pairing window that matches the rest of Seam
+- A calmer, clearer Android app with real springs, one type scale and wording that says what's happening
+- Your phone's charge rate and time left on the Mac, and the Mac's battery on the phone
+- Your Mac's battery, storage, CPU and memory on the phone, and a shield that explains itself
+- The Mac's popover no longer uses power on animations while it's closed
+
 ## 0.4.0
 
 - Nightly builds, and a Nightly builds switch on both apps
