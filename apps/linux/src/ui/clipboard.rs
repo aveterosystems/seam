@@ -129,7 +129,7 @@ impl Page {
         let can_set_up = m.clipboard_sync
             && c.pasteboard.reach() == Reach::OneTap
             && c.clipboard_plan() != crate::os::doors::Plan::OneTap;
-        match m.page_status(crate::ui::now_ms()) {
+        match m.page_status(crate::ui::now_ms(), crate::model::Page::Clipboard) {
             Some(words) if m.clipboard_sync => {
                 self.banner.set_title(&words);
                 self.banner.set_button_label(None);

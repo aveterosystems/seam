@@ -114,7 +114,7 @@ Roboto Flex is bundled as one variable font (`res/font/roboto_flex.ttf`, about 1
 | Part | Linux |
 |---|---|
 | Window | `AdwApplicationWindow`: a sidebar (the phone's card, then Notifications and Clipboard) and the page; unpaired, the whole window is pairing. Below 600 sp it collapses to one column |
-| Settings | `AdwPreferencesDialog` with the Mac's panes: General, the phone by name, Notifications, Clipboard, Privacy |
+| Settings | `AdwPreferencesDialog`: General (open at login), the phone by name (with the Mac's Privacy facts in its Pairing group), Notifications, Clipboard. Facts that aren't settings are group descriptions, not rows |
 | Confirmations | Toasts ("Copied", "Sent to Pixel 9"), not the Mac's in-place "✓ Copied" |
 | Capitalization | GNOME's header capitalization for headings, buttons, row titles and menu items ("Clear All", "Send Clipboard"); subtitles and sentences stay sentence case. The Linux exception to "Sentence case everywhere" below |
 | Accent | Controls follow the desktop's accent colour. Seam teal (the Mac's tokens) only on Seam's own pieces: the stitch, the phone's disc and the status dot |

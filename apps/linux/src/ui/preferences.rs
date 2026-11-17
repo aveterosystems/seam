@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Preferences (board M03), as a libadwaita preferences dialog with the Mac's panes: General, the
-//! phone by name, Notifications, Clipboard and Privacy. Every switch takes effect at once.
+//! Preferences (board M03), as a libadwaita preferences dialog: General, the phone by name (with
+//! the Mac's Privacy facts), Notifications and Clipboard. Every switch takes effect at once.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -87,16 +87,7 @@ fn general(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefe
     group.add(&login);
     page.add(&group);
 
-    // Security in one short line, where it matters (design-system.md, "Copy and voice")
-    let weak_page = page.downgrade();
-    ids.push(c.watch(move |c| {
-        if let Some(page) = weak_page.upgrade() {
-            page.set_description(&format!(
-                "End-to-end encrypted: only this computer and {} can read what passes between them.",
-                c.model().phone_name(false)
-            ));
-        }
-    }));
+    let _ = (c, ids);
     page
 }
 
@@ -135,11 +126,11 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         .build();
     let (wifi, wq) = switch(
         "Same Wi‑Fi",
-        "Straight to your phone on the same network, and nothing leaves it",
+        "Straight to the phone on the same network, and nothing leaves it",
     );
     let (tor, tq) = switch(
         "Internet Through Tor",
-        "Reaches your phone anywhere and hides where you are",
+        "Reaches the phone anywhere and hides where you are",
     );
     // Stuck? A stock button row in the same group: Seam tries every allowed path again
     let reconnect = adw::ButtonRow::builder().title("Reconnect").build();
@@ -201,21 +192,15 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
     let paired_value = gtk::Label::new(None);
     paired_value.add_css_class("dim-label");
     paired_row.add_suffix(&paired_value);
-    let unpair_row = adw::ActionRow::builder()
-        .subtitle("Both devices forget each other's keys")
-        .build();
-    let unpair = gtk::Button::builder()
-        .label("Unpair")
-        .valign(gtk::Align::Center)
-        .build();
+    // A stock destructive button row (it asks first): both devices forget each other's keys
+    let unpair = adw::ButtonRow::builder().title("Unpair").build();
     unpair.add_css_class("destructive-action");
-    unpair_row.add_suffix(&unpair);
     pairing.add(&code_row);
     pairing.add(&paired_row);
-    pairing.add(&unpair_row);
+    pairing.add(&unpair);
     page.add(&pairing);
     let weak = Rc::downgrade(c);
-    unpair.connect_clicked(move |b| {
+    unpair.connect_activated(move |b| {
         let Some(c) = weak.upgrade() else { return };
         let name = c.model().phone_name(false);
         let dialog = adw::AlertDialog::new(
@@ -269,6 +254,12 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
             "Reconnecting"
         });
         pairing.set_visible(paired);
+        let name = m.phone_name(false);
+        wifi.set_subtitle(&format!(
+            "Straight to {name} on the same network, and nothing leaves it"
+        ));
+        tor.set_subtitle(&format!("Reaches {name} anywhere and hides where you are"));
+        code_row.set_subtitle(&format!("Should match the code on {name}"));
         if let Some(p) = &m.phone {
             *real_code.borrow_mut() = p.safety_code.clone();
             code.set_label(if show_code.is_active() {
@@ -281,7 +272,12 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
                     .map(|at| crate::model::SystemTime.date_long(at))
                     .unwrap_or("With this computer".into()),
             );
-            unpair_row.set_title(&format!("Unpair {}", m.phone_name(true)));
+            unpair.set_title(&format!("Unpair {}", m.phone_name(true)));
+            // Security in one short line, where it matters (design-system.md, "Copy and voice")
+            pairing.set_description(Some(&format!(
+                "End-to-end encrypted: only this computer and {} can read what passes between them",
+                m.phone_name(false)
+            )));
         }
     }));
     page
@@ -326,8 +322,8 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
         "Clear one here and it's cleared on your phone",
     );
     let (quiet, qq) = switch(
-        "Quiet While I'm Using My Phone",
-        "Nothing comes here while it's unlocked in your hand",
+        "Quiet While Your Phone Is Unlocked",
+        "Nothing comes here while it's in your hand",
     );
     switches.add(&enabled);
     switches.add(&both);
@@ -431,7 +427,11 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                     // Every app takes the same slot, with a generic icon when the phone sent none
                     let p = match c.icon(&app.app_id) {
                         Some(t) => gtk::Image::from_paintable(Some(&t)),
-                        None => gtk::Image::from_icon_name("application-x-executable-symbolic"),
+                        None => {
+                            let i = gtk::Image::from_icon_name("application-x-executable-symbolic");
+                            i.add_css_class("kind");
+                            i
+                        }
                     };
                     p.set_pixel_size(24);
                     let frame = gtk::Box::builder()
@@ -486,13 +486,18 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
         waiting.set_visible(paired && s.is_none());
         if !paired {
             waiting_row.set_title("No Phone Paired");
-            waiting_row
-                .set_subtitle("Pair your phone to choose which of its notifications show here");
+            waiting_row.set_subtitle("Pair a phone to choose which of its notifications show here");
             waiting.set_visible(true);
         }
         switches.set_visible(s.is_some());
         apps.set_visible(s.is_some());
         let Some(s) = s else { return };
+        let (name, title_name) = (m.phone_name(false), m.phone_name(true));
+        enabled.set_subtitle(&format!(
+            "{title_name}'s notifications appear here as banners"
+        ));
+        both.set_subtitle(&format!("Clear one here and it's cleared on {name}"));
+        quiet.set_title(&format!("Quiet While {title_name} Is Unlocked"));
         set_switch(&enabled, &eq, s.enabled);
         set_switch(&both, &bq, s.dismiss_both);
         set_switch(&quiet, &qq, s.quiet_while_using_phone);
@@ -512,17 +517,10 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         .title("Clipboard")
         .icon_name("edit-paste-symbolic")
         .build();
+    // The switch, with what never goes and how long a copy waits as the group's description
     let group = adw::PreferencesGroup::new();
     let (sync, sq) = switch("Sync the Clipboard", "");
     group.add(&sync);
-    let hold = gtk::Label::builder()
-        .xalign(0.0)
-        .wrap(true)
-        .margin_top(12)
-        .build();
-    hold.add_css_class("dim-label");
-    hold.add_css_class("caption");
-    group.add(&hold);
     page.add(&group);
     let weak = Rc::downgrade(c);
     let q = sq.clone();
@@ -534,9 +532,9 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         }
     });
 
-    // Automatic clipboard on this desktop (decision 0012): set up, or one tap until it is
+    // Automatic, both ways (decision 0012): set up, or one tap until it is
     let auto = adw::PreferencesGroup::builder()
-        .title("This Computer to Your Phone")
+        .title("Automatic Sync")
         .build();
     let auto_row = adw::ActionRow::builder()
         .title("Send Automatically")
@@ -551,13 +549,8 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
     auto_row.add_suffix(&on);
     auto_row.add_suffix(&set_up);
     auto.add(&auto_row);
-    page.add(&auto);
-    let from_phone = adw::PreferencesGroup::builder()
-        .title("Your Phone to This Computer")
-        .build();
     let phone_row = adw::ActionRow::builder()
         .title("Receive Automatically")
-        .subtitle("Copies from your phone arrive here without using Share")
         .build();
     let phone_set_up = gtk::Button::builder()
         .label("Set Up")
@@ -565,8 +558,8 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         .build();
     phone_set_up.set_action_name(Some("app.phone-clipboard-setup"));
     phone_row.add_suffix(&phone_set_up);
-    from_phone.add(&phone_row);
-    page.add(&from_phone);
+    auto.add(&phone_row);
+    page.add(&auto);
 
     ids.push(c.watch(move |c| {
         let m = c.model();
@@ -575,19 +568,21 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         sync.set_subtitle(&format!(
             "What you copy here or on {name} reaches the other"
         ));
-        // Each group by the phone's own name
-        auto.set_title(&format!("This Computer to {}", m.phone_name(true)));
-        from_phone.set_title(&format!("{} to This Computer", m.phone_name(true)));
-        hold.set_label(&format!(
-            "Copies password managers mark private are never sent. A copy made while {name} is away goes if it's back within 10 minutes"
-        ));
+        group.set_description(Some(&format!(
+            "Copies a password manager marks as private are never sent. A copy made while {name} is away is sent if it's back within 10 minutes."
+        )));
         let automatic = c.pasteboard.reach() == Reach::Automatic;
         let possible = c.clipboard_plan() != crate::os::doors::Plan::OneTap;
-        auto_row.set_subtitle(match (automatic, possible) {
-            (true, _) => "What you copy goes by itself",
-            (false, true) => "Until it's set up, copies go with Send Clipboard",
-            (false, false) => "This desktop doesn't allow it, so copies go with Send Clipboard",
+        auto_row.set_subtitle(&match (automatic, possible) {
+            (true, _) => format!("What you copy goes to {name} by itself"),
+            (false, true) => "Until it's set up, copies go with Send Clipboard".to_string(),
+            (false, false) => {
+                "This desktop doesn't allow it, so copies go with Send Clipboard".to_string()
+            }
         });
+        phone_row.set_subtitle(&format!(
+            "Copies from {name} arrive here without using Share"
+        ));
         on.set_visible(automatic);
         set_up.set_visible(!automatic && possible);
         auto.set_sensitive(m.clipboard_sync);

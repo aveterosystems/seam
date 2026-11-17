@@ -136,6 +136,7 @@ impl PhoneSummary {
         set_disc(&self.disc, look.connected);
         self.name.set_label(&m.phone_name(true));
         let paused = look.kind == seam_looks::LinkKind::Paused;
+        crate::ui::widgets::set_disc_paused(&self.disc, paused);
         // Paused is the user's own choice: the dot and the words take the calm paused blue too
         self.dot.set_state(look.connected, paused);
         if paused {

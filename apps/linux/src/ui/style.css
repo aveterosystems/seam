@@ -20,6 +20,10 @@
   color: var(--dim-fg-color, alpha(currentColor, 0.55));
   transition: background 500ms ease, color 500ms ease;
 }
+.phone-disc.paused {
+  background: color-mix(in srgb, var(--seam-paused) 14%, transparent);
+  color: var(--seam-paused);
+}
 .phone-disc.connected {
   background: var(--seam-teal-soft);
   color: var(--seam-teal);

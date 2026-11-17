@@ -187,8 +187,8 @@ impl Model {
     }
 
     /// What a page says at its top while the phone can't be reached: paused (its own choice) or
-    /// away. `waiting`: what's held for it, said too. None while connected.
-    pub fn page_status(&self, now_ms: i64) -> Option<String> {
+    /// away, and what happens to what you do meanwhile on that page. None while connected.
+    pub fn page_status(&self, now_ms: i64, page: Page) -> Option<String> {
         let look = self.link(now_ms);
         self.phone.as_ref()?;
         if look.connected {
@@ -201,13 +201,14 @@ impl Model {
                 self.card_line(now_ms).trim_start_matches("Paused ")
             ));
         }
-        Some(if self.waiting > 0 {
-            format!(
-                "{name} is away: {} send when it's back.",
-                seam_looks::words::waiting(self.waiting as u32)
-            )
-        } else {
-            format!("{name} is away. What you do here sends when it's back.")
+        Some(match page {
+            Page::Notifications => {
+                format!("{name} is away. Replies and dismissals send when it's back.")
+            }
+            // A copy is held 10 minutes at most (the core's HOLD_MS): say so, as Preferences does
+            Page::Clipboard => {
+                format!("{name} is away. A copy made now is sent if it's back within 10 minutes.")
+            }
         })
     }
 
@@ -319,6 +320,13 @@ impl Model {
             )
         }
     }
+}
+
+/// Which page a status line is for: each says what happens to what's done there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Page {
+    Notifications,
+    Clipboard,
 }
 
 /// A page's empty state: an icon, what's going on, and the one thing to do about it.

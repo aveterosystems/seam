@@ -48,6 +48,7 @@ impl Page {
             .wrap(true)
             .build();
         lead.add_css_class("secondary");
+        lead.set_max_width_chars(48);
         let steps = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(14)
@@ -66,6 +67,7 @@ impl Page {
             .wrap(true)
             .build();
         safe_text.add_css_class("secondary");
+        safe_text.set_max_width_chars(48);
         safe.append(&safe_text);
         let left = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -175,6 +177,7 @@ impl Page {
             .transition_type(gtk::StackTransitionType::Crossfade)
             .transition_duration(crate::ui::motion::FADE_MS)
             .width_request(280)
+            .valign(gtk::Align::Center)
             .vhomogeneous(false)
             .build();
         right.add_named(&waiting, Some("waiting"));

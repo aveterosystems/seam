@@ -167,7 +167,7 @@ impl Page {
             None => self.stack.set_visible_child_name("list"),
         }
         self.note.set_label(&m.clear_note());
-        match m.page_status(now) {
+        match m.page_status(now, crate::model::Page::Notifications) {
             Some(words) => {
                 self.banner.set_title(&words);
                 self.banner.set_revealed(true);
@@ -293,11 +293,10 @@ impl Page {
         let dismiss = gtk::Button::from_icon_name("window-close-symbolic");
         dismiss.add_css_class("flat");
         dismiss.add_css_class("circular");
-        dismiss.add_css_class("row-actions");
         dismiss.set_tooltip_text(Some("Dismiss"));
         dismiss.update_property(&[gtk::accessible::Property::Label("Dismiss")]);
         dismiss.set_valign(gtk::Align::Center);
-        // Dismiss floats in the row's top corner: shown on hover or focus, and it never moves
+        // Dismiss sits in the row's top corner, always there (as Clipboard's actions are); it never moves
         // or spaces out anything else
         title.set_margin_end(32);
         let top = gtk::Box::builder().spacing(8).build();

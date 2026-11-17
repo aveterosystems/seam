@@ -30,6 +30,14 @@ pub fn phone_disc(size: i32) -> gtk::Box {
     b
 }
 
+pub fn set_disc_paused(disc: &gtk::Box, paused: bool) {
+    if paused {
+        disc.add_css_class("paused")
+    } else {
+        disc.remove_css_class("paused")
+    }
+}
+
 pub fn set_disc(disc: &gtk::Box, connected: bool) {
     if connected {
         disc.add_css_class("connected")

@@ -419,6 +419,10 @@ impl Window {
         self.clear.set_tooltip_text(Some(what));
         self.clear
             .update_property(&[gtk::accessible::Property::Label(what)]);
+        self.send.set_tooltip_text(Some(&format!(
+            "Send what's on this computer's clipboard to {}",
+            m.phone_name(false)
+        )));
         self.send.set_visible(
             clipboard
                 && m.clipboard_sync
@@ -501,7 +505,7 @@ fn primary_menu() -> gtk::MenuButton {
         .menu_model(&menu)
         .primary(true)
         .build();
-    b.set_tooltip_text(Some("Main menu"));
+    b.set_tooltip_text(Some("Main Menu"));
     b
 }
 
