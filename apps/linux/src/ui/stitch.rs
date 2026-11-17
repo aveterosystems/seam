@@ -217,17 +217,15 @@ fn line(
             }
         }
         Kind::Broken => {
-            // Two still halves with a gap in the middle
-            cr.set_line_width(1.5);
-            let gap = 14.0_f64.min(width / 4.0);
+            // Two solid, still halves with one clear break: never mistaken for Tor's dashes
+            cr.set_line_width(2.0);
+            let gap = 12.0_f64.min(width / 4.0);
             let mid = width / 2.0;
-            cr.set_dash(&[3.0, 4.0], 0.0);
             cr.move_to(1.0, y);
             cr.line_to(mid - gap / 2.0, y);
             cr.move_to(mid + gap / 2.0, y);
             cr.line_to(width - 1.0, y);
             let _ = cr.stroke();
-            cr.set_dash(&[], 0.0);
         }
     }
 }

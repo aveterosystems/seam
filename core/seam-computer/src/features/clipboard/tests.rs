@@ -42,17 +42,36 @@ fn files_are_not_sent_as_text() {
 /// SR-4-06 on Linux: Files, Dolphin and others offer a URI list and their own type with the name.
 #[test]
 fn linux_file_copies_are_not_sent_as_text() {
-    assert!(!sendable(&types(&["text/uri-list", "text/plain;charset=utf-8"])));
-    assert!(!sendable(&types(&["x-special/gnome-copied-files", "UTF8_STRING"])));
-    assert!(!sendable(&types(&["application/x-kde-cutselection", "text/plain"])));
-    assert!(sendable(&types(&["text/plain;charset=utf-8", "UTF8_STRING", "text/html"])));
+    assert!(!sendable(&types(&[
+        "text/uri-list",
+        "text/plain;charset=utf-8"
+    ])));
+    assert!(!sendable(&types(&[
+        "x-special/gnome-copied-files",
+        "UTF8_STRING"
+    ])));
+    assert!(!sendable(&types(&[
+        "application/x-kde-cutselection",
+        "text/plain"
+    ])));
+    assert!(sendable(&types(&[
+        "text/plain;charset=utf-8",
+        "UTF8_STRING",
+        "text/html"
+    ])));
 }
 
 /// KeePassXC and other Linux password managers mark secrets with KDE's hint.
 #[test]
 fn linux_password_manager_copies_are_never_sent() {
-    assert!(is_private(&types(&["text/plain", "x-kde-passwordManagerHint"])));
-    assert!(!sendable(&types(&["x-kde-passwordManagerHint", "UTF8_STRING"])));
+    assert!(is_private(&types(&[
+        "text/plain",
+        "x-kde-passwordManagerHint"
+    ])));
+    assert!(!sendable(&types(&[
+        "x-kde-passwordManagerHint",
+        "UTF8_STRING"
+    ])));
 }
 
 #[test]

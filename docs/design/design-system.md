@@ -107,6 +107,20 @@ Roboto Flex is bundled as one variable font (`res/font/roboto_flex.ttf`, about 1
 | Body large / body / small | 16 / 24 · 14 / 20 · 12 / 16 | |
 | Label large / medium / small | 16 / 22, 600 · 14 / 20, 500 · 12 / 16, 500, +0.4 tracking | Button labels, the status chip, kickers |
 
+## Linux
+
+**Follow the GNOME Human Interface Guidelines and use stock libadwaita** (decision 0013), as the Mac app follows macOS: `AdwNavigationSplitView` with a `navigation-sidebar` list, `AdwHeaderBar`, boxed lists, `AdwStatusPage` for empty states, `AdwPreferencesDialog`, `AdwAlertDialog`, `AdwBanner` and `AdwToast`. Don't custom-draw controls. On KDE Plasma the same app runs with Breeze icons and KDE's window buttons, as GTK apps do there.
+
+| Part | Linux |
+|---|---|
+| Window | `AdwApplicationWindow`: a sidebar (the phone's card, then Notifications and Clipboard) and the page; unpaired, the whole window is pairing. Below 600 sp it collapses to one column |
+| Settings | `AdwPreferencesDialog` with the Mac's panes: General, the phone by name, Notifications, Clipboard, Privacy |
+| Confirmations | Toasts ("Copied", "Sent to Pixel 9"), not the Mac's in-place "✓ Copied" |
+| Capitalization | GNOME's header capitalization for headings, buttons, row titles and menu items ("Clear All", "Send Clipboard"); subtitles and sentences stay sentence case. The Linux exception to "Sentence case everywhere" below |
+| Accent | Controls follow the desktop's accent colour. Seam teal (the Mac's tokens) only on Seam's own pieces: the stitch, the phone's disc and the status dot |
+| Motion | libadwaita's own transitions for stock widgets; Seam's pieces follow catalogue 10. The desktop's "Animations" switch turns both off |
+| Tray | A StatusNotifierItem where the desktop has a tray (KDE, or GNOME with AppIndicator): the status, Open Seam, Send Clipboard (while copies need one tap), Preferences, Quit |
+
 ## Icons
 
 The Mac uses **SF Symbols**, so weight and scale follow the system. Android uses the 24 px stroke set on board 00 (1.8 stroke, round caps), or Material Symbols Rounded where one matches. Linux uses the **Adwaita symbolic icons** that GTK ships, so they follow the desktop's colours and size.
@@ -178,6 +192,7 @@ How every screen moves, and the finish it needs before it's done, is in [motion.
 
 | Platform | Where | Contents |
 |---|---|---|
+| Linux | `apps/linux/src/ui/` (`style.css`, `stitch.rs`, `widgets.rs`) | The few Seam styles stock widgets lack, the stitch, the phone's disc, the status dot and the value swap; Adwaita icons by meaning in `model.rs` |
 | Mac | `apps/mac/Packages/SeamDesign` | `Color` assets for the tokens (light/dark in the asset catalogue), `SeamStitch` view, the app icon, symbol constants. No custom button or toggle styles. |
 | Android | `apps/android/app/.../Theme.kt`, `Components.kt` (planned: `core/designsystem`) | `SeamTheme` (the fixed teal scheme, light and dark, crossfading), the shared rows, sheets, pills and snackbar, the cookie hero with its stitches, and the icon set as vector drawables. Roboto Flex is bundled as a variable font in `res/font` |
 

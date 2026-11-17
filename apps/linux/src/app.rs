@@ -271,6 +271,9 @@ impl Controller {
             self.icons_version.set(Some(next.icons_version));
             *self.icons.borrow_mut() = c.icons();
         }
+        if cfg!(debug_assertions) && next.tor_state != self.model.borrow().tor_state {
+            eprintln!("seam: tor {:?}", next.tor_state);
+        }
         let pairing_changed = next.pairing != self.model.borrow().pairing;
         if pairing_changed {
             hand_over(&next.pairing);

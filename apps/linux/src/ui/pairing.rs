@@ -67,7 +67,6 @@ impl Page {
             .wrap(true)
             .build();
         safe_text.add_css_class("dim-label");
-        safe_text.add_css_class("caption");
         safe.append(&safe_text);
         let left = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -364,6 +363,8 @@ fn step(n: u32, markup: &str) -> gtk::Box {
         .label(markup)
         .xalign(0.0)
         .wrap(true)
+        .max_width_chars(40)
+        .hexpand(true)
         .build();
     let b = gtk::Box::builder().spacing(12).build();
     b.append(&number);

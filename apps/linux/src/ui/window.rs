@@ -22,7 +22,8 @@ pub struct Window {
     notifications: Rc<notifications::Page>,
     // Held here: each page listens through a weak link, so it lives as long as the window
     _clipboard: Rc<clipboard::Page>,
-    settings: gtk::Button,
+    /// Send Clipboard, on the Clipboard page while copies need one tap.
+    send: gtk::Button,
     controller: std::rc::Weak<Controller>,
     _pairing: Rc<pairing::Page>,
 }
@@ -85,12 +86,15 @@ impl Window {
         let pages = gtk::Stack::new();
         pages.add_named(&notifications.widget, Some("notifications"));
         pages.add_named(&clipboard.widget, Some("clipboard"));
-        let clear = gtk::Button::builder().label("Clear All").build();
-        let settings = gtk::Button::from_icon_name("emblem-system-symbolic");
-        settings.set_tooltip_text(Some("Settings for notifications"));
-        settings.update_property(&[gtk::accessible::Property::Label("Settings")]);
+        // Flat header buttons, as libadwaita's are; Preferences lives in the main menu
+        let clear = gtk::Button::from_icon_name("edit-clear-all-symbolic");
+        let send = gtk::Button::with_label("Send Clipboard");
+        send.add_css_class("suggested-action");
+        send.set_tooltip_text(Some(
+            "Send what's on this computer's clipboard to your phone",
+        ));
         let header = adw::HeaderBar::new();
-        header.pack_end(&settings);
+        header.pack_start(&send);
         header.pack_end(&clear);
         // One banner slot, under the header: a startup problem (with Reset Seam), then a warning
         let banner = adw::Banner::builder().revealed(false).build();
@@ -173,7 +177,11 @@ impl Window {
             700.0,
             adw::LengthUnit::Sp,
         ));
-        narrow.add_setter(&pairing.row, "orientation", Some(&gtk::Orientation::Vertical.to_value()));
+        narrow.add_setter(
+            &pairing.row,
+            "orientation",
+            Some(&gtk::Orientation::Vertical.to_value()),
+        );
         narrow.add_setter(&pairing.row, "spacing", Some(&32.to_value()));
         window.add_breakpoint(narrow);
 
@@ -194,7 +202,7 @@ impl Window {
             clear,
             notifications,
             _clipboard: clipboard,
-            settings: settings.clone(),
+            send: send.clone(),
             controller: Rc::downgrade(c),
             _pairing: pairing,
         });
@@ -219,19 +227,26 @@ impl Window {
             };
             if w.pages.visible_child_name().as_deref() == Some("clipboard") {
                 c.clear_clips();
+                c.toast("History cleared");
             } else {
                 w.confirm_clear(&c);
             }
         });
-        let weak_w = Rc::downgrade(&w);
-        settings.connect_clicked(move |b| {
-            let Some(w) = weak_w.upgrade() else { return };
-            let page = if w.pages.visible_child_name().as_deref() == Some("clipboard") {
-                "clipboard"
-            } else {
-                "notifications"
-            };
-            let _ = b.activate_action("app.preferences-page", Some(&page.to_variant()));
+        let weak_c = Rc::downgrade(c);
+        send.connect_clicked(move |_| {
+            let Some(c) = weak_c.upgrade() else { return };
+            let name = c.model().phone_name(false);
+            let w = Rc::downgrade(&c);
+            c.send_clipboard(move |ok| {
+                if let Some(c) = w.upgrade() {
+                    // A password or a copied file never goes, and it says so without saying what
+                    c.toast(&if ok {
+                        format!("Sent to {name}")
+                    } else {
+                        "Nothing to send: copy some text first".into()
+                    });
+                }
+            });
         });
         for b in [&banner, &pairing_banner] {
             let weak_c = Rc::downgrade(c);
@@ -286,8 +301,14 @@ impl Window {
                 return;
             }
             let shown = m.shown.len();
-            count.set_label(&shown.to_string());
-            count.set_visible(shown > 0);
+            // Off says so in the sidebar too, in place of the count
+            let off = m.settings.as_ref().is_some_and(|s| !s.enabled);
+            count.set_label(&if off {
+                "Off".to_string()
+            } else {
+                shown.to_string()
+            });
+            count.set_visible(off || shown > 0);
             count.update_property(&[gtk::accessible::Property::Label(&format!(
                 "{shown} notifications"
             ))]);
@@ -310,33 +331,37 @@ impl Window {
                     _ => banner.set_revealed(false),
                 }
             }
-            w.update_header(&m);
+            drop(m);
+            w.update_header(c);
         });
         w
     }
 
-    fn update_header(&self, m: &crate::model::Model) {
-        let settings = &self.settings;
+    fn update_header(&self, c: &Controller) {
+        let m = c.model();
         let clipboard = self.pages.visible_child_name().as_deref() == Some("clipboard");
-        if clipboard {
-            self.clear.set_label("Clear History");
-            self.clear.set_sensitive(!m.clips.is_empty());
-            self.clear.set_tooltip_text(Some(
-                "Clears the list here. Copies waiting to send still send.",
-            ));
-            settings.set_tooltip_text(Some("Settings for the clipboard"));
+        // Nothing to clear: no button, rather than a greyed one
+        let (what, visible) = if clipboard {
+            ("Clear History", m.clipboard_sync && !m.clips.is_empty())
         } else {
-            self.clear.set_label("Clear All");
-            self.clear.set_sensitive(!m.shown.is_empty());
-            self.clear.set_tooltip_text(None);
-            settings.set_tooltip_text(Some("Settings for notifications"));
-        }
+            ("Clear All", !m.shown.is_empty())
+        };
+        self.clear.set_visible(visible);
+        self.clear.set_tooltip_text(Some(what));
+        self.clear
+            .update_property(&[gtk::accessible::Property::Label(what)]);
+        self.send.set_visible(
+            clipboard
+                && m.clipboard_sync
+                && m.phone.is_some()
+                && c.pasteboard.reach() == crate::os::clipboard::Reach::OneTap,
+        );
     }
 
     pub fn show_page(&self, name: &str) {
         self.pages.set_visible_child_name(name);
         if let Some(c) = self.controller.upgrade() {
-            self.update_header(&c.model());
+            self.update_header(&c);
         }
         self.content.set_title(if name == "clipboard" {
             "Clipboard"

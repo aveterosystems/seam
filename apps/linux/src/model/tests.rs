@@ -346,7 +346,7 @@ fn icons_are_adwaitas() {
     );
     assert_eq!(battery_icon(4, false), "battery-level-0-symbolic");
     assert_eq!(battery_icon(250, false), "battery-level-100-symbolic");
-    assert_eq!(icon_name(Icon::ThroughTor), "web-browser-symbolic");
+    assert_eq!(icon_name(Icon::ThroughTor), "seam-globe-symbolic");
     assert_eq!(
         icon_name(Icon::MobileSignal { fraction: 0.5 }),
         "network-cellular-signal-ok-symbolic"
@@ -358,4 +358,17 @@ fn times_drop_their_seconds() {
     assert_eq!(trim_seconds("14:02:09"), "14:02");
     assert_eq!(trim_seconds("2:02:09 PM"), "2:02 PM");
     assert_eq!(trim_seconds("14h02"), "14h02");
+}
+
+#[test]
+fn the_card_says_paused_briefly() {
+    let mut s = session();
+    s.route = None;
+    s.paused_until = Some(i64::MAX);
+    let m = Model::default().apply(&snapshot(Health::Ready, Some(s), None), false);
+    assert_eq!(m.card_line(0), "Paused");
+    assert!(m.status_line(0).len() > m.card_line(0).len());
+    // Not paused: the card says what the status line says
+    let c = Model::default().apply(&snapshot(Health::Ready, Some(session()), None), false);
+    assert_eq!(c.card_line(0), c.status_line(0));
 }

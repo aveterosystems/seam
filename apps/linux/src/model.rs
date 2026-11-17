@@ -165,6 +165,24 @@ impl Model {
         )
     }
 
+    /// The status line short enough for the sidebar's card: "Paused until 15:00" rather than the
+    /// whole sentence (which is its tooltip).
+    pub fn card_line(&self, now_ms: i64) -> String {
+        match self.link_input.pause {
+            Some(p) if self.link(now_ms).kind == seam_looks::LinkKind::Paused => {
+                match seam_looks::words::until(
+                    (p.until_ms != link::UNTIL_RESUMED).then_some(p.until_ms),
+                    now_ms,
+                    &SystemTime,
+                ) {
+                    Some(until) => format!("Paused {until}"),
+                    None => "Paused".into(),
+                }
+            }
+            _ => self.status_line(now_ms),
+        }
+    }
+
     /// The same with room to say what happens next (the Phone page's header).
     pub fn hero_line(&self, now_ms: i64) -> String {
         link::hero_line(
@@ -372,7 +390,8 @@ pub fn battery_icon(percent: u32, charging: bool) -> String {
 pub fn icon_name(icon: Icon) -> String {
     match icon {
         Icon::SameWifi | Icon::Wifi => "network-wireless-symbolic".into(),
-        Icon::ThroughTor => "web-browser-symbolic".into(),
+        // Adwaita has nothing that reads as a globe: Seam ships its own (design-system.md, "Icons")
+        Icon::ThroughTor => "seam-globe-symbolic".into(),
         Icon::Paused => "media-playback-pause-symbolic".into(),
         Icon::Battery { level, charging } => battery_icon(level as u32, charging),
         Icon::MobileSignal { fraction } => {
@@ -403,9 +422,16 @@ fn local(ms: i64) -> Option<gtk::glib::DateTime> {
 
 impl TimeWords for SystemTime {
     fn time(&self, ms: i64) -> String {
-        local(ms)
-            .and_then(|d| d.format("%X").ok())
-            .map(|s| trim_seconds(&s))
+        let Some(d) = local(ms) else {
+            return String::new();
+        };
+        let format = match clock_24h() {
+            Some(true) => "%H:%M",
+            Some(false) => "%-l:%M %p",
+            None => return d.format("%X").map(|s| trim_seconds(&s)).unwrap_or_default(),
+        };
+        d.format(format)
+            .map(|s| s.trim().to_string())
             .unwrap_or_default()
     }
 
@@ -438,6 +464,19 @@ impl SystemTime {
             .map(|s| s.to_string())
             .unwrap_or_default()
     }
+}
+
+/// The desktop's clock setting (GNOME's, which KDE's GTK settings mirror): None when there's
+/// none to read, and the locale decides.
+fn clock_24h() -> Option<bool> {
+    let source = gtk::gio::SettingsSchemaSource::default()?;
+    let schema = source.lookup("org.gnome.desktop.interface", true)?;
+    if !schema.has_key("clock-format") {
+        return None;
+    }
+    use gtk::gio::prelude::SettingsExt;
+    let format = gtk::gio::Settings::new("org.gnome.desktop.interface").string("clock-format");
+    Some(format != "12h")
 }
 
 /// The locale's time ("14:02:09", "2:02:09 PM") without its seconds.

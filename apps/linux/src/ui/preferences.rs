@@ -636,7 +636,7 @@ fn privacy(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefe
         "Signal Protocol with post-quantum keys. Only this computer and your phone can read what passes between them.",
     );
     let (tor, tor_state) = fact(
-        "web-browser-symbolic",
+        "seam-globe-symbolic",
         "On",
         "Internet Through Tor",
         "Away from home, neither Tor nor your network can read anything, and Tor hides where you are",

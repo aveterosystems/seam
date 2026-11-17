@@ -44,6 +44,7 @@ pub fn set_disc(disc: &gtk::Box, connected: bool) {
 pub struct StatusDot {
     pub widget: gtk::DrawingArea,
     on: Rc<Cell<bool>>,
+    paused: Rc<Cell<bool>>,
     tick: Rc<RefCell<Option<gtk::TickCallbackId>>>,
     t: Rc<Cell<f64>>,
 }
@@ -57,11 +58,18 @@ impl StatusDot {
             .build();
         widget.set_accessible_role(gtk::AccessibleRole::Presentation);
         let on = Rc::new(Cell::new(false));
+        let paused = Rc::new(Cell::new(false));
         let t = Rc::new(Cell::new(0.0));
-        let (o, tt) = (on.clone(), t.clone());
+        let (o, pz, tt) = (on.clone(), paused.clone(), t.clone());
         widget.set_draw_func(move |_, cr, w, h| {
             let p = crate::ui::palette();
-            let c = if o.get() { p.teal } else { p.grey };
+            let c = if pz.get() {
+                p.paused
+            } else if o.get() {
+                p.teal
+            } else {
+                p.grey
+            };
             let (cx, cy) = (w as f64 / 2.0, h as f64 / 2.0);
             let r = 3.0;
             if o.get() && crate::ui::animations() {
@@ -84,9 +92,18 @@ impl StatusDot {
         Self {
             widget,
             on,
+            paused,
             tick: Rc::default(),
             t,
         }
+    }
+
+    /// Connected (the ring), paused (still, in the paused blue) or neither (still grey).
+    pub fn set_state(&self, on: bool, paused: bool) {
+        if self.paused.replace(paused) != paused {
+            self.widget.queue_draw();
+        }
+        self.set(on && !paused);
     }
 
     pub fn set(&self, on: bool) {

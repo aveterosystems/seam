@@ -69,4 +69,5 @@ modules:
       - type: dir
         path: ../../..
         skip: [apps/android, apps/mac, apps/linux/target, target, .git]
-      - apps/linux/flatpak/cargo-sources.json
+      # Relative to this manifest
+      - cargo-sources.json

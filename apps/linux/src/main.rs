@@ -54,8 +54,12 @@ fn main() -> glib::ExitCode {
         #[cfg(debug_assertions)]
         if let Ok(what) = std::env::var("SEAM_OPEN") {
             let (app, w) = (app.clone(), w.clone());
-            glib::timeout_add_local_once(std::time::Duration::from_millis(600), move || match what.split_once(':') {
-                Some(("prefs", page)) => app.activate_action("preferences-page", Some(&page.to_variant())),
+            glib::timeout_add_local_once(std::time::Duration::from_millis(600), move || match what
+                .split_once(':')
+            {
+                Some(("prefs", page)) => {
+                    app.activate_action("preferences-page", Some(&page.to_variant()))
+                }
                 _ if what == "clipboard" => w.show_page("clipboard"),
                 _ if what == "setup" => app.activate_action("clipboard-setup", None),
                 _ if what == "phone-setup" => app.activate_action("phone-clipboard-setup", None),

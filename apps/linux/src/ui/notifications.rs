@@ -50,17 +50,9 @@ impl Page {
             .build();
         note.add_css_class("dim-label");
         note.add_css_class("list-note");
-        let heading = gtk::Label::builder()
-            .label("Recent Notifications")
-            .xalign(0.0)
-            .margin_bottom(8)
-            .margin_start(6)
-            .build();
-        heading.add_css_class("heading");
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();
-        column.append(&heading);
         column.append(&list);
         column.append(&note);
         let clamp = adw::Clamp::builder()
@@ -325,7 +317,6 @@ impl Page {
             let actions = gtk::Box::builder().spacing(6).margin_top(6).build();
             if n.can_reply {
                 let b = gtk::Button::with_label("Reply");
-                b.add_css_class("flat");
                 let (r, e, actions2) = (reply.clone(), entry.clone(), actions.clone());
                 // The button says what it does now, whichever way the field closed (Escape, Send)
                 let bb = b.clone();
@@ -354,7 +345,6 @@ impl Page {
             }
             for button in &n.buttons {
                 let b = gtk::Button::with_label(&button.title);
-                b.add_css_class("flat");
                 let (weak, key, id) = (self.controller.clone(), n.key.clone(), button.id.clone());
                 b.connect_clicked(move |_| {
                     if let Some(c) = weak.upgrade() {
