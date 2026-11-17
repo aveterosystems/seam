@@ -164,25 +164,32 @@ impl Window {
         });
         window.set_content(Some(&toasts));
 
-        let breakpoint = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
-            adw::BreakpointConditionLengthType::MaxWidth,
-            600.0,
-            adw::LengthUnit::Sp,
-        ));
-        breakpoint.add_setter(&split, "collapsed", Some(&true.to_value()));
-        window.add_breakpoint(breakpoint);
-        // Pairing: steps above the code on a narrow screen
-        let narrow = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
+        // libadwaita applies one breakpoint at a time, the last that matches: so the narrowest
+        // carries everything the wider one sets too
+        let pairing_narrow = |b: &adw::Breakpoint| {
+            b.add_setter(
+                &pairing.row,
+                "orientation",
+                Some(&gtk::Orientation::Vertical.to_value()),
+            );
+            b.add_setter(&pairing.row, "spacing", Some(&32.to_value()));
+        };
+        // Pairing: steps above the code
+        let medium = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
             adw::BreakpointConditionLengthType::MaxWidth,
             700.0,
             adw::LengthUnit::Sp,
         ));
-        narrow.add_setter(
-            &pairing.row,
-            "orientation",
-            Some(&gtk::Orientation::Vertical.to_value()),
-        );
-        narrow.add_setter(&pairing.row, "spacing", Some(&32.to_value()));
+        pairing_narrow(&medium);
+        window.add_breakpoint(medium);
+        // Phone width: one column
+        let narrow = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
+            adw::BreakpointConditionLengthType::MaxWidth,
+            600.0,
+            adw::LengthUnit::Sp,
+        ));
+        narrow.add_setter(&split, "collapsed", Some(&true.to_value()));
+        pairing_narrow(&narrow);
         window.add_breakpoint(narrow);
 
         // Debug screenshots: SEAM_SIZE=360x700 opens the window at that size (phone width and the like)

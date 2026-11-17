@@ -10,7 +10,6 @@ use gtk::{gdk, glib};
 use seam_computer::pairing::PairingState;
 
 use crate::app::Controller;
-use crate::ui::stitch::Stitch;
 
 pub struct Page {
     pub widget: gtk::ScrolledWindow,
@@ -48,7 +47,7 @@ impl Page {
             .xalign(0.0)
             .wrap(true)
             .build();
-        lead.add_css_class("dim-label");
+        lead.add_css_class("secondary");
         let steps = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(14)
@@ -56,7 +55,7 @@ impl Page {
             .build();
         steps.append(&step(1, "Get <b>Seam</b> on your phone from <a href=\"https://github.com/aveterosystems/seam/releases/latest\">GitHub</a>"));
         steps.append(&step(2, "Tap <b>Scan code</b> and point the camera here"));
-        steps.append(&step(3, "Check both screens show the same code, then pair"));
+        steps.append(&step(3, "Check both screens match, then pair"));
         let safe = gtk::Box::builder().spacing(8).margin_top(24).build();
         let lock = gtk::Image::from_icon_name("security-high-symbolic");
         lock.add_css_class("dim-label");
@@ -66,7 +65,7 @@ impl Page {
             .xalign(0.0)
             .wrap(true)
             .build();
-        safe_text.add_css_class("dim-label");
+        safe_text.add_css_class("secondary");
         safe.append(&safe_text);
         let left = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -80,7 +79,7 @@ impl Page {
         left.append(&steps);
         left.append(&safe);
 
-        // Right: the code, waiting (never an amber warning: the stitch's travelling grey dots)
+        // Right: the code, and that Seam is waiting for the phone
         let qr = gtk::Picture::builder()
             .width_request(200)
             .height_request(200)
@@ -90,20 +89,16 @@ impl Page {
         let frame = gtk::Box::builder().halign(gtk::Align::Center).build();
         frame.add_css_class("qr-frame");
         frame.append(&qr);
-        let dots = Stitch::new();
-        dots.set(seam_looks::Line::Dotted, true, false);
-        dots.widget.set_size_request(120, 6);
-        dots.widget.set_hexpand(false);
-        dots.widget.set_halign(gtk::Align::Center);
+
         let countdown = gtk::Label::new(None);
-        countdown.add_css_class("dim-label");
+        countdown.add_css_class("secondary");
         countdown.add_css_class("caption");
         countdown.add_css_class("numeric");
         let tor_note = gtk::Label::builder()
             .wrap(true)
             .justify(gtk::Justification::Center)
             .build();
-        tor_note.add_css_class("dim-label");
+        tor_note.add_css_class("secondary");
         tor_note.add_css_class("caption");
         let waiting = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -111,8 +106,15 @@ impl Page {
             .valign(gtk::Align::Center)
             .build();
         waiting.append(&frame);
-        waiting.append(&dots.widget);
-        waiting.append(&countdown);
+        // Waiting, never wrong: a small spinner beside the words, never an amber warning
+        let spinner = adw::Spinner::new();
+        let wait_line = gtk::Box::builder()
+            .spacing(8)
+            .halign(gtk::Align::Center)
+            .build();
+        wait_line.append(&spinner);
+        wait_line.append(&countdown);
+        waiting.append(&wait_line);
         waiting.append(&tor_note);
 
         // The safety code check: Cancel is the default, and Pair takes a click only once the
@@ -122,13 +124,13 @@ impl Page {
             .justify(gtk::Justification::Center)
             .build();
         confirm_title.add_css_class("title-3");
-        let check = gtk::Label::new(Some("Code Check"));
+        let check = gtk::Label::new(Some("Code check"));
         check.add_css_class("dim-label");
         check.add_css_class("caption");
         let code = gtk::Label::new(None);
         code.add_css_class("safety-code");
         let hint = gtk::Label::new(Some("Check your phone shows the same code."));
-        hint.add_css_class("dim-label");
+        hint.add_css_class("secondary");
         let cancel = gtk::Button::with_label("Cancel");
         cancel.add_css_class("pill");
         cancel.add_css_class("suggested-action");
@@ -159,7 +161,7 @@ impl Page {
             .wrap(true)
             .justify(gtk::Justification::Center)
             .build();
-        outcome_text.add_css_class("dim-label");
+        outcome_text.add_css_class("secondary");
         let outcome_button = gtk::Button::new();
         outcome_button.add_css_class("pill");
         outcome_button.add_css_class("suggested-action");
@@ -256,6 +258,14 @@ impl Page {
 
     fn render(&self, c: &Controller) {
         let m = c.model();
+        if m.startup_error.is_some() {
+            // Nothing can pair until Seam starts: say so, with no button that can't work
+            *self.shown.borrow_mut() = None;
+            return self.outcome(
+                "Seam can show a code once it starts. The message above says what to do.",
+                "",
+            );
+        }
         if self.shown.borrow().as_ref() == Some(&m.pairing) {
             return;
         }
@@ -276,14 +286,6 @@ impl Page {
         self.tor_note.set_visible(tor_note.is_some());
         self.tor_note
             .set_label(tor_note.as_deref().unwrap_or_default());
-        if m.startup_error.is_some() {
-            // Nothing can pair until Seam starts: say so, with no button that can't work
-            *self.shown.borrow_mut() = None;
-            return self.outcome(
-                "Seam can show a code once it starts. The message above says what's wrong.",
-                "",
-            );
-        }
         match &m.pairing {
             PairingState::Idle => {
                 self.outcome("Show a code to scan with Seam on your phone.", "Show Code")

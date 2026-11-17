@@ -207,6 +207,22 @@ pub fn klipper_types(text: &str) -> Vec<String> {
     }
 }
 
+impl KlipperState {
+    /// What Klipper holds now. A new copy by someone else counts; history reordering and Seam's
+    /// own write don't, so neither is ever read back as the user's copy.
+    fn saw(&mut self, text: String) {
+        if self.text == text {
+            return;
+        }
+        let ours = self.written.as_deref() == Some(text.as_str());
+        self.written = None;
+        self.text = text;
+        if !ours {
+            self.count += 1;
+        }
+    }
+}
+
 #[async_trait]
 impl Door for KlipperDoor {
     async fn change_count(&self) -> i64 {
@@ -266,16 +282,7 @@ async fn watch_klipper(
                     else {
                         break;
                     };
-                    let mut s = state.lock().await;
-                    if s.text == text {
-                        continue; // history reordered, nothing new copied
-                    }
-                    let ours = s.written.as_deref() == Some(text.as_str());
-                    s.written = None;
-                    s.text = text;
-                    if !ours {
-                        s.count += 1;
-                    }
+                    state.lock().await.saw(text);
                 }
                 pasteboard.set_door(None);
                 let _ = tx.send(Msg::ClipboardReach).await;
@@ -309,6 +316,27 @@ mod tests {
         assert_eq!(setup(Plan::Extension), Setup::Extension);
         assert_eq!(setup(Plan::Klipper), Setup::Klipper);
         assert_eq!(setup(Plan::OneTap), Setup::Unavailable);
+    }
+
+    #[test]
+    fn klipper_counts_only_the_users_new_copies() {
+        let mut s = KlipperState {
+            text: "before launch".into(),
+            ..Default::default()
+        };
+        s.saw("before launch".into()); // a reorder: nothing new
+        assert_eq!(s.count, 0);
+        s.saw("mine".into());
+        assert_eq!((s.count, s.text.as_str()), (1, "mine"));
+        // Seam writes a copy from the phone: it lands, but isn't counted as the user's
+        s.written = Some("from phone".into());
+        s.saw("from phone".into());
+        assert_eq!(s.count, 1);
+        assert!(s.written.is_none(), "only the one write is excused");
+        // The same words copied again by the user later do count
+        s.saw("other".into());
+        s.saw("from phone".into());
+        assert_eq!(s.count, 3);
     }
 
     /// SR-4-06 on KDE: Klipper hands over a copied file as its address, which is never sent.

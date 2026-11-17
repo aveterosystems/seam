@@ -169,6 +169,13 @@ fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::W
                 .copyright("© 2026 Avetero")
                 .comments("Your Android phone's notifications and clipboard on this computer, end-to-end encrypted.")
                 .build();
+            // The Tor Project's trademark guidelines ask for this wording
+            about.add_legal_section(
+                "Tor",
+                None,
+                gtk::License::Custom,
+                Some("Seam uses Tor through Arti. It is produced independently from the Tor® anonymity software and carries no guarantee from The Tor Project about quality, suitability or anything else. It isn't endorsed by The Tor Project."),
+            );
             about.present(Some(&win));
         }),
         None,

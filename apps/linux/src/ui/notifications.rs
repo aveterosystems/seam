@@ -48,7 +48,7 @@ impl Page {
             .margin_top(12)
             .margin_start(6)
             .build();
-        note.add_css_class("dim-label");
+        note.add_css_class("secondary");
         note.add_css_class("list-note");
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -137,6 +137,12 @@ impl Page {
                 self.empty.set_title(&e.title);
                 self.empty.set_description(Some(&e.detail));
                 self.empty_button.set_visible(e.action.is_some());
+                // Choose Apps is a pointer, not something to fix: a plain button for it
+                if e.action.is_some_and(|(_, a)| a == EmptyAction::ChooseApps) {
+                    self.empty_button.remove_css_class("suggested-action");
+                } else {
+                    self.empty_button.add_css_class("suggested-action");
+                }
                 if let Some((label, a)) = e.action {
                     self.empty_button.set_label(label);
                     *self.empty_action.borrow_mut() = Some(a);
@@ -236,6 +242,7 @@ impl Page {
             .overflow(gtk::Overflow::Hidden)
             .build();
         frame.add_css_class("row-icon");
+        frame.add_css_class("app-icon");
         frame.append(&icon);
 
         let title = gtk::Label::builder()

@@ -138,7 +138,7 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | Ring | `speaker.wave.2` | volume | `audio-volume-high-symbolic` |
 | Encrypted | `checkmark.shield` | shield-check (`ic_shield`) | `security-high-symbolic` |
 | Same Wi‑Fi (the path) | `wifi` | wifi | `network-wireless-symbolic` |
-| Through Tor (the path; a neutral globe, never the onion) | `globe` | globe | `web-browser-symbolic` |
+| Through Tor (the path; a neutral globe, never the onion) | `globe` | globe | None that reads as a globe in Adwaita: Seam ships `seam-globe-symbolic` (`apps/linux/data/icons`) |
 | Lock computer | `lock` | lock | `system-lock-screen-symbolic` |
 | Settings | `slider.horizontal.3` | sliders | `emblem-system-symbolic` |
 | Battery (fills to the level; bolt while charging) | `battery.0…100percent`, `battery.100percent.bolt` | Material `battery_0_bar` … `battery_full`, `battery_charging_full` (`ic_battery_*`) | `battery-level-0…100-symbolic`, `battery-level-…-charging-symbolic` |

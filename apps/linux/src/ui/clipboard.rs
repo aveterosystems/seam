@@ -30,7 +30,7 @@ pub struct Page {
 impl Page {
     pub fn new(c: &Rc<Controller>) -> Rc<Self> {
         let banner = adw::Banner::builder()
-            .title("Automatic clipboard isn't set up. Copies go when you click Send Clipboard.")
+            .title("Automatic clipboard isn't set up")
             .button_label("Set Up")
             .revealed(false)
             .build();
@@ -59,7 +59,7 @@ impl Page {
             .margin_top(12)
             .margin_start(6)
             .build();
-        note.add_css_class("dim-label");
+        note.add_css_class("secondary");
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();

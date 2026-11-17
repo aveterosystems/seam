@@ -100,7 +100,10 @@ impl Model {
             Health::Starting => return m,
             Health::Ready => m.startup_error = None,
             Health::Unreadable => {
-                m.startup_error = Some("Seam's data on this computer can't be opened.".into())
+                m.startup_error = Some(
+                    "Seam couldn't read its saved data. Reset Seam to pair your phone again."
+                        .into(),
+                )
             }
             Health::Failed { detail } => {
                 m.startup_error = Some(if resetting {

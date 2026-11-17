@@ -71,7 +71,15 @@ impl SameWifi for LinuxSameWifi {
 /// Wi‑Fi or wired Ethernet, as the kernel describes the interface: an Ethernet-type device
 /// (ARPHRD 1) that is real hardware, not a bridge, VPN or virtual link.
 fn is_lan_interface(name: &str) -> bool {
-    let dir = std::path::Path::new("/sys/class/net").join(name);
+    is_lan_interface_in(std::path::Path::new("/sys/class/net"), name)
+}
+
+/// The same, under `root` (tests pass a made-up tree).
+fn is_lan_interface_in(root: &std::path::Path, name: &str) -> bool {
+    if name.contains('/') || name.starts_with('.') {
+        return false;
+    }
+    let dir = root.join(name);
     let kind = std::fs::read_to_string(dir.join("type")).unwrap_or_default();
     kind.trim() == "1" && dir.join("device").exists() && !dir.join("bridge").exists()
 }
@@ -129,4 +137,50 @@ fn addresses() -> Vec<(String, IpAddr)> {
         libc::freeifaddrs(list);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::is_lan_interface_in;
+
+    fn iface(root: &std::path::Path, name: &str, kind: &str, device: bool, bridge: bool) {
+        let d = root.join(name);
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("type"), kind).unwrap();
+        if device {
+            fs::create_dir_all(d.join("device")).unwrap();
+        }
+        if bridge {
+            fs::create_dir_all(d.join("bridge")).unwrap();
+        }
+    }
+
+    /// Same Wi‑Fi only on real Wi‑Fi or wired Ethernet: never a VPN, bridge, container link or loopback.
+    #[test]
+    fn only_real_wifi_and_ethernet_count() {
+        let t = tempfile::tempdir().unwrap();
+        iface(t.path(), "wlp2s0", "1\n", true, false);
+        iface(t.path(), "enp0s1", "1\n", true, false);
+        iface(t.path(), "wg0", "65534\n", false, false); // WireGuard
+        iface(t.path(), "tun0", "65534\n", false, false); // OpenVPN
+        iface(t.path(), "docker0", "1\n", false, true); // a bridge
+        iface(t.path(), "veth1a", "1\n", false, false); // a container's virtual Ethernet
+        iface(t.path(), "lo", "772\n", false, false);
+        for yes in ["wlp2s0", "enp0s1"] {
+            assert!(is_lan_interface_in(t.path(), yes), "{yes}");
+        }
+        for no in [
+            "wg0",
+            "tun0",
+            "docker0",
+            "veth1a",
+            "lo",
+            "missing",
+            "../wlp2s0",
+        ] {
+            assert!(!is_lan_interface_in(t.path(), no), "{no}");
+        }
+    }
 }

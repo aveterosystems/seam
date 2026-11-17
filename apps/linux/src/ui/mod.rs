@@ -20,17 +20,36 @@ use gtk::{gdk, glib};
 /// styles stock widgets don't have. Controls keep the desktop's own accent colour; the stitch,
 /// the phone's disc and the status dot are Seam teal.
 const CSS: &str = include_str!("style.css");
+const DARK_CSS: &str = include_str!("style-dark.css");
 
 pub fn load_css() {
+    let Some(display) = gdk::Display::default() else {
+        return;
+    };
     let provider = gtk::CssProvider::new();
     provider.load_from_string(CSS);
-    if let Some(display) = gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(
-            &display,
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
-    }
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+    // Dark tokens on top while libadwaita is dark (the desktop's choice), off again when it isn't
+    let dark = gtk::CssProvider::new();
+    dark.load_from_string(DARK_CSS);
+    let apply = move |m: &adw::StyleManager| {
+        if m.is_dark() {
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &dark,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+            );
+        } else {
+            gtk::style_context_remove_provider_for_display(&display, &dark);
+        }
+    };
+    let manager = adw::StyleManager::default();
+    apply(&manager);
+    manager.connect_dark_notify(apply);
 }
 
 /// Seam teal and the status colours, light or dark, for what's drawn by hand.

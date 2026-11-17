@@ -103,7 +103,9 @@ pub fn model(state: &str) -> Model {
             // The saved data can't be opened: no phone is known, and pairing waits for the reset
             m.phone = None;
             m.health = Health::Unreadable;
-            m.startup_error = Some("Seam's data on this computer can't be opened.".into());
+            m.startup_error = Some(
+                "Seam couldn't read its saved data. Reset Seam to pair your phone again.".into(),
+            );
         }
         _ => {}
     }

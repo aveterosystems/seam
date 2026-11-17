@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+/* Seam's tokens in dark mode (design-system.md, "Mac tokens", dark column). */
+
+:root {
+    --seam-teal: #3DD6BE;
+    --seam-teal-ink: #6FE6D2;
+    --seam-teal-soft: rgb(61 214 190 / 16%);
+    --seam-ok: #4ADE80;
+    --seam-warn: #F5A524;
+    --seam-paused: #5B8FC4;
+  }

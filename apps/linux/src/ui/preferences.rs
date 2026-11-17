@@ -85,27 +85,6 @@ fn general(c: &Rc<Controller>) -> adw::PreferencesPage {
     group.add(&login);
     page.add(&group);
 
-    let about = adw::PreferencesGroup::new();
-    let row = adw::ActionRow::builder()
-        .title("Seam")
-        .subtitle(format!(
-            "Version {} · Open source under AGPL‑3.0 · © 2026 Avetero",
-            env!("CARGO_PKG_VERSION")
-        ))
-        .activatable(true)
-        .build();
-    let icon = gtk::Image::from_icon_name("com.avetero.Seam");
-    icon.set_pixel_size(48);
-    row.add_prefix(&icon);
-    row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
-    row.set_action_name(Some("app.about"));
-    about.add(&row);
-    let updates = adw::ActionRow::builder()
-        .title("Updates")
-        .subtitle("Your software centre keeps Seam up to date")
-        .build();
-    about.add(&updates);
-    page.add(&about);
     page
 }
 
@@ -355,11 +334,10 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
     switches.add(&enabled);
     switches.add(&both);
     switches.add(&quiet);
-    let system = adw::ActionRow::builder()
-        .title("Banners, Sounds and Previews")
-        .subtitle("Set by the desktop, like any app")
-        .build();
-    switches.add(&system);
+    // Not a setting here: the desktop's own, said as the group's note
+    switches.set_description(Some(
+        "Banners, sounds and previews are set by your desktop, like any app's.",
+    ));
     page.add(&switches);
     for (row, q, field) in [
         (&enabled, eq.clone(), 0),
@@ -454,7 +432,13 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                 if let Some(t) = c.icon(&app.app_id) {
                     let p = gtk::Image::from_paintable(Some(&t));
                     p.set_pixel_size(24);
-                    row.add_prefix(&p);
+                    let frame = gtk::Box::builder()
+                        .overflow(gtk::Overflow::Hidden)
+                        .valign(gtk::Align::Center)
+                        .build();
+                    frame.add_css_class("app-icon");
+                    frame.append(&p);
+                    row.add_prefix(&frame);
                 }
                 if app.can_reply && mode_index(app) == 0 {
                     row.set_subtitle("You can reply from this computer");
@@ -589,7 +573,7 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         let m = c.model();
         let name = m.phone_name(false);
         set_switch(&sync, &sq, m.clipboard_sync);
-        sync.set_subtitle(&format!("What you copy on this computer goes to {name}"));
+        sync.set_subtitle(&format!("What you copy here or on {name} reaches the other"));
         hold.set_label(&format!(
             "While {name} is asleep, a copy waits here for up to 10 minutes, then it's dropped, so an old copy never lands by surprise."
         ));
@@ -597,7 +581,7 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         auto_row.set_subtitle(if automatic {
             "What you copy goes by itself, without clicking Send"
         } else {
-            "Until it's set up, click Send clipboard in Seam's window"
+            "Until it's set up, click Send Clipboard in Seam's window"
         });
         on.set_visible(automatic);
         set_up.set_visible(!automatic);
@@ -612,54 +596,38 @@ fn privacy(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefe
         .title("Privacy")
         .icon_name("security-high-symbolic")
         .build();
-    let group = adw::PreferencesGroup::new();
-    let fact = |icon: &str, state: &str, title: &str, detail: &str| {
+    let group = adw::PreferencesGroup::builder()
+        .description("What protects what passes between this computer and your phone")
+        .build();
+    // Facts, not settings: each says its state where a control would be
+    let fact = |title: &str, detail: &str, state: &str| {
         let row = adw::ActionRow::builder()
             .title(title)
             .subtitle(detail)
             .build();
-        let b = gtk::Box::builder()
-            .spacing(6)
-            .valign(gtk::Align::Center)
-            .build();
-        b.add_css_class("dim-label");
-        b.append(&gtk::Image::from_icon_name(icon));
-        let l = gtk::Label::new(Some(state));
-        b.append(&l);
-        row.add_suffix(&b);
-        (row, l)
+        let value = gtk::Label::new(Some(state));
+        value.add_css_class("dim-label");
+        row.add_suffix(&value);
+        (row, value)
     };
     let (e2e, _) = fact(
-        "security-high-symbolic",
-        "Always",
         "End-to-End Encrypted",
         "Signal Protocol with post-quantum keys. Only this computer and your phone can read what passes between them.",
+        "Always",
     );
     let (tor, tor_state) = fact(
-        "seam-globe-symbolic",
-        "On",
         "Internet Through Tor",
-        "Away from home, neither Tor nor your network can read anything, and Tor hides where you are",
+        "Away from home, neither Tor nor your network can read anything, and Tor hides where you are. Its switch is on the phone's page.",
+        "On",
     );
     let (updates, _) = fact(
-        "software-update-available-symbolic",
-        "None",
         "Update Checks",
-        "Seam never checks for updates itself. Your software centre does.",
+        "Seam never asks for updates itself. Your software centre does.",
+        "None",
     );
     group.add(&e2e);
     group.add(&tor);
     group.add(&updates);
-    // The Tor Project's trademark guidelines ask for this wording
-    let notice = gtk::Label::builder()
-        .label("Seam uses Tor through Arti. It is produced independently from the Tor® anonymity software and carries no guarantee from The Tor Project about quality, suitability or anything else. It isn't endorsed by The Tor Project.")
-        .xalign(0.0)
-        .wrap(true)
-        .margin_top(12)
-        .build();
-    notice.add_css_class("dim-label");
-    notice.add_css_class("caption");
-    group.add(&notice);
     page.add(&group);
     ids.push(c.watch(move |c| tor_state.set_label(if c.model().tor { "On" } else { "Off" })));
     page

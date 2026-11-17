@@ -11,16 +11,7 @@
   --seam-paused: #32628D;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --seam-teal: #3DD6BE;
-    --seam-teal-ink: #6FE6D2;
-    --seam-teal-soft: rgb(61 214 190 / 16%);
-    --seam-ok: #4ADE80;
-    --seam-warn: #F5A524;
-    --seam-paused: #5B8FC4;
-  }
-}
+/* Dark: style-dark.css, swapped in from code when libadwaita turns dark. */
 
 /* The phone's disc: teal while connected, grey when not; the colour eases (fade). */
 .phone-disc {
@@ -54,13 +45,23 @@
 
 /* Numbered steps on the pairing page. */
 .step-number {
-  min-width: 22px;
-  min-height: 22px;
+  min-width: 24px;
+  min-height: 24px;
   border-radius: 9999px;
-  background: var(--seam-teal-soft);
-  color: var(--seam-teal-ink);
+  background: color-mix(in srgb, var(--window-fg-color) 10%, transparent);
   font-weight: 700;
-  font-size: 0.8em;
+  font-size: 0.85em;
+  font-feature-settings: "tnum";
+}
+
+/* Secondary text that still passes 4.5:1 (stock .dim-label is lighter) */
+.secondary {
+  color: color-mix(in srgb, var(--window-fg-color) 72%, transparent);
+}
+
+/* The phone apps' icons, with the same rounded corners everywhere */
+.app-icon {
+  border-radius: 7px;
 }
 
 /* The QR code sits on white in both themes, so every phone camera reads it. */
@@ -95,8 +96,10 @@
   color: var(--seam-warn);
 }
 
-.paused-label {
+.paused-label,
+.paused-label label {
   color: var(--seam-paused);
+  opacity: 1;
 }
 
 /* A notification's app icon, and a copy's kind. */
