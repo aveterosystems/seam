@@ -193,15 +193,11 @@ async fn watch_extension(pasteboard: &LinuxPasteboard, tell: &(dyn Fn(ClipboardD
     let mut last = None;
     loop {
         let (door, status) = probe_extension(&conn).await;
-        // Every owner change is a new door, even one that's open again: an extension restarted
-        // in between counts from scratch, so its old count and baseline mustn't carry over
-        pasteboard.set_door(door);
-        if last != Some(status) {
+        if let Some(status) = reprobed(pasteboard, &mut last, door, status) {
             if cfg!(debug_assertions) {
                 eprintln!("seam: clipboard extension {status:?}");
             }
             tell(status);
-            last = Some(status);
         }
         // Until the extension's name changes hands (enabled, disabled, the shell restarted)
         loop {
@@ -214,6 +210,19 @@ async fn watch_extension(pasteboard: &LinuxPasteboard, tell: &(dyn Fn(ClipboardD
         // The shell needs a moment to export the object after taking the name
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     }
+}
+
+/// The extension looked at again after its name changed hands. Every owner change is a new door,
+/// even one that's open again: an extension restarted in between counts from scratch, so its old
+/// count and baseline never carry over. The status, if the screens should hear it.
+fn reprobed(
+    pasteboard: &LinuxPasteboard,
+    last: &mut Option<ClipboardDoor>,
+    door: Option<Arc<dyn Door>>,
+    status: ClipboardDoor,
+) -> Option<ClipboardDoor> {
+    pasteboard.set_door(door);
+    (last.replace(status) != Some(status)).then_some(status)
 }
 
 /// Whether GNOME has Seam's extension installed (and so only needs turning on).
@@ -425,6 +434,59 @@ mod tests {
         assert_eq!(
             extension_status(Some(0), Ok(())),
             ClipboardDoor::ExtensionOff
+        );
+    }
+
+    /// The extension restarted and open again: the screens hear nothing new, but the pasteboard
+    /// has a new door, so a copy held before the restart is never sent and the restarted count
+    /// is never read as the old one's.
+    #[tokio::test]
+    async fn a_restarted_extension_is_a_new_door_though_still_open() {
+        use crate::os::clipboard::OneTap;
+        use seam_computer::features::clipboard::Pasteboard;
+        struct Holding(i64);
+        #[async_trait]
+        impl Door for Holding {
+            async fn change_count(&self) -> i64 {
+                self.0
+            }
+            async fn first_item(&self, if_still: i64) -> Option<PasteboardItem> {
+                (if_still == self.0).then(|| PasteboardItem {
+                    types: vec!["text/plain".into()],
+                    text: Some("copied before".into()),
+                })
+            }
+            async fn write(&self, _: String) -> Option<i64> {
+                None
+            }
+        }
+        let pb = LinuxPasteboard::new(Arc::new(OneTap::default()));
+        let mut last = None;
+        let first = reprobed(
+            &pb,
+            &mut last,
+            Some(Arc::new(Holding(2))),
+            ClipboardDoor::Open,
+        );
+        assert_eq!(first, Some(ClipboardDoor::Open));
+        let seen = pb.change_count().await;
+        // Restarted between two looks, holding the same copy at a new count
+        let again = reprobed(
+            &pb,
+            &mut last,
+            Some(Arc::new(Holding(1))),
+            ClipboardDoor::Open,
+        );
+        assert_eq!(again, None, "nothing new to tell the screens");
+        let now = pb.change_count().await;
+        assert_ne!(now, seen, "a new door, not the old one's count");
+        assert!(
+            pb.first_item(now).await.is_none(),
+            "held before the restart"
+        );
+        assert_eq!(
+            reprobed(&pb, &mut last, None, ClipboardDoor::ExtensionOff),
+            Some(ClipboardDoor::ExtensionOff)
         );
     }
 
