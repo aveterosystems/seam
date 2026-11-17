@@ -5,7 +5,7 @@ Seam links one computer and one phone so notifications, messages, calls, files a
 ## Devices
 
 **Computer**:
-The desktop side of a pairing: a Mac today, Linux and Windows later. Each app's own screens use the platform's name.
+The desktop side of a pairing: a Mac today, Linux and Windows later. The phone always says "computer" ("Copied on your computer", "Forget this computer"), whatever the platform. Each computer app's own screens use its platform's name.
 _Avoid_: desktop, PC, host, Mac (outside Mac-only text)
 
 **Phone**:
@@ -41,7 +41,7 @@ One thing Seam does between the two devices, such as clipboard or Find phone, wi
 _Avoid_: plugin, module
 
 **Clipboard sync**:
-The Mac's master switch for the clipboard feature (Settings › Clipboard › "Sync the clipboard"). Off, nothing crosses either way, and the phone says "clipboard sync is off on your Mac".
+The Mac's master switch for the clipboard feature (Settings › Clipboard › "Sync the clipboard"). Off, nothing crosses either way, and the phone says "clipboard sync is off on your computer".
 _Avoid_: clipboard sharing
 
 **Automatic clipboard**:
