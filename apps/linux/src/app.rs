@@ -446,11 +446,16 @@ impl Controller {
         };
         let types = formats(&clip);
         let (one_tap, again) = (self.one_tap.clone(), clip.clone());
+        // Any change to the clipboard while the text is read (even one changed back) is heard
+        let changed = Rc::new(Cell::new(false));
+        let flag = changed.clone();
+        let watch = clip.connect_changed(move |_| flag.set(true));
         clip.read_text_async(None::<&gio::Cancellable>, move |r| {
+            again.disconnect(watch);
             let text = r.ok().flatten().map(|t| t.to_string());
             // The text and its types must be the same copy: a password copied meanwhile can't go
-            // out under the earlier copy's types (SR-4-05)
-            match crate::os::clipboard::same_copy(types, formats(&again), text) {
+            // out under the earlier copy's types (SR-4-05); anything doubtful sends nothing
+            match crate::os::clipboard::same_copy(types, formats(&again), changed.get(), text) {
                 Some((types, text)) => {
                     let ok = text.as_ref().is_some_and(|t| !t.is_empty())
                         && seam_computer::features::clipboard::sendable(&types);

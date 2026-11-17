@@ -32,32 +32,38 @@ pub enum Reach {
 /// The pasteboard the core polls. Behind it, the automatic door when there is one, else one tap.
 pub struct LinuxPasteboard {
     one_tap: Arc<OneTap>,
-    door: Mutex<Option<Arc<dyn Door>>>,
-    /// Counts across doors: a door opening or closing is a change of its own, so the core never
-    /// compares one door's counter with another's. With it, the door's count when it was first
-    /// looked at: what was on the clipboard then was copied before, and is never offered.
-    epoch: Mutex<(i64, Option<i64>)>,
+    /// The door, how many times it changed, and its count when it was first looked at, under one
+    /// lock so the three always belong together. The epoch makes a door opening or closing a
+    /// change of its own (the core never compares one door's counter with another's); what was
+    /// on the clipboard when the door was first looked at was copied before, and is never offered.
+    state: Mutex<DoorState>,
+}
+
+#[derive(Default)]
+struct DoorState {
+    door: Option<Arc<dyn Door>>,
+    epoch: i64,
+    baseline: Option<i64>,
 }
 
 impl LinuxPasteboard {
     pub fn new(one_tap: Arc<OneTap>) -> Self {
         Self {
             one_tap,
-            door: Mutex::new(None),
-            epoch: Mutex::new((0, None)),
+            state: Mutex::default(),
         }
     }
 
     /// An automatic door opened (Some) or closed (None).
     pub fn set_door(&self, door: Option<Arc<dyn Door>>) {
-        *crate::lock(&self.door) = door;
-        let mut e = crate::lock(&self.epoch);
-        e.0 += 1;
-        e.1 = None; // the next look sets what was already there
+        let mut s = crate::lock(&self.state);
+        s.door = door;
+        s.epoch += 1;
+        s.baseline = None; // the next look sets what was already there
     }
 
     pub fn reach(&self) -> Reach {
-        if crate::lock(&self.door).is_some() {
+        if crate::lock(&self.state).door.is_some() {
             Reach::Automatic
         } else {
             Reach::OneTap
@@ -65,10 +71,9 @@ impl LinuxPasteboard {
     }
 
     fn current(&self) -> (Arc<dyn Door>, i64) {
-        let door = crate::lock(&self.door)
-            .clone()
-            .unwrap_or_else(|| self.one_tap.clone());
-        (door, crate::lock(&self.epoch).0)
+        let s = crate::lock(&self.state);
+        let door = s.door.clone().unwrap_or_else(|| self.one_tap.clone());
+        (door, s.epoch)
     }
 }
 
@@ -82,9 +87,10 @@ impl Pasteboard for LinuxPasteboard {
     async fn change_count(&self) -> i64 {
         let (door, epoch) = self.current();
         let raw = door.change_count().await;
-        let mut e = crate::lock(&self.epoch);
-        if e.0 == epoch && e.1.is_none() {
-            e.1 = Some(raw);
+        // Only if the door is still the one that was asked: one opening meanwhile sets its own
+        let mut s = crate::lock(&self.state);
+        if s.epoch == epoch && s.baseline.is_none() {
+            s.baseline = Some(raw);
         }
         combine(epoch, raw)
     }
@@ -97,7 +103,7 @@ impl Pasteboard for LinuxPasteboard {
         let raw = if_still & ((1 << 40) - 1);
         // A door that just opened (the extension enabled, Klipper back): what it holds was copied
         // before, so the new count it brings is never read as a copy and sent
-        if crate::lock(&self.epoch).1 == Some(raw) {
+        if crate::lock(&self.state).baseline == Some(raw) {
             return None;
         }
         door.first_item(raw).await
@@ -117,16 +123,17 @@ impl Pasteboard for LinuxPasteboard {
 
 type Writer = Box<dyn Fn(String) + Send + Sync>;
 
-/// Send Clipboard reads the types, then the text: offered only if the types are the same after
-/// the read, so the text can't be a newer copy (a password) under the earlier copy's types.
-/// shortcut: a copy that changes and changes back to the same types in between still passes;
-/// GTK can't tie a text read to one offer, so this is as close as the toolkit allows.
+/// Send Clipboard reads the types, then the text: offered only if nothing changed the clipboard
+/// during the read (GTK's `changed` signal, which also catches a change and change back) and the
+/// types are the same after it, so the text can't be a newer copy (a password) under the earlier
+/// copy's types. Anything else fails closed: nothing is offered.
 pub fn same_copy(
     before: Vec<String>,
     after: Vec<String>,
+    changed_during_read: bool,
     text: Option<String>,
 ) -> Option<(Vec<String>, Option<String>)> {
-    (before == after).then_some((before, text))
+    (!changed_during_read && before == after).then_some((before, text))
 }
 
 /// One tap: Send clipboard offers what the window read from the clipboard (it has focus then),
@@ -202,9 +209,11 @@ mod tests {
             "text/plain".to_string(),
             "x-kde-passwordManagerHint".to_string(),
         ];
-        assert!(same_copy(plain.clone(), secret, Some("hunter2".into())).is_none());
+        assert!(same_copy(plain.clone(), secret, false, Some("hunter2".into())).is_none());
+        // Changed to a password and back during the read: the same types, but it fails closed
+        assert!(same_copy(plain.clone(), plain.clone(), true, Some("hunter2".into())).is_none());
         assert_eq!(
-            same_copy(plain.clone(), plain.clone(), Some("hi".into())),
+            same_copy(plain.clone(), plain.clone(), false, Some("hi".into())),
             Some((plain, Some("hi".into())))
         );
     }
@@ -291,6 +300,46 @@ mod tests {
         assert_eq!(
             pb.first_item(copied).await.unwrap().text.as_deref(),
             Some("new")
+        );
+    }
+
+    /// A door that opens while the old one is being asked: the old door's count never becomes
+    /// the new door's baseline, so what the new door holds is still never sent.
+    #[tokio::test]
+    async fn a_door_opening_mid_look_keeps_its_own_baseline() {
+        struct Swapping {
+            pb: Mutex<Option<Arc<LinuxPasteboard>>>,
+            next: Arc<Counting>,
+        }
+        #[async_trait]
+        impl Door for Swapping {
+            async fn change_count(&self) -> i64 {
+                // The new door opens while this (old) door is answering
+                if let Some(pb) = crate::lock(&self.pb).take() {
+                    pb.set_door(Some(self.next.clone()));
+                }
+                7
+            }
+            async fn first_item(&self, _: i64) -> Option<PasteboardItem> {
+                None
+            }
+            async fn write(&self, _: String) -> Option<i64> {
+                None
+            }
+        }
+        let pb = Arc::new(LinuxPasteboard::new(Arc::new(OneTap::default())));
+        let next = Arc::new(Counting::default());
+        next.copy("copied before the new door opened");
+        let old = Arc::new(Swapping {
+            pb: Mutex::new(Some(pb.clone())),
+            next: next.clone(),
+        });
+        pb.set_door(Some(old));
+        pb.change_count().await; // asks the old door; the new one opens meanwhile
+        let now = pb.change_count().await;
+        assert!(
+            pb.first_item(now).await.is_none(),
+            "the new door's earlier copy is never sent"
         );
     }
 

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Seam's clipboard door on GNOME (decision 0012). Wayland lets only the focused app see the
-// clipboard; the shell sees it always. This exports a small D-Bus service that only the Seam app
-// may call: how many times the clipboard changed, the current copy, and a write. Nothing copied
+// clipboard; the shell sees it always. This exports a small D-Bus service that no other app may
+// call (the Seam Flatpak only; unsandboxed programs running as the user are out of scope, see
+// trust.js): how many times the clipboard changed, the current copy, and a write. Nothing copied
 // is kept or logged.
 
 import Gio from 'gi://Gio';
@@ -112,7 +113,7 @@ export default class SeamClipboardExtension extends Extension {
             this._verdicts.set(sender, ok);
         }
         if (!ok)
-            invocation.return_dbus_error(DENIED, 'Only the Seam app can use this');
+            invocation.return_dbus_error(DENIED, 'Only Seam can use this service');
         return !ok;
     }
 
