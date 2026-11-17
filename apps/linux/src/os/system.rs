@@ -9,10 +9,14 @@ static PRETTY: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 /// The distribution and its version (`PRETTY_NAME` in os-release), for the diagnostics export.
 pub fn os_name() -> String {
     // Inside Flatpak /etc is the runtime's; the host's own is at /run/host
-    let release = ["/run/host/os-release", "/etc/os-release", "/usr/lib/os-release"]
-        .iter()
-        .find_map(|p| std::fs::read_to_string(p).ok())
-        .unwrap_or_default();
+    let release = [
+        "/run/host/os-release",
+        "/etc/os-release",
+        "/usr/lib/os-release",
+    ]
+    .iter()
+    .find_map(|p| std::fs::read_to_string(p).ok())
+    .unwrap_or_default();
     release
         .lines()
         .find_map(|l| l.strip_prefix("PRETTY_NAME="))
