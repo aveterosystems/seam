@@ -135,6 +135,8 @@ struct PairingView: View {
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
+            // Through Tor a fresh pairing can take minutes: say so up front, so a wait never reads as broken
+            Text("Keep this open. Pairing can take a few minutes.").font(.caption).foregroundStyle(.secondary)
             if let torNote { Text(torNote).font(.caption).foregroundStyle(.secondary) }
         case .confirm(let request):
             ConfirmView(controller: controller, name: request.deviceName, code: request.safetyCode, sending: false)

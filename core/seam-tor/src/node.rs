@@ -40,6 +40,9 @@ pub struct TorNode {
     /// The services whose keys are loaded into Arti's keystore (by address). Arti keeps a key for
     /// the node's lifetime, so a relaunch of the same service reuses it.
     pub(crate) service_keys: Mutex<std::collections::HashSet<String>>,
+    /// The phone's connections share this isolation group, so a reconnect can reuse a working
+    /// circuit; a connect that fails moves to a new one, so the next never rejoins a stuck attempt.
+    pub(crate) isolation: Mutex<arti_client::IsolationToken>,
 }
 
 /// Where Tor is, for the app's status line.
@@ -101,6 +104,7 @@ impl TorNode {
         Ok(Self {
             client,
             service_keys: Mutex::default(),
+            isolation: Mutex::new(arti_client::IsolationToken::new()),
         })
     }
 

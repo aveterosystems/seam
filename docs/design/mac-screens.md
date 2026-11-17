@@ -34,7 +34,7 @@ The words for every state come from SeamSession's `Looks.swift` (`statusLine`, `
 
 **Data:** the QR code encodes the Mac's public keys, a one-time token and the relay URL. The code refreshes every 5 minutes.
 
-**Copy:** the waiting line is "Waiting for your phone · code expires in 4:59" over the stitch's travelling grey dots (waiting, never an amber warning). Step 1 links to the latest release. Buttons are Seam's capsules; Cancel stays the prominent default on the code check.
+**Copy:** the waiting line is "Waiting for your phone · code expires in 4:59" over the stitch's travelling grey dots (waiting, never an amber warning), with "Keep this open. Pairing can take a few minutes." under it: through Tor a fresh pairing can take that long. Step 1 links to the latest release. Buttons are Seam's capsules; Cancel stays the prominent default on the code check.
 
 **Behaviour:** when the phone scans, the code under the QR code is highlighted, and the user checks it matches the phone (A02). Once both sides confirm, the window becomes "Paired with Pixel 9", the menu bar icon appears, and the window closes after 2 s.
 
