@@ -126,6 +126,18 @@ class TorLanTest {
         assertEquals(1, found.size)
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun aNewLookWhoseStartFailsGetsItsOwnRetry() {
+        lookForTheMac()
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED)) // a retry is now due for this look
+        tor.stopDiscovery()
+        lookForTheMac() // a new look, before that retry fires: it starts Tor itself
+        assertEquals(2, arti.starts)
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED))
+        clock.testScheduler.advanceTimeBy(TorLan.START_RETRY_MS + 1)
+        assertEquals("the new look's own retry", 3, arti.starts)
+    }
+
     @Test fun dormantWheneverNoStreamIsOpenAndNothingIsLooking() {
         lookForTheMac()
         arti.state!!.onState(TorState.Ready)

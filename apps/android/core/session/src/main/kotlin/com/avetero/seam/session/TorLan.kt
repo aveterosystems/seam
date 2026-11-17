@@ -12,8 +12,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 
 /** Where the phone dials through Tor: the Mac's onion address and this phone's discovery secret. */
 class TorTarget(val onionAddress: String, val discoverySecret: ByteArray)
@@ -55,7 +56,7 @@ class TorLan(private val tor: TorInterface, private val scope: CoroutineScope) :
     override fun discover(found: (LanAddress) -> Unit, lost: (LanAddress) -> Unit) {
         val first = synchronized(lock) {
             this.found = found
-            looks++
+            newLook()
             updateDormant()
             !started.also { started = true }
         }
@@ -99,7 +100,9 @@ class TorLan(private val tor: TorInterface, private val scope: CoroutineScope) :
         retry = scope.launch {
             delay(START_RETRY_MS)
             val go = synchronized(lock) {
-                retry = null // from here a failure, even one reported mid-start, schedules the next
+                // From here a failure, even one reported mid-start, schedules the next; a stale
+                // retry never frees a newer one's place
+                if (retry === coroutineContext.job) retry = null
                 (found != null && looks == look && !started).also { if (it) started = true }
             }
             // Outside the lock: Tor may report on another thread before `start` returns
@@ -115,7 +118,7 @@ class TorLan(private val tor: TorInterface, private val scope: CoroutineScope) :
 
     override fun stopDiscovery() = synchronized(lock) {
         found = null
-        looks++
+        newLook()
         updateDormant()
     }
 
@@ -133,6 +136,13 @@ class TorLan(private val tor: TorInterface, private val scope: CoroutineScope) :
             override fun onFailed() = link.finish("unreachable")
         })
         return link
+    }
+
+    /** Called holding [lock]: a look began or ended, so a retry due for the last one is dropped. */
+    private fun newLook() {
+        looks++
+        retry?.cancel()
+        retry = null
     }
 
     /** Called holding [lock]. Repeats nothing: Tor is only told when it changes. */
