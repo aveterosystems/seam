@@ -45,51 +45,65 @@ class TorLan(private val tor: TorInterface, private val scope: CoroutineScope) :
     private val lock = Any()
     private var started = false
     private var found: ((LanAddress) -> Unit)? = null
-    private var lost: ((LanAddress) -> Unit)? = null
+    /** The retry waiting to fire; null once it has started (or none is due). */
     private var retry: Job? = null
+    /** Goes up with each look and each stop: a retry serves only the look it was scheduled for. */
+    private var looks = 0
     private var open = 0
     private var dormant: Boolean? = null
 
     override fun discover(found: (LanAddress) -> Unit, lost: (LanAddress) -> Unit) {
         val first = synchronized(lock) {
             this.found = found
-            this.lost = lost
+            looks++
             updateDormant()
             !started.also { started = true }
         }
         if (first) {
-            tor.start(object : TorStateListener {
-                override fun onState(state: TorState) {
-                    _state.value = state
-                    when (state) {
-                        is TorState.Ready -> {
-                            // Tor ignores dormancy until it's ready: tell it again now
-                            synchronized(lock) { dormant = null; updateDormant() }
-                            announce()
-                        }
-                        // The next look tries again; while one is under way, so does a retry
-                        is TorState.Failed, is TorState.Blocked -> synchronized(lock) {
-                            started = false
-                            retryWhileLooking()
-                        }
-                        else -> Unit
-                    }
-                }
-            })
+            tor.start(onState)
         } else if (_state.value is TorState.Ready) {
             announce()
         }
     }
 
+    /** Hears Tor's states, on Tor's own threads. */
+    private val onState = object : TorStateListener {
+        override fun onState(state: TorState) {
+            _state.value = state
+            when (state) {
+                is TorState.Ready -> {
+                    // Tor ignores dormancy until it's ready: tell it again now
+                    synchronized(lock) { dormant = null; updateDormant() }
+                    announce()
+                }
+                // The next look tries again; while one is under way, so does a retry
+                is TorState.Failed, is TorState.Blocked -> synchronized(lock) {
+                    started = false
+                    retryWhileLooking()
+                }
+                else -> Unit
+            }
+        }
+    }
+
     override val ready: Boolean get() = _state.value is TorState.Ready
 
-    /** Called holding [lock]. */
+    /**
+     * Called holding [lock]. At most one retry waits at a time. It only starts Tor again: the
+     * look it serves is the one under way when it was scheduled, checked under [lock], so a look
+     * that ended (or was replaced) in the meantime is never revived.
+     */
     private fun retryWhileLooking() {
-        if (found == null || retry?.isActive == true) return
+        if (found == null || retry != null) return
+        val look = looks
         retry = scope.launch {
             delay(START_RETRY_MS)
-            val (f, l) = synchronized(lock) { found to lost }
-            if (f != null && l != null) discover(f, l) // stopped looking meanwhile: Tor stays off
+            val go = synchronized(lock) {
+                retry = null // from here a failure, even one reported mid-start, schedules the next
+                (found != null && looks == look && !started).also { if (it) started = true }
+            }
+            // Outside the lock: Tor may report on another thread before `start` returns
+            if (go) tor.start(onState)
         }
     }
 
@@ -101,7 +115,7 @@ class TorLan(private val tor: TorInterface, private val scope: CoroutineScope) :
 
     override fun stopDiscovery() = synchronized(lock) {
         found = null
-        lost = null
+        looks++
         updateDormant()
     }
 
