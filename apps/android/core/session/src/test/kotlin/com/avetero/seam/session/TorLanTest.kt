@@ -46,7 +46,9 @@ class TorLanTest {
 
     private val onion = "b".repeat(56) + ".onion"
     private val arti = FakeArti()
-    private val tor = TorLan(arti).apply { target = TorTarget(onion, ByteArray(32) { 4 }) }
+    /** Times the start retries: moved on by hand. */
+    private val clock = kotlinx.coroutines.test.TestScope()
+    private val tor = TorLan(arti, clock).apply { target = TorTarget(onion, ByteArray(32) { 4 }) }
     private val found = mutableListOf<LanAddress>()
     private val frames = mutableListOf<ByteArray>()
     private val closes = mutableListOf<String>()
@@ -83,6 +85,18 @@ class TorLanTest {
         tor.stopDiscovery()
         lookForTheMac()
         assertEquals(2, arti.starts)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun aFailedStartGoesAgainOnlyWhileTheMacIsStillLookedFor() {
+        lookForTheMac()
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED))
+        clock.testScheduler.advanceTimeBy(TorLan.START_RETRY_MS + 1)
+        assertEquals("still looking: started again", 2, arti.starts)
+        arti.state!!.onState(TorState.Failed)
+        tor.stopDiscovery() // nothing wants the Mac now (rule 8: Tor stays off)
+        clock.testScheduler.advanceTimeBy(10 * TorLan.START_RETRY_MS)
+        assertEquals("not looking: not started again", 2, arti.starts)
     }
 
     @Test fun dormantWheneverNoStreamIsOpenAndNothingIsLooking() {

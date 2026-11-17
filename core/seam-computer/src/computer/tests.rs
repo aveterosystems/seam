@@ -26,6 +26,7 @@ use crate::store::Legacy;
 use crate::tor::{StateSink, StreamSink, TorHosted};
 
 mod diagnostics;
+mod pairing_tor;
 
 #[derive(Default)]
 struct Keys(Mutex<Option<Vec<u8>>>);

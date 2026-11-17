@@ -217,7 +217,7 @@ internal open class FakeLan(var macs: Map<LanAddress, SeamDevice>) : Lan {
  */
 internal class FakeTor : FakeLan(emptyMap()), TorDialer {
     override var target: TorTarget? = null
-    var ready = true
+    override var ready = true
     /** Onion address → the Mac hosting it. */
     val services = mutableMapOf<String, SeamDevice>()
     /** Every address dialled, in order. */

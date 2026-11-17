@@ -115,6 +115,8 @@ impl Live {
 }
 
 pub(super) struct Actor {
+    /// The system clock; tests run it from tokio's paused clock, so timers fire as time moves.
+    clock: Clock,
     settings: Settings,
     os: Os,
     tor: Arc<dyn TorRunner>,
@@ -143,8 +145,10 @@ impl Actor {
         tx: mpsc::UnboundedSender<Msg>,
         sync_on: Arc<AtomicBool>,
         shared: Arc<Shared>,
+        clock: Clock,
     ) -> Self {
         Self {
+            clock,
             settings,
             os,
             tor,
@@ -214,7 +218,7 @@ impl Actor {
         let device = store.device.clone();
         let tx = self.tx.clone();
         let timers = Arc::new(TokioTimers::new(
-            Clock::System,
+            self.clock.clone(),
             Arc::new(move |due| {
                 let _ = tx.send(Msg::Due(due));
             }),

@@ -8,7 +8,11 @@ import com.avetero.seam.crypto.TorStateListener
 import com.avetero.seam.crypto.TorStream
 import com.avetero.seam.crypto.TorStreamListener
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
 /** Where the phone dials through Tor: the Mac's onion address and this phone's discovery secret. */
@@ -17,16 +21,21 @@ class TorTarget(val onionAddress: String, val discoverySecret: ByteArray)
 /** A [Lan] that dials one onion address: the session says which (null: none). */
 interface TorDialer : Lan {
     var target: TorTarget?
+
+    /** Tor on this phone is up: false while it starts, or when it couldn't. */
+    val ready: Boolean get() = true
 }
 
 /**
  * The Tor path's plumbing, as a [Lan] so [LanPath] drives it like Same Wi‑Fi: "discovery" reports
  * the Mac's one onion address once Tor is ready, and a connection is a stream through Tor (Arti,
  * in process). Tor starts once, on first use, and is dormant whenever it has no stream open and
- * isn't looking for the Mac (no background traffic while Seam has nothing to say).
- * Callbacks come on Tor's threads.
+ * isn't looking for the Mac (no background traffic while Seam has nothing to say). A start that
+ * fails while the Mac is still being looked for (pairing, or a connection wanted) is tried again
+ * after [START_RETRY_MS]: nothing else would look again meanwhile (#92). Callbacks come on Tor's
+ * threads; [scope] only times the retry.
  */
-class TorLan(private val tor: TorInterface) : TorDialer {
+class TorLan(private val tor: TorInterface, private val scope: CoroutineScope) : TorDialer {
     @Volatile override var target: TorTarget? = null
 
     private val _state = MutableStateFlow<TorState>(TorState.Off)
@@ -36,12 +45,15 @@ class TorLan(private val tor: TorInterface) : TorDialer {
     private val lock = Any()
     private var started = false
     private var found: ((LanAddress) -> Unit)? = null
+    private var lost: ((LanAddress) -> Unit)? = null
+    private var retry: Job? = null
     private var open = 0
     private var dormant: Boolean? = null
 
     override fun discover(found: (LanAddress) -> Unit, lost: (LanAddress) -> Unit) {
         val first = synchronized(lock) {
             this.found = found
+            this.lost = lost
             updateDormant()
             !started.also { started = true }
         }
@@ -55,13 +67,29 @@ class TorLan(private val tor: TorInterface) : TorDialer {
                             synchronized(lock) { dormant = null; updateDormant() }
                             announce()
                         }
-                        is TorState.Failed, is TorState.Blocked -> synchronized(lock) { started = false } // the next look tries again
+                        // The next look tries again; while one is under way, so does a retry
+                        is TorState.Failed, is TorState.Blocked -> synchronized(lock) {
+                            started = false
+                            retryWhileLooking()
+                        }
                         else -> Unit
                     }
                 }
             })
         } else if (_state.value is TorState.Ready) {
             announce()
+        }
+    }
+
+    override val ready: Boolean get() = _state.value is TorState.Ready
+
+    /** Called holding [lock]. */
+    private fun retryWhileLooking() {
+        if (found == null || retry?.isActive == true) return
+        retry = scope.launch {
+            delay(START_RETRY_MS)
+            val (f, l) = synchronized(lock) { found to lost }
+            if (f != null && l != null) discover(f, l) // stopped looking meanwhile: Tor stays off
         }
     }
 
@@ -73,6 +101,7 @@ class TorLan(private val tor: TorInterface) : TorDialer {
 
     override fun stopDiscovery() = synchronized(lock) {
         found = null
+        lost = null
         updateDormant()
     }
 
@@ -146,8 +175,10 @@ class TorLan(private val tor: TorInterface) : TorDialer {
         }
     }
 
-    private companion object {
+    internal companion object {
         /** Onion ports are virtual and the core always dials Seam's one; this only fills [LanAddress]. */
-        const val PORT = 1
+        private const val PORT = 1
+        /** How soon a start that failed goes again while the Mac is being looked for. Bootstrapping offline fails fast. */
+        const val START_RETRY_MS = 10_000L
     }
 }

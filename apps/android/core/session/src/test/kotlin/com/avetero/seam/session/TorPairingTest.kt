@@ -24,8 +24,8 @@ import org.junit.Test
 import org.junit.rules.Timeout
 
 /**
- * Pairing through the real [TorLan] when this phone's own Tor fails to start: Arti is faked, so
- * its start can be blocked on cue, the way a slow or filtered mobile network blocks it.
+ * Pairing through the real [TorLan] when this phone's own Tor fails to start (#92): Arti is faked,
+ * so its start can be blocked on cue, the way a slow or filtered mobile network blocks it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TorPairingTest {
@@ -50,17 +50,45 @@ class TorPairingTest {
 
     @After fun stop() = scopes.forEach { it.cancel() }
 
-    private fun TestScope.pairing(): Session = Session(
-        MemoryStore(), "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)).also { scopes += it },
-        now = { testScheduler.currentTime }, debugLog = null, lan = null, tor = TorLan(arti),
-        settingsStore = MemorySettingsStore(), pendingStore = MemoryPendingStore(),
-    ).also {
-        it.pair(qr)
-        runCurrent()
+    private fun TestScope.pairing(): Session {
+        val scope = TestScope(StandardTestDispatcher(testScheduler)).also { scopes += it }
+        return Session(
+            MemoryStore(), "Galaxy S25 Ultra", "SM-S938B", scope,
+            now = { testScheduler.currentTime }, debugLog = null, lan = null, tor = TorLan(arti, scope),
+            settingsStore = MemorySettingsStore(), pendingStore = MemoryPendingStore(),
+        ).also {
+            it.pair(qr)
+            runCurrent()
+        }
     }
 
     private fun blocked() = arti.started!!.onState(TorState.Blocked(TorBlock.FILTERED))
+
+    @Test fun issue92_torBlockedOnceWhilePairingIsStartedAgainAndDialsTheCode() = runTest {
+        pairing()
+        assertTrue("Tor starts for the code", arti.starts == 1)
+        blocked() // e.g. it ran out of time on a slow mobile network
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertTrue("Tor is started again while the code is still good (started ${arti.starts} time(s))", arti.starts >= 2)
+        arti.started!!.onState(TorState.Ready)
+        runCurrent()
+        assertTrue("then the code's address is dialled", qr.onionAddress in arti.dials)
+    }
+
+    @Test fun issue92_whenThisPhonesTorNeverStartsTheFailureDoesNotBlameTheComputer() = runTest {
+        val s = pairing()
+        repeat(10) {
+            arti.started?.let { blocked() }
+            arti.started = null
+            advanceTimeBy(30_000)
+            runCurrent()
+        }
+        val failed = s.state.value as? SessionState.Failed
+        assertTrue("pairing gave up (${s.state.value})", failed != null)
+        assertFalse("not the computer's fault: ${failed!!.reason}", failed.reason.startsWith("Couldn't reach your computer"))
+        assertTrue("says it's this phone's Tor: ${failed.reason}", "Tor" in failed.reason && "phone" in failed.reason)
+    }
 
     @Test fun aFailedPairingIsInTheDiagnosticsExportWithoutTheCodesSecrets() = runTest {
         pairing()
