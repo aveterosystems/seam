@@ -5,29 +5,86 @@ use std::time::Duration;
 
 use tor_keymgr::KeystoreSelector;
 
-use arti_client::HasKind;
+use arti_client::{HasKind, IsolationToken};
 
 use crate::keys::{DiscoveryKey, OnionAddress};
 use crate::{DataStream, Error, SEAM_PORT, TorNode};
 
-/// Long enough for a slow mobile network and a fresh rendezvous; short enough that the app can
-/// say "can't reach your Mac" instead of hanging.
+/// Long enough for a slow mobile network and a few fresh rendezvous; short enough that the app
+/// can say "can't reach your Mac" instead of hanging.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(60);
+/// While an attempt hasn't connected, a fresh one starts this often beside it.
+const FRESH_ATTEMPT_EVERY: Duration = Duration::from_secs(10);
 
 impl TorNode {
     /// Opens a stream to the Mac's onion service, proving this phone may discover it with
     /// `discovery`. What flows over the stream is still Seam's login and sealed envelopes.
+    ///
+    /// Arti keeps one connection attempt per service and isolation, and a later `connect` joins it
+    /// even when it is stuck: a fresh client waits minutes for a rendezvous the service already gave
+    /// up on (its own circuit-build timeouts start at 60 s). So an attempt still hanging after
+    /// [`FRESH_ATTEMPT_EVERY`] gets a fresh one beside it, in its own isolation group, which makes
+    /// Arti pick a new rendezvous and introduction point; the first stream wins. An attempt that
+    /// fails outright (the Mac isn't published, or is offline) ends the call when nothing else is
+    /// still trying: the app paces those retries. The group that connected is kept for the next
+    /// call, so a reconnect can reuse its circuit; after a failure the next call starts in a new one.
     pub async fn connect(
         &self,
         address: OnionAddress,
         discovery: &DiscoveryKey,
     ) -> Result<DataStream, Error> {
         self.set_discovery_key(address, discovery)?;
-        let target = (address.to_string(), SEAM_PORT);
-        match tokio::time::timeout(CONNECT_TIMEOUT, self.client.connect(target)).await {
-            Ok(Ok(stream)) => Ok(stream),
-            Ok(Err(e)) => Err(Error::Tor(e.kind())),
-            Err(_) => Err(Error::Timeout),
+        let current = *self.isolation.lock().map_err(|_| Error::Config)?;
+        let result = self.race(address.to_string(), current).await;
+        let keep = result
+            .as_ref()
+            .map_or_else(|_| IsolationToken::new(), |(_, group)| *group);
+        *self.isolation.lock().map_err(|_| Error::Config)? = keep;
+        result.map(|(stream, _)| stream)
+    }
+
+    /// Overlapping attempts, the first in `current`'s isolation group and each later one in a new
+    /// group; see [`TorNode::connect`].
+    async fn race(
+        &self,
+        target: String,
+        current: IsolationToken,
+    ) -> Result<(DataStream, IsolationToken), Error> {
+        use futures::StreamExt;
+        use futures::stream::FuturesUnordered;
+        use tokio::time::{Instant, sleep_until};
+
+        let deadline = Instant::now() + CONNECT_TIMEOUT;
+        let mut attempts = FuturesUnordered::new();
+        let mut next = Instant::now();
+        let mut group = Some(current);
+        loop {
+            tokio::select! {
+                Some(result) = attempts.next() => match result {
+                    Ok(won) => return Ok(won),
+                    // Not this phone's Mac any more: no attempt will do better
+                    Err(e @ Error::Tor(arti_client::ErrorKind::OnionServiceWrongClientAuth
+                        | arti_client::ErrorKind::OnionServiceMissingClientAuth)) => return Err(e),
+                    Err(e) if attempts.is_empty() => return Err(e),
+                    Err(_) => {} // another attempt is still under way
+                },
+                () = sleep_until(next) => {
+                    let token = group.take().unwrap_or_else(IsolationToken::new);
+                    let mut prefs = arti_client::StreamPrefs::new();
+                    prefs.set_isolation(token);
+                    let client = self.client.clone();
+                    let target = target.clone();
+                    attempts.push(async move {
+                        client
+                            .connect_with_prefs((target.as_str(), SEAM_PORT), &prefs)
+                            .await
+                            .map(|stream| (stream, token))
+                            .map_err(|e| Error::Tor(e.kind()))
+                    });
+                    next = Instant::now() + FRESH_ATTEMPT_EVERY;
+                }
+                () = sleep_until(deadline) => return Err(Error::Timeout),
+            }
         }
     }
 

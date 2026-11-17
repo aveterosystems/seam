@@ -203,7 +203,7 @@ internal class LanPath(
         // (busy, or made to drop us by a flood), and skipping it for long would hide it
         // Never the long skip where our Mac last proved itself: NN is anonymous, so whoever answers
         // first (an attacker winning the race) can make any address look foreign
-        refuse(a, if (notOurMac && a != lastGood) REFUSED_MS else RETRY_MS)
+        refuse(a, if (notOurMac && a != lastGood) REFUSED_MS else retryMs())
         tryNext()
     }
 
@@ -225,7 +225,10 @@ internal class LanPath(
         lan.stopDiscovery()
     }
 
-    private fun refuse(a: LanAddress, forMs: Long = RETRY_MS) {
+    /** Through Tor while pairing, a failed try is the Tor network, not a stranger: the next goes soon. Pairing has its own deadline. */
+    private fun retryMs() = if (!localOnly && pairing() != null) PAIRING_TOR_RETRY_MS else RETRY_MS
+
+    private fun refuse(a: LanAddress, forMs: Long = retryMs()) {
         refused[a] = now() + forMs
         found.remove(a)
         lan.forget(a)
@@ -237,7 +240,7 @@ internal class LanPath(
     private fun retryLater() {
         if (retry?.isActive == true) return
         retry = scope.launch {
-            delay(RETRY_MS)
+            delay(retryMs())
             refused.entries.removeAll { now() >= it.value }
             stopDiscovery()
             start()
@@ -253,6 +256,8 @@ internal class LanPath(
         const val PAIRING_PEER = "pairing"
         /** How soon to try Macs that refused or were unreachable again (one may have restarted). */
         private const val RETRY_MS = 30_000L
+        /** The same, through Tor while pairing: the code's own deadline bounds it, so no reason to idle. */
+        private const val PAIRING_TOR_RETRY_MS = 5_000L
         /** More Seam services than this on one network is a flood, not a home. */
         private const val MAX_FOUND = 8
         /** How long a service that failed its proof (someone else's Mac) is skipped: a Mac that restarted gets a new port anyway. */

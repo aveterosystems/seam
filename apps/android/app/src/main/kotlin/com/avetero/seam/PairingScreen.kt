@@ -62,7 +62,8 @@ internal fun Confirm(qr: PairingQr, onConfirm: (PairingQr) -> Unit, close: () ->
 internal fun Pairing(state: SessionState.Pairing, close: () -> Unit) {
     val code = state.safetyCode
     if (code == null) {
-        Step("Keep Seam open on ${state.macName}") { WaitingDots() }
+        // Through Tor a fresh pairing can take minutes: say so up front, so a wait never reads as broken
+        Step("Keep Seam open on ${state.macName}. This can take a few minutes.") { WaitingDots() }
     } else {
         Step("Make sure ${state.macName} shows the same code, then confirm there") {
             Text(

@@ -78,6 +78,64 @@ class LanPathTest {
         path.stop()
     }
 
+    /** Tor's one onion address, every attempt failing at once as when the rendezvous never completes. */
+    private class UnreachableTor : Lan {
+        var opened = 0
+        override fun discover(found: (LanAddress) -> Unit, lost: (LanAddress) -> Unit) = found(LanAddress("macaddress.onion", 1))
+        override fun stopDiscovery() = Unit
+        override fun connect(address: LanAddress, listener: LinkListener): Link {
+            opened++
+            listener.onClosed("unreachable")
+            return object : Link {
+                override fun send(frame: ByteArray) = true
+                override fun close() = Unit
+                override fun abort() = Unit
+            }
+        }
+    }
+
+    @Test fun throughTorWhilePairingAFailedTryIsRetriedWithinSecondsNotHalfAMinute() = runTest {
+        val mac = SeamDevice.generate()
+        val qr = PairingQr("macaddress.onion", ByteArray(32) { 5 }, mac.startPairing().token, mac.identityKey(), mac.relayKey(), "Mac")
+        val tor = UnreachableTor()
+        val path = LanPath(
+            tor, SeamDevice.generate(), this, { testScheduler.currentTime }, null, peer = { null }, wanted = { true }, events = Events(),
+            pairing = { qr }, localOnly = false, authMs = LanPath.TOR_AUTH_MS, name = "tor",
+        )
+        path.start()
+        runCurrent()
+        assertEquals(1, tor.opened)
+        advanceTimeBy(5_001) // pairing has its own deadline: no reason to idle between tries
+        runCurrent()
+        assertEquals(2, tor.opened)
+        path.stop()
+    }
+
+    @Test fun throughTorOncePairedAnUnreachableMacIsStillTriedEveryHalfMinute() = runTest {
+        val mac = SeamDevice.generate()
+        val phone = SeamDevice.generate()
+        val start = phone.pairWith(mac.identityKey(), mac.relayKey(), "Mac", mac.prekeyBundles(1u).first(), mac.startPairing().token, "Phone", "X")
+        val request = mac.acceptPairing(start.envelope)
+        mac.confirmPairing(request.peerId)
+        val accept = Payload.newBuilder().setControl(Control.newBuilder().setPairAccept(PairAccept.getDefaultInstance())).build()
+        phone.open(mac.seal(request.peerId, accept.toByteArray(), 0u))
+        val tor = UnreachableTor()
+        val path = LanPath(
+            tor, phone, this, { testScheduler.currentTime }, null, peer = { start.peerId }, wanted = { true }, events = Events(),
+            localOnly = false, authMs = LanPath.TOR_AUTH_MS, name = "tor",
+        )
+        path.start()
+        runCurrent()
+        assertEquals(1, tor.opened)
+        advanceTimeBy(29_999) // a paired phone whose Mac is asleep mustn't keep dialling
+        runCurrent()
+        assertEquals(1, tor.opened)
+        advanceTimeBy(2)
+        runCurrent()
+        assertEquals(2, tor.opened)
+        path.stop()
+    }
+
     @Test fun sr_29_09_neverLooksForTheMacWhenNoConnectionIsWanted() = runTest {
         val lan = SilentLan()
         val path = LanPath(lan, SeamDevice.generate(), this, { testScheduler.currentTime }, null, peer = { "mac" }, wanted = { false }, events = Events())
