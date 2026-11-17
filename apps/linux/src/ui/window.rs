@@ -65,7 +65,8 @@ impl Window {
         // The page
         let notifications = notifications::Page::new(c);
         let clipboard = clipboard::Page::new(c);
-        let pages = gtk::Stack::builder().transition_type(gtk::StackTransitionType::Crossfade).transition_duration(200).build();
+        // Pages switch at once, as GNOME's own sidebar apps do
+        let pages = gtk::Stack::new();
         pages.add_named(&notifications.widget, Some("notifications"));
         pages.add_named(&clipboard.widget, Some("clipboard"));
         let clear = gtk::Button::builder().label("Clear All").build();
@@ -97,7 +98,21 @@ impl Window {
         let root = gtk::Stack::builder().transition_type(gtk::StackTransitionType::Crossfade).transition_duration(crate::ui::motion::FADE_MS).build();
         root.add_named(&split, Some("home"));
         root.add_named(&pairing_view, Some("pairing"));
-        let starting = adw::Spinner::builder().width_request(32).height_request(32).halign(gtk::Align::Center).valign(gtk::Align::Center).build();
+        // Starting: a spinner, and after a moment the likely reason it's slow (the keyring asking)
+        let starting_page = adw::StatusPage::builder().paintable(&adw::SpinnerPaintable::new(None::<&gtk::Widget>)).title("Starting Seam").build();
+        starting_page.add_css_class("compact");
+        let sp = starting_page.clone();
+        if let Some(p) = sp.paintable().and_downcast::<adw::SpinnerPaintable>() {
+            p.set_widget(Some(&sp));
+        }
+        gtk::glib::timeout_add_seconds_local_once(4, move || {
+            sp.set_description(Some("Unlock your keyring if your desktop asks. Seam keeps its keys there."));
+        });
+        let starting = adw::ToolbarView::new();
+        let starting_header = adw::HeaderBar::builder().show_title(false).build();
+        starting_header.pack_end(&primary_menu());
+        starting.add_top_bar(&starting_header);
+        starting.set_content(Some(&starting_page));
         root.add_named(&starting, Some("starting"));
 
         let toasts = adw::ToastOverlay::new();

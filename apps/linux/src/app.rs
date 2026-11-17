@@ -35,6 +35,8 @@ pub enum Msg {
     ClipboardReach,
     /// Which door this desktop has, once it's known.
     ClipboardPlan(crate::os::doors::Plan),
+    /// Something to confirm or explain in a toast.
+    Toast(&'static str),
 }
 
 // A copy's text never prints (rule 6)
@@ -50,6 +52,7 @@ impl std::fmt::Debug for Msg {
             Msg::Do(a) => f.debug_tuple("Do").field(a).finish(),
             Msg::ClipboardReach => f.write_str("ClipboardReach"),
             Msg::ClipboardPlan(p) => f.debug_tuple("ClipboardPlan").field(p).finish(),
+            Msg::Toast(t) => f.debug_tuple("Toast").field(t).finish(),
         }
     }
 }
@@ -82,6 +85,8 @@ pub struct Controller {
     toaster: RefCell<Option<Box<dyn Fn(&str)>>>,
     /// This desktop's way to an automatic clipboard (decision 0012).
     plan: Cell<crate::os::doors::Plan>,
+    /// The phone's adb setup is running: one at a time (SR-4-11).
+    pub adb_running: Cell<bool>,
 }
 
 impl Controller {
@@ -114,6 +119,7 @@ impl Controller {
             demo: Cell::new(false),
             toaster: RefCell::default(),
             plan: Cell::new(crate::os::doors::Plan::OneTap),
+            adb_running: Cell::new(false),
         });
         let weak = Rc::downgrade(&c);
         glib::spawn_future_local(async move {
@@ -241,6 +247,7 @@ impl Controller {
             }
             Msg::Do(action) => self.app.activate_action(action, None),
             Msg::ClipboardReach => self.notify(),
+            Msg::Toast(t) => self.toast(t),
             Msg::ClipboardPlan(p) => {
                 self.plan.set(p);
                 self.notify();

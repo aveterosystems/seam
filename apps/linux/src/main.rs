@@ -95,8 +95,11 @@ fn actions(app: &adw::Application, c: &Rc<app::Controller>, w: &Rc<ui::window::W
     add("preferences-notifications", Box::new(move |_| p("notifications")), None);
     let p = prefs.clone();
     add("preferences-page", Box::new(move |v| p(v.and_then(|v| v.str()).unwrap_or("phone"))), Some(glib::VariantTy::STRING));
-    let p = prefs;
-    add("clipboard-setup", Box::new(move |_| p("clipboard")), None);
+    let (cc, win) = (c.clone(), window.clone());
+    add("clipboard-setup", Box::new(move |_| ui::setup::computer(&cc, &win)), None);
+    let (cc, win) = (c.clone(), window.clone());
+    add("phone-clipboard-setup", Box::new(move |_| ui::setup::phone(&cc, &win)), None);
+    let _ = prefs;
     let win = window.clone();
     add("show-window", Box::new(move |_| win.present()), None);
     let win = window.clone();

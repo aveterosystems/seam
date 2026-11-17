@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Opens the automatic clipboard door this desktop has (decision 0012): Seam's GNOME Shell
-//! extension on GNOME, the Clipboard portal on KDE Plasma. None open means one tap.
+//! Opens the automatic clipboard door this desktop has (decision 0012, revised on KDE): Seam's
+//! GNOME Shell extension on GNOME, Klipper on KDE Plasma. None open means one tap.
 //!
-//! The extension is found on the session bus, and is used the moment it's there (enabled later,
-//! updated, or back after a GNOME upgrade). The portal asks the user once, from Set Up; its
-//! restore token is kept in Seam's data folder so later launches don't ask again.
+//! Each door is found on the session bus and used the moment it's there (the extension enabled
+//! later, Klipper restarted), and closes when it leaves.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -13,6 +12,7 @@ use async_trait::async_trait;
 use futures_util::StreamExt;
 use seam_computer::features::clipboard::PasteboardItem;
 use tokio::sync::Mutex as AsyncMutex;
+
 
 use crate::app::{Controller, Msg};
 use crate::os::clipboard::Door;
@@ -29,18 +29,19 @@ pub const EXT_MIN_API: u32 = 1;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Plan {
     Extension,
-    Portal,
+    Klipper,
     OneTap,
 }
 
-/// GNOME uses the extension (its portal would show "screen is being shared" all the time); KDE
-/// and the rest use the portal where it exists; otherwise one tap.
-pub fn plan(current_desktop: &str, portal_has_clipboard: bool) -> Plan {
+/// GNOME uses Seam's extension (its portal would show "screen is being shared" all the time); KDE
+/// Plasma uses Klipper (its portal only gives the clipboard with keyboard or pointer control);
+/// anything else, one tap.
+pub fn plan(current_desktop: &str) -> Plan {
     let desktops: Vec<String> = current_desktop.split(':').map(|d| d.to_ascii_uppercase()).collect();
     if desktops.iter().any(|d| d == "GNOME" || d == "UBUNTU") {
         Plan::Extension
-    } else if portal_has_clipboard {
-        Plan::Portal
+    } else if desktops.iter().any(|d| d == "KDE") {
+        Plan::Klipper
     } else {
         Plan::OneTap
     }
@@ -51,8 +52,8 @@ pub fn plan(current_desktop: &str, portal_has_clipboard: bool) -> Plan {
 pub enum Setup {
     /// GNOME: install or turn on Seam's extension.
     Extension,
-    /// KDE and others: allow the portal once.
-    Portal,
+    /// KDE: Klipper, Plasma's clipboard, has to be running.
+    Klipper,
     /// Nothing here can watch the clipboard: one tap only.
     Unavailable,
 }
@@ -60,7 +61,7 @@ pub enum Setup {
 pub fn setup(plan: Plan) -> Setup {
     match plan {
         Plan::Extension => Setup::Extension,
-        Plan::Portal => Setup::Portal,
+        Plan::Klipper => Setup::Klipper,
         Plan::OneTap => Setup::Unavailable,
     }
 }
@@ -69,37 +70,26 @@ pub fn setup(plan: Plan) -> Setup {
 pub fn start(c: &Rc<Controller>) {
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
     let (pasteboard, tx) = (c.pasteboard.clone(), c.tx.clone());
-    let token_file = crate::app::data_folder().ok().map(|f| f.join("clipboard-portal"));
     c.os.spawn(async move {
-        let has_portal = portal_available().await;
-        let p = plan(&desktop, has_portal);
+        register().await;
+        let p = plan(&desktop);
         let _ = tx.send(Msg::ClipboardPlan(p)).await;
         match p {
             Plan::Extension => watch_extension(pasteboard, tx).await,
-            Plan::Portal => {
-                // Only with a token from an earlier Set Up: never a surprise dialog at launch
-                if let Some(token) = token_file.as_ref().and_then(|f| std::fs::read_to_string(f).ok()) {
-                    open_portal(pasteboard, tx, token_file, Some(token)).await;
-                }
-            }
+            Plan::Klipper => watch_klipper(pasteboard, tx).await,
             Plan::OneTap => {}
         }
     });
 }
 
-/// Set Up on KDE: the portal asks the user once; yes opens the door and keeps the token.
-pub fn set_up_portal(c: &Rc<Controller>) {
-    let (pasteboard, tx) = (c.pasteboard.clone(), c.tx.clone());
-    let token_file = crate::app::data_folder().ok().map(|f| f.join("clipboard-portal"));
-    c.os.spawn(async move {
-        open_portal(pasteboard, tx, token_file, None).await;
-    });
-}
-
-async fn portal_available() -> bool {
-    match ashpd::desktop::clipboard::Clipboard::new().await {
-        Ok(c) => c.get_property::<u32>("version").await.is_ok_and(|v| v >= 1),
-        Err(_) => false,
+/// A development build outside Flatpak tells the portals who it is, so they can remember its
+/// answers (inside Flatpak they know already).
+pub async fn register() {
+    if std::path::Path::new("/.flatpak-info").exists() {
+        return;
+    }
+    if let Ok(id) = ashpd::AppID::try_from(crate::APP_ID) {
+        let _ = ashpd::register_host_app(id).await;
     }
 }
 
@@ -158,156 +148,91 @@ async fn watch_extension(pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>,
     }
 }
 
-// ---- The Clipboard portal (KDE) ------------------------------------------------------------
+// ---- Klipper (KDE Plasma) ------------------------------------------------------------------
 
-type RdSession = ashpd::desktop::Session<ashpd::desktop::remote_desktop::RemoteDesktop>;
+/// Plasma's clipboard service, which KDE offers other apps on the session bus. Its portal won't
+/// give the clipboard without remote control of the keyboard or pointer, which Seam won't ask for.
+const KLIPPER: &str = "org.kde.klipper";
+const KLIPPER_PATH: &str = "/klipper";
+const KLIPPER_IFACE: &str = "org.kde.klipper.klipper";
 
-struct PortalDoor {
-    clipboard: Arc<ashpd::desktop::clipboard::Clipboard>,
-    session: Arc<RdSession>,
-    state: Arc<AsyncMutex<PortalState>>,
+struct KlipperDoor {
+    proxy: zbus::Proxy<'static>,
+    state: Arc<AsyncMutex<KlipperState>>,
 }
 
 #[derive(Default)]
-struct PortalState {
+struct KlipperState {
     count: i64,
-    types: Vec<String>,
-    /// What we offered, served when another app pastes.
-    offered: Option<String>,
+    text: String,
+    /// What Seam itself put there, so its own write never reads as the user's copy.
+    written: Option<String>,
 }
 
-const TEXT_TYPES: [&str; 2] = ["text/plain;charset=utf-8", "text/plain"];
+/// Klipper gives text only. A copied file arrives as its address; say so, so the core's rules
+/// treat it as a file and never send it (SR-4-06).
+pub fn klipper_types(text: &str) -> Vec<String> {
+    let lines: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    if !lines.is_empty() && lines.iter().all(|l| l.starts_with("file://")) {
+        vec!["text/uri-list".into(), "text/plain;charset=utf-8".into()]
+    } else {
+        vec!["text/plain;charset=utf-8".into()]
+    }
+}
 
 #[async_trait]
-impl Door for PortalDoor {
+impl Door for KlipperDoor {
     async fn change_count(&self) -> i64 {
         self.state.lock().await.count
     }
 
     async fn first_item(&self, if_still: i64) -> Option<PasteboardItem> {
-        let types = {
-            let s = self.state.lock().await;
-            if s.count != if_still {
-                return None;
-            }
-            s.types.clone()
-        };
-        let mime = TEXT_TYPES.iter().find(|t| types.iter().any(|x| x == *t)).copied();
-        let text = match mime {
-            Some(m) => read_fd(self.clipboard.selection_read(&self.session, m).await.ok()?.into()).await,
-            None => None, // not text: the core's rules see the types and say no
-        };
-        // Types and text from the same copy: a newer one since means look again (SR-4-05)
-        if self.state.lock().await.count != if_still {
-            return None;
-        }
-        Some(PasteboardItem { types, text })
+        let s = self.state.lock().await;
+        (s.count == if_still).then(|| PasteboardItem { types: klipper_types(&s.text), text: Some(s.text.clone()) })
     }
 
     async fn write(&self, text: String) -> Option<i64> {
-        {
-            let mut s = self.state.lock().await;
-            s.offered = Some(text);
-        }
-        let options = ashpd::desktop::clipboard::SetSelectionOptions::default().set_mime_types(&TEXT_TYPES);
-        self.clipboard.set_selection(&self.session, options).await.ok()?;
-        let mut s = self.state.lock().await;
-        s.count += 1; // our own copy: counted, so it never reads as the user's
-        Some(s.count)
+        self.state.lock().await.written = Some(text.clone());
+        self.proxy.call::<_, _, ()>("setClipboardContents", &(text,)).await.ok()?;
+        Some(self.state.lock().await.count)
     }
 }
 
-async fn read_fd(fd: std::os::fd::OwnedFd) -> Option<String> {
-    tokio::task::spawn_blocking(move || {
-        use std::io::Read;
-        let mut f = std::fs::File::from(fd);
-        let mut buf = Vec::new();
-        // At most 1 MB: a clip is text, and the core caps what it sends anyway
-        f.by_ref().take(1 << 20).read_to_end(&mut buf).ok()?;
-        String::from_utf8(buf).ok()
-    })
-    .await
-    .ok()
-    .flatten()
-}
-
-async fn open_portal(
-    pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>,
-    tx: async_channel::Sender<Msg>,
-    token_file: Option<std::path::PathBuf>,
-    token: Option<String>,
-) {
-    use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop, SelectDevicesOptions};
-    let result: Result<(), String> = async {
-        let rd = RemoteDesktop::new().await.map_err(|e| e.to_string())?;
-        let clipboard = Arc::new(ashpd::desktop::clipboard::Clipboard::new().await.map_err(|e| e.to_string())?);
-        let session = Arc::new(rd.create_session(Default::default()).await.map_err(|e| e.to_string())?);
-        clipboard.request(&session, Default::default()).await.map_err(|e| e.to_string())?;
-        // No keyboard or pointer: only the clipboard, which needs a remote desktop session
-        let devices = SelectDevicesOptions::default()
-            .set_devices(DeviceType::empty())
-            .set_persist_mode(ashpd::desktop::PersistMode::ExplicitlyRevoked)
-            .set_restore_token(token.as_deref());
-        rd.select_devices(&session, devices).await.map_err(|e| e.to_string())?;
-        let started = rd.start(&session, None, Default::default()).await.map_err(|e| e.to_string())?;
-        let selected = started.response().map_err(|e| e.to_string())?;
-        if !selected.is_clipboard_enabled() {
-            return Err("clipboard not allowed".into());
-        }
-        if let (Some(file), Some(t)) = (&token_file, selected.restore_token()) {
-            crate::app::write_private(file, t.as_bytes());
-        }
-        let state = Arc::new(AsyncMutex::new(PortalState::default()));
-        let door = PortalDoor { clipboard: clipboard.clone(), session, state: state.clone() };
-        let owners = clipboard.receive_selection_owner_changed::<RemoteDesktop>().await.map_err(|e| e.to_string())?;
-        let transfers = clipboard.receive_selection_transfer::<RemoteDesktop>().await.map_err(|e| e.to_string())?;
-        let session2 = door.session.clone();
-        pasteboard.set_door(Some(Arc::new(door)));
-        let _ = tx.send(Msg::ClipboardReach).await;
-        // One task for both streams (they borrow the portal): a copy anywhere is counted with its
-        // types, unless it's our own offer; another app pasting our offer is handed the text
-        let mut owners = std::pin::pin!(owners);
-        let mut transfers = std::pin::pin!(transfers);
-        loop {
-            tokio::select! {
-                Some((_, change)) = owners.next() => {
-                    if change.session_is_owner() == Some(true) {
-                        continue;
+/// Opens the door while Klipper runs, and counts each new copy it records.
+async fn watch_klipper(pasteboard: Arc<crate::os::clipboard::LinuxPasteboard>, tx: async_channel::Sender<Msg>) {
+    let Ok(conn) = zbus::Connection::session().await else { return };
+    loop {
+        if let Ok(proxy) = zbus::Proxy::new(&conn, KLIPPER, KLIPPER_PATH, KLIPPER_IFACE).await
+            && let Ok(current) = proxy.call::<_, _, String>("getClipboardContents", &()).await
+        {
+            // What's there at launch was copied before: known, not counted
+            let state = Arc::new(AsyncMutex::new(KlipperState { text: current, ..Default::default() }));
+            if let Ok(mut changes) = proxy.receive_signal("clipboardHistoryUpdated").await {
+                if cfg!(debug_assertions) {
+                    eprintln!("seam: clipboard klipper open");
+                }
+                pasteboard.set_door(Some(Arc::new(KlipperDoor { proxy: proxy.clone(), state: state.clone() })));
+                let _ = tx.send(Msg::ClipboardReach).await;
+                while changes.next().await.is_some() {
+                    let Ok(text) = proxy.call::<_, _, String>("getClipboardContents", &()).await else { break };
+                    let mut s = state.lock().await;
+                    if s.text == text {
+                        continue; // history reordered, nothing new copied
                     }
-                    let mut st = state.lock().await;
-                    st.count += 1;
-                    st.types = change.mime_types().to_vec();
-                    st.offered = None;
+                    let ours = s.written.as_deref() == Some(text.as_str());
+                    s.written = None;
+                    s.text = text;
+                    if !ours {
+                        s.count += 1;
+                    }
                 }
-                Some((_, _mime, serial)) = transfers.next() => {
-                    let text = state.lock().await.offered.clone();
-                    let ok = match (text, clipboard.selection_write(&session2, serial).await) {
-                        (Some(t), Ok(fd)) => tokio::task::spawn_blocking(move || {
-                            use std::io::Write;
-                            std::fs::File::from(std::os::fd::OwnedFd::from(fd)).write_all(t.as_bytes()).is_ok()
-                        })
-                        .await
-                        .unwrap_or(false),
-                        _ => false,
-                    };
-                    let _ = clipboard.selection_write_done(&session2, serial, ok).await;
-                }
-                else => break,
+                pasteboard.set_door(None);
+                let _ = tx.send(Msg::ClipboardReach).await;
             }
         }
-        Ok(())
+        // Klipper isn't running (or stopped): try again in a while, one tap meanwhile
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
     }
-    .await;
-    if let Err(e) = result {
-        eprintln!("seam: clipboard portal: {e}"); // never contents
-        if token.is_some()
-            && let Some(f) = token_file
-        {
-            let _ = std::fs::remove_file(f); // a stale token: Set Up asks again
-        }
-    }
-    pasteboard.set_door(None);
-    let _ = tx.send(Msg::ClipboardReach).await;
 }
 
 #[cfg(test)]
@@ -315,24 +240,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn gnome_uses_the_extension_even_with_a_portal() {
-        assert_eq!(plan("GNOME", true), Plan::Extension);
-        assert_eq!(plan("ubuntu:GNOME", true), Plan::Extension);
-        assert_eq!(plan("Unity:GNOME-Classic:gnome", false), Plan::Extension);
+    fn gnome_uses_the_extension() {
+        assert_eq!(plan("GNOME"), Plan::Extension);
+        assert_eq!(plan("ubuntu:GNOME"), Plan::Extension);
+        assert_eq!(plan("Unity:GNOME-Classic:gnome"), Plan::Extension);
     }
 
     #[test]
-    fn kde_and_others_use_the_portal_where_there_is_one() {
-        assert_eq!(plan("KDE", true), Plan::Portal);
-        assert_eq!(plan("sway", true), Plan::Portal);
-        assert_eq!(plan("KDE", false), Plan::OneTap);
-        assert_eq!(plan("", false), Plan::OneTap);
+    fn kde_uses_klipper_and_the_rest_one_tap() {
+        assert_eq!(plan("KDE"), Plan::Klipper);
+        assert_eq!(plan("sway"), Plan::OneTap);
+        assert_eq!(plan(""), Plan::OneTap);
     }
 
     #[test]
     fn setup_follows_the_plan() {
         assert_eq!(setup(Plan::Extension), Setup::Extension);
-        assert_eq!(setup(Plan::Portal), Setup::Portal);
+        assert_eq!(setup(Plan::Klipper), Setup::Klipper);
         assert_eq!(setup(Plan::OneTap), Setup::Unavailable);
+    }
+
+    /// SR-4-06 on KDE: Klipper hands over a copied file as its address, which is never sent.
+    #[test]
+    fn a_file_copied_in_dolphin_reads_as_a_file() {
+        use seam_computer::features::clipboard::sendable;
+        assert!(!sendable(&klipper_types("file:///home/ana/Report.pdf")));
+        assert!(!sendable(&klipper_types("file:///a.txt\nfile:///b.txt\n")));
+        assert!(sendable(&klipper_types("See file:///etc/hosts for the list")));
+        assert!(sendable(&klipper_types("Table for four at 8")));
     }
 }

@@ -418,9 +418,12 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
     page.add(&auto);
     let from_phone = adw::PreferencesGroup::builder().title("Your Phone to This Computer").build();
     let phone_row = adw::ActionRow::builder()
-        .title("Copy Automatically on Your Phone")
-        .subtitle("Copies arrive here without using Share. Turn it on in Seam on your phone.")
+        .title("Copy Automatically")
+        .subtitle("Copies arrive here without using Share. Turn it on here, or in Seam on your phone.")
         .build();
+    let phone_set_up = gtk::Button::builder().label("Set Up").valign(gtk::Align::Center).build();
+    phone_set_up.set_action_name(Some("app.phone-clipboard-setup"));
+    phone_row.add_suffix(&phone_set_up);
     from_phone.add(&phone_row);
     page.add(&from_phone);
 

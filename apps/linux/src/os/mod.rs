@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Linux's side of the core's OS interfaces (decision 0014): each file fills one.
 
+pub mod adb;
 pub mod background;
 pub mod banners;
 pub mod battery;

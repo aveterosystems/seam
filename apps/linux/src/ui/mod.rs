@@ -8,6 +8,7 @@ pub mod notifications;
 pub mod pairing;
 pub mod phone;
 pub mod preferences;
+pub mod setup;
 pub mod stitch;
 pub mod widgets;
 pub mod window;

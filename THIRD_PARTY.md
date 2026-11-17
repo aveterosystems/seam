@@ -25,6 +25,11 @@ Seam is licensed under [AGPL-3.0-only](LICENSE) and builds on the open-source wo
 | [OkHttp](https://github.com/square/okhttp) and [Okio](https://github.com/square/okio) | The phone's update check and download from GitHub | Apache-2.0 |
 | [Roboto Flex](https://github.com/googlefonts/roboto-flex), by the Roboto Flex Project Authors | The Android app's typeface | OFL-1.1 (text in `apps/android/app/src/main/assets/licenses/RobotoFlex-OFL.txt`) |
 | [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | The phone's session and timers | Apache-2.0 |
+| [gtk4-rs and libadwaita-rs](https://gtk-rs.org) (GTK 4 and libadwaita bindings) | The Linux app's screens | MIT |
+| [Adwaita icon theme](https://gitlab.gnome.org/GNOME/adwaita-icon-theme), by the GNOME Project | A few symbolic icons the Linux app ships as a fallback where a desktop's own theme lacks them (`apps/linux/data/icons`) | LGPL-3.0-only (one of its two licences) |
+| [zbus](https://github.com/dbus2/zbus), [ashpd](https://github.com/bilelmoussaoui/ashpd), [oo7](https://github.com/bilelmoussaoui/oo7), [ksni](https://github.com/iovxw/ksni) | Linux: D-Bus, desktop portals, the keyring and the tray icon | MIT |
+| [mdns-sd](https://github.com/keepsimple1/mdns-sd) | Linux: Same Wi‑Fi announcement | Apache-2.0 OR MIT |
+| [qrcode](https://github.com/kennytm/qrcode-rust) | Linux: draws the pairing QR code | Apache-2.0 OR MIT |
 
 Tor® is a trademark of The Tor Project, Inc.; all rights reserved. Seam isn't endorsed or sponsored by, or affiliated with, the Tor Project. See [torproject.org](https://www.torproject.org).
 

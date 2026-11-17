@@ -16,7 +16,7 @@ gtk = { package = "gtk4", version = "0.11", features = ["v4_16"] }
 async-channel = "2"
 async-trait = "0.1"
 futures-util = { version = "0.3", default-features = false }
-ashpd = { version = "0.14", default-features = false, features = ["tokio", "background", "clipboard", "remote_desktop", "screencast"] }
+ashpd = { version = "0.14", default-features = false, features = ["tokio", "background"] }
 gio = { version = "0.22", features = ["v2_74"] }
 ksni = { version = "0.3", default-features = false, features = ["tokio"] }
 mdns-sd = "0.21"
