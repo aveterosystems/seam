@@ -18,8 +18,6 @@ pub struct Page {
     stack: gtk::Stack,
     /// "Automatic clipboard isn't set up": shown while copies need one tap.
     banner: adw::Banner,
-    waiting: adw::ActionRow,
-    waiting_list: gtk::ListBox,
     list: gtk::ListBox,
     empty: adw::StatusPage,
     off: adw::StatusPage,
@@ -36,24 +34,12 @@ impl Page {
             .build();
         banner.set_action_name(Some("app.clipboard-setup"));
 
-        // Waiting for the phone: how many, and when they go
-        let waiting = adw::ActionRow::builder().use_markup(false).build();
-        let clock = gtk::Image::from_icon_name("document-open-recent-symbolic");
-        clock.set_accessible_role(gtk::AccessibleRole::Presentation);
-        waiting.add_prefix(&clock);
-        let waiting_list = gtk::ListBox::builder()
-            .selection_mode(gtk::SelectionMode::None)
-            .margin_bottom(18)
-            .build();
-        waiting_list.add_css_class("boxed-list");
-        waiting_list.append(&waiting);
-
         let list = gtk::ListBox::builder()
             .selection_mode(gtk::SelectionMode::None)
             .build();
         list.add_css_class("boxed-list");
         let note = gtk::Label::builder()
-            .label("Kept for a day, gone when Seam quits. Passwords and files are never sent.")
+            .label("Kept until Seam quits, for a day at most. Passwords and files are never sent.")
             .xalign(0.0)
             .wrap(true)
             .margin_bottom(12)
@@ -64,7 +50,6 @@ impl Page {
             .orientation(gtk::Orientation::Vertical)
             .build();
         column.append(&note);
-        column.append(&waiting_list);
         column.append(&list);
         let clamp = adw::Clamp::builder()
             .maximum_size(720)
@@ -120,8 +105,6 @@ impl Page {
             widget,
             stack,
             banner,
-            waiting,
-            waiting_list,
             list,
             empty,
             off,
@@ -141,24 +124,25 @@ impl Page {
         let m = c.model();
         let name = m.phone_name(false);
         let connected = m.link(crate::ui::now_ms()).connected;
-        // Only where automatic clipboard can be set up: never a nag that leads nowhere
-        self.banner.set_revealed(
-            m.clipboard_sync
-                && m.phone.is_some()
-                && c.pasteboard.reach() == Reach::OneTap
-                && c.clipboard_plan() != crate::os::doors::Plan::OneTap,
-        );
-        let waiting = m.waiting > 0 && !connected;
-        self.waiting_list.set_visible(waiting);
-        if waiting {
-            // A row title, so header capitalization: "3 Waiting"
-            self.waiting
-                .set_title(&crate::ui::title_case(&seam_looks::words::waiting(
-                    m.waiting as u32,
-                )));
-            self.waiting
-                .set_subtitle(&format!("Sends when {name} is back"));
+        // One banner slot, as on Notifications: paused or away first (and what's waiting), else
+        // the setup offer, only where automatic clipboard can be set up (never a nag to nowhere)
+        let can_set_up = m.clipboard_sync
+            && c.pasteboard.reach() == Reach::OneTap
+            && c.clipboard_plan() != crate::os::doors::Plan::OneTap;
+        match m.page_status(crate::ui::now_ms()) {
+            Some(words) if m.clipboard_sync => {
+                self.banner.set_title(&words);
+                self.banner.set_button_label(None);
+                self.banner.set_revealed(true);
+            }
+            _ if can_set_up && m.phone.is_some() => {
+                self.banner.set_title("Automatic clipboard isn't set up");
+                self.banner.set_button_label(Some("Set Up"));
+                self.banner.set_revealed(true);
+            }
+            _ => self.banner.set_revealed(false),
         }
+        let waiting = m.waiting > 0 && !connected;
         self.off
             .set_description(Some(&format!("Turn it on to share copies with {name}.")));
         self.empty.set_description(Some(&format!(

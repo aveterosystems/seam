@@ -186,6 +186,31 @@ impl Model {
         }
     }
 
+    /// What a page says at its top while the phone can't be reached: paused (its own choice) or
+    /// away. `waiting`: what's held for it, said too. None while connected.
+    pub fn page_status(&self, now_ms: i64) -> Option<String> {
+        let look = self.link(now_ms);
+        self.phone.as_ref()?;
+        if look.connected {
+            return None;
+        }
+        let name = self.phone_name(true);
+        if look.kind == seam_looks::LinkKind::Paused {
+            return Some(format!(
+                "{name} is paused {}. Nothing comes or goes until then.",
+                self.card_line(now_ms).trim_start_matches("Paused ")
+            ));
+        }
+        Some(if self.waiting > 0 {
+            format!(
+                "{name} is away: {} send when it's back.",
+                seam_looks::words::waiting(self.waiting as u32)
+            )
+        } else {
+            format!("{name} is away. What you do here sends when it's back.")
+        })
+    }
+
     /// The same with room to say what happens next (the Phone page's header).
     pub fn hero_line(&self, now_ms: i64) -> String {
         link::hero_line(

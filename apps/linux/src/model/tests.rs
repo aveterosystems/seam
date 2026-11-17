@@ -372,3 +372,26 @@ fn the_card_says_paused_briefly() {
     let c = Model::default().apply(&snapshot(Health::Ready, Some(session()), None), false);
     assert_eq!(c.card_line(0), c.status_line(0));
 }
+
+#[test]
+fn a_page_says_paused_or_away_never_both() {
+    let mut paused = session();
+    paused.route = None;
+    paused.paused_until = Some(i64::MAX);
+    let m = Model::default().apply(&snapshot(Health::Ready, Some(paused), None), false);
+    let words = m.page_status(0).unwrap();
+    assert!(words.starts_with("Pixel 9 is paused"), "{words}");
+    assert!(!words.contains("away"));
+
+    let mut away = session();
+    away.route = None;
+    away.waiting = 3;
+    let m = Model::default().apply(&snapshot(Health::Ready, Some(away), None), false);
+    assert_eq!(
+        m.page_status(0).unwrap(),
+        "Pixel 9 is away: 3 waiting send when it's back."
+    );
+
+    let connected = Model::default().apply(&snapshot(Health::Ready, Some(session()), None), false);
+    assert!(connected.page_status(0).is_none());
+}

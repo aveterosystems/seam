@@ -25,14 +25,15 @@ struct Row {
 }
 
 pub struct Page {
-    pub widget: gtk::Stack,
+    /// The banner over the list or its empty state.
+    pub widget: gtk::Box,
+    stack: gtk::Stack,
+    banner: adw::Banner,
     list: gtk::ListBox,
     rows: RefCell<HashMap<String, Rc<Row>>>,
     order: RefCell<Vec<String>>,
     note: gtk::Label,
     /// Away: what you do here waits for the phone (never a dead end).
-    away: gtk::ListBox,
-    away_row: adw::ActionRow,
     empty: adw::StatusPage,
     empty_button: gtk::Button,
     empty_action: RefCell<Option<EmptyAction>>,
@@ -56,18 +57,7 @@ impl Page {
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();
-        let away_row = adw::ActionRow::builder().use_markup(false).build();
-        let clock = gtk::Image::from_icon_name("document-open-recent-symbolic");
-        clock.set_accessible_role(gtk::AccessibleRole::Presentation);
-        away_row.add_prefix(&clock);
-        let away = gtk::ListBox::builder()
-            .selection_mode(gtk::SelectionMode::None)
-            .margin_bottom(18)
-            .build();
-        away.add_css_class("boxed-list");
-        away.append(&away_row);
         // The note above the list, where libadwaita puts a group's description
-        column.append(&away);
         column.append(&note);
         column.append(&list);
         let clamp = adw::Clamp::builder()
@@ -84,20 +74,28 @@ impl Page {
             .vexpand(true)
             .build();
         let (empty, empty_button) = status_page();
-        let widget = gtk::Stack::builder()
+        let stack = gtk::Stack::builder()
             .transition_type(gtk::StackTransitionType::Crossfade)
             .transition_duration(crate::ui::motion::FADE_MS)
             .build();
-        widget.add_named(&scroll, Some("list"));
-        widget.add_named(&empty, Some("empty"));
+        stack.add_named(&scroll, Some("list"));
+        stack.add_named(&empty, Some("empty"));
+        stack.set_vexpand(true);
+        // Paused or away: one banner at the top, the same slot as the Clipboard page's
+        let banner = adw::Banner::builder().revealed(false).build();
+        let widget = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .build();
+        widget.append(&banner);
+        widget.append(&stack);
         let page = Rc::new(Self {
             widget,
             list,
             rows: RefCell::default(),
             order: RefCell::default(),
             note,
-            away,
-            away_row,
+            stack,
+            banner,
             empty,
             empty_button,
             empty_action: RefCell::default(),
@@ -164,19 +162,21 @@ impl Page {
                     self.empty_button.set_label(label);
                     *self.empty_action.borrow_mut() = Some(a);
                 }
-                self.widget.set_visible_child_name("empty");
+                self.stack.set_visible_child_name("empty");
             }
-            None => self.widget.set_visible_child_name("list"),
+            None => self.stack.set_visible_child_name("list"),
         }
         self.note.set_label(&m.clear_note());
-        let away = m.phone.is_some() && !m.link(now).connected;
-        self.away.set_visible(away);
-        if away {
-            self.away_row
-                .set_title(&format!("{} Is Away", m.phone_name(true)));
-            self.away_row
-                .set_subtitle("Replies and dismissals send when it's back");
+        match m.page_status(now) {
+            Some(words) => {
+                self.banner.set_title(&words);
+                self.banner.set_revealed(true);
+            }
+            None => self.banner.set_revealed(false),
         }
+        // Only the surprising case needs saying: clearing here clears the phone too
+        self.note
+            .set_visible(m.settings.as_ref().is_none_or(|s| s.dismiss_both));
         let animate = crate::ui::animations() && !self.order.borrow().is_empty();
         let keys: Vec<String> = m.shown.iter().map(|n| n.key.clone()).collect();
         // Leaving: slide out and collapse, then go (catalogue 6)

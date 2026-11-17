@@ -67,9 +67,9 @@ pub fn computer(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
             gtk::glib::spawn_future_local(async move {
                 let installed = rx.recv().await.unwrap_or(false);
                 let body = if installed {
-                    "GNOME lets Seam see what you copy through the Seam Clipboard extension, which is installed but off. Turn it on to send copies without clicking Send.\n\nOnly Seam can use it, and nothing you copy is kept or logged."
+                    "Turn on the Seam Clipboard extension so copies send without clicking Send. Only Seam can use it, and nothing you copy is kept."
                 } else {
-                    "GNOME lets Seam see what you copy through a small extension, Seam Clipboard. Install it, then turn it on in Extensions.\n\nOnly Seam can use it, and nothing you copy is kept or logged. Until then, click Send Clipboard."
+                    "Install the Seam Clipboard extension, then turn it on in Extensions, so copies send without clicking Send. Only Seam can use it, and nothing you copy is kept."
                 };
                 let d = adw::AlertDialog::new(Some("Set Up Automatic Clipboard"), Some(body));
                 d.add_responses(&[

@@ -21,7 +21,7 @@ pub fn present(c: &Rc<Controller>, parent: Option<&gtk::Window>, page: &str) {
         .content_width(720)
         .build();
     let mut ids = Vec::new();
-    dialog.add(&general(c, &dialog, &mut ids));
+    dialog.add(&general(c, &mut ids));
     dialog.add(&phone(c, &mut ids));
     dialog.add(&notifications(c, &mut ids));
     dialog.add(&clipboard(c, &mut ids));
@@ -59,11 +59,7 @@ fn set_switch(row: &adw::SwitchRow, quiet: &std::cell::Cell<bool>, on: bool) {
 }
 
 /// General: opening at login, then what keeps Seam private (facts, not settings).
-fn general(
-    c: &Rc<Controller>,
-    dialog: &adw::PreferencesDialog,
-    ids: &mut Vec<crate::app::WatchId>,
-) -> adw::PreferencesPage {
+fn general(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
         .name("general")
         .title("General")
@@ -91,33 +87,15 @@ fn general(
     group.add(&login);
     page.add(&group);
 
-    // What keeps Seam private is a fact, not a setting: said in the group's words, with a link to
-    // the one part that is a setting (Tor's switch, on the phone's page)
-    let privacy = adw::PreferencesGroup::builder().title("Privacy").build();
-    let tor = adw::ActionRow::builder()
-        .title("Internet Through Tor")
-        .subtitle("Away from home, Tor hides where you are and can't read anything")
-        .activatable(true)
-        .build();
-    let tor_state = gtk::Label::new(None);
-    tor_state.add_css_class("dim-label");
-    tor.add_suffix(&tor_state);
-    tor.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
-    let d = dialog.downgrade();
-    tor.connect_activated(move |_| {
-        if let Some(d) = d.upgrade() {
-            d.set_visible_page_name("phone");
-        }
-    });
-    privacy.add(&tor);
-    page.add(&privacy);
+    // Security in one short line, where it matters (design-system.md, "Copy and voice")
+    let weak_page = page.downgrade();
     ids.push(c.watch(move |c| {
-        let m = c.model();
-        tor_state.set_label(if m.tor { "On" } else { "Off" });
-        privacy.set_description(Some(&format!(
-            "Everything between this computer and {} is end-to-end encrypted with the Signal Protocol and post-quantum keys: only the two can read it. Seam never checks for updates itself; your software centre does.",
-            m.phone_name(false)
-        )));
+        if let Some(page) = weak_page.upgrade() {
+            page.set_description(&format!(
+                "End-to-end encrypted: only this computer and {} can read what passes between them.",
+                c.model().phone_name(false)
+            ));
+        }
     }));
     page
 }
@@ -163,25 +141,12 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         "Internet Through Tor",
         "Reaches your phone anywhere and hides where you are",
     );
-    // Stuck? A stock button row: Seam tries every allowed path again (its own group, so the
-    // footnote under the switches stays theirs)
+    // Stuck? A stock button row in the same group: Seam tries every allowed path again
     let reconnect = adw::ButtonRow::builder().title("Reconnect").build();
-    let reconnect_group = adw::PreferencesGroup::builder()
-        .description("Seam tries every allowed path again, now")
-        .build();
-    reconnect_group.add(&reconnect);
     connections.add(&wifi);
     connections.add(&tor);
-    let footnote = gtk::Label::builder()
-        .xalign(0.0)
-        .wrap(true)
-        .margin_top(12)
-        .build();
-    footnote.add_css_class("dim-label");
-    footnote.add_css_class("caption");
-    connections.add(&footnote);
+    connections.add(&reconnect);
     page.add(&connections);
-    page.add(&reconnect_group);
     let weak = Rc::downgrade(c);
     let q = wq.clone();
     wifi.connect_active_notify(move |r| {
@@ -290,12 +255,13 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         set_switch(&tor, &tq, m.tor);
         wifi.set_sensitive(!(m.wifi && !m.tor));
         tor.set_sensitive(!(m.tor && !m.wifi));
-        footnote.set_label(&seam_looks::link::connections_footnote(
+        // Why the last one on can't go off, as the group's own description
+        connections.set_description(Some(&seam_looks::link::connections_footnote(
             m.wifi,
             m.tor,
             &crate::model::names(),
-        ));
-        reconnect_group.set_visible(paired);
+        )));
+        reconnect.set_visible(paired);
         reconnect.set_sensitive(m.reconnecting.is_none());
         reconnect.set_title(if m.reconnecting.is_none() {
             "Reconnect"
@@ -476,9 +442,16 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                     frame.append(&p);
                     row.add_prefix(&frame);
                 }
-                if app.can_reply && mode_index(app) == 0 {
-                    row.set_subtitle("You can reply from this computer");
-                }
+                let explain = |r: &adw::ComboRow, can_reply: bool| {
+                    r.set_subtitle(match r.selected() {
+                        0 if can_reply => "You can reply from this computer",
+                        1 => "Shows who, not what",
+                        _ => "",
+                    });
+                };
+                explain(&row, app.can_reply);
+                let can_reply = app.can_reply;
+                row.connect_selected_notify(move |r| explain(r, can_reply));
                 let (weak, id) = (Rc::downgrade(&c), app.app_id.clone());
                 row.connect_selected_notify(move |r| {
                     let Some(c) = weak.upgrade() else { return };
