@@ -3,14 +3,45 @@
 
 use futures_util::StreamExt;
 
-/// The name the phone shows for this computer: the one set in Settings (the pretty name in
-/// /etc/machine-info), else the host name, else "Linux computer".
+/// The pretty name hostnamed gave at launch (inside Flatpak, /etc is the runtime's own).
+static PRETTY: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// The name the phone shows for this computer: the one set in Settings (hostnamed's pretty name,
+/// or /etc/machine-info), else the host name, else "Linux computer".
 pub fn computer_name() -> String {
-    std::fs::read_to_string("/etc/machine-info")
-        .ok()
-        .and_then(|info| pretty_name(&info))
+    PRETTY
+        .get()
+        .cloned()
+        .or_else(|| {
+            std::fs::read_to_string("/etc/machine-info")
+                .ok()
+                .and_then(|info| pretty_name(&info))
+        })
         .or_else(host_name)
         .unwrap_or_else(|| "Linux computer".into())
+}
+
+/// Asks hostnamed for the computer's pretty name once, at launch.
+pub async fn learn_name() {
+    let Ok(conn) = zbus::Connection::system().await else {
+        return;
+    };
+    let Ok(builder) = zbus::fdo::PropertiesProxy::builder(&conn)
+        .destination("org.freedesktop.hostname1")
+        .and_then(|b| b.path("/org/freedesktop/hostname1"))
+    else {
+        return;
+    };
+    let Ok(p) = builder.build().await else { return };
+    let Ok(iface) = zbus::names::InterfaceName::try_from("org.freedesktop.hostname1") else {
+        return;
+    };
+    if let Ok(v) = p.get(iface, "PrettyHostname").await
+        && let Ok(name) = String::try_from(v)
+        && let Some(name) = clean(&name)
+    {
+        let _ = PRETTY.set(name);
+    }
 }
 
 /// PRETTY_HOSTNAME from machine-info, unquoted.

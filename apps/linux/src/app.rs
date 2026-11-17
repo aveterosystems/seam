@@ -168,6 +168,7 @@ impl Controller {
         self.os.spawn(crate::os::battery::watch(move || {
             let _ = tx.send_blocking(Msg::BatteryChanged);
         }));
+        self.os.spawn(crate::os::system::learn_name());
         let tx = self.tx.clone();
         self.os.spawn(crate::os::system::watch_wake(move || {
             let _ = tx.send_blocking(Msg::Woke);
