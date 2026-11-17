@@ -53,21 +53,30 @@ impl LinuxPasteboard {
         s.baseline = None; // the next look sets what was already there
     }
 
-    /// Send Clipboard, with what the window read while Seam had focus. True when it's text that
-    /// can go: a password or a file never does, and anything doubtful offers nothing. The core's
-    /// rules still decide. With an automatic door open the copy goes by itself, so nothing is
-    /// offered twice.
-    pub fn send_now(&self, read: Reading) -> bool {
+    /// Send Clipboard, with what the window read while Seam had focus. A password or a file
+    /// never goes, and anything doubtful offers nothing; the core's rules still decide.
+    pub fn send_now(&self, read: Reading) -> Sent {
         // The text and its types must be the same copy: a password copied meanwhile can't go out
         // under the earlier copy's types (SR-4-05)
-        if read.changed || read.types_before != read.types_after {
-            return false;
+        if read.changed
+            || read.types_before != read.types_after
+            || !read.text.as_ref().is_some_and(|t| !t.is_empty())
+            || !sendable(&read.types_before)
+        {
+            return Sent::Nothing;
         }
-        let ok = read.text.as_ref().is_some_and(|t| !t.is_empty()) && sendable(&read.types_before);
-        if ok && crate::lock(&self.state).door.is_none() {
-            self.one_tap.offer(read.types_before, read.text);
+        let mut s = crate::lock(&self.state);
+        if s.door.is_some() {
+            // An automatic door opened during the read: it decides, and nothing is offered twice
+            return Sent::Automatic;
         }
-        ok
+        // Not looked at since the door last changed: what was there before is the baseline, so
+        // this offer reads as the new copy it is
+        if s.baseline.is_none() {
+            s.baseline = Some(self.one_tap.count());
+        }
+        self.one_tap.offer(read.types_before, read.text);
+        Sent::Offered
     }
 
     fn current(&self) -> (Arc<dyn Door>, i64) {
@@ -133,6 +142,17 @@ pub struct Reading {
     pub changed: bool,
 }
 
+/// What Send Clipboard did with a copy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sent {
+    /// Offered to the core, to send.
+    Offered,
+    /// An automatic door is open: copies go by themselves.
+    Automatic,
+    /// Nothing that can go (no text, a password or a file, or a copy that changed while read).
+    Nothing,
+}
+
 // A copy's text never prints (rule 6)
 impl std::fmt::Debug for Reading {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -161,6 +181,10 @@ impl OneTap {
             state: Mutex::default(),
             writer: Mutex::new(Some(Box::new(writer))),
         }
+    }
+
+    fn count(&self) -> i64 {
+        crate::lock(&self.state).count
     }
 
     /// What Send Clipboard read, as a new copy for the core to look at.
@@ -216,7 +240,7 @@ mod tests {
     async fn send_now_offers_only_text_that_can_go() {
         let pb = LinuxPasteboard::new(Arc::new(OneTap::default()));
         let before = pb.change_count().await;
-        assert!(pb.send_now(reading(&["text/plain"], "hi")));
+        assert_eq!(pb.send_now(reading(&["text/plain"], "hi")), Sent::Offered);
         let now = pb.change_count().await;
         assert_ne!(before, now);
         assert_eq!(
@@ -230,7 +254,7 @@ mod tests {
             reading(&["text/uri-list", "text/plain"], "file:///a.pdf"),
             reading(&["text/plain"], ""),
         ] {
-            assert!(!pb.send_now(no));
+            assert_eq!(pb.send_now(no), Sent::Nothing);
         }
         assert_eq!(pb.change_count().await, now);
     }
@@ -243,22 +267,39 @@ mod tests {
         let before = pb.change_count().await;
         let mut swapped = reading(&["text/plain"], "hunter2");
         swapped.types_after = vec!["text/plain".into(), "x-kde-passwordManagerHint".into()];
-        assert!(!pb.send_now(swapped));
+        assert_eq!(pb.send_now(swapped), Sent::Nothing);
         let mut changed_back = reading(&["text/plain"], "hunter2");
         changed_back.changed = true;
-        assert!(!pb.send_now(changed_back));
+        assert_eq!(pb.send_now(changed_back), Sent::Nothing);
         assert_eq!(pb.change_count().await, before);
         assert_eq!(format!("{:?}", reading(&[], "hunter2")), "Reading(..)");
     }
 
-    /// With an automatic door open the copy goes by itself: Send Clipboard says so, and offers
-    /// nothing a second time.
+    /// A door that closes just before Send Clipboard: the offer is the new copy, never taken
+    /// for what was there before.
+    #[tokio::test]
+    async fn a_send_right_after_a_door_closes_still_goes() {
+        let pb = LinuxPasteboard::new(Arc::new(OneTap::default()));
+        pb.change_count().await;
+        pb.set_door(Some(Arc::new(Fixed(3, Some(3)))));
+        pb.change_count().await;
+        pb.set_door(None);
+        assert_eq!(pb.send_now(reading(&["text/plain"], "hi")), Sent::Offered);
+        let now = pb.change_count().await;
+        assert_eq!(
+            pb.first_item(now).await.unwrap().text.as_deref(),
+            Some("hi")
+        );
+    }
+
+    /// With an automatic door open (one opened during the read), Send Clipboard says so, and
+    /// offers nothing a second time.
     #[tokio::test]
     async fn send_now_with_a_door_open_offers_nothing_twice() {
         let tap = Arc::new(OneTap::default());
         let pb = LinuxPasteboard::new(tap.clone());
         pb.set_door(Some(Arc::new(Fixed(3, Some(3)))));
-        assert!(pb.send_now(reading(&["text/plain"], "hi")));
+        assert_eq!(pb.send_now(reading(&["text/plain"], "hi")), Sent::Automatic);
         assert_eq!(tap.change_count().await, 0);
     }
 
@@ -266,7 +307,10 @@ mod tests {
     async fn an_offer_is_one_new_copy() {
         let pb = LinuxPasteboard::new(Arc::new(OneTap::default()));
         let before = pb.change_count().await;
-        assert!(pb.send_now(reading(&["text/plain"], "hello")));
+        assert_eq!(
+            pb.send_now(reading(&["text/plain"], "hello")),
+            Sent::Offered
+        );
         let now = pb.change_count().await;
         assert_ne!(before, now);
         assert_eq!(
@@ -283,7 +327,7 @@ mod tests {
         let w = written.clone();
         let tap = Arc::new(OneTap::new(move |t| crate::lock(&w).push(t)));
         let pb = LinuxPasteboard::new(tap);
-        assert!(pb.send_now(reading(&["text/plain"], "mine")));
+        assert_eq!(pb.send_now(reading(&["text/plain"], "mine")), Sent::Offered);
         let after_write = pb.write("from phone".into()).await;
         assert_eq!(pb.change_count().await, after_write);
         assert!(pb.first_item(after_write).await.is_none());

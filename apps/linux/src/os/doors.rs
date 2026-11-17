@@ -193,11 +193,13 @@ async fn watch_extension(pasteboard: &LinuxPasteboard, tell: &(dyn Fn(ClipboardD
     let mut last = None;
     loop {
         let (door, status) = probe_extension(&conn).await;
+        // Every owner change is a new door, even one that's open again: an extension restarted
+        // in between counts from scratch, so its old count and baseline mustn't carry over
+        pasteboard.set_door(door);
         if last != Some(status) {
             if cfg!(debug_assertions) {
                 eprintln!("seam: clipboard extension {status:?}");
             }
-            pasteboard.set_door(door);
             tell(status);
             last = Some(status);
         }

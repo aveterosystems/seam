@@ -20,7 +20,7 @@ use seam_core::proto::v1::{
 
 use crate::model::{Icons, Model};
 use crate::os::banners::{self, Banner, Banners};
-use crate::os::clipboard::{LinuxPasteboard, OneTap, Reading};
+use crate::os::clipboard::{LinuxPasteboard, OneTap, Reading, Sent};
 use crate::os::doors::ClipboardDoor;
 
 /// What reaches the main thread from Seam's own threads, in order.
@@ -445,10 +445,11 @@ impl Controller {
                 changed: changed.get(),
             };
             // A password or a copied file never goes, and it says so without saying what
-            c.toast(&if c.pasteboard.send_now(read) {
-                format!("Sent to {}", c.model().phone_name(false))
-            } else {
-                "Nothing to send: copy some text first".into()
+            let name = c.model().phone_name(false);
+            c.toast(&match c.pasteboard.send_now(read) {
+                Sent::Offered => format!("Sent to {name}"),
+                Sent::Automatic => format!("Copies now go to {name} by themselves: copy it again"),
+                Sent::Nothing => "Nothing to send: copy some text first".into(),
             });
         });
     }
