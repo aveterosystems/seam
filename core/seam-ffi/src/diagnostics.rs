@@ -28,7 +28,7 @@ mod tests {
         );
         let out = diagnostics_export("Seam 0.5.1 on Android 15, mobile".into());
         assert!(
-            out.starts_with("Seam 0.5.1 on Android 15, mobile\nexported "),
+            out.starts_with("Seam diagnostics\nSeam 0.5.1 on Android 15, mobile\nexported "),
             "{out}"
         );
         assert!(out.contains(" session tor: dialling [onion]"), "{out}");

@@ -51,7 +51,7 @@ async fn a_failed_launch_shows_in_the_diagnostics_export() {
 
     let out = computer.diagnostics("macOS 26.1");
     assert!(
-        out.starts_with("Seam test on macos, macOS 26.1\nexported "),
+        out.starts_with("Seam diagnostics\nSeam test on macos, macOS 26.1\nexported "),
         "{out}"
     );
     assert!(out.contains("pairing code shown"), "{out}");

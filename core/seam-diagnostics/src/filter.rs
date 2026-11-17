@@ -63,27 +63,53 @@ fn bracketed(s: &str) -> String {
     }
 }
 
-/// One run: an address becomes `[ip]`, each id-like part `[id]`; anything else stays.
+/// One run: an address becomes `[ip]`, each id-like part `[id]`; anything else stays. A run may
+/// be labelled (`addr=192.0.2.15:9001`): each side of an `=` is judged on its own.
 fn token(run: &str) -> String {
+    run.split('=').map(segment).collect::<Vec<_>>().join("=")
+}
+
+fn segment(seg: &str) -> String {
+    // Whole first: an IPv6 address may end in `::`
+    if is_ip(seg) {
+        return "[ip]".into();
+    }
     // A sentence's full stop or a label's colon isn't part of an address
-    let body = run.trim_end_matches(['.', ':', ',']);
-    let tail = &run[body.len()..];
-    if body.parse::<IpAddr>().is_ok() || body.parse::<SocketAddr>().is_ok() {
+    let body = seg.trim_end_matches(['.', ':', ',']);
+    let tail = &seg[body.len()..];
+    if is_ip(body) {
         return format!("[ip]{tail}");
     }
+    let mut after_key_label = false;
     let parts: Vec<String> = body
         .split(':')
-        .map(|p| if is_id(p) { "[id]".into() } else { p.into() })
+        .map(|p| {
+            // Whatever follows `ed25519:` is a relay's key, however few digits it has
+            let id = is_id(p) || (after_key_label && p.len() >= 8);
+            after_key_label = p == "ed25519";
+            if id { "[id]".into() } else { p.into() }
+        })
         .collect();
     format!("{}{tail}", parts.join(":"))
 }
 
-/// Long hex (a fingerprint), or a long base64 run mixing letters and digits (a key, an Ed25519
-/// relay id). Long words, even with underscores, don't count: they have no digits.
+fn is_ip(s: &str) -> bool {
+    s.parse::<IpAddr>().is_ok() || s.parse::<SocketAddr>().is_ok()
+}
+
+/// Long hex (a fingerprint), a long base64 run mixing letters and digits (a key, an Ed25519 relay
+/// id), or one as long as a 32-byte key mixing upper and lower case, digits or not. Long words,
+/// even with underscores, don't count: no digits, and one case.
 fn is_id(part: &str) -> bool {
     let digits = part.chars().filter(char::is_ascii_digit).count();
     let letters = part.chars().filter(char::is_ascii_alphabetic).count();
+    let base64 = part
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '_' | '-'));
+    let mixed_case = part.chars().any(|c| c.is_ascii_uppercase())
+        && part.chars().any(|c| c.is_ascii_lowercase());
     let hex = part.len() >= 16 && part.chars().all(|c| c.is_ascii_hexdigit()) && digits > 0;
-    let base64 = part.len() >= 20 && digits >= 2 && letters >= 2;
-    hex || base64
+    let keyish = part.len() >= 20 && digits >= 2 && letters >= 2;
+    let key_length = part.len() >= 40 && base64 && mixed_case;
+    hex || keyish || key_length
 }

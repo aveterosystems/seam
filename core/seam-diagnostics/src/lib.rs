@@ -33,6 +33,17 @@ pub const LIMITS: Limits = Limits {
 
 static RECORDER: LazyLock<Recorder> = LazyLock::new(|| Recorder::new(LIMITS));
 
+/// Every export's first line, so a copied export is recognised and never synced to the other
+/// device (`seam-computer`'s clipboard).
+pub const FIRST_LINE: &str = "Seam diagnostics";
+
+/// Whether `text` is a diagnostics export (as copied from any app's "Copy diagnostics").
+pub fn is_export(text: &str) -> bool {
+    text.trim_start()
+        .strip_prefix(FIRST_LINE)
+        .is_some_and(|rest| rest.starts_with(['\n', '\r']))
+}
+
 /// This process's recorder: everything in the app records here, and the export reads it.
 pub fn recorder() -> &'static Recorder {
     &RECORDER
@@ -81,11 +92,14 @@ impl Recorder {
         }
     }
 
-    /// `header` (app, versions, network), when it was exported, then every event kept, oldest
-    /// first.
+    /// [`FIRST_LINE`], `header` (app, versions, network), when it was exported, then every event
+    /// kept, oldest first.
     pub fn export(&self, header: &str) -> String {
         let kept = self.events.lock().unwrap_or_else(|p| p.into_inner());
-        let mut out = format!("{header}\nexported {}\n", time::utc(SystemTime::now()));
+        let mut out = format!(
+            "{FIRST_LINE}\n{header}\nexported {}\n",
+            time::utc(SystemTime::now())
+        );
         for e in kept.events.iter() {
             out.push_str(e);
             out.push('\n');

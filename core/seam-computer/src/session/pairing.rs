@@ -153,8 +153,15 @@ impl Core {
                     bundle,
                 })),
             };
-            l.send(&frame, PAIRING);
-            seam_diagnostics::record("pairing", "pairing bundle sent");
+            let sent = l.send(&frame, PAIRING);
+            seam_diagnostics::record(
+                "pairing",
+                if sent {
+                    "pairing bundle sent"
+                } else {
+                    "pairing bundle not sent: the link refused it"
+                },
+            );
         }
     }
 

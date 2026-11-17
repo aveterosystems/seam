@@ -244,8 +244,12 @@ final class SeamController {
     func copyDiagnostics() -> Bool {
         guard let computer else { return false }
         let text = computer.diagnostics(system: "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
-        NSPasteboard.general.clearContents()
-        return NSPasteboard.general.setString(text, forType: .string)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        // Transient: clipboard sync never sends it, and clipboard managers skip it (nspasteboard.org).
+        // The core also refuses any text that is an export, however it was copied
+        pasteboard.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
+        return pasteboard.setString(text, forType: .string)
     }
 
     /// "Unpair <phone>": the phone is told and forgotten, its onion service with it.

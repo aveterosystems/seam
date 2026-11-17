@@ -160,18 +160,27 @@ async fn only_the_paired_phone_reaches_the_mac() {
             assert!(!out.contains(w), "part of an address ({w}) leaked:\n{out}");
         }
     }
+    // Each key, in every form a log prints bytes in
+    use base64::Engine;
+    use base64::engine::general_purpose::{STANDARD_NO_PAD, URL_SAFE_NO_PAD};
     for secret in [
-        service_key.to_bytes(),
-        phone_key.to_bytes(),
-        stranger_key.to_bytes(),
+        service_key.to_bytes().to_vec(),
+        phone_key.to_bytes().to_vec(),
+        stranger_key.to_bytes().to_vec(),
     ] {
         let hex: String = secret.iter().map(|b| format!("{b:02x}")).collect();
-        assert!(!out.to_lowercase().contains(&hex[..12]), "a key leaked");
+        let forms = [
+            hex.clone(),
+            hex.to_uppercase(),
+            STANDARD_NO_PAD.encode(&secret),
+            URL_SAFE_NO_PAD.encode(&secret),
+            format!("{secret:?}"),
+        ];
+        for form in forms {
+            assert!(!out.contains(&form[..12]), "a key leaked ({form})");
+        }
     }
-    assert!(
-        !out.contains(".onion") || out.matches(".onion").count() == 0,
-        "an onion address in:\n{out}"
-    );
+    assert!(!out.contains(".onion"), "an onion address in:\n{out}");
     eprintln!(
         "diagnostics: {} lines, no address or key\n{out}",
         out.lines().count()

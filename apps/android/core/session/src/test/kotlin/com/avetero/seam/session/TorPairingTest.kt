@@ -74,8 +74,10 @@ class TorPairingTest {
         val hex = { b: ByteArray -> b.joinToString("") { "%02x".format(it) } }
         val b64 = { b: ByteArray -> java.util.Base64.getEncoder().withoutPadding().encodeToString(b) }
         val url = { b: ByteArray -> java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(b) }
+        // As Rust's `{:?}` prints bytes: "[12, 200, 3, ..."
+        val list = { b: ByteArray -> b.joinToString(", ", "[", "]") { (it.toInt() and 0xff).toString() } }
         for (secret in listOf(qr.discoverySecret, qr.token, qr.identityKey, qr.relayKey)) {
-            for (e in listOf(hex(secret), b64(secret), url(secret))) assertFalse("a secret in:\n$out", e.take(12) in out)
+            for (e in listOf(hex(secret), b64(secret), url(secret), list(secret))) assertFalse("a secret in:\n$out", e.take(12) in out)
         }
         for (word in listOf(qr.onionAddress.take(16), "MacBook Pro", "Galaxy S25 Ultra")) assertFalse("$word in:\n$out", word in out)
     }

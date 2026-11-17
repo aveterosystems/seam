@@ -188,6 +188,8 @@ fn assert_no_secrets(out: &str, secrets: &[&[u8]], words: &[&str]) {
             STANDARD_NO_PAD.encode(s),
             URL_SAFE.encode(s),
             URL_SAFE_NO_PAD.encode(s),
+            // `{:?}` on bytes, the likeliest accidental leak in Rust: "[12, 200, 3, ..."
+            format!("{s:?}"),
         ];
         for e in encodings {
             // A 12-character slice is already far more than chance: any of them is a leak

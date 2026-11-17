@@ -104,3 +104,34 @@ fn arti_shortened_relay_ids_are_gone() {
         "{out}"
     );
 }
+
+// Found in review (#97): forms the filter let through
+
+#[test]
+fn labelled_addresses_are_gone() {
+    let out = kept("connect failed addr=192.0.2.15:9001 peer=[2001:db8::1]:443 via=2001:db8::5");
+    for leaked in ["192.0.2.15", "9001", "2001:db8"] {
+        assert!(!out.contains(leaked), "{leaked} in {out}");
+    }
+    assert!(
+        out.ends_with("connect failed addr=[ip] peer=[ip] via=[ip]"),
+        "{out}"
+    );
+}
+
+#[test]
+fn an_ipv6_address_ending_in_double_colon_is_gone() {
+    let out = kept("relay 2001:db8:: refused, then fe80:: too.");
+    assert!(!out.contains("2001:db8") && !out.contains("fe80"), "{out}");
+    assert!(out.ends_with("relay [ip] refused, then [ip] too."), "{out}");
+}
+
+#[test]
+fn keys_with_few_or_no_digits_are_gone() {
+    // 32 bytes in base64 is 43 characters: some have no digits, some one
+    let none = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopA";
+    let one = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmno7A";
+    let out = kept(&format!("relay ed25519:{none} and key {one}"));
+    assert!(!out.contains("ABCDEFGHIJ"), "{out}");
+    assert!(out.ends_with("relay ed25519:[id] and key [id]"), "{out}");
+}
