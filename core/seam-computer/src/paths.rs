@@ -142,6 +142,7 @@ impl Paths {
     }
 
     pub fn tor_changed(&mut self, state: TorState, session: &Session) {
+        seam_diagnostics::record("tor", &format!("state {state:?}"));
         self.tor_state = state;
         match state {
             TorState::Ready => self.reconcile(session.state().tor),
@@ -187,6 +188,7 @@ impl Paths {
         }
         if !self.tor_started {
             self.tor_started = true;
+            seam_diagnostics::record("tor", "starting");
             self.tor.start(self.on_tor_state.clone());
         }
         let Some(carrier) = self.carriers.get(&Path::Tor) else {
@@ -206,8 +208,12 @@ impl Paths {
                     c.adopt(stream);
                 } // else dropped: no carrier to take it
             });
-            if let Some(service) = self.tor.host(&spec, on_stream) {
-                self.hosted.insert(spec, service);
+            match self.tor.host(&spec, on_stream) {
+                Some(service) => {
+                    seam_diagnostics::record("tor", "service launched");
+                    self.hosted.insert(spec, service);
+                }
+                None => seam_diagnostics::record("tor", "service launch failed"),
             }
         }
     }

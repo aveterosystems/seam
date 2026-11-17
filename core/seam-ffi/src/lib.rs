@@ -14,6 +14,7 @@ mod catalogue;
 mod clipboard;
 #[cfg(feature = "computer")]
 mod computer;
+mod diagnostics;
 mod hello;
 mod looks;
 #[cfg(feature = "computer")]

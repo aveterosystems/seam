@@ -372,6 +372,17 @@ impl Controller {
         self.with(Computer::reconnect)
     }
 
+    /// What Seam did lately on this computer, for About › Troubleshooting (specs/diagnostics.md):
+    /// in memory only, with no address, key or name in it. Empty before Seam has started.
+    pub fn diagnostics(&self) -> String {
+        let system = crate::os::system::os_name();
+        self.computer
+            .borrow()
+            .as_ref()
+            .map(|c| c.diagnostics(&system))
+            .unwrap_or_default()
+    }
+
     pub fn unpair(&self) {
         self.with(Computer::unpair)
     }

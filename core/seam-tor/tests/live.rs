@@ -141,4 +141,39 @@ async fn only_the_paired_phone_reaches_the_mac() {
         }
     }
     eprintln!("disk: no key material");
+
+    // The diagnostics export shows Arti and Seam's Tor events, and none of the secrets above
+    let out = seam_diagnostics::recorder().export("live");
+    for want in [
+        "tor bootstrapped in",
+        "tor dial 1 started",
+        "connected after",
+        "arti INFO",
+        "tor service ",
+    ] {
+        assert!(out.contains(want), "no \"{want}\" in the export:\n{out}");
+    }
+    // Every service's address, in any 8-character window: the first service's and the second's
+    for onion in [address.to_string(), second.address().to_string()] {
+        for window in onion.as_bytes()[..56].windows(8) {
+            let w = std::str::from_utf8(window).unwrap();
+            assert!(!out.contains(w), "part of an address ({w}) leaked:\n{out}");
+        }
+    }
+    for secret in [
+        service_key.to_bytes(),
+        phone_key.to_bytes(),
+        stranger_key.to_bytes(),
+    ] {
+        let hex: String = secret.iter().map(|b| format!("{b:02x}")).collect();
+        assert!(!out.to_lowercase().contains(&hex[..12]), "a key leaked");
+    }
+    assert!(
+        !out.contains(".onion") || out.matches(".onion").count() == 0,
+        "an onion address in:\n{out}"
+    );
+    eprintln!(
+        "diagnostics: {} lines, no address or key\n{out}",
+        out.lines().count()
+    );
 }

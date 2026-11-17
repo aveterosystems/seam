@@ -15,7 +15,7 @@ struct SettingsView: View {
     var body: some View {
         TabView(selection: $pane) {
             // Each tab is as tall as its content, as Mac settings windows are; long ones scroll
-            GeneralPane().frame(height: 450)
+            GeneralPane(controller: controller).frame(height: 500)
                 .tabItem { Label("General", systemImage: Pane.general.symbol) }.tag(Pane.general)
             PhonePane(controller: controller).frame(height: 560)
                 .tabItem { Label(phoneTitle, systemImage: Pane.phone.symbol) }.tag(Pane.phone)

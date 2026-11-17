@@ -151,6 +151,7 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | Link (a copy that is a web address) | `link` | link | `insert-link-symbolic` |
 | Do Not Disturb | `moon.fill` | Material `bedtime` | `weather-clear-night-symbolic` |
 | Dismiss on both | `checkmark.circle` (two) | double tick (`ic_dismiss_both`) | `object-select-symbolic` |
+| Diagnostics (what Seam did lately, for a bug report) | None: a Copy button in a row | pulse line, stroke set (`ic_diagnostics`) | None: About's own Troubleshooting page |
 
 ## Floating surfaces
 

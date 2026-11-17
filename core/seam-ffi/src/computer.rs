@@ -288,6 +288,11 @@ impl Computer {
     pub fn reconnect(&self) {
         self.inner.reconnect();
     }
+    /// What this computer did lately, for "Copy diagnostics" (specs/diagnostics.md). `system`:
+    /// the OS and its version.
+    pub fn diagnostics(&self, system: String) -> String {
+        self.inner.diagnostics(&system)
+    }
     pub fn feature(&self, command: FeatureCommand) {
         if let Some(c) = feature_command(command) {
             self.inner.feature(c);

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "seam-diagnostics"
+version = "0.1.0"
+description = "What each device did lately, in memory only, filtered, for the user to export"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+# Arti logs through tracing: a layer records what it says (filtered), never a formatter to stderr
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "registry"] }

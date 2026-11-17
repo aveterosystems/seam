@@ -93,6 +93,8 @@ pub struct Computer {
     tx: mpsc::UnboundedSender<Msg>,
     sync_on: Arc<AtomicBool>,
     shared: Arc<Shared>,
+    /// The diagnostics export's first line: this app and its version.
+    header: String,
 }
 
 impl Computer {
@@ -117,6 +119,7 @@ impl Computer {
         os: Os,
         tor: Arc<dyn TorRunner>,
     ) -> Self {
+        let header = format!("Seam {} on {}", settings.app_version, settings.platform);
         let (tx, rx) = mpsc::unbounded_channel();
         let sync_on = Arc::new(AtomicBool::new(true));
         let shared = Arc::new(Shared::default());
@@ -134,7 +137,20 @@ impl Computer {
             tx,
             sync_on,
             shared,
+            header,
         }
+    }
+
+    /// What this computer did lately, for the user to copy into a bug report: kept in memory
+    /// only, with no address, key or name in it (specs/diagnostics.md). `system`: the OS and its
+    /// version, from the app (empty: left out).
+    pub fn diagnostics(&self, system: &str) -> String {
+        let header = if system.is_empty() {
+            self.header.clone()
+        } else {
+            format!("{}, {system}", self.header)
+        };
+        seam_diagnostics::recorder().export(&header)
     }
 
     fn send(&self, c: Command) {

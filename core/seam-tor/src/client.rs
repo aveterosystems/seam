@@ -54,36 +54,55 @@ impl TorNode {
         use futures::stream::FuturesUnordered;
         use tokio::time::{Instant, sleep_until};
 
-        let deadline = Instant::now() + CONNECT_TIMEOUT;
+        let started = Instant::now();
+        let deadline = started + CONNECT_TIMEOUT;
+        let mut tries = 0u32;
+        let record = |event: String| seam_diagnostics::record("tor", &event);
         let mut attempts = FuturesUnordered::new();
         let mut next = Instant::now();
         let mut group = Some(current);
         loop {
             tokio::select! {
-                Some(result) = attempts.next() => match result {
-                    Ok(won) => return Ok(won),
+                Some((n, result)) = attempts.next() => match result {
+                    Ok(won) => {
+                        record(format!("dial {n} connected after {:.1} s", started.elapsed().as_secs_f32()));
+                        return Ok(won);
+                    }
                     // Not this phone's Mac any more: no attempt will do better
-                    Err(e @ Error::Tor(arti_client::ErrorKind::OnionServiceWrongClientAuth
-                        | arti_client::ErrorKind::OnionServiceMissingClientAuth)) => return Err(e),
-                    Err(e) if attempts.is_empty() => return Err(e),
-                    Err(_) => {} // another attempt is still under way
+                    Err(e) => {
+                        record(format!("dial {n} failed after {:.1} s: {e}", started.elapsed().as_secs_f32()));
+                        match e {
+                            Error::Tor(arti_client::ErrorKind::OnionServiceWrongClientAuth
+                                | arti_client::ErrorKind::OnionServiceMissingClientAuth) => return Err(e),
+                            _ if attempts.is_empty() => return Err(e),
+                            _ => {} // another attempt is still under way
+                        }
+                    }
                 },
                 () = sleep_until(next) => {
+                    tries += 1;
+                    let n = tries;
+                    let reused = group.is_some();
+                    record(format!("dial {n} started ({})", if reused { "same circuits as last time" } else { "fresh circuits" }));
                     let token = group.take().unwrap_or_else(IsolationToken::new);
                     let mut prefs = arti_client::StreamPrefs::new();
                     prefs.set_isolation(token);
                     let client = self.client.clone();
                     let target = target.clone();
                     attempts.push(async move {
-                        client
+                        let result = client
                             .connect_with_prefs((target.as_str(), SEAM_PORT), &prefs)
                             .await
                             .map(|stream| (stream, token))
-                            .map_err(|e| Error::Tor(e.kind()))
+                            .map_err(|e| Error::Tor(e.kind()));
+                        (n, result)
                     });
                     next = Instant::now() + FRESH_ATTEMPT_EVERY;
                 }
-                () = sleep_until(deadline) => return Err(Error::Timeout),
+                () = sleep_until(deadline) => {
+                    record(format!("dial gave up after {} s, {tries} attempt(s)", CONNECT_TIMEOUT.as_secs()));
+                    return Err(Error::Timeout);
+                }
             }
         }
     }

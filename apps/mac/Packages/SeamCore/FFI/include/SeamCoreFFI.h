@@ -833,6 +833,11 @@ void uniffi_seam_ffi_fn_method_computer_cancel_pairing(uint64_t ptr, RustCallSta
 void uniffi_seam_ffi_fn_method_computer_confirm_pairing(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_DIAGNOSTICS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_DIAGNOSTICS
+RustBuffer uniffi_seam_ffi_fn_method_computer_diagnostics(uint64_t ptr, RustBuffer system, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_FEATURE
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_METHOD_COMPUTER_FEATURE
 void uniffi_seam_ffi_fn_method_computer_feature(uint64_t ptr, RustBuffer command, RustCallStatus *_Nonnull out_status
@@ -1214,6 +1219,16 @@ uint32_t uniffi_seam_ffi_fn_func_clip_max_bytes(RustCallStatus *_Nonnull out_sta
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_OPENABLE_URL
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_CLIP_OPENABLE_URL
 RustBuffer uniffi_seam_ffi_fn_func_clip_openable_url(RustBuffer text, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_DIAGNOSTICS_EXPORT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_DIAGNOSTICS_EXPORT
+RustBuffer uniffi_seam_ffi_fn_func_diagnostics_export(RustBuffer header, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_DIAGNOSTICS_RECORD
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_DIAGNOSTICS_RECORD
+void uniffi_seam_ffi_fn_func_diagnostics_record(RustBuffer source, RustBuffer event, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_FN_FUNC_AGO_WORDS
@@ -1625,6 +1640,18 @@ uint16_t uniffi_seam_ffi_checksum_func_clip_openable_url(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DIAGNOSTICS_EXPORT
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DIAGNOSTICS_EXPORT
+uint16_t uniffi_seam_ffi_checksum_func_diagnostics_export(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DIAGNOSTICS_RECORD
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_DIAGNOSTICS_RECORD
+uint16_t uniffi_seam_ffi_checksum_func_diagnostics_record(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_AGO_WORDS
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_FUNC_AGO_WORDS
 uint16_t uniffi_seam_ffi_checksum_func_ago_words(void
@@ -2030,6 +2057,12 @@ uint16_t uniffi_seam_ffi_checksum_method_computer_cancel_pairing(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_CONFIRM_PAIRING
 #define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_CONFIRM_PAIRING
 uint16_t uniffi_seam_ffi_checksum_method_computer_confirm_pairing(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_DIAGNOSTICS
+#define UNIFFI_FFIDEF_UNIFFI_SEAM_FFI_CHECKSUM_METHOD_COMPUTER_DIAGNOSTICS
+uint16_t uniffi_seam_ffi_checksum_method_computer_diagnostics(void
     
 );
 #endif

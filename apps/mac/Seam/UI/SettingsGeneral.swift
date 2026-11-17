@@ -7,12 +7,14 @@ import SwiftUI
 /// General: open at login, updates, and About at the bottom. The prototype's "Show in the
 /// menu bar" isn't here: with it off, nothing could reopen Seam's window.
 struct GeneralPane: View {
+    let controller: SeamController
     @State private var login = SMAppService.mainApp.status
     @State private var loginError: String?
     @State private var checksAutomatically = Updates.shared.checksAutomatically
     @State private var checkInterval = Updates.shared.checkInterval
     @State private var nightly = Updates.shared.nightly
     @State private var confirmNightly = false
+    @State private var diagnosticsCopied = false
     private var updates: Updates { .shared }
 
     var body: some View {
@@ -62,6 +64,7 @@ struct GeneralPane: View {
             Section {
                 about
                 versionRow
+                diagnosticsRow
             }
         }
         .formStyle(.grouped)
@@ -88,6 +91,24 @@ struct GeneralPane: View {
                         .foregroundStyle(updates.checkFailed == false && updates.found == nil ? AnyShapeStyle(SeamStyle.ok) : AnyShapeStyle(.secondary))
                 }
             }
+        }
+    }
+
+    /// What Seam did lately on this Mac, for a bug report: copied, never sent.
+    private var diagnosticsRow: some View {
+        LabeledContent {
+            Button {
+                diagnosticsCopied = controller.copyDiagnostics()
+            } label: {
+                SwapText(diagnosticsCopied ? "✓ Copied" : "Copy", pane: true)
+            }
+            .task(id: diagnosticsCopied) {
+                guard diagnosticsCopied else { return }
+                try? await Task.sleep(for: .seconds(2))
+                diagnosticsCopied = false
+            }
+        } label: {
+            RowLabel("Diagnostics", "What Seam did lately, to paste into a bug report. Nothing is sent.")
         }
     }
 

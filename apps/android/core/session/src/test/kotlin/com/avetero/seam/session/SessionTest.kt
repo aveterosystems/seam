@@ -63,7 +63,7 @@ class SessionTest {
         settings: SettingsStore = MemorySettingsStore(),
     ) = Session(
         store, "Galaxy S25 Ultra", "SM-S938B",
-        TestScope(StandardTestDispatcher(testScheduler)).also { scopes += it }, now = now, trace = trace, lan = lan, tor = dialer, settingsStore = settings, pendingStore = pending,
+        TestScope(StandardTestDispatcher(testScheduler)).also { scopes += it }, now = now, debugLog = trace, lan = lan, tor = dialer, settingsStore = settings, pendingStore = pending,
     )
 
     private fun status(pct: Int) = Payload.newBuilder().setStatus(Status.newBuilder().setBatteryPct(pct).setCharging(true)).build()

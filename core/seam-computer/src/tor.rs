@@ -88,7 +88,10 @@ impl TorRunner for SeamTor {
             .map(|c| DiscoveryPublic::from_bytes(c))
             .collect::<Result<Vec<_>, _>>()
             .ok()?;
-        let mut hosted = node.host(&key, &clients).ok()?;
+        let mut hosted = node
+            .host(&key, &clients)
+            .inspect_err(|e| seam_diagnostics::record("tor", &format!("launch refused: {e}")))
+            .ok()?;
         let task = tokio::spawn(async move {
             while let Some(stream) = hosted.accept().await {
                 on_stream(Box::new(stream));

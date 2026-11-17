@@ -16,6 +16,7 @@ use crate::{Event, Problem};
 
 impl Core {
     pub(super) fn fail_accept(&mut self, pending: PendingAccept) {
+        seam_diagnostics::record("pairing", "pairing accept never acked: undone");
         self.events.push(Event::Problem(Problem::PairingFailed));
         self.undo_pairing(&pending.request.peer_id, pending.previous);
         self.flow.fail(PairingFailure::Unreachable);
@@ -69,6 +70,7 @@ impl Core {
 
     pub(super) fn pairing_expired(&mut self) {
         if self.flow.expire() {
+            seam_diagnostics::record("pairing", "pairing code expired");
             self.close_pairing();
         }
     }
@@ -120,6 +122,7 @@ impl Session {
         let Some(request) = self.core.flow.begin_confirming() else {
             return;
         };
+        seam_diagnostics::record("pairing", "pairing confirmed");
         let Some((envelope, path, previous)) = self.core.seal_accept(&request) else {
             return;
         };
