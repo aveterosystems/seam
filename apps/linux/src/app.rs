@@ -138,6 +138,10 @@ impl Controller {
             self.demo.set(true);
             let m = crate::demo::model(std::env::var("SEAM_DEMO").unwrap_or_default().as_str());
             *self.icons.borrow_mut() = crate::demo::icons();
+            // This desktop's clipboard route, as the real app would find it
+            self.plan.set(crate::os::doors::plan(
+                &std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
+            ));
             *self.model.borrow_mut() = m;
             self.notify();
             return;

@@ -146,6 +146,7 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | Storage | `internaldrive` | Material `hard_drive` (`ic_storage`) | `drive-harddisk-symbolic` |
 | CPU (the computer's) | `cpu` | Material `memory` (`ic_cpu`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
 | Memory (the computer's) | `memorychip` | Material `memory_alt` (`ic_memory`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
+| Link (a copy that is a web address) | `link` | link | `insert-link-symbolic` |
 | Do Not Disturb | `moon.fill` | Material `bedtime` | `weather-clear-night-symbolic` |
 | Dismiss on both | `checkmark.circle` (two) | double tick (`ic_dismiss_both`) | `object-select-symbolic` |
 
@@ -163,6 +164,7 @@ Every place that shows the link between the devices (the menu bar header, the si
 | Dashed teal | **Connected** + globe icon (Through Tor) | Anywhere, end-to-end encrypted |
 | Dotted grey | **Nearby** | Bluetooth sees the device; waking up to connect |
 | Broken grey | **Offline** | "Will send when your phone is back" |
+| Solid paused blue (`paused`) | **Paused until 15:00** | Paused on the phone, the user's own choice: calm, never `warn`. The status dot and words take the same blue |
 
 Offline is never drawn as an error: no red, and no "failed". Red is only for things the user must act on, such as a revoked pairing.
 

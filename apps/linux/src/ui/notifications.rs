@@ -45,7 +45,7 @@ impl Page {
         let note = gtk::Label::builder()
             .xalign(0.0)
             .wrap(true)
-            .margin_top(12)
+            .margin_bottom(12)
             .margin_start(6)
             .build();
         note.add_css_class("secondary");
@@ -53,8 +53,9 @@ impl Page {
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();
-        column.append(&list);
+        // The note above the list, where libadwaita puts a group's description
         column.append(&note);
+        column.append(&list);
         let clamp = adw::Clamp::builder()
             .maximum_size(720)
             .child(&column)
@@ -256,14 +257,15 @@ impl Page {
             .hexpand(true)
             .build();
         title.add_css_class("heading");
+        // The app and when, on their own line under the words: the title never gives way to them
         let time = gtk::Label::builder()
             .label(when(n, crate::ui::now_ms()))
-            .xalign(1.0)
+            .xalign(0.0)
+            .ellipsize(gtk::pango::EllipsizeMode::End)
+            .margin_top(2)
             .build();
-        time.add_css_class("dim-label");
+        time.add_css_class("secondary");
         time.add_css_class("caption");
-        time.add_css_class("row-time");
-        time.add_css_class("hides");
         let dismiss = gtk::Button::from_icon_name("window-close-symbolic");
         dismiss.add_css_class("flat");
         dismiss.add_css_class("circular");
@@ -271,13 +273,15 @@ impl Page {
         dismiss.set_tooltip_text(Some("Dismiss"));
         dismiss.update_property(&[gtk::accessible::Property::Label("Dismiss")]);
         dismiss.set_valign(gtk::Align::Center);
-        // Dismiss takes the time's place, as in the desktop's own notification list
-        let corner = gtk::Overlay::builder().child(&time).build();
-        corner.add_overlay(&dismiss);
-        dismiss.set_halign(gtk::Align::End);
+        // Dismiss floats in the row's top corner: shown on hover or focus, and it never moves
+        // or spaces out anything else
+        title.set_margin_end(32);
         let top = gtk::Box::builder().spacing(8).build();
         top.append(&title);
-        top.append(&corner);
+        dismiss.set_halign(gtk::Align::End);
+        dismiss.set_valign(gtk::Align::Start);
+        dismiss.set_margin_top(4);
+        dismiss.set_margin_end(4);
 
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -297,6 +301,7 @@ impl Page {
             text.add_css_class("dim-label");
             column.append(&text);
         }
+        column.append(&time);
         let entry = gtk::Entry::builder()
             .placeholder_text(format!(
                 "Reply to {}",
@@ -373,7 +378,9 @@ impl Page {
             .build();
         body.append(&frame);
         body.append(&column);
-        let revealer = arrive(&body, animate);
+        let corner = gtk::Overlay::builder().child(&body).build();
+        corner.add_overlay(&dismiss);
+        let revealer = arrive(&corner, animate);
         let row = Rc::new(Row {
             notification: n.clone(),
             revealer,

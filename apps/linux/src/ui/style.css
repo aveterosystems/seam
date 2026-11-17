@@ -25,15 +25,20 @@
   color: var(--seam-teal);
 }
 
-/* The sidebar's phone card. */
+/* The sidebar's phone card: a card surface, so it never reads as a selected row. Its words are
+   plain text, not a button's bold label. */
 .phone-card {
   padding: 12px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--window-fg-color) 5%, transparent);
+  background: var(--card-bg-color);
+  box-shadow: 0 0 0 1px var(--card-shade-color), 0 1px 3px 1px rgb(0 0 0 / 7%);
   transition: background 150ms ease;
 }
 .phone-card:hover {
-  background: color-mix(in srgb, var(--window-fg-color) 8%, transparent);
+  background: color-mix(in srgb, var(--card-bg-color) 92%, var(--card-fg-color));
+}
+.phone-card label {
+  font-weight: normal;
 }
 .phone-card .name {
   font-weight: 700;
@@ -124,13 +129,6 @@ row:focus-within .row-actions,
   opacity: 1;
 }
 
-.row-time {
-  transition: opacity 150ms ease;
-}
-row:hover .row-time.hides,
-row:focus-within .row-time.hides {
-  opacity: 0;
-}
 
 .waiting-bar {
   padding: 8px 12px;

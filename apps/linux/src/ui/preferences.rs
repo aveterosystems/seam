@@ -19,11 +19,10 @@ pub fn present(c: &Rc<Controller>, parent: Option<&gtk::Window>, page: &str) {
         .search_enabled(true)
         .build();
     let mut ids = Vec::new();
-    dialog.add(&general(c));
+    dialog.add(&general(c, &dialog, &mut ids));
     dialog.add(&phone(c, &mut ids));
     dialog.add(&notifications(c, &mut ids));
     dialog.add(&clipboard(c, &mut ids));
-    dialog.add(&privacy(c, &mut ids));
     // Closed: its screens stop listening, so they can go
     let weak = Rc::downgrade(c);
     dialog.connect_closed(move |_| {
@@ -57,13 +56,18 @@ fn set_switch(row: &adw::SwitchRow, quiet: &std::cell::Cell<bool>, on: bool) {
     }
 }
 
-fn general(c: &Rc<Controller>) -> adw::PreferencesPage {
+/// General: opening at login, then what keeps Seam private (facts, not settings).
+fn general(
+    c: &Rc<Controller>,
+    dialog: &adw::PreferencesDialog,
+    ids: &mut Vec<crate::app::WatchId>,
+) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
         .name("general")
         .title("General")
         .icon_name("emblem-system-symbolic")
         .build();
-    let group = adw::PreferencesGroup::new();
+    let group = adw::PreferencesGroup::builder().title("Startup").build();
     let (login, quiet) = switch(
         "Open at Login",
         "Seam waits in the background from the moment you log in",
@@ -85,6 +89,55 @@ fn general(c: &Rc<Controller>) -> adw::PreferencesPage {
     group.add(&login);
     page.add(&group);
 
+    let privacy = adw::PreferencesGroup::builder().title("Privacy").build();
+    let fact = |title: &str, detail: &str, state: &str| {
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(detail)
+            .build();
+        let value = gtk::Label::new(Some(state));
+        value.add_css_class("dim-label");
+        row.add_suffix(&value);
+        (row, value)
+    };
+    let (e2e, _) = fact(
+        "End-to-End Encrypted",
+        "Signal Protocol with post-quantum keys: only this computer and your phone can read it",
+        "Always",
+    );
+    // Tor's switch is on the phone's page: this row takes you there
+    let tor = adw::ActionRow::builder()
+        .title("Internet Through Tor")
+        .subtitle("Away from home, Tor hides where you are and can't read anything")
+        .activatable(true)
+        .build();
+    let tor_state = gtk::Label::new(None);
+    tor_state.add_css_class("dim-label");
+    tor.add_suffix(&tor_state);
+    tor.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+    let d = dialog.downgrade();
+    tor.connect_activated(move |_| {
+        if let Some(d) = d.upgrade() {
+            d.set_visible_page_name("phone");
+        }
+    });
+    let (updates, _) = fact(
+        "Update Checks",
+        "Seam never asks for updates itself: your software centre does",
+        "None",
+    );
+    privacy.add(&e2e);
+    privacy.add(&tor);
+    privacy.add(&updates);
+    page.add(&privacy);
+    ids.push(c.watch(move |c| {
+        let m = c.model();
+        tor_state.set_label(if m.tor { "On" } else { "Off" });
+        privacy.set_description(Some(&format!(
+            "How Seam protects what passes between this computer and {}",
+            m.phone_name(false)
+        )));
+    }));
     page
 }
 
@@ -123,15 +176,15 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         .build();
     let (wifi, wq) = switch(
         "Same Wi‑Fi",
-        "Straight to your phone on the same network. Nothing leaves it.",
+        "Straight to your phone on the same network, and nothing leaves it",
     );
     let (tor, tq) = switch(
         "Internet Through Tor",
         "Reaches your phone anywhere and hides where you are",
     );
     let reconnect_row = adw::ActionRow::builder()
-        .title("Connection Stuck?")
-        .subtitle("Seam tries every allowed path again, now")
+        .title("Stuck Connection")
+        .subtitle("Seam tries every allowed path again")
         .build();
     let reconnect = gtk::Button::builder()
         .label("Reconnect")
@@ -266,7 +319,7 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         reconnect_row.set_visible(paired);
         reconnect.set_sensitive(m.reconnecting.is_none());
         reconnect_row.set_subtitle(&if m.reconnecting.is_none() {
-            "Seam tries every allowed path again, now".to_string()
+            "Seam tries every allowed path again".to_string()
         } else {
             m.link(now).label
         });
@@ -429,8 +482,12 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                     .model(&gtk::StringList::new(&MODES.map(|m| m.1)))
                     .selected(mode_index(app))
                     .build();
-                if let Some(t) = c.icon(&app.app_id) {
-                    let p = gtk::Image::from_paintable(Some(&t));
+                {
+                    // Every app takes the same slot, with a generic icon when the phone sent none
+                    let p = match c.icon(&app.app_id) {
+                        Some(t) => gtk::Image::from_paintable(Some(&t)),
+                        None => gtk::Image::from_icon_name("application-x-executable-symbolic"),
+                    };
                     p.set_pixel_size(24);
                     let frame = gtk::Box::builder()
                         .overflow(gtk::Overflow::Hidden)
@@ -507,10 +564,10 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
     let (sync, sq) = switch("Sync the Clipboard", "");
     group.add(&sync);
     let passwords = adw::ActionRow::builder()
-        .title("Passwords Stay on This Computer")
-        .subtitle("Copies a password manager marks private are never sent")
+        .title("Private Copies")
+        .subtitle("What password managers mark private stays on this computer")
         .build();
-    let always = gtk::Label::new(Some("Always"));
+    let always = gtk::Label::new(Some("Never Sent"));
     always.add_css_class("dim-label");
     passwords.add_suffix(&always);
     group.add(&passwords);
@@ -573,62 +630,25 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         let m = c.model();
         let name = m.phone_name(false);
         set_switch(&sync, &sq, m.clipboard_sync);
-        sync.set_subtitle(&format!("What you copy here or on {name} reaches the other"));
+        sync.set_subtitle(&format!(
+            "What you copy here or on {name} reaches the other"
+        ));
+        // Each group by the phone's own name
+        auto.set_title(&format!("This Computer to {}", m.phone_name(true)));
+        from_phone.set_title(&format!("{} to This Computer", m.phone_name(true)));
         hold.set_label(&format!(
-            "While {name} is asleep, a copy waits here for up to 10 minutes, then it's dropped, so an old copy never lands by surprise."
+            "While {name} is asleep, a copy waits here up to 10 minutes, then it's dropped"
         ));
         let automatic = c.pasteboard.reach() == Reach::Automatic;
-        auto_row.set_subtitle(if automatic {
-            "What you copy goes by itself, without clicking Send"
-        } else {
-            "Until it's set up, click Send Clipboard in Seam's window"
+        let possible = c.clipboard_plan() != crate::os::doors::Plan::OneTap;
+        auto_row.set_subtitle(match (automatic, possible) {
+            (true, _) => "What you copy goes by itself",
+            (false, true) => "Until it's set up, copies go with Send Clipboard",
+            (false, false) => "This desktop doesn't allow it, so copies go with Send Clipboard",
         });
         on.set_visible(automatic);
-        set_up.set_visible(!automatic);
+        set_up.set_visible(!automatic && possible);
         auto.set_sensitive(m.clipboard_sync);
     }));
-    page
-}
-
-fn privacy(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder()
-        .name("privacy")
-        .title("Privacy")
-        .icon_name("security-high-symbolic")
-        .build();
-    let group = adw::PreferencesGroup::builder()
-        .description("What protects what passes between this computer and your phone")
-        .build();
-    // Facts, not settings: each says its state where a control would be
-    let fact = |title: &str, detail: &str, state: &str| {
-        let row = adw::ActionRow::builder()
-            .title(title)
-            .subtitle(detail)
-            .build();
-        let value = gtk::Label::new(Some(state));
-        value.add_css_class("dim-label");
-        row.add_suffix(&value);
-        (row, value)
-    };
-    let (e2e, _) = fact(
-        "End-to-End Encrypted",
-        "Signal Protocol with post-quantum keys. Only this computer and your phone can read what passes between them.",
-        "Always",
-    );
-    let (tor, tor_state) = fact(
-        "Internet Through Tor",
-        "Away from home, neither Tor nor your network can read anything, and Tor hides where you are. Its switch is on the phone's page.",
-        "On",
-    );
-    let (updates, _) = fact(
-        "Update Checks",
-        "Seam never asks for updates itself. Your software centre does.",
-        "None",
-    );
-    group.add(&e2e);
-    group.add(&tor);
-    group.add(&updates);
-    page.add(&group);
-    ids.push(c.watch(move |c| tor_state.set_label(if c.model().tor { "On" } else { "Off" })));
     page
 }

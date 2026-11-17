@@ -104,7 +104,7 @@ pub fn model(state: &str) -> Model {
             m.phone = None;
             m.health = Health::Unreadable;
             m.startup_error = Some(
-                "Seam couldn't read its saved data. Reset Seam to pair your phone again.".into(),
+                "Its keys on this computer can't be opened. Reset Seam to start again and pair your phone; the old data is kept aside.".into(),
             );
         }
         _ => {}

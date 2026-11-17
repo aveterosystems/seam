@@ -53,19 +53,19 @@ impl Page {
             .build();
         list.add_css_class("boxed-list");
         let note = gtk::Label::builder()
-            .label("Kept in memory for a day, and gone when Seam quits. Copies that password managers mark as private, and copied files, are never sent.")
+            .label("Kept for a day, and gone when Seam quits. Passwords and copied files are never sent.")
             .xalign(0.0)
             .wrap(true)
-            .margin_top(12)
+            .margin_bottom(12)
             .margin_start(6)
             .build();
         note.add_css_class("secondary");
         let column = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .build();
+        column.append(&note);
         column.append(&waiting_list);
         column.append(&list);
-        column.append(&note);
         let clamp = adw::Clamp::builder()
             .maximum_size(720)
             .child(&column)
@@ -141,8 +141,12 @@ impl Page {
         let m = c.model();
         let name = m.phone_name(false);
         let connected = m.link(crate::ui::now_ms()).connected;
+        // Only where automatic clipboard can be set up: never a nag that leads nowhere
         self.banner.set_revealed(
-            m.clipboard_sync && m.phone.is_some() && c.pasteboard.reach() == Reach::OneTap,
+            m.clipboard_sync
+                && m.phone.is_some()
+                && c.pasteboard.reach() == Reach::OneTap
+                && c.clipboard_plan() != crate::os::doors::Plan::OneTap,
         );
         let waiting = m.waiting > 0 && !connected;
         self.waiting_list.set_visible(waiting);

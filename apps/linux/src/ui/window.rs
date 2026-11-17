@@ -154,6 +154,32 @@ impl Window {
         starting.set_content(Some(&starting_page));
         root.add_named(&starting, Some("starting"));
 
+        // Seam couldn't start, with no phone known: say so in the whole window, with the one
+        // thing to do about it (Reset Seam only when the saved data can't be read)
+        let problem_page = adw::StatusPage::builder()
+            .icon_name("dialog-warning-symbolic")
+            .vexpand(true)
+            .build();
+        let reset = gtk::Button::builder()
+            .label("Reset Seam")
+            .halign(gtk::Align::Center)
+            .build();
+        reset.add_css_class("pill");
+        reset.add_css_class("destructive-action");
+        problem_page.set_child(Some(&reset));
+        let problem = adw::ToolbarView::new();
+        let problem_header = adw::HeaderBar::builder().show_title(false).build();
+        problem_header.pack_end(&primary_menu());
+        problem.add_top_bar(&problem_header);
+        problem.set_content(Some(&problem_page));
+        root.add_named(&problem, Some("problem"));
+        let weak_c = Rc::downgrade(c);
+        reset.connect_clicked(move |b| {
+            if let Some(c) = weak_c.upgrade() {
+                confirm_reset(b, &c);
+            }
+        });
+
         let toasts = adw::ToastOverlay::new();
         toasts.set_child(Some(&root));
         let t = toasts.clone();
@@ -291,11 +317,30 @@ impl Window {
             } else if !just_paired {
                 was_paired.set(false);
             }
-            root.set_visible_child_name(match (started, paired && !hold.get()) {
-                (false, _) if m.startup_error.is_none() => "starting",
+            let view = match (started, paired && !hold.get()) {
+                _ if m.startup_error.is_some() && !paired => "problem",
+                (false, _) => "starting",
                 (_, true) => "home",
                 _ => "pairing",
-            });
+            };
+            root.set_visible_child_name(view);
+            if view == "problem" {
+                problem_page.set_title(if m.needs_reset() {
+                    "Can't Read Saved Data"
+                } else {
+                    "Seam Couldn't Start"
+                });
+                // The title says it couldn't start; the words say why and what to do
+                let words = m.startup_error.as_deref().unwrap_or_default();
+                let words = words.strip_prefix("Seam couldn't start: ").unwrap_or(words);
+                let mut chars = words.chars();
+                let words: String = chars
+                    .next()
+                    .map(|c| c.to_uppercase().chain(chars).collect())
+                    .unwrap_or_default();
+                problem_page.set_description(Some(&words));
+                reset.set_visible(m.needs_reset());
+            }
             // Unpaired with nothing showing yet: a code, straight away
             if started
                 && !paired
@@ -321,7 +366,7 @@ impl Window {
             ))]);
             for banner in [&banner, &pairing_banner] {
                 match (&m.startup_error, &m.warning) {
-                    (Some(e), _) => {
+                    (Some(e), _) if paired => {
                         banner.set_title(e);
                         banner.set_button_label(if m.needs_reset() {
                             Some("Reset Seam")
@@ -444,7 +489,7 @@ fn primary_menu() -> gtk::MenuButton {
 }
 
 /// Only after the user agreed: a new identity, the old files kept aside.
-fn confirm_reset(anchor: &adw::Banner, c: &Rc<Controller>) {
+fn confirm_reset(anchor: &impl IsA<gtk::Widget>, c: &Rc<Controller>) {
     let dialog = adw::AlertDialog::new(
         Some("Reset Seam?"),
         Some(

@@ -124,16 +124,14 @@ impl Page {
             .justify(gtk::Justification::Center)
             .build();
         confirm_title.add_css_class("title-3");
-        let check = gtk::Label::new(Some("Code check"));
-        check.add_css_class("dim-label");
-        check.add_css_class("caption");
         let code = gtk::Label::new(None);
         code.add_css_class("safety-code");
         let hint = gtk::Label::new(Some("Check your phone shows the same code."));
         hint.add_css_class("secondary");
         let cancel = gtk::Button::with_label("Cancel");
+        // Cancel is the default (Return cancels, SR-10-02), styled plainly like Pair: neither
+        // button looks like the obvious yes
         cancel.add_css_class("pill");
-        cancel.add_css_class("suggested-action");
         let pair = gtk::Button::with_label("Pair");
         pair.add_css_class("pill");
         let sending = adw::Spinner::new();
@@ -152,7 +150,6 @@ impl Page {
             .valign(gtk::Align::Center)
             .build();
         confirm.append(&confirm_title);
-        confirm.append(&check);
         confirm.append(&code);
         confirm.append(&hint);
         confirm.append(&buttons);
