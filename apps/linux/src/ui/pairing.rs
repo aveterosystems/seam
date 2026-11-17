@@ -14,6 +14,8 @@ use crate::ui::stitch::Stitch;
 
 pub struct Page {
     pub widget: gtk::ScrolledWindow,
+    /// The two columns; the window stacks them on a narrow screen.
+    pub row: gtk::Box,
     right: gtk::Stack,
     qr: gtk::Picture,
     countdown: gtk::Label,
@@ -201,6 +203,7 @@ impl Page {
 
         let page = Rc::new(Self {
             widget,
+            row: row.clone(),
             right,
             qr,
             countdown,

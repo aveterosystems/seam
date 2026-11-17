@@ -45,7 +45,8 @@ impl PhoneSummary {
             .build();
         name.add_css_class(if header { "title-2" } else { "name" });
         let dot = StatusDot::new();
-        let line = Swap::new(&["dim-label", "status-line"]);
+        // Two lines in the narrow card, so "Paused on your phone until 15:00" is never cut short
+        let line = Swap::with_lines(&["dim-label", "status-line"], if header { 1 } else { 2 });
         line.widget.set_hexpand(true);
         let path = path_icon();
         let status = gtk::Box::builder().spacing(6).build();
@@ -65,7 +66,9 @@ impl PhoneSummary {
             .build();
         battery.append(&battery_icon);
         battery.append(&battery_text.widget);
-        battery.add_css_class("dim-label");
+        if !header {
+            battery.add_css_class("dim-label"); // in the header, the stats row is dim already
+        }
         let stats = gtk::Box::builder().spacing(14).build();
         stats.add_css_class("dim-label");
 

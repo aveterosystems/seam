@@ -119,7 +119,10 @@ impl Window {
         pairing_view.add_top_bar(&pairing_banner);
         pairing_view.set_content(Some(&pairing.widget));
 
+        // Each view at its own size: the two-column pairing page mustn't widen the home view
         let root = gtk::Stack::builder()
+            .hhomogeneous(false)
+            .vhomogeneous(false)
             .transition_type(gtk::StackTransitionType::Crossfade)
             .transition_duration(crate::ui::motion::FADE_MS)
             .build();
@@ -164,7 +167,24 @@ impl Window {
         ));
         breakpoint.add_setter(&split, "collapsed", Some(&true.to_value()));
         window.add_breakpoint(breakpoint);
+        // Pairing: steps above the code on a narrow screen
+        let narrow = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
+            adw::BreakpointConditionLengthType::MaxWidth,
+            700.0,
+            adw::LengthUnit::Sp,
+        ));
+        narrow.add_setter(&pairing.row, "orientation", Some(&gtk::Orientation::Vertical.to_value()));
+        narrow.add_setter(&pairing.row, "spacing", Some(&32.to_value()));
+        window.add_breakpoint(narrow);
 
+        // Debug screenshots: SEAM_SIZE=360x700 opens the window at that size (phone width and the like)
+        #[cfg(debug_assertions)]
+        if let Some((w, h)) = std::env::var("SEAM_SIZE").ok().and_then(|v| {
+            let (w, h) = v.split_once('x')?;
+            Some((w.parse().ok()?, h.parse().ok()?))
+        }) {
+            window.set_default_size(w, h);
+        }
         let w = Rc::new(Self {
             window,
             split,

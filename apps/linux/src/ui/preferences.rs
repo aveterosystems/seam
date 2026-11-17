@@ -406,7 +406,7 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
     list.add_css_class("boxed-list");
     apps.add(&list);
     let footnote = gtk::Label::builder()
-        .label("Apps marked with the reply arrow can be answered from this computer. Apps that are off are filtered on your phone, before anything leaves it. Sender only shows who, not what.")
+        .label("Apps that are off are filtered on your phone, before anything leaves it. Sender only shows who, not what.")
         .xalign(0.0)
         .wrap(true)
         .margin_top(12)
@@ -457,11 +457,7 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
                     row.add_prefix(&p);
                 }
                 if app.can_reply && mode_index(app) == 0 {
-                    let r = gtk::Image::from_icon_name("mail-reply-sender-symbolic");
-                    r.add_css_class("dim-label");
-                    r.set_tooltip_text(Some("You can reply from this computer"));
-                    r.update_property(&[gtk::accessible::Property::Label("Reply on computer")]);
-                    row.add_suffix(&r);
+                    row.set_subtitle("You can reply from this computer");
                 }
                 let (weak, id) = (Rc::downgrade(&c), app.app_id.clone());
                 row.connect_selected_notify(move |r| {

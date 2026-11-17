@@ -128,7 +128,12 @@ pub struct Swap {
 }
 
 impl Swap {
+    /// `lines`: how many lines the text may take before it's cut short (the slot keeps that height).
     pub fn new(classes: &[&str]) -> Self {
+        Self::with_lines(classes, 1)
+    }
+
+    pub fn with_lines(classes: &[&str], lines: i32) -> Self {
         let widget = gtk::Stack::builder()
             .transition_type(gtk::StackTransitionType::SlideUp)
             .transition_duration(260)
@@ -140,6 +145,9 @@ impl Swap {
             let l = gtk::Label::builder()
                 .xalign(0.0)
                 .ellipsize(gtk::pango::EllipsizeMode::End)
+                .wrap(lines > 1)
+                .wrap_mode(gtk::pango::WrapMode::WordChar)
+                .lines(lines)
                 .build();
             for c in classes {
                 l.add_css_class(c);

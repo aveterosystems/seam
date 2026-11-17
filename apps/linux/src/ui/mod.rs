@@ -98,10 +98,12 @@ pub fn dump(w: &gtk::Widget, depth: usize, out: &mut String) {
         .downcast_ref::<gtk::Label>()
         .map(|l| format!(" {:?}", l.label().chars().take(24).collect::<String>()))
         .unwrap_or_default();
+    let (min, _, _, _) = w.measure(gtk::Orientation::Horizontal, -1);
     out.push_str(&format!(
-        "{}{} {:.0},{:.0} {:.0}x{:.0}{}\n",
+        "{}{} min{} {:.0},{:.0} {:.0}x{:.0}{}\n",
         "  ".repeat(depth),
         w.type_().name(),
+        min,
         x,
         y,
         wd,
