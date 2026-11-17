@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "seam"
+version = "0.1.0"
+description = "Seam for Linux: your Android phone's notifications and clipboard on this computer, privately"
+edition = "2024"
+license = "AGPL-3.0-only"
+rust-version = "1.93.1"
+
+[dependencies]
+seam-computer = { path = "../../core/seam-computer" }
+seam-core = { path = "../../core/seam-core" }
+seam-looks = { path = "../../core/seam-looks" }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_6"] }
+gtk = { package = "gtk4", version = "0.11", features = ["v4_16"] }
+async-channel = "2"
+async-trait = "0.1"
+futures-util = { version = "0.3", default-features = false }
+ashpd = { version = "0.14", default-features = false, features = ["tokio", "background", "clipboard", "remote_desktop", "screencast"] }
+gio = { version = "0.22", features = ["v2_74"] }
+ksni = { version = "0.3", default-features = false, features = ["tokio"] }
+mdns-sd = "0.21"
+oo7 = { version = "0.7", default-features = false, features = ["tokio", "native_crypto"] }
+prost = "0.14"
+qrcode = { version = "0.14", default-features = false }
+rand = "0.9.4"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+strip = true

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Matches the toolchain libsignal pins, so its code builds the way Signal tests it
+[toolchain]
+channel = "1.98.1"
+components = ["clippy", "rustfmt"]

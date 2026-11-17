@@ -1,0 +1,149 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+/* Seam's tokens on libadwaita (docs/design/design-system.md). Controls keep the desktop's accent;
+   these are only for Seam's own pieces. */
+
+:root {
+  --seam-teal: #0B7F6F;
+  --seam-teal-ink: #07604F;
+  --seam-teal-soft: rgb(11 127 111 / 13%);
+  --seam-ok: #1C7C3A;
+  --seam-warn: #9A5200;
+  --seam-paused: #32628D;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --seam-teal: #3DD6BE;
+    --seam-teal-ink: #6FE6D2;
+    --seam-teal-soft: rgb(61 214 190 / 16%);
+    --seam-ok: #4ADE80;
+    --seam-warn: #F5A524;
+    --seam-paused: #5B8FC4;
+  }
+}
+
+/* The phone's disc: teal while connected, grey when not; the colour eases (fade). */
+.phone-disc {
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--window-fg-color) 8%, transparent);
+  color: var(--dim-fg-color, alpha(currentColor, 0.55));
+  transition: background 500ms ease, color 500ms ease;
+}
+.phone-disc.connected {
+  background: var(--seam-teal-soft);
+  color: var(--seam-teal);
+}
+
+/* The sidebar's phone card. */
+.phone-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--window-fg-color) 5%, transparent);
+  transition: background 150ms ease;
+}
+.phone-card:hover {
+  background: color-mix(in srgb, var(--window-fg-color) 8%, transparent);
+}
+.phone-card .name {
+  font-weight: 700;
+}
+
+.status-line {
+  font-size: 0.9em;
+}
+
+/* Numbered steps on the pairing page. */
+.step-number {
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 9999px;
+  background: var(--seam-teal-soft);
+  color: var(--seam-teal-ink);
+  font-weight: 700;
+  font-size: 0.8em;
+}
+
+/* The QR code sits on white in both themes, so every phone camera reads it. */
+.qr-frame {
+  background: white;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 9%), 0 6px 20px rgb(0 0 0 / 8%);
+}
+
+.safety-code {
+  font-family: monospace;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: 3px;
+}
+
+.mono {
+  font-family: monospace;
+  font-feature-settings: "tnum";
+}
+
+.numeric {
+  font-feature-settings: "tnum";
+}
+
+.ok-label {
+  color: var(--seam-ok);
+}
+
+.warn-label {
+  color: var(--seam-warn);
+}
+
+.paused-label {
+  color: var(--seam-paused);
+}
+
+/* A notification's app icon, and a copy's kind. */
+.row-icon {
+  border-radius: 8px;
+  min-width: 32px;
+  min-height: 32px;
+}
+.row-icon.kind {
+  background: color-mix(in srgb, var(--window-fg-color) 7%, transparent);
+  color: alpha(currentColor, 0.7);
+}
+
+/* Actions that show on hover or keyboard focus (catalogue 12). */
+.row-actions {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+row:hover .row-actions,
+row:focus-within .row-actions,
+.row-actions.shown {
+  opacity: 1;
+}
+
+.row-time {
+  transition: opacity 150ms ease;
+}
+row:hover .row-time.hides,
+row:focus-within .row-time.hides {
+  opacity: 0;
+}
+
+.waiting-bar {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--window-fg-color) 5%, transparent);
+}
+
+.list-note {
+  font-size: 0.9em;
+}
+
+.sidebar-count {
+  font-feature-settings: "tnum";
+  font-size: 0.85em;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--window-fg-color) 9%, transparent);
+}
