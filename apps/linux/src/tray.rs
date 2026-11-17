@@ -9,10 +9,11 @@ use std::rc::Rc;
 use ksni::TrayMethods;
 use ksni::menu::{MenuItem, StandardItem};
 
-use crate::app::{Controller, Msg};
+use crate::app::Controller;
 
 pub struct SeamTray {
-    tx: async_channel::Sender<Msg>,
+    /// Asks the app for one of its actions, on the main thread.
+    ask: Box<dyn Fn(&'static str) + Send + Sync>,
     /// "Pixel 9 · Connected", or what's going on.
     status: String,
     /// One tap: Send Clipboard is in the menu while copies need it.
@@ -22,7 +23,7 @@ pub struct SeamTray {
 
 impl SeamTray {
     fn ask(&self, action: &'static str) {
-        let _ = self.tx.send_blocking(Msg::Do(action));
+        (self.ask)(action)
     }
 }
 
@@ -98,7 +99,7 @@ impl ksni::Tray for SeamTray {
 /// What the tray shows for the model: the phone's name and the status line, or pairing.
 pub fn look(c: &Controller) -> (String, bool, bool) {
     let m = c.model();
-    let one_tap = c.pasteboard.reach() == crate::os::clipboard::Reach::OneTap;
+    let one_tap = !m.clipboard_door.automatic();
     match m.phone {
         Some(_) => (
             format!(
@@ -119,13 +120,13 @@ pub fn start(c: &Rc<Controller>) {
     }
     let (status, one_tap, paired) = look(c);
     let tray = SeamTray {
-        tx: c.tx.clone(),
+        ask: Box::new(c.asker()),
         status,
         one_tap,
         paired,
     };
     let (tx, rx) = async_channel::bounded::<ksni::Handle<SeamTray>>(1);
-    c.os.spawn(async move {
+    c.os().spawn(async move {
         // Inside Flatpak the well-known name can't be owned; the item still shows (ksni's advice)
         let sandboxed = std::path::Path::new("/.flatpak-info").exists();
         let spawned = if sandboxed {
@@ -141,7 +142,7 @@ pub fn start(c: &Rc<Controller>) {
     gtk::glib::spawn_future_local(async move {
         let Ok(handle) = rx.recv().await else { return };
         let Some(c) = weak.upgrade() else { return };
-        let os = c.os.handle().clone();
+        let os = c.os().clone();
         let last = std::cell::RefCell::new(None);
         c.watch(move |c| {
             let now = look(c);

@@ -20,7 +20,8 @@ use seam_core::proto::v1::{
 
 use crate::model::{Icons, Model};
 use crate::os::banners::{self, Banner, Banners};
-use crate::os::clipboard::{LinuxPasteboard, OneTap};
+use crate::os::clipboard::{LinuxPasteboard, OneTap, Reading, Sent};
+use crate::os::doors::ClipboardDoor;
 
 /// What reaches the main thread from Seam's own threads, in order.
 pub enum Msg {
@@ -33,10 +34,8 @@ pub enum Msg {
     Woke,
     /// The tray's menu, or another instance, asked for something.
     Do(&'static str),
-    /// An automatic clipboard door opened or closed.
-    ClipboardReach,
-    /// Which door this desktop has, once it's known.
-    ClipboardPlan(crate::os::doors::Plan),
+    /// This computer's side of automatic clipboard changed.
+    ClipboardDoor(ClipboardDoor),
 }
 
 // A copy's text never prints (rule 6)
@@ -50,8 +49,7 @@ impl std::fmt::Debug for Msg {
             Msg::BatteryChanged => f.write_str("BatteryChanged"),
             Msg::Woke => f.write_str("Woke"),
             Msg::Do(a) => f.debug_tuple("Do").field(a).finish(),
-            Msg::ClipboardReach => f.write_str("ClipboardReach"),
-            Msg::ClipboardPlan(p) => f.debug_tuple("ClipboardPlan").field(p).finish(),
+            Msg::ClipboardDoor(d) => f.debug_tuple("ClipboardDoor").field(d).finish(),
         }
     }
 }
@@ -72,21 +70,16 @@ pub struct Controller {
     resetting: Cell<bool>,
     watchers: RefCell<Vec<(u64, Watcher)>>,
     next_watch: Cell<u64>,
-    one_tap: Arc<OneTap>,
-    pub pasteboard: Arc<LinuxPasteboard>,
+    pasteboard: Arc<LinuxPasteboard>,
     /// Banners now showing, so the phone's unpair can take them all back.
     banners: RefCell<std::collections::HashSet<String>>,
     /// Seam's own threads for the desktop's services (D-Bus, portals, the tray).
-    pub os: tokio::runtime::Runtime,
-    pub tx: async_channel::Sender<Msg>,
+    os: tokio::runtime::Runtime,
+    tx: async_channel::Sender<Msg>,
     /// Debug: made-up state for looking at every screen without a phone. Nothing starts.
     demo: Cell<bool>,
     /// Shows a toast in the window (GNOME's way to confirm an action).
     toaster: RefCell<Option<Toaster>>,
-    /// This desktop's way to an automatic clipboard (decision 0012).
-    plan: Cell<crate::os::doors::Plan>,
-    /// The phone's adb setup is running: one at a time (SR-4-11).
-    pub adb_running: Cell<bool>,
 }
 
 impl Controller {
@@ -111,15 +104,12 @@ impl Controller {
             resetting: Cell::new(false),
             watchers: RefCell::default(),
             next_watch: Cell::new(0),
-            pasteboard: Arc::new(LinuxPasteboard::new(one_tap.clone())),
-            one_tap,
+            pasteboard: Arc::new(LinuxPasteboard::new(one_tap)),
             banners: RefCell::default(),
             os,
             tx,
             demo: Cell::new(false),
             toaster: RefCell::default(),
-            plan: Cell::new(crate::os::doors::Plan::OneTap),
-            adb_running: Cell::new(false),
         });
         let weak = Rc::downgrade(&c);
         glib::spawn_future_local(async move {
@@ -138,10 +128,6 @@ impl Controller {
             self.demo.set(true);
             let m = crate::demo::model(std::env::var("SEAM_DEMO").unwrap_or_default().as_str());
             *self.icons.borrow_mut() = crate::demo::icons();
-            // This desktop's clipboard route, as the real app would find it
-            self.plan.set(crate::os::doors::plan(
-                &std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
-            ));
             *self.model.borrow_mut() = m;
             self.notify();
             return;
@@ -156,7 +142,12 @@ impl Controller {
         let os = Os {
             keys: Arc::new(crate::os::keys::Keyring::new()),
             pasteboard: self.pasteboard.clone(),
-            notifications: Arc::new(Banners::new(self.tx.clone())),
+            notifications: Arc::new(Banners::new({
+                let tx = self.tx.clone();
+                move |b| {
+                    let _ = tx.send_blocking(Msg::Banner(b));
+                }
+            })),
             battery: Arc::new(crate::os::battery::LinuxBattery::new()),
             same_wifi: Arc::new(crate::os::same_wifi::LinuxSameWifi::new()),
             listener: Arc::new(ToMain(self.tx.clone())),
@@ -177,7 +168,10 @@ impl Controller {
         self.os.spawn(crate::os::system::watch_wake(move || {
             let _ = tx.send_blocking(Msg::Woke);
         }));
-        crate::os::doors::start(self);
+        let tx = self.tx.clone();
+        crate::os::doors::start(self.os.handle(), self.pasteboard.clone(), move |d| {
+            let _ = tx.send_blocking(Msg::ClipboardDoor(d));
+        });
     }
 
     /// Calls `f` now and after every change.
@@ -202,8 +196,17 @@ impl Controller {
         gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes)).ok()
     }
 
-    pub fn clipboard_plan(&self) -> crate::os::doors::Plan {
-        self.plan.get()
+    /// Seam's own threads, for the desktop's services (D-Bus, portals, the tray).
+    pub fn os(&self) -> &tokio::runtime::Handle {
+        self.os.handle()
+    }
+
+    /// Asks for an app action from any thread (the tray's menu, another instance).
+    pub fn asker(&self) -> impl Fn(&'static str) + Send + Sync + 'static {
+        let tx = self.tx.clone();
+        move |action| {
+            let _ = tx.send_blocking(Msg::Do(action));
+        }
     }
 
     pub fn is_demo(&self) -> bool {
@@ -256,9 +259,8 @@ impl Controller {
                 }
             }
             Msg::Do(action) => self.app.activate_action(action, None),
-            Msg::ClipboardReach => self.notify(),
-            Msg::ClipboardPlan(p) => {
-                self.plan.set(p);
+            Msg::ClipboardDoor(d) => {
+                self.model.borrow_mut().clipboard_door = d;
                 self.notify();
             }
         }
@@ -294,9 +296,7 @@ impl Controller {
     fn heard(&self, e: &Event) {
         match e {
             Event::Problem(p) => eprintln!("seam: {p:?}"), // a code, never contents
-            Event::ClipFromPhone
-                if self.pasteboard.reach() == crate::os::clipboard::Reach::OneTap =>
-            {
+            Event::ClipFromPhone if !self.model.borrow().clipboard_door.automatic() => {
                 // Wayland won't let Seam write the clipboard from the background: one tap does
                 let n = gio::Notification::new("Copied from your phone");
                 n.set_body(Some("Click Copy to put it on this computer's clipboard."));
@@ -349,74 +349,61 @@ impl Controller {
         }
     }
 
-    fn computer(&self) -> std::cell::Ref<'_, Option<Computer>> {
-        self.computer.borrow()
+    /// Hands a command to Seam, once it's running (never in demo mode).
+    fn with(&self, f: impl FnOnce(&Computer)) {
+        if let Some(c) = self.computer.borrow().as_ref() {
+            f(c)
+        }
     }
 
     pub fn feature(&self, command: Command) {
-        if let Some(c) = self.computer().as_ref() {
-            c.feature(command)
-        }
+        self.with(|c| c.feature(command))
     }
 
     pub fn set_wifi(&self, on: bool) {
-        if let Some(c) = self.computer().as_ref() {
-            c.set_wifi(on)
-        }
+        self.with(|c| c.set_wifi(on))
     }
 
     pub fn set_tor(&self, on: bool) {
-        if let Some(c) = self.computer().as_ref() {
-            c.set_tor(on)
-        }
+        self.with(|c| c.set_tor(on))
     }
 
     pub fn reconnect(&self) {
-        if let Some(c) = self.computer().as_ref() {
-            c.reconnect()
-        }
+        self.with(Computer::reconnect)
     }
 
     pub fn unpair(&self) {
-        if let Some(c) = self.computer().as_ref() {
-            c.unpair()
-        }
+        self.with(Computer::unpair)
     }
 
     pub fn start_pairing(&self) {
-        if let Some(c) = self.computer().as_ref() {
-            c.start_pairing(crate::os::system::computer_name())
-        }
+        self.with(|c| c.start_pairing(crate::os::system::computer_name()))
     }
 
     pub fn confirm_pairing(&self) {
-        if let Some(c) = self.computer().as_ref() {
-            c.confirm_pairing()
-        }
+        self.with(Computer::confirm_pairing)
     }
 
     pub fn cancel_pairing(&self) {
-        if let Some(c) = self.computer().as_ref() {
-            c.cancel_pairing()
-        }
+        self.with(Computer::cancel_pairing)
     }
 
     /// Only after the user agreed: a new identity, the old files kept aside.
     pub fn reset(&self) {
         self.resetting.set(true);
-        if let Some(c) = self.computer().as_ref() {
-            c.reset()
-        }
+        self.with(Computer::reset)
+    }
+
+    /// Changes the screens at once, before Seam's next snapshot says the same.
+    fn edit(&self, f: impl FnOnce(&mut Model)) {
+        f(&mut self.model.borrow_mut());
+        self.notify();
     }
 
     pub fn set_clipboard_sync(&self, on: bool) {
         if !on {
-            // Off the screen at once (SR-10-04)
-            let mut m = self.model.borrow_mut();
-            m.clipboard_sync = false;
-            m.clips.clear();
+            self.edit(Model::sync_off);
         }
-        self.notify();
         self.feature(Command::Clipboard(clipboard::Command::SetSync(on)));
     }
 
@@ -425,45 +412,45 @@ impl Controller {
     }
 
     pub fn clear_clips(&self) {
-        self.model.borrow_mut().clips.clear();
-        self.notify();
+        self.edit(Model::clear_clips);
         self.feature(Command::Clipboard(clipboard::Command::ClearClips));
     }
 
-    /// Send clipboard: what's on the clipboard now, read while Seam has focus, offered to the core,
-    /// whose rules decide (a password or a file never goes).
-    pub fn send_clipboard(self: &Rc<Self>, done: impl Fn(bool) + 'static) {
+    /// Send Clipboard: what's on the clipboard now, read while Seam has focus and offered to the
+    /// core, whose rules decide (a password or a file never goes). A toast says how it went.
+    pub fn send_clipboard(self: &Rc<Self>) {
         let Some(display) = gdk::Display::default() else {
-            return done(false);
+            return;
         };
         let clip = display.clipboard();
-        let formats = |c: &gdk::Clipboard| -> Vec<String> {
+        let types = |c: &gdk::Clipboard| -> Vec<String> {
             c.formats()
                 .mime_types()
                 .iter()
                 .map(|t| t.to_string())
                 .collect()
         };
-        let types = formats(&clip);
-        let (one_tap, again) = (self.one_tap.clone(), clip.clone());
-        // Any change to the clipboard while the text is read (even one changed back) is heard
+        let types_before = types(&clip);
         let changed = Rc::new(Cell::new(false));
         let flag = changed.clone();
         let watch = clip.connect_changed(move |_| flag.set(true));
+        let (weak, again) = (Rc::downgrade(self), clip.clone());
         clip.read_text_async(None::<&gio::Cancellable>, move |r| {
             again.disconnect(watch);
-            let text = r.ok().flatten().map(|t| t.to_string());
-            // The text and its types must be the same copy: a password copied meanwhile can't go
-            // out under the earlier copy's types (SR-4-05); anything doubtful sends nothing
-            match crate::os::clipboard::same_copy(types, formats(&again), changed.get(), text) {
-                Some((types, text)) => {
-                    let ok = text.as_ref().is_some_and(|t| !t.is_empty())
-                        && seam_computer::features::clipboard::sendable(&types);
-                    one_tap.offer(types, text);
-                    done(ok);
-                }
-                None => done(false),
-            }
+            let Some(c) = weak.upgrade() else { return };
+            let read = Reading {
+                types_before,
+                text: r.ok().flatten().map(|t| t.to_string()),
+                types_after: types(&again),
+                changed: changed.get(),
+            };
+            // A password or a copied file never goes, and it says so without saying what
+            let name = c.model().phone_name(false);
+            c.toast(&match c.pasteboard.send_now(read) {
+                Sent::Offered => format!("Sent to {name}"),
+                Sent::Automatic => format!("Copies now go to {name} by themselves: copy it again"),
+                Sent::Nothing => "Nothing to send: copy some text first".into(),
+            });
         });
     }
 
@@ -492,8 +479,7 @@ impl Controller {
 
     /// The window's dismiss: the banner goes too.
     pub fn dismiss(&self, key: &str) {
-        self.model.borrow_mut().shown.retain(|n| n.key != key);
-        self.notify();
+        self.edit(|m| m.dismiss(key));
         self.feature(Command::Notifications(notifications::Command::Dismiss(
             key.to_string(),
         )));

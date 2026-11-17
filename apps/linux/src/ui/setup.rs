@@ -1,67 +1,33 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Setting up automatic clipboard: this computer's side (the GNOME extension, or the portal's
-//! one-time question on KDE), and the phone's side (the one-time adb grant, as on the Mac).
+//! Setting up automatic clipboard: this computer's side (the GNOME extension, or Klipper on KDE),
+//! and the phone's side (the one-time adb grant, as on the Mac).
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use adw::prelude::*;
 
 use crate::app::Controller;
-use crate::os::doors::Setup;
+use crate::os::doors::{self, ClipboardDoor};
 
-const EXTENSION_UUID: &str = "seam-clipboard@avetero.com";
 const EXTENSION_PAGE: &str =
     "https://github.com/aveterosystems/seam/tree/main/apps/linux/gnome-extension";
 
-/// Whether GNOME has Seam's extension installed (and so only needs turning on).
-async fn extension_installed() -> bool {
-    let Ok(conn) = zbus::Connection::session().await else {
-        return false;
-    };
-    let reply = conn
-        .call_method(
-            Some("org.gnome.Shell.Extensions"),
-            "/org/gnome/Shell/Extensions",
-            Some("org.gnome.Shell.Extensions"),
-            "GetExtensionInfo",
-            &(EXTENSION_UUID,),
-        )
-        .await;
-    reply
-        .ok()
-        .and_then(|m| {
-            m.body()
-                .deserialize::<std::collections::HashMap<String, zbus::zvariant::OwnedValue>>()
-                .ok()
-        })
-        .is_some_and(|info| !info.is_empty())
-}
-
-async fn enable_extension() -> bool {
-    let Ok(conn) = zbus::Connection::session().await else {
-        return false;
-    };
-    conn.call_method(
-        Some("org.gnome.Shell.Extensions"),
-        "/org/gnome/Shell/Extensions",
-        Some("org.gnome.Shell.Extensions"),
-        "EnableExtension",
-        &(EXTENSION_UUID,),
-    )
-    .await
-    .ok()
-    .and_then(|m| m.body().deserialize::<bool>().ok())
-    .unwrap_or(false)
+thread_local! {
+    /// The phone's adb setup is running: one at a time (SR-4-11).
+    static ADB_RUNNING: Cell<bool> = const { Cell::new(false) };
 }
 
 /// This computer to the phone, without clicking Send.
 pub fn computer(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
     let parent = parent.clone().upcast::<gtk::Widget>();
-    match crate::os::doors::setup(c.clipboard_plan()) {
-        Setup::Extension => {
+    let door = c.model().clipboard_door;
+    match door {
+        ClipboardDoor::Open => {}
+        ClipboardDoor::ExtensionOff => {
             let (tx, rx) = async_channel::bounded(1);
-            c.os.spawn(async move {
-                let _ = tx.send(extension_installed().await).await;
+            c.os().spawn(async move {
+                let _ = tx.send(doors::extension_installed().await).await;
             });
             let c = c.clone();
             gtk::glib::spawn_future_local(async move {
@@ -90,8 +56,8 @@ pub fn computer(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
                 d.connect_response(Some("go"), move |d, _| {
                     let Some(c) = weak.upgrade() else { return };
                     if installed {
-                        c.os.spawn(async move {
-                            let _ = enable_extension().await; // the door opens when it's on the bus
+                        c.os().spawn(async move {
+                            let _ = doors::enable_extension().await; // the door opens when it's on the bus
                         });
                     } else {
                         gtk::UriLauncher::new(EXTENSION_PAGE).launch(
@@ -104,7 +70,17 @@ pub fn computer(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
                 d.present(Some(&parent));
             });
         }
-        Setup::Klipper => {
+        ClipboardDoor::ExtensionRefused => {
+            let d = adw::AlertDialog::new(
+                Some("Automatic Clipboard Needs Seam From Flathub"),
+                Some(
+                    "The Seam Clipboard extension works only with Seam installed from Flathub, so no other app can use it. For a development build, create the file ~/.config/seam/allow-development-build, then quit and reopen Seam.\n\nUntil then, click Send Clipboard.",
+                ),
+            );
+            d.add_response("ok", "OK");
+            d.present(Some(&parent));
+        }
+        ClipboardDoor::KlipperOff => {
             let d = adw::AlertDialog::new(
                 Some("Turn On the Clipboard in Plasma"),
                 Some(
@@ -114,7 +90,7 @@ pub fn computer(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
             d.add_response("ok", "OK");
             d.present(Some(&parent));
         }
-        Setup::Unavailable => {
+        ClipboardDoor::Unavailable => {
             let d = adw::AlertDialog::new(
                 Some("Automatic Clipboard Isn't Available"),
                 Some(
@@ -155,7 +131,7 @@ pub fn phone(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
     d.connect_response(Some("go"), move |_, _| {
         let parent = anchor.clone();
         let Some(c) = weak.upgrade() else { return };
-        if c.adb_running.replace(true) {
+        if ADB_RUNNING.replace(true) {
             return c.toast("Setup is already running"); // one run at a time (SR-4-11)
         }
         let (tx, rx) = async_channel::bounded(1);
@@ -164,12 +140,11 @@ pub fn phone(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
             let out = crate::os::adb::grant(|args| crate::os::adb::run(&adb, args));
             let _ = tx.send_blocking(out);
         });
-        let (parent, weak) = (parent.clone(), Rc::downgrade(&c));
+        let parent = parent.clone();
         gtk::glib::spawn_future_local(async move {
-            let Ok(out) = rx.recv().await else { return };
-            if let Some(c) = weak.upgrade() {
-                c.adb_running.set(false);
-            }
+            let out = rx.recv().await;
+            ADB_RUNNING.set(false);
+            let Ok(out) = out else { return };
             let d = adw::AlertDialog::new(Some(&out.title), Some(&out.detail));
             d.add_response("ok", "OK");
             d.present(Some(&parent));

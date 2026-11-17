@@ -18,6 +18,8 @@ use seam_looks::link::{self, LinkInput, Pause, Tor};
 use seam_looks::notifications::{TileLook, TileMode};
 use seam_looks::{DeviceStatusLook, Icon, LinkLook, Names, Side, TimeWords};
 
+use crate::os::doors::ClipboardDoor;
+
 /// How this computer names itself and the phone.
 pub fn names() -> Names {
     Names::new(Side::Computer, "this computer", "your phone")
@@ -52,6 +54,8 @@ pub struct Model {
     pub reconnecting: Option<Reconnect>,
     pub clipboard_sync: bool,
     pub clips: Vec<Clip>,
+    /// This computer's side of automatic clipboard (os/doors.rs is its only author).
+    pub clipboard_door: ClipboardDoor,
     pub shown: Vec<Notification>,
     pub settings: Option<NotificationSettings>,
     pub icons_version: u64,
@@ -80,6 +84,7 @@ impl Default for Model {
             reconnecting: None,
             clipboard_sync: true,
             clips: Vec::new(),
+            clipboard_door: ClipboardDoor::default(),
             shown: Vec::new(),
             settings: None,
             icons_version: 0,
@@ -147,6 +152,40 @@ impl Model {
             }
         }
         m
+    }
+
+    /// Clipboard sync off: the clips leave the screen at once (SR-10-04).
+    pub fn sync_off(&mut self) {
+        self.clipboard_sync = false;
+        self.clips.clear();
+    }
+
+    pub fn clear_clips(&mut self) {
+        self.clips.clear();
+    }
+
+    /// The window's dismiss, before the phone confirms it.
+    pub fn dismiss(&mut self, key: &str) {
+        self.shown.retain(|n| n.key != key);
+    }
+
+    /// What Preferences says about this computer's side of automatic clipboard.
+    pub fn automatic_clipboard_line(&self) -> String {
+        match self.clipboard_door {
+            ClipboardDoor::Open => {
+                format!("What you copy goes to {} by itself", self.phone_name(false))
+            }
+            ClipboardDoor::ExtensionRefused => {
+                "The extension works only with Seam from Flathub, so copies go with Send Clipboard"
+                    .into()
+            }
+            ClipboardDoor::ExtensionOff | ClipboardDoor::KlipperOff => {
+                "Until it's set up, copies go with Send Clipboard".into()
+            }
+            ClipboardDoor::Unavailable => {
+                "This desktop doesn't allow it, so copies go with Send Clipboard".into()
+            }
+        }
     }
 
     pub fn needs_reset(&self) -> bool {

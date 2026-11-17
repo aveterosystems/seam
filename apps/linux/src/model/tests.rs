@@ -401,3 +401,74 @@ fn a_page_says_paused_or_away_never_both() {
     let connected = Model::default().apply(&snapshot(Health::Ready, Some(session()), None), false);
     assert!(connected.page_status(0, Page::Notifications).is_none());
 }
+
+/// What the user does shows at once, before Seam's next snapshot says the same.
+#[test]
+fn edits_show_at_once() {
+    let mut m = Model::default().apply(
+        &snapshot(
+            Health::Ready,
+            Some(session()),
+            Some(views(vec![note("a"), note("b")], None)),
+        ),
+        false,
+    );
+    m.clips = vec![seam_computer::features::clipboard::Clip {
+        text: "x".into(),
+        at: 0,
+        from_phone: true,
+    }];
+    m.dismiss("a");
+    assert_eq!(
+        m.shown.iter().map(|n| n.key.as_str()).collect::<Vec<_>>(),
+        ["b"]
+    );
+    let mut cleared = m.clone();
+    cleared.clear_clips();
+    assert!(cleared.clips.is_empty() && cleared.clipboard_sync);
+    m.sync_off();
+    assert!(
+        m.clips.is_empty() && !m.clipboard_sync,
+        "off the screen at once (SR-10-04)"
+    );
+}
+
+/// The clipboard door comes from this computer, not the core: a snapshot never changes it, and
+/// every state has its own words.
+#[test]
+fn the_clipboard_door_outlives_snapshots_and_says_what_it_is() {
+    let mut m = Model {
+        clipboard_door: ClipboardDoor::Open,
+        ..Model::default()
+    };
+    m = m.apply(
+        &snapshot(Health::Ready, Some(session()), Some(views(vec![], None))),
+        false,
+    );
+    assert_eq!(m.clipboard_door, ClipboardDoor::Open);
+    assert_eq!(
+        m.automatic_clipboard_line(),
+        "What you copy goes to Pixel 9 by itself"
+    );
+    let lines: Vec<String> = [
+        ClipboardDoor::ExtensionOff,
+        ClipboardDoor::ExtensionRefused,
+        ClipboardDoor::KlipperOff,
+        ClipboardDoor::Unavailable,
+    ]
+    .into_iter()
+    .map(|d| {
+        Model {
+            clipboard_door: d,
+            ..m.clone()
+        }
+        .automatic_clipboard_line()
+    })
+    .collect();
+    assert!(
+        lines
+            .iter()
+            .all(|l| l.ends_with("copies go with Send Clipboard"))
+    );
+    assert!(lines[1].contains("Flathub"));
+}

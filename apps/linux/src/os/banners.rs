@@ -10,8 +10,6 @@ use async_trait::async_trait;
 use seam_computer::features::notifications::NotificationCentre;
 use seam_core::proto::v1::Notification;
 
-use crate::app::Msg;
-
 /// What the core asks of the banners, carried to the main thread.
 #[derive(Clone)]
 pub enum Banner {
@@ -31,31 +29,29 @@ impl std::fmt::Debug for Banner {
     }
 }
 
+/// The core's notification centre: each request goes to `ask`, which hands it to the main thread.
 pub struct Banners {
-    tx: async_channel::Sender<Msg>,
+    ask: Box<dyn Fn(Banner) + Send + Sync>,
 }
 
 impl Banners {
-    pub fn new(tx: async_channel::Sender<Msg>) -> Self {
-        Self { tx }
+    pub fn new(ask: impl Fn(Banner) + Send + Sync + 'static) -> Self {
+        Self { ask: Box::new(ask) }
     }
 }
 
 #[async_trait]
 impl NotificationCentre for Banners {
     async fn show(&self, notification: Notification, icon: Option<Vec<u8>>) {
-        let _ = self
-            .tx
-            .send(Msg::Banner(Banner::Show(Box::new(notification), icon)))
-            .await;
+        (self.ask)(Banner::Show(Box::new(notification), icon));
     }
 
     async fn dismiss(&self, key: String) {
-        let _ = self.tx.send(Msg::Banner(Banner::Dismiss(key))).await;
+        (self.ask)(Banner::Dismiss(key));
     }
 
     async fn remove_all(&self) {
-        let _ = self.tx.send(Msg::Banner(Banner::RemoveAll)).await;
+        (self.ask)(Banner::RemoveAll);
     }
 }
 
