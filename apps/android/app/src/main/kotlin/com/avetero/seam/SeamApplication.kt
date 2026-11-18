@@ -46,7 +46,8 @@ class SeamApplication : Application() {
         SystemTime.is24Hour = { android.text.format.DateFormat.is24HourFormat(this) }
         val name = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
         val dir = File(filesDir, "seam")
-        tor = TorLan(Tor(dir.path))
+        // Only times Tor's start retries: TorLan's own state is guarded by its lock
+        tor = TorLan(Tor(dir.path), CoroutineScope(SupervisorJob() + Dispatchers.Default))
         session = Session(
             store = KeystoreStateStore(dir),
             tor = tor,

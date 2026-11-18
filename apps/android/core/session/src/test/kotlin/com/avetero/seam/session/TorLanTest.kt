@@ -34,7 +34,9 @@ class TorLanTest {
         val dormant = mutableListOf<Boolean>()
         val dials = mutableListOf<Pair<String, ByteArray>>()
         var pending: TorConnectListener? = null
-        override fun start(listener: TorStateListener) { starts++; state = listener }
+        /** Runs inside `start`, as Arti's own task may report before `start` returns. */
+        var whileStarting: ((TorStateListener) -> Unit)? = null
+        override fun start(listener: TorStateListener) { starts++; state = listener; whileStarting?.invoke(listener) }
         override fun setDormant(dormant: Boolean) { this.dormant += dormant }
         override fun connect(onionAddress: String, discoverySecret: ByteArray, listener: TorConnectListener) {
             dials += onionAddress to discoverySecret
@@ -46,7 +48,9 @@ class TorLanTest {
 
     private val onion = "b".repeat(56) + ".onion"
     private val arti = FakeArti()
-    private val tor = TorLan(arti).apply { target = TorTarget(onion, ByteArray(32) { 4 }) }
+    /** Times the start retries: moved on by hand. */
+    private val clock = kotlinx.coroutines.test.TestScope()
+    private val tor = TorLan(arti, clock).apply { target = TorTarget(onion, ByteArray(32) { 4 }) }
     private val found = mutableListOf<LanAddress>()
     private val frames = mutableListOf<ByteArray>()
     private val closes = mutableListOf<String>()
@@ -83,6 +87,55 @@ class TorLanTest {
         tor.stopDiscovery()
         lookForTheMac()
         assertEquals(2, arti.starts)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun aFailedStartGoesAgainOnlyWhileTheMacIsStillLookedFor() {
+        lookForTheMac()
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED))
+        clock.testScheduler.advanceTimeBy(TorLan.START_RETRY_MS + 1)
+        assertEquals("still looking: started again", 2, arti.starts)
+        arti.state!!.onState(TorState.Failed)
+        tor.stopDiscovery() // nothing wants the Mac now (rule 8: Tor stays off)
+        clock.testScheduler.advanceTimeBy(10 * TorLan.START_RETRY_MS)
+        assertEquals("not looking: not started again", 2, arti.starts)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun aRetryThatFailsBeforeItsStartReturnsIsTriedAgain() {
+        lookForTheMac()
+        arti.whileStarting = { it.onState(TorState.Blocked(TorBlock.FILTERED)) } // every later start fails at once
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED))
+        clock.testScheduler.advanceTimeBy(TorLan.START_RETRY_MS + 1)
+        assertEquals("the first retry", 2, arti.starts)
+        clock.testScheduler.advanceTimeBy(TorLan.START_RETRY_MS)
+        assertEquals("its failure, reported mid-start, still earns the next one", 3, arti.starts)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun discoveryStoppedAsARetryStartsLeavesTorAsleepAndAnnouncesNothing() {
+        lookForTheMac()
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED))
+        arti.whileStarting = { tor.stopDiscovery() } // the race: nothing wants the Mac just as the retry fires
+        clock.testScheduler.advanceTimeBy(TorLan.START_RETRY_MS + 1)
+        arti.whileStarting = null
+        arti.state!!.onState(TorState.Ready)
+        assertTrue("nothing announced to a look that ended", found.isEmpty())
+        assertEquals("Tor asleep once ready", true, arti.dormant.last())
+        tor.discover({ found += it }, {}) // a new look still works
+        assertEquals(1, found.size)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun aNewLookWhoseStartFailsGetsItsOwnRetry() {
+        lookForTheMac()
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED)) // a retry is now due for this look
+        tor.stopDiscovery()
+        lookForTheMac() // a new look, before that retry fires: it starts Tor itself
+        assertEquals(2, arti.starts)
+        arti.state!!.onState(TorState.Blocked(TorBlock.FILTERED))
+        clock.testScheduler.advanceTimeBy(TorLan.START_RETRY_MS + 1)
+        assertEquals("the new look's own retry", 3, arti.starts)
     }
 
     @Test fun dormantWheneverNoStreamIsOpenAndNothingIsLooking() {

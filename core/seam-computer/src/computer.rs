@@ -119,6 +119,28 @@ impl Computer {
         os: Os,
         tor: Arc<dyn TorRunner>,
     ) -> Self {
+        Self::start_clocked(handle, settings, os, tor, crate::clock::Clock::System)
+    }
+
+    /// As [`Computer::start_on`], with timers on tokio's paused clock, so a test can let minutes
+    /// pass at once.
+    #[cfg(test)]
+    pub(crate) fn start_on_paused(
+        handle: &tokio::runtime::Handle,
+        settings: Settings,
+        os: Os,
+        tor: Arc<dyn TorRunner>,
+    ) -> Self {
+        Self::start_clocked(handle, settings, os, tor, crate::clock::Clock::test(0))
+    }
+
+    fn start_clocked(
+        handle: &tokio::runtime::Handle,
+        settings: Settings,
+        os: Os,
+        tor: Arc<dyn TorRunner>,
+        clock: crate::clock::Clock,
+    ) -> Self {
         let header = format!("Seam {} on {}", settings.app_version, settings.platform);
         let (tx, rx) = mpsc::unbounded_channel();
         let sync_on = Arc::new(AtomicBool::new(true));
@@ -130,6 +152,7 @@ impl Computer {
             tx.clone(),
             sync_on.clone(),
             shared.clone(),
+            clock,
         );
         handle.spawn(actor.run(rx));
         Self {

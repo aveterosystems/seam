@@ -362,7 +362,8 @@ class Session(
         pairingDeadline?.cancel()
         pairingDeadline = scope.launch {
             delay(PAIRING_MS) // a fresh onion address can take minutes to publish; longer is a Mac that isn't there
-            if (pairing.qr === qr && pairingVia == null) fail(MAC_NOT_FOUND)
+            // This phone's own Tor never came up: say so, rather than blame the computer (#92)
+            if (pairing.qr === qr && pairingVia == null) fail(if (switches.tor && tor?.ready == false) PHONE_TOR_DOWN else MAC_NOT_FOUND)
         }
         openLinks() // this phone's own switches decide which carriers try
     }
@@ -805,6 +806,7 @@ class Session(
         const val FORGET_FAILED = "Couldn't finish forgetting your computer: Seam couldn't save on this phone. Free up some space, reopen Seam and try again."
         const val UNAVAILABLE = "Seam couldn't open its secure storage just now. Close Seam and open it again: your pairing is kept."
         const val MAC_NOT_FOUND = "Couldn't reach your computer. Keep its pairing code open, check both are online, and scan again."
+        const val PHONE_TOR_DOWN = "Tor didn't start on this phone, so it couldn't reach your computer. Check this phone is online, then scan again."
         const val PAIR_AGAIN = "Seam now connects through Tor instead of its relay. Update Seam on your computer, then pair again."
         /** After acking the PairAccept: time for the ack to get through before we close ourselves. */
         const val PAIRED_GRACE_MS = 3_000L
