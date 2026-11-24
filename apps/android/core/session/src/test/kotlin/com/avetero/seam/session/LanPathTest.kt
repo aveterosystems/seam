@@ -72,9 +72,50 @@ class LanPathTest {
         assertEquals(1, events.downs)
         assertEquals("never proved itself: cut at once", 1, lan.aborted)
         assertTrue(!path.up && events.ups == 0)
-        advanceTimeBy(30_001) // the short retry: it may be our own Mac, busy
+        advanceTimeBy(1_201) // the short retry: it may be our own Mac, busy (1 s, up to 20% jitter)
         runCurrent()
         assertEquals(2, lan.opened)
+        path.stop()
+    }
+
+    /** Same Wi‑Fi: our Mac's address, every connection failing at once as when the Mac is off the network. */
+    private class UnreachableLan : Lan {
+        var opened = 0
+        override fun discover(found: (LanAddress) -> Unit, lost: (LanAddress) -> Unit) = found(LanAddress("192.168.1.20", 50001))
+        override fun stopDiscovery() = Unit
+        override fun connect(address: LanAddress, listener: LinkListener): Link {
+            opened++
+            listener.onClosed("unreachable")
+            return object : Link {
+                override fun send(frame: ByteArray) = true
+                override fun close() = Unit
+                override fun abort() = Unit
+            }
+        }
+    }
+
+    @Test fun onSameWifiAnUnreachableMacIsTriedAgainWithinSecondsThenBacksOffToHalfAMinute() = runTest {
+        val mac = SeamDevice.generate()
+        val phone = SeamDevice.generate()
+        val start = phone.pairWith(mac.identityKey(), mac.relayKey(), "Mac", mac.prekeyBundles(1u).first(), mac.startPairing().token, "Phone", "X")
+        val request = mac.acceptPairing(start.envelope)
+        mac.confirmPairing(request.peerId)
+        val accept = Payload.newBuilder().setControl(Control.newBuilder().setPairAccept(PairAccept.getDefaultInstance())).build()
+        phone.open(mac.seal(request.peerId, accept.toByteArray(), 0u))
+        val lan = UnreachableLan()
+        val path = LanPath(lan, phone, this, { testScheduler.currentTime }, null, peer = { start.peerId }, wanted = { true }, events = Events())
+        path.start()
+        runCurrent()
+        assertEquals(1, lan.opened)
+        advanceTimeBy(1_201) // a Mac back on the network is found in seconds, not half a minute
+        runCurrent()
+        assertEquals(2, lan.opened)
+        advanceTimeBy(2_401)
+        runCurrent()
+        assertEquals(3, lan.opened)
+        advanceTimeBy(10 * 60_000) // then no faster than every half minute: 4, 8, 16 s, then 30 s each
+        runCurrent()
+        assertTrue("tried ${lan.opened} times", lan.opened in 20..25)
         path.stop()
     }
 

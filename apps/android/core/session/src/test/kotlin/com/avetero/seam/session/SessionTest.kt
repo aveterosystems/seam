@@ -1042,6 +1042,51 @@ class SessionTest {
         assertEquals(5, lan.macReceived.single().status.batteryPct)
     }
 
+    @Test fun turningTorOffTriesSameWifiAtOnceRatherThanAfterItsWait() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = bothUp(lan)
+        lan.adverts = listOf(home)
+        lan.dropNext = 1_000 // the Wi‑Fi link drops and keeps dropping: Same Wi‑Fi waits longer each time
+        lan.drop()
+        advanceTimeBy(20_000)
+        runCurrent()
+        val tries = lan.opened
+        s.setSwitches(wifi = true, tor = false)
+        runCurrent() // no time passes
+        assertTrue("Same Wi‑Fi tried again at once", lan.opened > tries)
+    }
+
+    @Test fun aFloodOfAdvertsFromWhereTheMacWasCantSpinConnections() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        bothUp(lan)
+        lan.adverts = listOf(home)
+        lan.dropNext = 1_000 // our Mac's address now fails at once
+        lan.drop()
+        advanceTimeBy(5_000)
+        runCurrent()
+        val tries = lan.opened
+        repeat(20) {
+            lan.announce(home)
+            runCurrent()
+        }
+        assertTrue("tried ${lan.opened - tries} more times", lan.opened - tries <= 1)
+    }
+
+    @Test fun aSoonerRefusalBringsForwardALongerWait() = runTest {
+        val lan = FakeLan(mapOf(neighbour to strangerMac(), home to mac))
+        pairedWithLan(lan)
+        lan.adverts = listOf(home)
+        lan.announce(neighbour) // someone else's Mac: skipped long, and a half-minute wait to look again
+        runCurrent()
+        lan.dropNext = 1
+        lan.announce(home) // ours, unreachable for a moment
+        runCurrent()
+        val tries = lan.opened
+        advanceTimeBy(1_500)
+        runCurrent()
+        assertTrue("ours tried again within seconds, not after the half minute", lan.opened > tries)
+    }
+
     @Test fun theLastSwitchCantBeTurnedOff() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
         s.setSwitches(wifi = false, tor = true)

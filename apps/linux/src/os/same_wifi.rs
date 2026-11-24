@@ -4,67 +4,119 @@
 //! a container network, loopback) is refused, as on the Mac.
 
 use std::net::IpAddr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 use seam_computer::computer::SameWifi;
 
-/// Fixed, so the announced name doesn't say whose computer it is (the Mac's are the same).
-const NAME: &str = "Seam";
 const TYPE: &str = "_seam._tcp.local.";
 
 pub struct LinuxSameWifi {
-    daemon: Mutex<Option<(ServiceDaemon, String)>>,
+    state: Arc<Mutex<State>>,
 }
+
+#[derive(Default)]
+struct State {
+    /// Set while Seam wants to be found: the listener's port.
+    port: Option<u16>,
+    live: Option<Live>,
+}
+
+struct Live {
+    daemon: ServiceDaemon,
+    full: String,
+    addrs: Vec<IpAddr>,
+}
+
+/// How often the addresses are looked at again: a computer back on its Wi‑Fi, or given a new
+/// address, is announced within this, so the phone finds it in seconds.
+const RECHECK: Duration = Duration::from_secs(3);
 
 impl LinuxSameWifi {
     pub fn new() -> Self {
-        Self {
-            daemon: Mutex::new(None),
-        }
+        let state = Arc::new(Mutex::new(State::default()));
+        let watched = Arc::downgrade(&state);
+        // shortcut: polls getifaddrs; a netlink or NetworkManager watch would react at once
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(RECHECK);
+                let Some(state) = watched.upgrade() else {
+                    return;
+                };
+                let mut st = crate::lock(&state);
+                let stale = st.live.as_ref().is_none_or(|l| l.addrs != lan_addresses());
+                if let (Some(port), true) = (st.port, stale) {
+                    stop(&mut st.live);
+                    st.live = announce(port);
+                }
+            }
+        });
+        Self { state }
     }
 }
 
 impl SameWifi for LinuxSameWifi {
     fn announce(&self, port: u16) {
-        self.stop_announcing();
-        let Ok(daemon) = ServiceDaemon::new() else {
-            return;
-        };
-        let host = format!("seam-{:08x}.local.", rand::random::<u32>()); // not the computer's own name
-        let addrs: Vec<IpAddr> = lan_addresses();
-        let Ok(info) = ServiceInfo::new(
-            TYPE,
-            NAME,
-            &host,
-            &addrs[..],
-            port,
-            None::<std::collections::HashMap<String, String>>,
-        ) else {
-            return;
-        };
-        let info = if addrs.is_empty() {
-            info.enable_addr_auto()
-        } else {
-            info
-        };
-        let full = info.get_fullname().to_string();
-        if daemon.register(info).is_ok() {
-            *crate::lock(&self.daemon) = Some((daemon, full));
-        }
+        let mut st = crate::lock(&self.state);
+        stop(&mut st.live);
+        st.port = Some(port);
+        st.live = announce(port);
     }
 
     fn stop_announcing(&self) {
-        if let Some((daemon, full)) = crate::lock(&self.daemon).take() {
-            let _ = daemon.unregister(&full);
-            let _ = daemon.shutdown();
-        }
+        let mut st = crate::lock(&self.state);
+        st.port = None;
+        stop(&mut st.live);
     }
 
     /// Only when every interface holding the address is Wi‑Fi or wired Ethernet.
     fn is_lan_address(&self, ip: IpAddr) -> bool {
         let holders = interfaces_holding(ip);
         !holders.is_empty() && holders.iter().all(|i| is_lan_interface(i))
+    }
+}
+
+/// Announces Seam at this computer's Wi‑Fi and Ethernet addresses, as they are now. None while
+/// it has none: never mdns-sd's automatic addresses, which would include a VPN's or a bridge's.
+/// The watcher tries again every few seconds.
+fn announce(port: u16) -> Option<Live> {
+    announce_at(port, lan_addresses())
+}
+
+fn announce_at(port: u16, addrs: Vec<IpAddr>) -> Option<Live> {
+    if addrs.is_empty() {
+        return None;
+    }
+    let daemon = ServiceDaemon::new().ok()?;
+    // Random, so neither says whose computer it is. A fresh name each time also tells the phone
+    // something changed (Android reports a name it has seen only once), and two computers on one
+    // network never share a name: the phone tells services apart by name
+    let tag = rand::random::<u32>();
+    let host = format!("seam-{tag:08x}.local.");
+    let name = format!("Seam {tag:08x}");
+    let info = ServiceInfo::new(
+        TYPE,
+        &name,
+        &host,
+        &addrs[..],
+        port,
+        None::<std::collections::HashMap<String, String>>,
+    )
+    .ok()?;
+    let full = info.get_fullname().to_string();
+    daemon.register(info).ok()?;
+    Some(Live {
+        daemon,
+        full,
+        addrs,
+    })
+}
+
+fn stop(live: &mut Option<Live>) {
+    if let Some(l) = live.take() {
+        let _ = l.daemon.unregister(&l.full);
+        let _ = l.daemon.shutdown();
     }
 }
 
@@ -155,6 +207,12 @@ mod tests {
         if bridge {
             fs::create_dir_all(d.join("bridge")).unwrap();
         }
+    }
+
+    /// With no Wi‑Fi or Ethernet address, nothing is announced at all: never on whatever else is up
+    #[test]
+    fn nothing_is_announced_without_a_lan_address() {
+        assert!(super::announce_at(4242, Vec::new()).is_none());
     }
 
     /// Same Wi‑Fi only on real Wi‑Fi or wired Ethernet: never a VPN, bridge, container link or loopback.
