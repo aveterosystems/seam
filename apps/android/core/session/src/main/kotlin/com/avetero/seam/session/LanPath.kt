@@ -56,6 +56,9 @@ internal class LanPath(
     private val refused = mutableMapOf<LanAddress, Long>()
     /** Where our Mac last authenticated (memory only): never skipped for long. */
     private var lastGood: LanAddress? = null
+    /** When an advert last let [lastGood] past its refusal: at most once per [NUDGE_MS], so repeated adverts can't spin us. */
+    private var lastNudge = Long.MIN_VALUE / 2
+    private var retryAt = Long.MAX_VALUE
 
     override val up get() = authed
     override val active get() = link != null || discovering || retry?.isActive == true || reconnect?.isActive == true
@@ -72,7 +75,7 @@ internal class LanPath(
                     // An advert can name any address: only ever connect within the local network, and to a few
                     // Refused ones don't count toward the cap, so fakes can't crowd out the Mac
                     // Where our Mac last proved itself is never refused for long (see closed): its advert means it's back
-                    if (discovering && (!localOnly || isLocalNetwork(a.host)) && (!isRefused(a) || a == lastGood) && found.size < MAX_FOUND) {
+                    if (discovering && (!localOnly || isLocalNetwork(a.host)) && (!isRefused(a) || nudge(a)) && found.size < MAX_FOUND) {
                         found += a
                         tryNext()
                     }
@@ -248,12 +251,23 @@ internal class LanPath(
 
     private fun isRefused(a: LanAddress) = refused[a]?.let { now() < it } == true
 
+    /** A fresh advert from [lastGood] is tried at once, though it's refused for now: once per [NUDGE_MS]. */
+    private fun nudge(a: LanAddress): Boolean {
+        if (a != lastGood || now() - lastNudge < NUDGE_MS) return false
+        lastNudge = now()
+        return true
+    }
+
     /** Looks again from scratch: services past the cap are only reported to a fresh discovery. */
     private fun retryLater() {
-        if (retry?.isActive == true) return
+        // Until the soonest refusal ends (an unreachable Mac's is short), and never longer than RETRY_MS;
+        // a sooner refusal re-arms a later wait, an earlier wait is kept
+        val at = minOf(now() + retryMs(), refused.values.minOrNull() ?: now())
+        if (retry?.isActive == true && retryAt <= at) return
+        retry?.cancel()
+        retryAt = at
         retry = scope.launch {
-            // Until the soonest refusal ends (an unreachable Mac's is short), and never longer than RETRY_MS
-            delay(minOf(retryMs(), (refused.values.minOrNull() ?: now()) - now()).coerceAtLeast(0))
+            delay((at - now()).coerceAtLeast(0))
             refused.entries.removeAll { now() >= it.value }
             stopDiscovery()
             start()
@@ -271,6 +285,8 @@ internal class LanPath(
         private const val RETRY_MS = 30_000L
         /** The same, through Tor while pairing: the code's own deadline bounds it, so no reason to idle. */
         private const val PAIRING_TOR_RETRY_MS = 5_000L
+        /** How often a fresh advert from where our Mac last proved itself may skip its refusal. */
+        private const val NUDGE_MS = 2_000L
         /** More Seam services than this on one network is a flood, not a home. */
         private const val MAX_FOUND = 8
         /** How long a service that failed its proof (someone else's Mac) is skipped: a Mac that restarted gets a new port anyway. */

@@ -77,8 +77,17 @@ impl SameWifi for LinuxSameWifi {
     }
 }
 
-/// Announces Seam at this computer's Wi‑Fi and Ethernet addresses, as they are now.
+/// Announces Seam at this computer's Wi‑Fi and Ethernet addresses, as they are now. None while
+/// it has none: never mdns-sd's automatic addresses, which would include a VPN's or a bridge's.
+/// The watcher tries again every few seconds.
 fn announce(port: u16) -> Option<Live> {
+    announce_at(port, lan_addresses())
+}
+
+fn announce_at(port: u16, addrs: Vec<IpAddr>) -> Option<Live> {
+    if addrs.is_empty() {
+        return None;
+    }
     let daemon = ServiceDaemon::new().ok()?;
     // Random, so neither says whose computer it is. A fresh name each time also tells the phone
     // something changed (Android reports a name it has seen only once), and two computers on one
@@ -86,7 +95,6 @@ fn announce(port: u16) -> Option<Live> {
     let tag = rand::random::<u32>();
     let host = format!("seam-{tag:08x}.local.");
     let name = format!("Seam {tag:08x}");
-    let addrs = lan_addresses();
     let info = ServiceInfo::new(
         TYPE,
         &name,
@@ -96,11 +104,6 @@ fn announce(port: u16) -> Option<Live> {
         None::<std::collections::HashMap<String, String>>,
     )
     .ok()?;
-    let info = if addrs.is_empty() {
-        info.enable_addr_auto()
-    } else {
-        info
-    };
     let full = info.get_fullname().to_string();
     daemon.register(info).ok()?;
     Some(Live {
@@ -204,6 +207,12 @@ mod tests {
         if bridge {
             fs::create_dir_all(d.join("bridge")).unwrap();
         }
+    }
+
+    /// With no Wi‑Fi or Ethernet address, nothing is announced at all: never on whatever else is up
+    #[test]
+    fn nothing_is_announced_without_a_lan_address() {
+        assert!(super::announce_at(4242, Vec::new()).is_none());
     }
 
     /// Same Wi‑Fi only on real Wi‑Fi or wired Ethernet: never a VPN, bridge, container link or loopback.
