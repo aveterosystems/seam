@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Who may use the clipboard through this extension (decision from "How does Seam trust its GNOME
 // clipboard extension?"): the Seam Flatpak, never another sandboxed app. A program running
 // unsandboxed as the same user is outside what this can stop (it could fake a Flatpak's root with

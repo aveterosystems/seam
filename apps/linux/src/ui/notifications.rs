@@ -22,6 +22,8 @@ struct Row {
     reply: gtk::Revealer,
     entry: gtk::Entry,
     time: gtk::Label,
+    /// Dismiss, Reply and the phone's buttons: off while paused, when nothing can reach the phone
+    controls: Vec<gtk::Widget>,
 }
 
 pub struct Page {
@@ -32,7 +34,8 @@ pub struct Page {
     list: gtk::ListBox,
     rows: RefCell<HashMap<String, Rc<Row>>>,
     order: RefCell<Vec<String>>,
-    note: gtk::Label,
+    /// The list, under its note (the group's description, where libadwaita puts one)
+    group: adw::PreferencesGroup,
     /// Away: what you do here waits for the phone (never a dead end).
     empty: adw::StatusPage,
     empty_button: gtk::Button,
@@ -46,23 +49,11 @@ impl Page {
             .selection_mode(gtk::SelectionMode::None)
             .build();
         list.add_css_class("boxed-list");
-        let note = gtk::Label::builder()
-            .xalign(0.0)
-            .wrap(true)
-            .margin_bottom(12)
-            .margin_start(6)
-            .build();
-        note.add_css_class("secondary");
-        note.add_css_class("list-note");
-        let column = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .build();
-        // The note above the list, where libadwaita puts a group's description
-        column.append(&note);
-        column.append(&list);
+        let group = adw::PreferencesGroup::new();
+        group.add(&list);
         let clamp = adw::Clamp::builder()
             .maximum_size(720)
-            .child(&column)
+            .child(&group)
             .margin_top(18)
             .margin_bottom(24)
             .margin_start(12)
@@ -96,7 +87,7 @@ impl Page {
             list,
             rows: RefCell::default(),
             order: RefCell::default(),
-            note,
+            group,
             stack,
             banner,
             empty,
@@ -169,10 +160,10 @@ impl Page {
             }
             None => self.stack.set_visible_child_name("list"),
         }
-        self.note.set_label(&m.clear_note());
-        // Paused: nothing goes either way, so the rows' actions are off (the banner says why)
+
+        // Paused: nothing goes either way, so the rows' actions are off (the banner says why); the
+        // words stay readable
         let paused = m.link(now).kind == seam_looks::LinkKind::Paused;
-        self.list.set_sensitive(!paused);
         match m.page_status(now, crate::model::Page::Notifications) {
             Some(words) => {
                 self.banner.set_title(&words);
@@ -181,8 +172,9 @@ impl Page {
             None => self.banner.set_revealed(false),
         }
         // Only the surprising case needs saying: clearing here clears the phone too
-        self.note
-            .set_visible(m.settings.as_ref().is_none_or(|s| s.dismiss_both));
+        let both = m.settings.as_ref().is_none_or(|s| s.dismiss_both);
+        self.group
+            .set_description(both.then(|| m.clear_note()).as_deref());
         let animate = crate::ui::animations() && !self.order.borrow().is_empty();
         let keys: Vec<String> = m.shown.iter().map(|n| n.key.clone()).collect();
         // Leaving: slide out and collapse, then go (catalogue 6)
@@ -230,6 +222,11 @@ impl Page {
             }
         }
         *self.order.borrow_mut() = keys;
+        for row in self.rows.borrow().values() {
+            for w in &row.controls {
+                w.set_sensitive(!paused);
+            }
+        }
     }
 
     fn tick(&self) {
@@ -310,6 +307,7 @@ impl Page {
             column.append(&text);
         }
         column.append(&time);
+        let mut controls: Vec<gtk::Widget> = vec![dismiss.clone().upcast()];
         let entry = gtk::Entry::builder()
             .placeholder_text(format!(
                 "Reply to {}",
@@ -374,6 +372,7 @@ impl Page {
                 actions.append(&b);
             }
             column.append(&actions);
+            controls.push(actions.upcast());
         }
         column.append(&reply);
 
@@ -395,6 +394,7 @@ impl Page {
             reply: reply.clone(),
             entry: entry.clone(),
             time,
+            controls,
         });
 
         let (weak, key) = (self.controller.clone(), n.key.clone());

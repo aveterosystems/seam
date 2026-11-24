@@ -49,7 +49,7 @@ Copies cross both ways without a tap. Each side may need a one-time setup to all
 _Avoid_: auto-sync, universal clipboard
 
 **Clipboard door**:
-On Linux, the way a background app reaches the clipboard: Seam's GNOME Shell extension, or Klipper on KDE Plasma. Open, a computer's side of automatic clipboard works; otherwise it's off, refused (the extension serves only the Flathub Seam), or unavailable on that desktop, and copies take one tap.
+On Linux, the way a background app reaches the clipboard: Seam's GNOME Shell extension, or Klipper on KDE Plasma. Open, a computer's side of automatic clipboard works; otherwise it's off, refused (the extension serves only the Seam Flatpak), or unavailable on that desktop, and copies take one tap.
 _Avoid_: portal, backend
 
 **Sender only**:

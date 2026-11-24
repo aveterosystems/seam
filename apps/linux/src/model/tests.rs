@@ -371,6 +371,14 @@ fn the_card_says_paused_briefly() {
     // Not paused: the card says what the status line says
     let c = Model::default().apply(&snapshot(Health::Ready, Some(session()), None), false);
     assert_eq!(c.card_line(0), c.status_line(0));
+    // Offline with copies waiting: the card says only the state; the whole sentence is the tooltip
+    let mut away = session();
+    away.route = None;
+    away.waiting = 3;
+    let m = Model::default().apply(&snapshot(Health::Ready, Some(away), None), false);
+    assert!(m.status_line(0).contains(" · "), "{}", m.status_line(0));
+    assert!(!m.card_line(0).contains(" · "), "{}", m.card_line(0));
+    assert!(m.status_line(0).starts_with(&m.card_line(0)));
 }
 
 #[test]
@@ -382,7 +390,11 @@ fn a_page_says_paused_or_away_never_both() {
     let m = Model::default().apply(&snapshot(Health::Ready, Some(paused), None), false);
     let words = m.page_status(0, Page::Notifications).unwrap();
     assert!(words.starts_with("Pixel 9 is paused"), "{words}");
-    assert!(!words.contains("away"));
+    assert!(
+        words.ends_with("Nothing reaches it until it's resumed."),
+        "{words}"
+    );
+    assert!(!words.contains("offline"));
 
     let mut away = session();
     away.route = None;
@@ -390,7 +402,7 @@ fn a_page_says_paused_or_away_never_both() {
     let m = Model::default().apply(&snapshot(Health::Ready, Some(away), None), false);
     assert_eq!(
         m.page_status(0, Page::Notifications).unwrap(),
-        "Pixel 9 is away. Replies send when it's back."
+        "Pixel 9 is offline. Replies send when it's back."
     );
     assert!(
         m.page_status(0, Page::Clipboard)
@@ -400,6 +412,15 @@ fn a_page_says_paused_or_away_never_both() {
 
     let connected = Model::default().apply(&snapshot(Health::Ready, Some(session()), None), false);
     assert!(connected.page_status(0, Page::Notifications).is_none());
+
+    // Connecting is on the phone's card: no "away" over the page to contradict it
+    let mut starting = session();
+    starting.route = None;
+    let mut s = snapshot(Health::Ready, Some(starting), None);
+    s.tor_state = TorState::Starting(0);
+    let m = Model::default().apply(&s, false);
+    assert_eq!(m.link(0).kind, seam_looks::LinkKind::ConnectingTor);
+    assert!(m.page_status(0, Page::Notifications).is_none());
 }
 
 /// What the user does shows at once, before Seam's next snapshot says the same.
@@ -470,5 +491,5 @@ fn the_clipboard_door_outlives_snapshots_and_says_what_it_is() {
             .iter()
             .all(|l| l.ends_with("copies go with Send Clipboard"))
     );
-    assert!(lines[1].contains("Flathub"));
+    assert!(lines[1].contains("Seam Flatpak"));
 }

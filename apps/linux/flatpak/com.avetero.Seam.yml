@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Seam for Linux as a Flatpak (decision on #70: Flathub only). Built offline from this checkout:
-# every crate comes from cargo-sources.json (scripts/gen-flatpak-sources.sh regenerates it).
-# On Flathub the seam module's source is the release's git tag instead of this directory.
+# Seam for Linux as a Flatpak, published to Seam's own signed Flatpak repo (flatpak-repo.yml), not
+# Flathub: Flathub doesn't take AI-assisted manifests. Built offline from this checkout, everything
+# from source: every crate comes from cargo-sources.json (scripts/gen-flatpak-sources.sh).
 app-id: com.avetero.Seam
 runtime: org.gnome.Platform
-runtime-version: '49'
+runtime-version: '51'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
@@ -17,11 +17,13 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --device=dri
+  # adb over USB, for the phone's one-time clipboard setup: systemd gives the logged-in user its
+  # Android debug devices. Flatpak before 1.15.11 ignores it; wireless debugging still works there
+  - --device=usb
   # The tray icon: there's no tray portal
   - --talk-name=org.kde.StatusNotifierWatcher
-  # Automatic clipboard: Seam's own GNOME extension, which only answers this app (decision 0012)
-  - --talk-name=com.avetero.Seam.Clipboard
-  # ...turning that extension on from the setup dialog
+  # Automatic clipboard on GNOME: turning on Seam's own extension from the setup dialog. Talking
+  # to the extension itself (com.avetero.Seam.Clipboard) needs nothing: it's under the app's ID
   - --talk-name=org.gnome.Shell.Extensions
   # Automatic clipboard on KDE Plasma: Klipper, Plasma's clipboard service
   - --talk-name=org.kde.klipper
@@ -37,23 +39,41 @@ build-options:
     CARGO_HOME: /run/build/seam/cargo
     CARGO_NET_OFFLINE: 'true'
 modules:
-  # Build only: libsignal's post-quantum ratchet compiles .proto files at build time
-  - name: protoc
-    buildsystem: simple
+  # protoc (build only: libsignal's post-quantum ratchet compiles .proto files) and the
+  # libprotobuf adb links statically. Abseil comes from the runtime
+  - name: protobuf
+    buildsystem: cmake-ninja
     cleanup: ['*']
-    build-commands:
-      - install -Dm755 bin/protoc /app/bin/protoc
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -Dprotobuf_BUILD_TESTS=OFF
+      - -Dprotobuf_LOCAL_DEPENDENCIES_ONLY=ON
     sources:
       - type: archive
-        only-arches: [x86_64]
-        url: https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip
-        sha256: 3e866620c5be27664f3d2fa2d656b5f3e09b5152b42f1bedbf427b333e90021a
-        strip-components: 0
+        url: https://github.com/protocolbuffers/protobuf/releases/download/v36.2/protobuf-36.2.tar.gz
+        sha256: 3d9642a662d10e68ebae5e53f14dcce5105684212d5078f8e0d47d1ab3ae6b64
+  # Build only: adb's sources include one googletest header
+  - name: googletest
+    buildsystem: cmake-ninja
+    cleanup: ['*']
+    config-opts:
+      - -DBUILD_GMOCK=OFF
+    sources:
       - type: archive
-        only-arches: [aarch64]
-        url: https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-aarch_64.zip
-        sha256: 6427349140e01f06e049e707a58709a4f221ae73ab9a0425bc4a00c8d0e1ab32
-        strip-components: 0
+        url: https://github.com/google/googletest/releases/download/v1.18.0/googletest-1.18.0.tar.gz
+        sha256: 6e3191c1455468b3fc35a417fb565c1c5071aee1b7e7f85e30cf48a98d37d8b5
+  # Android's adb, built from AOSP's source: Google's own zip may not be passed on. Only adb, for
+  # the phone's one-time clipboard setup (apps/linux/src/os/adb.rs looks for /app/bin/adb)
+  - name: android-tools
+    buildsystem: simple
+    build-commands:
+      - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/app
+      - ninja -C build adb
+      - install -Dm755 build/vendor/adb /app/bin/adb
+    sources:
+      - type: archive
+        url: https://github.com/nmeum/android-tools/releases/download/37.0.0p1/android-tools-37.0.0p1.tar.xz
+        sha256: 2c6de1abe16b211c7d9f59276217e14fd9e0e18b20e331d3c84358f5dffd576e
   - name: seam
     buildsystem: simple
     build-options:

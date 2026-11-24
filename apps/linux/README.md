@@ -2,7 +2,7 @@
 
 A native GTK 4 and libadwaita app in Rust, for GNOME and KDE Plasma on Wayland. It shows your phone's notifications (reply, buttons, dismiss on both), syncs the clipboard both ways and shows the phone's battery, like the Mac app. It follows the GNOME Human Interface Guidelines and keeps running in the background when its window closes.
 
-> **Status:** in development, not released yet. Builds from source; the Flatpak for Flathub is set up but not published. Pairs with a phone by QR code, connects on the same Wi‑Fi or through Tor. Tested on Fedora 45 with GNOME 51 and Plasma 6.8.
+> **Status:** in development, not released yet. Builds from source; releases will publish it to Seam's own Flatpak repo (`.github/workflows/flatpak-repo.yml`), not Flathub. Pairs with a phone by QR code, connects on the same Wi‑Fi or through Tor. Tested on Fedora 45 with GNOME 51 and Plasma 6.8.
 
 ## How it's put together
 
@@ -41,7 +41,7 @@ cargo run
 
 Debug builds keep their own data (`~/.local/share/seam-debug`) and keyring entry, so they run next to an installed Seam.
 
-**Flatpak:** `flatpak-builder --user --install build-dir apps/linux/flatpak/com.avetero.Seam.yml` (needs the GNOME 49 SDK and the Rust SDK extension).
+**Flatpak:** `flatpak-builder --user --install build-dir apps/linux/flatpak/com.avetero.Seam.yml` (needs the GNOME 51 SDK and the Rust SDK extension; it builds protobuf and Android's adb from source too).
 
 **Automatic clipboard while developing:** on GNOME, copy `gnome-extension/seam-clipboard@avetero.com` to `~/.local/share/gnome-shell/extensions/`, log out and in, enable it, and create `~/.config/seam/allow-development-build` so it lets a build outside Flatpak in. On KDE nothing is needed: Seam uses Klipper.
 

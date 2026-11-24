@@ -18,6 +18,8 @@ pub struct Page {
     pub widget: gtk::ScrolledWindow,
     /// The two columns; the window stacks them on a narrow screen.
     pub row: gtk::Box,
+    /// What to do: only while there's a code to scan. Comparing codes and the outcome stand alone
+    left: gtk::Box,
     right: gtk::Stack,
     qr: gtk::Picture,
     countdown: gtk::Label,
@@ -46,23 +48,25 @@ impl Page {
             .build();
         title.add_css_class("title-1");
         let lead = gtk::Label::builder()
-            .label("Open Seam on your Android phone and scan this code. That's the whole setup.")
+            .label("Open Seam on your Android phone and scan the code.")
             .xalign(0.0)
             .wrap(true)
             .build();
         lead.add_css_class("secondary");
         lead.set_max_width_chars(TEXT_WIDTH);
-        let steps = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(14)
+        // The steps as a boxed list, as GNOME lays out anything to read in order
+        let steps = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
             .margin_top(8)
             .build();
+        steps.add_css_class("boxed-list");
         steps.append(&step(1, "Get <b>Seam</b> on your phone from <a href=\"https://github.com/aveterosystems/seam/releases/latest\">GitHub</a>"));
         steps.append(&step(2, "Tap <b>Scan code</b> and point the camera here"));
         steps.append(&step(3, "Check both screens match, then pair"));
         let safe = gtk::Box::builder().spacing(8).margin_top(24).build();
         let lock = gtk::Image::from_icon_name("security-high-symbolic");
         lock.add_css_class("dim-label");
+        lock.set_valign(gtk::Align::Start); // beside the first line, as a row's prefix sits
         safe.append(&lock);
         let safe_text = gtk::Label::builder()
             .label("Keys are made on this computer and never leave it. No account, no password.")
@@ -70,7 +74,7 @@ impl Page {
             .wrap(true)
             .build();
         safe_text.add_css_class("secondary");
-        safe_text.set_max_width_chars(TEXT_WIDTH);
+        safe_text.set_max_width_chars(TEXT_WIDTH + 14); // as wide as the steps above it
         safe.append(&safe_text);
         let left = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -128,7 +132,7 @@ impl Page {
             .wrap(true)
             .justify(gtk::Justification::Center)
             .build();
-        confirm_title.add_css_class("title-3");
+        confirm_title.add_css_class("title-1");
         let code = gtk::Label::new(None);
         code.add_css_class("safety-code");
         let hint = gtk::Label::new(Some("Check your phone shows the same code."));
@@ -144,16 +148,22 @@ impl Page {
         let buttons = gtk::Box::builder()
             .spacing(10)
             .halign(gtk::Align::Center)
-            .margin_top(6)
+            .margin_top(18)
             .build();
         buttons.append(&cancel);
         buttons.append(&pair);
         buttons.append(&sending);
         let confirm = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
-            .spacing(10)
+            .spacing(12)
             .valign(gtk::Align::Center)
             .build();
+        // The phone being paired heads the check, as a status page's icon does
+        let disc = crate::ui::widgets::phone_disc(72);
+        crate::ui::widgets::set_disc(&disc, true);
+        disc.set_halign(gtk::Align::Center);
+        disc.set_margin_bottom(6);
+        confirm.append(&disc);
         confirm.append(&confirm_title);
         confirm.append(&code);
         confirm.append(&hint);
@@ -208,6 +218,7 @@ impl Page {
         let page = Rc::new(Self {
             widget,
             row: row.clone(),
+            left,
             right,
             qr,
             countdown,
@@ -221,6 +232,13 @@ impl Page {
             sending,
             shown: RefCell::default(),
             expires_at: Cell::new(0),
+        });
+        // Comparing codes stands alone in the middle: the steps beside it are done by then
+        let (left, right) = (page.left.clone(), page.right.clone());
+        page.right.connect_visible_child_name_notify(move |r| {
+            let confirming = r.visible_child_name().as_deref() == Some("confirm");
+            left.set_visible(!confirming);
+            right.set_hexpand(confirming);
         });
         let weak = Rc::downgrade(c);
         page.pair.connect_clicked(move |_| {
@@ -302,7 +320,7 @@ impl Page {
             PairingState::Confirm(r) | PairingState::Confirming(r) => {
                 let sending = matches!(m.pairing, PairingState::Confirming(_));
                 self.confirm_title
-                    .set_label(&format!("Pair With {}?", r.device_name));
+                    .set_label(&format!("Pair with {}?", r.device_name));
                 self.code.set_label(&r.safety_code);
                 self.code
                     .update_property(&[gtk::accessible::Property::Label(&format!(
@@ -359,10 +377,10 @@ impl Page {
     }
 }
 
-fn step(n: u32, markup: &str) -> gtk::Box {
+fn step(n: u32, markup: &str) -> gtk::ListBoxRow {
     let number = gtk::Label::new(Some(&n.to_string()));
     number.add_css_class("step-number");
-    number.set_valign(gtk::Align::Start);
+    number.set_valign(gtk::Align::Center);
     let text = gtk::Label::builder()
         .use_markup(true)
         .label(markup)
@@ -371,10 +389,20 @@ fn step(n: u32, markup: &str) -> gtk::Box {
         .max_width_chars(TEXT_WIDTH)
         .hexpand(true)
         .build();
-    let b = gtk::Box::builder().spacing(12).build();
+    let b = gtk::Box::builder()
+        .spacing(12)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
+        .build();
     b.append(&number);
     b.append(&text);
-    b
+    gtk::ListBoxRow::builder()
+        .activatable(false)
+        .selectable(false)
+        .child(&b)
+        .build()
 }
 
 /// The QR code as crisp pixels, 4 px a module with a quiet zone, black on white.

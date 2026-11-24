@@ -60,8 +60,9 @@ pub struct StatusDot {
 impl StatusDot {
     pub fn new() -> Self {
         let widget = gtk::DrawingArea::builder()
-            .content_width(14)
-            .content_height(14)
+            // Room for the whole ring (radius 3 × 2.8), so it's never clipped into a square
+            .content_width(18)
+            .content_height(18)
             .valign(gtk::Align::Center)
             .build();
         widget.set_accessible_role(gtk::AccessibleRole::Presentation);

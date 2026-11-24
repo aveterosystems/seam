@@ -176,7 +176,7 @@ impl Model {
                 format!("What you copy goes to {} by itself", self.phone_name(false))
             }
             ClipboardDoor::ExtensionRefused => {
-                "The extension works only with Seam from Flathub, so copies go with Send Clipboard"
+                "The extension works only with the Seam Flatpak, so copies go with Send Clipboard"
                     .into()
             }
             ClipboardDoor::ExtensionOff | ClipboardDoor::KlipperOff => {
@@ -221,7 +221,15 @@ impl Model {
                     None => "Paused".into(),
                 }
             }
-            _ => self.status_line(now_ms),
+            // The card is narrow: the path shows as its icon and in the tooltip
+            _ if self.link(now_ms).kind == seam_looks::LinkKind::ConnectingTor => {
+                "Connecting".into()
+            }
+            // Only the state ("Offline"), never cut off mid-sentence; the rest is in the tooltip
+            _ => {
+                let line = self.status_line(now_ms);
+                line.split(" · ").next().unwrap_or(&line).to_string()
+            }
         }
     }
 
@@ -230,24 +238,30 @@ impl Model {
     pub fn page_status(&self, now_ms: i64, page: Page) -> Option<String> {
         let look = self.link(now_ms);
         self.phone.as_ref()?;
-        if look.connected {
+        // Connecting says so on the phone's card; "offline" here would contradict it
+        let connecting = matches!(
+            look.kind,
+            seam_looks::LinkKind::ConnectingTor | seam_looks::LinkKind::Reconnecting
+        );
+        if look.connected || connecting {
             return None;
         }
         let name = self.phone_name(true);
         if look.kind == seam_looks::LinkKind::Paused {
             // While paused nothing goes either way: the page's actions are off, and this says why
-            return Some(format!(
-                "{name} is paused {}",
-                self.card_line(now_ms).trim_start_matches("Paused ")
-            ));
+            let line = self.card_line(now_ms);
+            return Some(match line.strip_prefix("Paused ") {
+                Some(until) => format!("{name} is paused {until}. Nothing reaches it until then."),
+                None => format!("{name} is paused. Nothing reaches it until it's resumed."),
+            });
         }
         Some(match page {
             Page::Notifications => {
-                format!("{name} is away. Replies send when it's back.")
+                format!("{name} is offline. Replies send when it's back.")
             }
             // A copy is held 10 minutes at most (the core's HOLD_MS): say so, as Preferences does
             Page::Clipboard => {
-                format!("{name} is away. Copies wait up to 10 minutes.")
+                format!("{name} is offline. Copies wait up to 10 minutes.")
             }
         })
     }

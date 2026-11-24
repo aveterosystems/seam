@@ -1,6 +1,8 @@
 name: release
-# Pushing a version tag (v0.1.0) on main builds both apps, signs them with Seam's own keys, and
-# opens a draft release with checksums and build attestations. The maintainer reviews and publishes.
+# Pushing a version tag (v0.1.0) on main builds the Android, Mac and Linux apps, signs Android's and
+# the Mac's with Seam's own keys, and opens a draft release with checksums and build attestations.
+# The maintainer reviews and publishes; publishing puts the Linux builds in Seam's Flatpak repo
+# (flatpak-repo.yml).
 #
 # Nightly: each night, if main has changed since the last nightly (or on demand), the same jobs
 # build main as the next patch's pre-release (0.3.1-nightly.202611030200) and publish it as a
@@ -148,6 +150,41 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: mac-unsigned, path: dist/, if-no-files-found: error, retention-days: 1 }
 
+  # Linux: a Flatpak bundle per architecture. Not signed here: the flatpak-repo workflow signs
+  # them into Seam's Flatpak repo once the release is published (users update from there)
+  build-linux:
+    needs: versions
+    if: needs.versions.outputs.skip != 'true'
+    strategy:
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false, ref: "${{ needs.versions.outputs.sha }}" }
+      - name: This build's version (a release's files already carry it)
+        env: { VERSION: "${{ needs.versions.outputs.version }}", BUILD: "${{ needs.versions.outputs.build }}" }
+        run: scripts/set-version.sh "$VERSION" "$BUILD"
+      # No build cache in a release: everything is built from the tagged sources
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
+        with:
+          manifest-path: apps/linux/flatpak/com.avetero.Seam.yml
+          arch: ${{ matrix.arch }}
+          branch: stable
+          bundle: Seam-${{ needs.versions.outputs.version }}-linux-${{ matrix.arch }}.flatpak
+          repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+          cache: false
+          upload-artifact: false
+      - run: mkdir -p dist && mv "Seam-${{ needs.versions.outputs.version }}-linux-${{ matrix.arch }}.flatpak" dist/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "linux-${{ matrix.arch }}", path: dist/, if-no-files-found: error, retention-days: 7 }
+
   sign-android:
     needs: [versions, build-android]
     runs-on: ubuntu-24.04
@@ -226,7 +263,7 @@ jobs:
         with: { name: mac, path: dist/, if-no-files-found: error, retention-days: 7 }
 
   release:
-    needs: [versions, sign-android, sign-mac]
+    needs: [versions, sign-android, sign-mac, build-linux]
     runs-on: ubuntu-24.04
     permissions:
       contents: write     # the draft release
@@ -239,11 +276,21 @@ jobs:
         with: { name: android, path: dist }
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with: { name: mac, path: dist }
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with: { pattern: "linux-*", path: dist, merge-multiple: true }
+      # The GNOME extension, for extensions.gnome.org, as `gnome-extensions pack` makes it
+      - name: The GNOME extension's zip
+        env: { VERSION: "${{ needs.versions.outputs.version }}" }
+        run: |
+          cd apps/linux/gnome-extension/seam-clipboard@avetero.com
+          zip -X -q "$GITHUB_WORKSPACE/dist/Seam-$VERSION-gnome-extension.zip" metadata.json extension.js trust.js COPYING
       - name: Checksums, and every file a release needs
         working-directory: dist
         run: |
           # The Mac updater reads releases/latest/download/appcast.xml: a release without it stops Mac updates (SR-17-17)
-          for f in "Seam-${{ needs.versions.outputs.version }}-android.apk" "Seam-${{ needs.versions.outputs.version }}-mac.zip" appcast.xml; do
+          v="${{ needs.versions.outputs.version }}"
+          for f in "Seam-$v-android.apk" "Seam-$v-mac.zip" "Seam-$v-linux-x86_64.flatpak" "Seam-$v-linux-aarch64.flatpak" \
+                   "Seam-$v-gnome-extension.zip" appcast.xml; do
             test -s "$f" || { echo "Missing $f" >&2; exit 1; }
           done
           sha256sum Seam-* > SHA256SUMS && cat SHA256SUMS

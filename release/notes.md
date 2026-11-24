@@ -1,4 +1,4 @@
-Seam {VERSION} for Android and Mac. Install both, then open Seam on the Mac and scan its code with the phone.
+Seam {VERSION} for Android, Mac and Linux. Install it on the phone and the computer, then open Seam on the computer and scan its code with the phone.
 
 ## What's changed
 
@@ -18,6 +18,18 @@ Seam then offers new versions itself: once a day it checks GitHub, and **Update*
 
 You only do this for the first install. After that, Seam can update itself: it asks once whether to check, then once a day it checks GitHub and offers a new version only if it's signed with Seam's update key; nothing installs until you say so. Your pairing carries over. Turn checks off in Settings › About. Needs macOS 14 or later, Apple silicon or Intel.
 
+## Linux
+
+Install Seam from its Flatpak repo: open [com.avetero.Seam.flatpakref](https://aveterosystems.github.io/seam/com.avetero.Seam.flatpakref) and click **Install** in Software (GNOME) or Discover (KDE Plasma), or in a terminal:
+
+```
+flatpak install --user https://aveterosystems.github.io/seam/com.avetero.Seam.flatpakref
+```
+
+Updates then come through Software, Discover or `flatpak update`, checked against Seam's signing key. On Ubuntu, add Flatpak first: `sudo apt install flatpak gnome-software-plugin-flatpak`, then log out and in. Needs GNOME or KDE Plasma on Wayland, x86_64 or ARM.
+
+On GNOME, automatic clipboard also needs the **Seam Clipboard** extension: Seam offers to set it up. `Seam-{VERSION}-gnome-extension.zip` is that extension, for installing by hand. The `.flatpak` files are the same builds as the repo's, for installing without it (`flatpak install Seam-{VERSION}-linux-x86_64.flatpak`); they don't update themselves.
+
 ## Check what you downloaded
 
 Two checks, each proving something different:
@@ -29,7 +41,8 @@ Two checks, each proving something different:
     --signer-workflow aveterosystems/seam/.github/workflows/release.yml --source-ref refs/tags/v{VERSION}
   ```
 
-  (and the same for `Seam-{VERSION}-android.apk`).
+  (and the same for `Seam-{VERSION}-android.apk` and the Linux files).
 - **Who signed it.** The signing certificates are the same for every release. If one ever changes, something is wrong:
   - Android: `{ANDROID_CERT}` (`apksigner verify --print-certs`, "certificate SHA-256 digest")
   - Mac: `{MAC_CERT}` (SHA-256 of the certificate in `codesign -d --extract-certificates`)
+  - Linux: the Flatpak repo's key, `{FLATPAK_KEY}` (`gpg --show-keys` on `apps/linux/flatpak/seam.gpg`; Flatpak checks it on every install and update)

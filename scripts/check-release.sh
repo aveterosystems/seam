@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
 # The release workflow's gate: scripts/check-release.sh vX.Y.Z  (prints version=X.Y.Z)
-# Fails unless the tagged commit is on main, both apps carry this version, their build numbers went
+# Fails unless the tagged commit is on main, every app carries this version (and Linux's metainfo lists it), their build numbers went
 # up since the last release tag, CHANGELOG.md says what changed, and the certificate pins are 64 hex characters (SR-14-01, 03, 08, 09).
 set -euo pipefail
 tag="$1"
@@ -20,6 +20,10 @@ mac_name="$(field apps/mac/project.yml 'MARKETING_VERSION')"
 mac_build="$(field apps/mac/project.yml 'CURRENT_PROJECT_VERSION')"
 [ "$android_name" = "$version" ] || fail "Android versionName is $android_name, not $version"
 [ "$mac_name" = "$version" ] || fail "Mac MARKETING_VERSION is $mac_name, not $version"
+linux_name="$(sed -n 's/^version = "\(.*\)"$/\1/p' apps/linux/Cargo.toml | head -1)"
+[ "$linux_name" = "$version" ] || fail "Linux apps/linux/Cargo.toml version is $linux_name, not $version"
+grep -q "<release version=\"$version\"" apps/linux/data/com.avetero.Seam.metainfo.xml \
+  || fail "apps/linux/data/com.avetero.Seam.metainfo.xml has no <release> for $version (scripts/add-linux-release.sh)"
 [[ "$android_code" =~ ^[0-9]+$ ]] || fail "Android versionCode missing"
 [[ "$mac_build" =~ ^[0-9]+$ ]] || fail "Mac CURRENT_PROJECT_VERSION missing"
 

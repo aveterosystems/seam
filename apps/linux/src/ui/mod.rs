@@ -71,7 +71,8 @@ pub fn palette() -> Palette {
     } else {
         Palette {
             teal: rgba("#0B7F6F"),
-            grey: rgba("#9A9DA1"),
+            // 3:1 against the light sidebar (a line isn't text, but must still be seen)
+            grey: rgba("#6E7175"),
             paused: rgba("#32628D"),
         }
     }

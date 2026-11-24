@@ -113,10 +113,11 @@ Roboto Flex is bundled as one variable font (`res/font/roboto_flex.ttf`, about 1
 
 | Part | Linux |
 |---|---|
-| Window | `AdwApplicationWindow`: a sidebar (the phone's card, then Notifications and Clipboard) and the page; unpaired, the whole window is pairing. Below 600 sp it collapses to one column |
+| Window | `AdwApplicationWindow`: a sidebar (the phone, drawn flat like the rows under it, then Notifications and Clipboard with their count or state as plain dim words at the row's end) and the page; unpaired, the whole window is pairing. Below 600 sp it collapses to one column, and the page's title gains the phone and its state as a subtitle |
 | Settings | `AdwPreferencesDialog`: General (open at login), the phone by name (with the Mac's Privacy facts in its Pairing group), Notifications, Clipboard. Facts that aren't settings are group descriptions, not rows |
 | Confirmations | Toasts ("Copied", "Sent to Pixel 9"), not the Mac's in-place "✓ Copied" |
 | Capitalization | GNOME's header capitalization for headings, buttons, row titles and menu items ("Clear All", "Send Clipboard"); subtitles and sentences stay sentence case. The Linux exception to "Sentence case everywhere" below |
+| Secondary text | libadwaita's own dimming for row subtitles, group descriptions and sidebar values, as every GNOME app has it (about 3.2:1 in light mode), and its High Contrast mode for anyone who needs more. The Linux exception to the 4.5:1 rule under Accessibility: Seam's own secondary text (the phone's status line, a notification's app and time) keeps 4.5:1 |
 | Paused in dark mode | `#A0C6F0`, lighter than the Mac's `#5B8FC4`, which measures about 3.1:1 on libadwaita's dark sidebar |
 | Accent | Controls follow the desktop's accent colour. Seam teal (the Mac's tokens) only on Seam's own pieces: the stitch, the phone's disc and the status dot |
 | Motion | libadwaita's own transitions for stock widgets; Seam's pieces follow catalogue 10. The desktop's "Animations" switch turns both off |
@@ -148,7 +149,7 @@ Each meaning has one row, and every app uses that row's icon. A new meaning gets
 | Storage | `internaldrive` | Material `hard_drive` (`ic_storage`) | `drive-harddisk-symbolic` |
 | CPU (the computer's) | `cpu` | Material `memory` (`ic_cpu`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
 | Memory (the computer's) | `memorychip` | Material `memory_alt` (`ic_memory`) | None in Adwaita: Seam ships its own symbolic icon (to draw with the Linux screens) |
-| Link (a copy that is a web address) | `link` | link | `insert-link-symbolic` |
+| Link (a copy that is a web address) | `link` | link | None: Adwaita's `insert-link-symbolic` draws "insert between lines", not a chain. Seam ships `seam-link-symbolic` (`apps/linux/data/icons`) |
 | Do Not Disturb | `moon.fill` | Material `bedtime` | `weather-clear-night-symbolic` |
 | Dismiss on both | `checkmark.circle` (two) | double tick (`ic_dismiss_both`) | `object-select-symbolic` |
 | Diagnostics (what Seam did lately, for a bug report) | None: a Copy button in a row | pulse line, stroke set (`ic_diagnostics`) | None: About's own Troubleshooting page |

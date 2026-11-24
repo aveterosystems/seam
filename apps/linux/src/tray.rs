@@ -36,8 +36,10 @@ impl ksni::Tray for SeamTray {
         "Seam".into()
     }
 
+    // The full-colour icon: it reads on light and dark panels alike, and every tray host finds it
+    // (Plasma doesn't look in hicolor's symbolic folder, and draws a symbolic icon unrecoloured)
     fn icon_name(&self) -> String {
-        "com.avetero.Seam-symbolic".into()
+        crate::APP_ID.into()
     }
 
     fn icon_theme_path(&self) -> String {
@@ -134,9 +136,13 @@ pub fn start(c: &Rc<Controller>) {
         } else {
             tray.spawn().await
         };
-        if let Ok(handle) = spawned {
-            let _ = tx.send(handle).await;
-        } // no tray on this desktop: the window is enough
+        match spawned {
+            Ok(handle) => {
+                let _ = tx.send(handle).await;
+            }
+            // No tray on this desktop (stock GNOME): the window is enough
+            Err(e) => eprintln!("seam: no tray: {e}"),
+        }
     });
     let weak = Rc::downgrade(c);
     gtk::glib::spawn_future_local(async move {

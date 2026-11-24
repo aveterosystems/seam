@@ -132,6 +132,34 @@ impl Controller {
             self.notify();
             return;
         }
+        self.start_computer();
+        let tx = self.tx.clone();
+        self.os.spawn(crate::os::battery::watch(move || {
+            let _ = tx.send_blocking(Msg::BatteryChanged);
+        }));
+        self.os.spawn(crate::os::system::learn_name());
+        let tx = self.tx.clone();
+        self.os.spawn(crate::os::system::watch_wake(move || {
+            let _ = tx.send_blocking(Msg::Woke);
+        }));
+        let tx = self.tx.clone();
+        crate::os::doors::start(self.os.handle(), self.pasteboard.clone(), move |d| {
+            let _ = tx.send_blocking(Msg::ClipboardDoor(d));
+        });
+    }
+
+    /// After a start that failed for a reason the user can fix (the keyring said no): starts
+    /// Seam's core again, in place.
+    pub fn try_again(&self) {
+        self.computer.borrow_mut().take(); // stops it first
+        self.edit(|m| {
+            m.startup_error = None;
+            m.health = seam_computer::computer::Health::Starting;
+        });
+        self.start_computer();
+    }
+
+    fn start_computer(&self) {
         let folder = match data_folder() {
             Ok(f) => f,
             Err(e) => {
@@ -159,19 +187,6 @@ impl Controller {
             legacy: Legacy::default(),
         };
         *self.computer.borrow_mut() = Some(Computer::start(settings, os));
-        let tx = self.tx.clone();
-        self.os.spawn(crate::os::battery::watch(move || {
-            let _ = tx.send_blocking(Msg::BatteryChanged);
-        }));
-        self.os.spawn(crate::os::system::learn_name());
-        let tx = self.tx.clone();
-        self.os.spawn(crate::os::system::watch_wake(move || {
-            let _ = tx.send_blocking(Msg::Woke);
-        }));
-        let tx = self.tx.clone();
-        crate::os::doors::start(self.os.handle(), self.pasteboard.clone(), move |d| {
-            let _ = tx.send_blocking(Msg::ClipboardDoor(d));
-        });
     }
 
     /// Calls `f` now and after every change.

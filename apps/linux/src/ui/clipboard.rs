@@ -38,23 +38,15 @@ impl Page {
             .selection_mode(gtk::SelectionMode::None)
             .build();
         list.add_css_class("boxed-list");
-        let note = gtk::Label::builder()
-            .label("Kept until Seam quits, for a day at most. Passwords and files are never sent.")
-            .xalign(0.0)
-            .wrap(true)
-            .margin_bottom(12)
-            .margin_start(6)
+        let group = adw::PreferencesGroup::builder()
+            .description(
+                "Kept until Seam quits, for a day at most. Passwords and files are never sent.",
+            )
             .build();
-        note.add_css_class("secondary");
-        note.add_css_class("list-note");
-        let column = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .build();
-        column.append(&note);
-        column.append(&list);
+        group.add(&list);
         let clamp = adw::Clamp::builder()
             .maximum_size(720)
-            .child(&column)
+            .child(&group)
             .margin_top(18)
             .margin_bottom(24)
             .margin_start(12)
@@ -189,7 +181,8 @@ impl Page {
         let row = adw::ActionRow::builder()
             .use_markup(false)
             .title(preview.trim())
-            .title_lines(2)
+            // A web address on one line, never broken mid-word; words may take two
+            .title_lines(if url.is_some() { 1 } else { 2 })
             .subtitle(format!(
                 "{from} · {}",
                 seam_looks::words::ago(
@@ -201,9 +194,9 @@ impl Page {
             ))
             .build();
         let kind = gtk::Image::from_icon_name(if url.is_some() {
-            "insert-link-symbolic"
+            "seam-link-symbolic"
         } else {
-            "format-justify-left-symbolic"
+            "edit-paste-symbolic" // a copy: the clipboard's own icon, never a file's
         });
         kind.set_accessible_role(gtk::AccessibleRole::Presentation);
         row.add_prefix(&kind);

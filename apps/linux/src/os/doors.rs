@@ -245,6 +245,17 @@ pub async fn enable_extension() -> bool {
         .unwrap_or(false)
 }
 
+/// Installs Seam's extension from extensions.gnome.org, after GNOME asks the user; installed means
+/// turned on too. The shell's answer ("successful", "cancelled"), or None when it couldn't
+/// (offline, or the extension isn't listed there).
+pub async fn install_extension() -> Option<String> {
+    shell_extensions("InstallRemoteExtension")
+        .await?
+        .body()
+        .deserialize::<String>()
+        .ok()
+}
+
 async fn shell_extensions(method: &str) -> Option<zbus::Message> {
     let conn = zbus::Connection::session().await.ok()?;
     conn.call_method(

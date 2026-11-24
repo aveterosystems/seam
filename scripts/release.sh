@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
 # One command for a release:  scripts/release.sh patch|minor|major|X.Y.Z
-# From a clean, up-to-date main: bumps both apps' versions and build numbers and the README status
+# From a clean, up-to-date main: bumps every app's version, the build numbers and the README status
 # lines, drafts CHANGELOG.md's section from the PR titles and opens it in $EDITOR, opens the release
 # PR, waits for its checks, squash-merges it, and pushes the vX.Y.Z tag on the merge commit. The tag starts the release workflow, which still needs the `release`
 # environment's approval and leaves a draft release for you to publish.
@@ -54,13 +54,15 @@ fi
 echo "Opening CHANGELOG.md: write what changed in $version for people using Seam, then save and close."
 "${VISUAL:-${EDITOR:-vi}}" CHANGELOG.md
 scripts/changes.sh "$version" >/dev/null
+# Linux: Software and Discover show these notes from the app's metainfo
+scripts/add-linux-release.sh "$version"
 # Only the status lines; "In 0.2.0" in feature tables stays as history
 sed -i '' "s/Status: $current\./Status: $version./; s/\*\*Status:\*\* $current\./**Status:** $version./" README.md apps/android/README.md apps/mac/README.md
 MAIN_REF=HEAD scripts/check-release.sh "v$version" >/dev/null
 
 git commit -q -am "Release $version"
 git push -q -u origin "release-$version"
-pr="$(gh pr create --title "Release $version" --body "Bumps both apps to $version: Android versionCode $code → $new, Mac build $build → $new. Made by \`scripts/release.sh\`; after it merges, the script tags \`v$version\` on main.")"
+pr="$(gh pr create --title "Release $version" --body "Bumps Android, Mac and Linux to $version: Android versionCode $code → $new, Mac build $build → $new. Made by \`scripts/release.sh\`; after it merges, the script tags \`v$version\` on main.")"
 echo "Opened $pr. Waiting for checks…"
 sleep 10 # give GitHub a moment to register the checks
 gh pr checks "$pr" --watch --interval 20 >/dev/null || fail "Checks failed on $pr: nothing merged or tagged"
