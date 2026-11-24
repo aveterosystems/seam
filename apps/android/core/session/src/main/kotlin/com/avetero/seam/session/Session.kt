@@ -773,6 +773,8 @@ class Session(
         if (!switches.tor && onion?.active == true) {
             trace("tor switched off: closing")
             stopPath(onion)
+            // Same Wi‑Fi is all that's left: try it now rather than after its current wait
+            if (switches.wifi) direct?.takeIf { !it.up }?.restart()
         }
         if (!switches.wifi) direct?.let { stopPath(it) }
         pathDown()

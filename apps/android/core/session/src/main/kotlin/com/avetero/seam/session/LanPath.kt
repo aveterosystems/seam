@@ -46,6 +46,8 @@ internal class LanPath(
     private var retry: Job? = null
     /** After an authenticated link drops: backs off, so a reset-every-second attacker can't spin us (cf. SR-8-01). */
     private val backoff = Backoff()
+    /** Same Wi‑Fi, while our Mac can't be reached: 1 s doubling to [RETRY_MS], so a Mac back on the network is found in seconds. */
+    private val unreachable = Backoff()
     private var reconnect: Job? = null
     private var stable: Job? = null
     private var discovering = false
@@ -69,7 +71,8 @@ internal class LanPath(
                 scope.launch {
                     // An advert can name any address: only ever connect within the local network, and to a few
                     // Refused ones don't count toward the cap, so fakes can't crowd out the Mac
-                    if (discovering && (!localOnly || isLocalNetwork(a.host)) && !isRefused(a) && found.size < MAX_FOUND) {
+                    // Where our Mac last proved itself is never refused for long (see closed): its advert means it's back
+                    if (discovering && (!localOnly || isLocalNetwork(a.host)) && (!isRefused(a) || a == lastGood) && found.size < MAX_FOUND) {
                         found += a
                         tryNext()
                     }
@@ -92,6 +95,7 @@ internal class LanPath(
     override fun restart() {
         stop()
         backoff.reset()
+        unreachable.reset()
         start()
     }
 
@@ -166,6 +170,7 @@ internal class LanPath(
             if (out.authenticated != expected) return closed(a, notOurMac = true)
             authed = true
             lastGood = a
+            unreachable.reset()
             deadline?.cancel()
             stopDiscovery() // found it: no need to keep multicasting
             stable?.cancel()
@@ -203,7 +208,7 @@ internal class LanPath(
         // (busy, or made to drop us by a flood), and skipping it for long would hide it
         // Never the long skip where our Mac last proved itself: NN is anonymous, so whoever answers
         // first (an attacker winning the race) can make any address look foreign
-        refuse(a, if (notOurMac && a != lastGood) REFUSED_MS else retryMs())
+        refuse(a, if (notOurMac && a != lastGood) REFUSED_MS else retryMs(soon = true))
         tryNext()
     }
 
@@ -225,10 +230,17 @@ internal class LanPath(
         lan.stopDiscovery()
     }
 
-    /** Through Tor while pairing, a failed try is the Tor network, not a stranger: the next goes soon. Pairing has its own deadline. */
-    private fun retryMs() = if (!localOnly && pairing() != null) PAIRING_TOR_RETRY_MS else RETRY_MS
+    /**
+     * Through Tor while pairing, a failed try is the Tor network, not a stranger: the next goes soon. Pairing has its own deadline.
+     * [soon]: on Same Wi‑Fi, an address that just failed is tried again on the [unreachable] backoff rather than after [RETRY_MS].
+     */
+    private fun retryMs(soon: Boolean = false) = when {
+        !localOnly && pairing() != null -> PAIRING_TOR_RETRY_MS
+        soon && localOnly -> minOf(unreachable.next(), RETRY_MS)
+        else -> RETRY_MS
+    }
 
-    private fun refuse(a: LanAddress, forMs: Long = retryMs()) {
+    private fun refuse(a: LanAddress, forMs: Long = retryMs(soon = true)) {
         refused[a] = now() + forMs
         found.remove(a)
         lan.forget(a)
@@ -240,7 +252,8 @@ internal class LanPath(
     private fun retryLater() {
         if (retry?.isActive == true) return
         retry = scope.launch {
-            delay(retryMs())
+            // Until the soonest refusal ends (an unreachable Mac's is short), and never longer than RETRY_MS
+            delay(minOf(retryMs(), (refused.values.minOrNull() ?: now()) - now()).coerceAtLeast(0))
             refused.entries.removeAll { now() >= it.value }
             stopDiscovery()
             start()

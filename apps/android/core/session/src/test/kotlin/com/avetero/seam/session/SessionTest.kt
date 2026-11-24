@@ -1042,6 +1042,20 @@ class SessionTest {
         assertEquals(5, lan.macReceived.single().status.batteryPct)
     }
 
+    @Test fun turningTorOffTriesSameWifiAtOnceRatherThanAfterItsWait() = runTest {
+        val lan = FakeLan(mapOf(home to mac))
+        val s = bothUp(lan)
+        lan.adverts = listOf(home)
+        lan.dropNext = 1_000 // the Wi‑Fi link drops and keeps dropping: Same Wi‑Fi waits longer each time
+        lan.drop()
+        advanceTimeBy(20_000)
+        runCurrent()
+        val tries = lan.opened
+        s.setSwitches(wifi = true, tor = false)
+        runCurrent() // no time passes
+        assertTrue("Same Wi‑Fi tried again at once", lan.opened > tries)
+    }
+
     @Test fun theLastSwitchCantBeTurnedOff() = runTest {
         val s = pairedWithLan(FakeLan(emptyMap()))
         s.setSwitches(wifi = false, tor = true)
