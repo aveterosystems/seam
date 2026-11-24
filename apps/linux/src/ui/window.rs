@@ -126,12 +126,13 @@ impl Window {
             .margin_end(12)
             .hexpand(true)
             .build();
-        send_bottom.add_css_class("pill");
         send_bottom.add_css_class("suggested-action");
         let content_view = adw::ToolbarView::new();
         content_view.add_top_bar(&header);
         content_view.add_top_bar(&banner);
         content_view.add_bottom_bar(&send_bottom);
+        // A bar with its divider, so the button never floats on the list scrolling under it
+        content_view.set_bottom_bar_style(adw::ToolbarStyle::Raised);
         content_view.set_content(Some(&pages));
         let content = adw::NavigationPage::builder()
             .title("Notifications")
@@ -461,17 +462,19 @@ impl Window {
         };
         self.clear.set_visible(visible);
         // Narrow, words would crowd the title: icons, with the words as tooltip and label
-        // The clipboard's history is a trash icon (it deletes); narrow, both pages use icons
+        // The same words on both pages; narrow, an icon with the words as its tooltip
         let narrow = self.split.is_collapsed();
-        if clipboard {
-            self.clear.set_icon_name("user-trash-symbolic");
-        } else if narrow {
-            self.clear.set_icon_name("edit-clear-all-symbolic");
+        if narrow {
+            // Clearing the history deletes it: the trash, not "clear all"'s overlapping sheets
+            self.clear.set_icon_name(if clipboard {
+                "user-trash-symbolic"
+            } else {
+                "edit-clear-all-symbolic"
+            });
         } else {
             self.clear.set_label(what);
         }
-        self.clear
-            .set_tooltip_text((clipboard || narrow).then_some(what));
+        self.clear.set_tooltip_text(narrow.then_some(what));
         self.clear
             .update_property(&[gtk::accessible::Property::Label(what)]);
         // Paused: nothing reaches the phone, so clearing can't either (the page's banner says so)
@@ -483,8 +486,9 @@ impl Window {
             "Send what's on this computer's clipboard to {}",
             m.phone_name(false)
         )));
+        // Where it can't be automatic at all, the page's banner holds Send Clipboard instead
         let sendable =
-            clipboard && m.clipboard_sync && m.phone.is_some() && !m.clipboard_door.automatic();
+            clipboard && m.clipboard_sync && m.phone.is_some() && m.clipboard_door.can_set_up();
         self.send.set_visible(sendable && !narrow);
         self.send_bottom.set_visible(sendable && narrow);
     }

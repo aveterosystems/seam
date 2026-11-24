@@ -40,7 +40,7 @@ impl Page {
         list.add_css_class("boxed-list");
         let group = adw::PreferencesGroup::builder()
             .description(
-                "Kept until Seam quits, for a day at most. Passwords and files are never sent.",
+                "Kept for up to a day, or until Seam quits. Passwords and files are never sent.",
             )
             .build();
         group.add(&list);
@@ -127,8 +127,19 @@ impl Page {
                 self.banner.set_revealed(true);
             }
             _ if can_set_up && m.phone.is_some() => {
-                self.banner.set_title("Automatic clipboard isn't set up");
+                self.banner
+                    .set_title("Copies are sent only when you choose, until it’s set up");
                 self.banner.set_button_label(Some("Set Up"));
+                self.banner.set_action_name(Some("app.clipboard-setup"));
+                self.banner.set_revealed(true);
+            }
+            // This desktop can't do it automatically: the banner says so and holds the one way
+            // that works, in the same place at every width
+            _ if m.clipboard_sync && m.phone.is_some() && !m.clipboard_door.automatic() => {
+                self.banner
+                    .set_title("This desktop can’t send copies by itself");
+                self.banner.set_button_label(Some("Send Clipboard"));
+                self.banner.set_action_name(Some("app.send-clipboard"));
                 self.banner.set_revealed(true);
             }
             _ => self.banner.set_revealed(false),
@@ -181,8 +192,9 @@ impl Page {
         let row = adw::ActionRow::builder()
             .use_markup(false)
             .title(preview.trim())
-            // A web address on one line, never broken mid-word; words may take two
-            .title_lines(if url.is_some() { 1 } else { 2 })
+            // One line each, the same for words and web addresses; the whole copy is the tooltip
+            .title_lines(1)
+            .tooltip_text(preview.trim())
             .subtitle(format!(
                 "{from} · {}",
                 seam_looks::words::ago(
@@ -196,7 +208,7 @@ impl Page {
         let kind = gtk::Image::from_icon_name(if url.is_some() {
             "seam-link-symbolic"
         } else {
-            "edit-paste-symbolic" // a copy: the clipboard's own icon, never a file's
+            "text-x-generic-symbolic"
         });
         kind.set_accessible_role(gtk::AccessibleRole::Presentation);
         row.add_prefix(&kind);

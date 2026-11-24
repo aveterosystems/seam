@@ -127,12 +127,21 @@ pub fn phone(c: &Rc<Controller>, parent: &impl IsA<gtk::Widget>) {
     let parent = parent.clone().upcast::<gtk::Widget>();
     let Some(adb) = crate::os::adb::find() else {
         let d = adw::AlertDialog::new(
-            Some("Install Android Tools"),
+            Some("Android Tools Needed"),
             Some(
-                "Seam needs Android's adb tool for this. Install your distribution's android-tools package, then try again.\n\nNo cable? Turn on “Automatic clipboard” in Seam on your phone instead.",
+                "Seam sets this up over a USB cable with Android's adb tool. Install it (android-tools on Fedora and Arch, adb on Debian and Ubuntu), then try again.\n\nNo cable? Turn on “Automatic clipboard” in Seam on your phone instead.",
             ),
         );
-        d.add_response("ok", "Close");
+        d.add_responses(&[("close", "Close"), ("retry", "Try Again")]);
+        d.set_response_appearance("retry", adw::ResponseAppearance::Suggested);
+        d.set_default_response(Some("retry"));
+        d.set_close_response("close");
+        let (weak, anchor) = (Rc::downgrade(c), parent.clone());
+        d.connect_response(Some("retry"), move |_, _| {
+            if let Some(c) = weak.upgrade() {
+                phone(&c, &anchor);
+            }
+        });
         return d.present(Some(&parent));
     };
     let body = format!(
