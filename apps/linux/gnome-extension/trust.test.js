@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // gjs -m trust.test.js: the extension's access check, without a shell.
 import {allowed, flatpakAppId} from './seam-clipboard@avetero.com/trust.js';
 

@@ -37,25 +37,28 @@ pub struct PhoneSummary {
 impl PhoneSummary {
     pub fn new(size: Size) -> Self {
         let header = size == Size::Header;
-        let disc = phone_disc(if header { 56 } else { 26 });
+        let disc = phone_disc(if header { 56 } else { 32 });
         let name = gtk::Label::builder()
             .xalign(0.0)
             .ellipsize(gtk::pango::EllipsizeMode::End)
             .hexpand(true)
             .build();
-        name.add_css_class(if header { "title-2" } else { "name" });
+        name.add_css_class(if header { "title-2" } else { "heading" });
         let dot = StatusDot::new();
         // One fixed-height line; the whole sentence is in its tooltip and read out
         let line = Swap::new(&["secondary", "status-line"]);
         let path = path_icon();
-        // The dot's drawing area leaves 4 px for its ring: the name, the stitch and the stats step
+        // The dot's drawing area leaves 6 px for its ring: the name, the stitch and the stats step
         // in by as much, so the dot itself lines up with them
         let status = gtk::Box::builder().spacing(6).build();
-        status.append(&dot.widget);
-        status.append(&line.widget);
+        // The ring's room already spaces the dot from its words: a tighter gap there
+        let dotted = gtk::Box::builder().spacing(2).build();
+        dotted.append(&dot.widget);
+        dotted.append(&line.widget);
+        status.append(&dotted);
         status.append(&path); // the path's icon right after its words, not across the card
         let stitch = Stitch::new();
-        stitch.widget.set_margin_start(4);
+        stitch.widget.set_margin_start(6);
         stitch.widget.set_margin_top(if header { 10 } else { 8 });
         stitch.widget.set_margin_bottom(if header { 10 } else { 0 });
 
@@ -86,8 +89,8 @@ impl PhoneSummary {
                 .orientation(gtk::Orientation::Vertical)
                 .spacing(2)
                 .build();
-            name.set_margin_start(4);
-            stats.set_margin_start(4);
+            name.set_margin_start(6);
+            stats.set_margin_start(6);
             top.append(&name);
             top.append(&status);
             text.append(&top);
@@ -99,21 +102,23 @@ impl PhoneSummary {
             widget.set_margin_top(6);
             widget.set_margin_bottom(6);
         } else {
-            let row = gtk::Box::builder().spacing(8).build();
-            row.append(&disc);
-            row.append(&name);
-            row.append(&battery);
-            text.append(&row);
-            // The status and the stitch line up under the name, not under the disc
-            let under = gtk::Box::builder()
-                .orientation(gtk::Orientation::Vertical)
-                .margin_start(30)
-                .build();
-            status.set_margin_top(6);
-            under.append(&status);
-            under.append(&stitch.widget);
-            text.append(&under);
-            widget.append(&text);
+            // The disc beside the name (with the battery) and the status, then the stitch the
+            // whole width of the card under them, as on the Mac
+            let head = gtk::Box::builder().spacing(8).margin_start(6).build();
+            head.append(&name);
+            head.append(&battery);
+            status.set_margin_top(2);
+            text.append(&head);
+            text.append(&status);
+            disc.set_valign(gtk::Align::Center);
+            let top = gtk::Box::builder().spacing(10).build();
+            top.append(&disc);
+            top.append(&text);
+            widget.set_orientation(gtk::Orientation::Vertical);
+            widget.set_spacing(0);
+            stitch.widget.set_margin_start(0);
+            widget.append(&top);
+            widget.append(&stitch.widget);
         }
         Self {
             widget,
@@ -187,7 +192,9 @@ impl PhoneSummary {
             } else {
                 self.battery.remove_css_class("warn-label")
             }
-            self.battery.set_opacity(if s.stale { 0.7 } else { 1.0 });
+            // An old reading is dimmed, but never a low one: the warning must stay readable (4.5:1)
+            self.battery
+                .set_opacity(if s.stale && !s.low { 0.8 } else { 1.0 });
             self.battery.set_tooltip_text(s.battery_detail.as_deref());
             self.battery
                 .update_property(&[gtk::accessible::Property::Label(&s.spoken)]);

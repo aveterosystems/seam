@@ -29,22 +29,16 @@
   color: var(--seam-teal);
 }
 
-/* The sidebar's phone card: a card surface, so it never reads as a selected row. Its words are
-   plain text, not a button's bold label. */
+/* The sidebar's phone: flat like the rows under it, with their hover. Its words are plain text,
+   not a button's bold label. */
 .phone-card {
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--card-bg-color);
-  box-shadow: 0 0 0 1px var(--card-shade-color), 0 1px 3px 1px rgb(0 0 0 / 7%);
-  transition: background 150ms ease;
-}
-.phone-card:hover {
-  background: color-mix(in srgb, var(--card-bg-color) 92%, var(--card-fg-color));
+  padding: 10px 8px;
+  border-radius: 10px;
 }
 .phone-card label {
   font-weight: normal;
 }
-.phone-card .name {
+.phone-card .heading {
   font-weight: 700;
 }
 
@@ -87,9 +81,10 @@
 
 .safety-code {
   font-family: monospace;
-  font-size: 38px;
-  font-weight: 500;
-  letter-spacing: 3px;
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  font-feature-settings: "tnum";
 }
 
 .mono {
@@ -142,17 +137,4 @@ row:focus-within .row-actions,
   padding: 8px 12px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--window-fg-color) 5%, transparent);
-}
-
-.list-note {
-  font-size: 0.9em;
-}
-
-.sidebar-count {
-  font-feature-settings: "tnum";
-  font-size: 0.85em;
-  font-weight: 700;
-  padding: 1px 7px;
-  border-radius: 9999px;
-  background: color-mix(in srgb, var(--window-fg-color) 9%, transparent);
 }

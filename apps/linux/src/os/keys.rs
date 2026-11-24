@@ -42,9 +42,8 @@ impl KeyStore for Keyring {
 }
 
 /// What the user reads when the keyring won't help; the details go to the log, never the screen.
-const NO_KEYRING: &str = "it needs your keyring to keep its keys safe, and none is running. Install GNOME Keyring or KWallet, then open Seam again.";
-const LOCKED: &str =
-    "your keyring is locked. Unlock it when your desktop asks, then open Seam again.";
+const NO_KEYRING: &str = "it keeps its keys in your keyring, and couldn't open it. If your desktop asked, allow Seam and try again. Without a keyring, install GNOME Keyring or KWallet first.";
+const LOCKED: &str = "your keyring is locked. Unlock it when your desktop asks, then try again.";
 
 async fn key(account: &str, create: bool) -> Result<Option<Vec<u8>>, String> {
     let fail = |words: &'static str| {

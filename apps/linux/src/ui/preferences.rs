@@ -62,7 +62,13 @@ fn general(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefe
         .title("General")
         .icon_name("emblem-system-symbolic")
         .build();
-    let group = adw::PreferencesGroup::builder().title("Startup").build();
+    // What closing the window does, since nothing else on the desktop says so
+    let group = adw::PreferencesGroup::builder()
+        .title("Startup")
+        .description(
+            "Closing the window keeps Seam running, so your phone's notifications still arrive.",
+        )
+        .build();
     let (login, quiet) = switch(
         "Open at Login",
         "Seam waits in the background from the moment you log in",
@@ -95,13 +101,10 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         .icon_name("phone-symbolic")
         .build();
     let header_group = adw::PreferencesGroup::new();
+    // The phone itself heads its page, on the page rather than in a row, as a device page does
     let summary = PhoneSummary::new(Size::Header);
-    let header_row = adw::PreferencesRow::builder()
-        .activatable(false)
-        .child(&summary.widget)
-        .build();
-    summary.widget.set_margin_start(12);
-    summary.widget.set_margin_end(12);
+    summary.widget.set_margin_start(6);
+    let header_row = summary.widget.clone();
     header_group.add(&header_row);
     let none = adw::ActionRow::builder()
         .use_markup(false)
@@ -115,8 +118,11 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
     show.add_css_class("suggested-action");
     show.set_action_name(Some("app.show-window"));
     none.add_suffix(&show);
-    header_group.add(&none);
+    // Its own group: a hidden row would still leave its list's frame showing
+    let none_group = adw::PreferencesGroup::new();
+    none_group.add(&none);
     page.add(&header_group);
+    page.add(&none_group);
 
     // Which paths may reach the phone; the last one on can't be turned off, and the footnote says why
     let connections = adw::PreferencesGroup::builder()
@@ -127,7 +133,7 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         "Straight to the phone on the same network, and nothing leaves it",
     );
     let (tor, tq) = switch(
-        "Internet Through Tor",
+        "Through Tor",
         "Reaches the phone anywhere and hides where you are",
     );
     // Stuck? A stock button row in the same group: Seam tries every allowed path again
@@ -174,9 +180,11 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
     let code = gtk::Label::new(Some("••• •••"));
     code.add_css_class("mono");
     let show_code = gtk::ToggleButton::builder()
-        .label("Show")
+        .icon_name("view-reveal-symbolic")
+        .tooltip_text("Show Code")
         .valign(gtk::Align::Center)
         .build();
+    show_code.add_css_class("flat");
     code_row.add_suffix(&code);
     code_row.add_suffix(&show_code);
     let real_code: Rc<RefCell<String>> = Rc::default();
@@ -188,7 +196,16 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
         } else {
             "••• •••"
         });
-        t.set_label(if t.is_active() { "Hide" } else { "Show" });
+        t.set_icon_name(if t.is_active() {
+            "view-conceal-symbolic"
+        } else {
+            "view-reveal-symbolic"
+        });
+        t.set_tooltip_text(Some(if t.is_active() {
+            "Hide Code"
+        } else {
+            "Show Code"
+        }));
     });
     let paired_row = adw::ActionRow::builder()
         .use_markup(false)
@@ -242,7 +259,7 @@ fn phone(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Prefere
             "Phone".into()
         });
         header_row.set_visible(paired);
-        none.set_visible(!paired);
+        none_group.set_visible(!paired);
         summary.render(&m, now);
         set_switch(&wifi, &wq, m.wifi);
         set_switch(&tor, &tq, m.tor);
@@ -320,7 +337,7 @@ fn notifications(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw:
     waiting.add(&waiting_row);
     page.add(&waiting);
 
-    let switches = adw::PreferencesGroup::new();
+    let switches = adw::PreferencesGroup::builder().title("Banners").build();
     let (enabled, eq) = switch(
         "Show on This Computer",
         "Your phone's notifications appear here as banners",
@@ -513,8 +530,8 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         .icon_name("edit-paste-symbolic")
         .build();
     // The switch, with what never goes and how long a copy waits as the group's description
-    let group = adw::PreferencesGroup::new();
-    let (sync, sq) = switch("Sync the Clipboard", "");
+    let group = adw::PreferencesGroup::builder().title("Sync").build();
+    let (sync, sq) = switch("Sync Clipboard", "");
     group.add(&sync);
     page.add(&group);
     let weak = Rc::downgrade(c);
@@ -543,6 +560,10 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
     let on = gtk::Label::new(Some("On"));
     on.add_css_class("dim-label");
     auto_row.add_suffix(&on);
+    // Neither on nor something to set up: say so where the control would be
+    let unavailable = gtk::Label::new(Some("Not available"));
+    unavailable.add_css_class("dim-label");
+    auto_row.add_suffix(&unavailable);
     auto_row.add_suffix(&set_up);
     auto.add(&auto_row);
     let phone_row = adw::ActionRow::builder()
@@ -566,7 +587,7 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
             "What you copy here or on {name} reaches the other"
         ));
         group.set_description(Some(&format!(
-            "Passwords and copied files are never sent. A copy made while {name} is away is sent if it's back within 10 minutes."
+            "Passwords and copied files are never sent. A copy made while {name} is offline is sent if it's back within 10 minutes."
         )));
         let automatic = m.clipboard_door.automatic();
         auto_row.set_subtitle(&m.automatic_clipboard_line());
@@ -575,6 +596,7 @@ fn clipboard(c: &Rc<Controller>, ids: &mut Vec<crate::app::WatchId>) -> adw::Pre
         ));
         on.set_visible(automatic);
         set_up.set_visible(m.clipboard_door.can_set_up());
+        unavailable.set_visible(!automatic && !m.clipboard_door.can_set_up());
         auto.set_sensitive(m.clipboard_sync);
     }));
     page

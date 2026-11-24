@@ -16,14 +16,17 @@ pub struct Window {
     pub window: adw::ApplicationWindow,
     split: adw::NavigationSplitView,
     content: adw::NavigationPage,
+    title: adw::WindowTitle,
     pages: gtk::Stack,
     nav: gtk::ListBox,
     clear: gtk::Button,
     notifications: Rc<notifications::Page>,
     // Held here: each page listens through a weak link, so it lives as long as the window
     _clipboard: Rc<clipboard::Page>,
-    /// Send Clipboard, on the Clipboard page while copies need one tap.
+    /// Send Clipboard, on the Clipboard page while copies need one tap: in the header, or along
+    /// the bottom when narrow.
     send: gtk::Button,
+    send_bottom: gtk::Button,
     controller: std::rc::Weak<Controller>,
     _pairing: Rc<pairing::Page>,
 }
@@ -45,8 +48,10 @@ impl Window {
             .selection_mode(gtk::SelectionMode::Single)
             .build();
         nav.add_css_class("navigation-sidebar");
+        // Counts and states sit as plain dim words at the row's end, as GNOME's own sidebars show them
         let count = gtk::Label::new(None);
-        count.add_css_class("sidebar-count");
+        count.add_css_class("dim-label");
+        count.add_css_class("numeric");
         nav.append(&nav_row(
             "preferences-system-notifications-symbolic",
             "Notifications",
@@ -93,13 +98,17 @@ impl Window {
         pages.add_named(&notifications.widget, Some("notifications"));
         pages.add_named(&clipboard.widget, Some("clipboard"));
         // Flat header buttons, as libadwaita's are; Preferences lives in the main menu
-        let clear = gtk::Button::from_icon_name("edit-clear-all-symbolic");
+        // Words, not an icon: Adwaita's clear-all glyph reads as "close windows"
+        let clear = gtk::Button::with_label("Clear All");
         let send = gtk::Button::with_label("Send Clipboard");
         send.add_css_class("suggested-action");
         send.set_tooltip_text(Some(
             "Send what's on this computer's clipboard to your phone",
         ));
-        let header = adw::HeaderBar::new();
+        // The page's name; narrow, with the sidebar out of sight, the phone and its state under it
+        let title = adw::WindowTitle::new("Notifications", "");
+        let header = adw::HeaderBar::builder().title_widget(&title).build();
+        // The page's one action leads; Clear All sits at the end, away from it
         header.pack_start(&send);
         header.pack_end(&clear);
         // One banner slot, under the header: a startup problem (with Reset Seam), then a warning
@@ -107,9 +116,23 @@ impl Window {
             .use_markup(false)
             .revealed(false)
             .build();
+        // Narrow, Send Clipboard moves to a bar along the bottom, full width, where a thumb finds it
+        let send_bottom = gtk::Button::builder()
+            .label("Send Clipboard")
+            .action_name("app.send-clipboard")
+            .margin_top(6)
+            .margin_bottom(6)
+            .margin_start(12)
+            .margin_end(12)
+            .hexpand(true)
+            .build();
+        send_bottom.add_css_class("suggested-action");
         let content_view = adw::ToolbarView::new();
         content_view.add_top_bar(&header);
         content_view.add_top_bar(&banner);
+        content_view.add_bottom_bar(&send_bottom);
+        // A bar with its divider, so the button never floats on the list scrolling under it
+        content_view.set_bottom_bar_style(adw::ToolbarStyle::Raised);
         content_view.set_content(Some(&pages));
         let content = adw::NavigationPage::builder()
             .title("Notifications")
@@ -178,7 +201,17 @@ impl Window {
             .build();
         reset.add_css_class("pill");
         reset.add_css_class("destructive-action");
-        problem_page.set_child(Some(&reset));
+        // Anything else (the keyring said no): the user fixes it, then tries again here
+        let try_again = gtk::Button::builder()
+            .label("Try Again")
+            .halign(gtk::Align::Center)
+            .build();
+        try_again.add_css_class("pill");
+        try_again.add_css_class("suggested-action");
+        let problem_actions = gtk::Box::builder().halign(gtk::Align::Center).build();
+        problem_actions.append(&reset);
+        problem_actions.append(&try_again);
+        problem_page.set_child(Some(&problem_actions));
         let problem = adw::ToolbarView::new();
         let problem_header = adw::HeaderBar::builder().show_title(false).build();
         problem_header.pack_end(&primary_menu());
@@ -189,6 +222,12 @@ impl Window {
         reset.connect_clicked(move |b| {
             if let Some(c) = weak_c.upgrade() {
                 confirm_reset(b, &c);
+            }
+        });
+        let weak_c = Rc::downgrade(c);
+        try_again.connect_clicked(move |_| {
+            if let Some(c) = weak_c.upgrade() {
+                c.try_again();
             }
         });
 
@@ -243,12 +282,14 @@ impl Window {
             window,
             split,
             content,
+            title,
             pages,
             nav,
             clear,
             notifications,
             _clipboard: clipboard,
             send: send.clone(),
+            send_bottom,
             controller: Rc::downgrade(c),
             _pairing: pairing,
         });
@@ -265,6 +306,12 @@ impl Window {
             });
         });
         w.nav.select_row(w.nav.row_at_index(0).as_ref());
+        let (weak_w, weak_c) = (Rc::downgrade(&w), Rc::downgrade(c));
+        w.split.connect_collapsed_notify(move |_| {
+            if let (Some(w), Some(c)) = (weak_w.upgrade(), weak_c.upgrade()) {
+                w.update_header(&c);
+            }
+        });
 
         let (weak_w, weak_c) = (Rc::downgrade(&w), Rc::downgrade(c));
         w.clear.connect_clicked(move |_| {
@@ -286,6 +333,8 @@ impl Window {
                 let Some(c) = weak_c.upgrade() else { return };
                 if c.model().needs_reset() {
                     confirm_reset(b, &c);
+                } else if c.model().startup_error.is_some() {
+                    c.try_again();
                 }
             });
         }
@@ -339,6 +388,7 @@ impl Window {
                     .unwrap_or_default();
                 problem_page.set_description(Some(&words));
                 reset.set_visible(m.needs_reset());
+                try_again.set_visible(!m.needs_reset());
             }
             // Unpaired with nothing showing yet: a code, straight away
             if started
@@ -354,19 +404,11 @@ impl Window {
             let shown = m.shown.len();
             // Off says so in the sidebar too, in place of the count
             let off = m.settings.as_ref().is_some_and(|s| !s.enabled);
-            // A count is a pill; a state ("Off") is plain dim words, the same on both rows
             count.set_label(&if off {
                 "Off".to_string()
             } else {
                 shown.to_string()
             });
-            if off {
-                count.remove_css_class("sidebar-count");
-                count.add_css_class("dim-label");
-            } else {
-                count.add_css_class("sidebar-count");
-                count.remove_css_class("dim-label");
-            }
             count.set_visible(off || shown > 0);
             count.update_property(&[gtk::accessible::Property::Label(&if off {
                 "Off".to_string()
@@ -378,11 +420,11 @@ impl Window {
                 match (&m.startup_error, &m.warning) {
                     (Some(e), _) if paired => {
                         banner.set_title(e);
-                        banner.set_button_label(if m.needs_reset() {
-                            Some("Reset Seam")
+                        banner.set_button_label(Some(if m.needs_reset() {
+                            "Reset Seam"
                         } else {
-                            None
-                        });
+                            "Try Again"
+                        }));
                         banner.set_revealed(true);
                     }
                     (None, Some(warning)) => {
@@ -401,6 +443,16 @@ impl Window {
 
     fn update_header(&self, c: &Controller) {
         let m = c.model();
+        self.title
+            .set_subtitle(&if self.split.is_collapsed() && m.phone.is_some() {
+                format!(
+                    "{} · {}",
+                    m.phone_name(true),
+                    m.card_line(crate::ui::now_ms())
+                )
+            } else {
+                String::new()
+            });
         let clipboard = self.pages.visible_child_name().as_deref() == Some("clipboard");
         // Nothing to clear: no button, rather than a greyed one
         let (what, visible) = if clipboard {
@@ -409,16 +461,36 @@ impl Window {
             ("Clear All", !m.shown.is_empty())
         };
         self.clear.set_visible(visible);
-        self.clear.set_tooltip_text(Some(what));
+        // Narrow, words would crowd the title: icons, with the words as tooltip and label
+        // The same words on both pages; narrow, an icon with the words as its tooltip
+        let narrow = self.split.is_collapsed();
+        if narrow {
+            // Clearing the history deletes it: the trash, not "clear all"'s overlapping sheets
+            self.clear.set_icon_name(if clipboard {
+                "user-trash-symbolic"
+            } else {
+                "edit-clear-all-symbolic"
+            });
+        } else {
+            self.clear.set_label(what);
+        }
+        self.clear.set_tooltip_text(narrow.then_some(what));
         self.clear
             .update_property(&[gtk::accessible::Property::Label(what)]);
+        // Paused: nothing reaches the phone, so clearing can't either (the page's banner says so)
+        // (the clipboard's history is only this computer's, so it clears either way)
+        self.clear.set_sensitive(
+            clipboard || m.link(crate::ui::now_ms()).kind != seam_looks::LinkKind::Paused,
+        );
         self.send.set_tooltip_text(Some(&format!(
             "Send what's on this computer's clipboard to {}",
             m.phone_name(false)
         )));
-        self.send.set_visible(
-            clipboard && m.clipboard_sync && m.phone.is_some() && !m.clipboard_door.automatic(),
-        );
+        // Where it can't be automatic at all, the page's banner holds Send Clipboard instead
+        let sendable =
+            clipboard && m.clipboard_sync && m.phone.is_some() && m.clipboard_door.can_set_up();
+        self.send.set_visible(sendable && !narrow);
+        self.send_bottom.set_visible(sendable && narrow);
     }
 
     pub fn show_page(&self, name: &str) {
@@ -426,11 +498,13 @@ impl Window {
         if let Some(c) = self.controller.upgrade() {
             self.update_header(&c);
         }
-        self.content.set_title(if name == "clipboard" {
+        let page = if name == "clipboard" {
             "Clipboard"
         } else {
             "Notifications"
-        });
+        };
+        self.content.set_title(page);
+        self.title.set_title(page);
         let index = if name == "clipboard" { 1 } else { 0 };
         if self.nav.selected_row().map(|r| r.index()) != Some(index) {
             self.nav.select_row(self.nav.row_at_index(index).as_ref());
@@ -466,7 +540,7 @@ impl Window {
 }
 
 fn nav_row(icon: &str, title: &str, suffix: Option<&gtk::Label>) -> gtk::ListBoxRow {
-    let b = gtk::Box::builder().spacing(12).build();
+    let b = gtk::Box::builder().spacing(12).margin_end(6).build();
     b.append(&gtk::Image::from_icon_name(icon));
     let l = gtk::Label::builder()
         .label(title)

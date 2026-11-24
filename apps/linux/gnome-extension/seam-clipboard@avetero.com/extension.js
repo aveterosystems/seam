@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Seam's clipboard door on GNOME (decision 0012). Wayland lets only the focused app see the
 // clipboard; the shell sees it always. This exports a small D-Bus service that no other app may
 // call (the Seam Flatpak only; unsandboxed programs running as the user are out of scope, see

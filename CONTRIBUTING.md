@@ -6,7 +6,7 @@ Thanks for helping. Seam is a security product first, so the bar for changes is 
 
 - **Security issues** never go in public issues or pull requests. See [SECURITY.md](SECURITY.md).
 - For anything bigger than a bug fix, **open an issue first** so we can agree on the approach before you write it.
-- By contributing, you agree your contribution is licensed under the project's [AGPL-3.0-only](LICENSE) licence.
+- By contributing, you agree your contribution is licensed under the project's [AGPL-3.0-only](LICENSE) licence, or GPL-3.0-or-later inside `apps/linux/gnome-extension/` (extensions.gnome.org takes only licences compatible with GNOME Shell's GPL-2.0-or-later).
 
 ## The rules every change follows
 
@@ -89,7 +89,7 @@ Disputed threads stay open on purpose: an author doesn't get to dismiss a findin
 - Rust: `cargo fmt` and `cargo clippy -- -D warnings`.
 - Protobuf: `buf format` and `buf lint`. Never reuse or renumber a field.
 - Swift, Kotlin: follow the surrounding code. Files stay small (about 300 lines at most), split by responsibility.
-- New source files start with `SPDX-License-Identifier: AGPL-3.0-only` in a comment.
+- New source files start with `SPDX-License-Identifier: AGPL-3.0-only` in a comment (`GPL-3.0-or-later` in the GNOME extension).
 - Comments say *why*, not what.
 
 ## Adding a feature

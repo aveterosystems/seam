@@ -1,0 +1,72 @@
+name: flatpak-repo
+# Publishing a release puts its Linux builds in Seam's Flatpak repo on GitHub Pages, where GNOME
+# Software, Discover and `flatpak update` find them. Nightlies stay as files on their pre-release.
+#
+# Signs only the release's own files, after checking their attestations say release.yml built them
+# from that tag, in the `release` environment (required reviewer, v* tags only). Running it by hand
+# publishes an older release's builds again, for instance after the repo's key changes.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag: { description: "Release tag to publish (vX.Y.Z)", required: true }
+
+permissions: {}
+
+concurrency:
+  group: flatpak-repo
+  cancel-in-progress: false
+
+defaults:
+  run: { shell: bash }
+
+jobs:
+  sign:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      attestations: read
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: The tag is a release
+        run: '[[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Not a release tag: $TAG" >&2; exit 1; }'
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with: { persist-credentials: false, ref: "refs/tags/${{ env.TAG }}", sparse-checkout: "scripts\napps/linux/flatpak" }
+      - name: The release's Linux builds, checked they came from the release workflow and this tag
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Seam-*-linux-*.flatpak' --dir in
+          n="$(find in -name '*.flatpak' | wc -l)"
+          [ "$n" = 2 ] || { echo "Expected the x86_64 and aarch64 builds, found $n" >&2; exit 1; }
+          for f in in/*; do
+            gh attestation verify "$f" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
+          done
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq flatpak ostree > /dev/null
+      - name: Sign them into the repo
+        env: { KEY: "${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}" }
+        run: |
+          keys="$(mktemp -d)"
+          trap 'rm -rf "$keys"' EXIT
+          (umask 077; printf '%s\n' "$KEY" > "$keys/flatpak.asc")
+          unset KEY
+          FLATPAK_GPG_KEY_FILE="$keys/flatpak.asc" scripts/make-flatpak-repo.sh site in/*.flatpak
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with: { path: site }
+
+  deploy:
+    needs: sign
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}com.avetero.Seam.flatpakref
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

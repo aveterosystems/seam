@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-only
 # Regenerates apps/linux/flatpak/cargo-sources.json from apps/linux/Cargo.lock, so the Flatpak
-# builds offline (Flathub's rule). Run after any change to the Linux app's dependencies.
+# builds offline. Run after any change to the Linux app's dependencies.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 tool=$(mktemp -d)

@@ -1,8 +1,12 @@
 {
   "uuid": "seam-clipboard@avetero.com",
   "name": "Seam Clipboard",
-  "description": "Lets Seam send what you copy to your phone, and put what you copy on your phone here, without clicking Send. Only the Seam app can use it, and nothing you copy is kept or logged.",
-  "shell-version": ["49", "50", "51"],
+  "description": "Reads and writes the clipboard for Seam (https://github.com/aveterosystems/seam), so what you copy reaches your own paired Android phone without clicking Send, and what you copy on the phone lands here.\n\nOnly the Seam app can use it. Seam only asks while you have turned on Clipboard sync, and sends copies only to your phone, end-to-end encrypted. Nothing you copy is kept or logged.",
+  "shell-version": [
+    "49",
+    "50",
+    "51"
+  ],
   "url": "https://github.com/aveterosystems/seam",
   "version-name": "1.0"
 }

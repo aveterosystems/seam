@@ -4437,7 +4437,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "seam"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "ashpd",
  "async-channel",
@@ -4471,6 +4471,7 @@ dependencies = [
  "prost",
  "rand 0.9.5",
  "seam-core",
+ "seam-diagnostics",
  "seam-tor",
  "socket2",
  "thiserror 2.0.21",
@@ -4496,6 +4497,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "seam-diagnostics"
+version = "0.1.0"
+dependencies = [
+ "regex",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "seam-looks"
 version = "0.1.0"
 dependencies = [
@@ -4511,6 +4521,7 @@ dependencies = [
  "getrandom 0.3.4",
  "rustls",
  "safelog",
+ "seam-diagnostics",
  "thiserror 2.0.21",
  "tokio",
  "tor-cell",
@@ -4520,6 +4531,8 @@ dependencies = [
  "tor-llcrypto",
  "tor-proto",
  "tor-rtcompat",
+ "tracing",
+ "tracing-subscriber",
  "zeroize",
 ]
 

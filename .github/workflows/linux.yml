@@ -51,13 +51,13 @@ jobs:
       - run: gjs -m trust.test.js
         working-directory: apps/linux/gnome-extension
 
-  # The Flatpak from this checkout, offline, as Flathub builds it
+  # The Flatpak from this checkout, offline, as a release builds it
   flatpak:
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-49
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
       options: --privileged
     steps:
       - uses: actions/checkout@v5

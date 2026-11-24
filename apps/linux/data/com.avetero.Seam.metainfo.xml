@@ -40,10 +40,5 @@
     <color type="primary" scheme_preference="dark">#005047</color>
   </branding>
   <releases>
-    <release version="0.1.0" date="2026-11-17">
-      <description>
-        <p>The first Linux version: pairing, notifications with reply, clipboard both ways and the phone's battery, on GNOME and KDE Plasma.</p>
-      </description>
-    </release>
   </releases>
 </component>
